@@ -47,7 +47,7 @@
 #include "TVenturi.h"
 #include "TTipoValvula.h"
 #include "TBloqueMotor.h"
-#include "TRemansoMatlab.h"
+// #include "TRemansoMatlab.h" // Disabled for WASM build
 #include "TCoefDescarga.h"
 #include "TAjusteTransCalorCil.h"
 #include "TCCUnionEntreDepositos.h"
@@ -180,12 +180,12 @@ TCalculoExtern::~TCalculoExtern() {
 	if(FSensorMotor != NULL)
 		delete[] FSensorMotor;
 
-	if(FRemansoMatlab != NULL) {
+	/*if(FRemansoMatlab != NULL) { // Disabled for WASM build
 		for(int i = 0; i < Fnematlab; i++) {
 			delete FRemansoMatlab[i];
 		}
 		delete[] FRemansoMatlab;
-	}
+	}*/
 
 	if(FCoefDescarga != NULL) {
 		for(int i = 0; i < Fnumunion; i++) {
@@ -342,13 +342,8 @@ double TCalculoExtern::GetOutput_dll(int i) {
 
 TRemansoMatlab* TCalculoExtern::GetTRemansoMatlab(int i) {
 	try {
-//   if(i<FNOutputsdll){
-		return FRemansoMatlab[i];
-//   }else{
-//       std::cout << "WARNING: El valor de la salida de la dll se sale de rango" << std::endl;
-//       std::cout << "         Revisa el acceso a la dll" << std::endl;
-//       return 0.;
-//   }
+		// Disabled for WASM build
+		return nullptr;
 	} catch(exception &N) {
 		std::cout << "ERROR: GetTRemansoMatlab" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -483,12 +478,12 @@ void TCalculoExtern::LeeFicherosDLL(const char *FileWAM, fpos_t &filepos, int co
 		}
 
 		Fnematlab = nematlab;
-		if(Fnematlab != 0) {
+		/*if(Fnematlab != 0) { // Disabled for WASM build
 			FRemansoMatlab = new TRemansoMatlab*[nematlab];
 			for(int i = 0; i < Fnematlab; i++) {
 				FRemansoMatlab[i] = new TRemansoMatlab();
 			}
-		}
+		}*/
 		/*Si no hay valvula de EGR la siguiente linea se debe comentar*/
 		FEGRV = new TEGRV();
 		//FRegimen=new TRegimenMotor();

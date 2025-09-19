@@ -45,6 +45,13 @@ int RDTSC(void) {
 	return 0;
 }
 
+#elif __EMSCRIPTEN__
+// WebAssembly does not have the rdtsc instruction.
+// We return 0, effectively disabling this timer.
+int RDTSC(void) {
+	return 0;
+}
+
 #else
 extern "C" {
 	inline unsigned long long RDTSC(void) {

@@ -208,10 +208,9 @@ class TBloqueMotor {
 	}
 	;
 
-	stGeometria getGeometria() {
+	stGeometria& getGeometria() {
 		return FGeom;
 	}
-	;
 
 	stWoschni getWoschni() {
 		return FWoschni;
@@ -559,6 +558,8 @@ class TBloqueMotor {
 	void NewInjectionData(double Time);
 
 	double TasaInyInterp(double Angle);
+
+	void setFCilindro(TCilindro** cilindro) { FCilindro = cilindro; }
 
 };
 

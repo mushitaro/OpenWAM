@@ -1,0 +1,2 @@
+# Ignore build artifacts for the WebAssembly build
+build_wasm/

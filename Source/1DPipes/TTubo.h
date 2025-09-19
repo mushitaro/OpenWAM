@@ -59,6 +59,7 @@
 #include <vcl.h>
 #endif
 //#include <cmath>
+#include "json.hpp"
 #include "TCondicionContorno.h"
 #include "TDeposito.h"
 #include "TBloqueMotor.h"
@@ -780,6 +781,9 @@ class TTubo {
 	 */
 	double getMallado() const;
 
+	void setNodoIzq(int n) { FNodoIzq = n; }
+	void setNodoDer(int n) { FNodoDer = n; }
+
 	/**
 	 * @brief Gets the density.
 	 *
@@ -1222,6 +1226,47 @@ class TTubo {
 		return FFraccionMasicaEspecie[j][i];
 	}
 	;
+
+    void configure_from_json(const nlohmann::json& config, TBloqueMotor** engine) {
+        // This function will set up the pipe based on a json config
+        // instead of reading from a file.
+
+        FNumeroTubo = config.value("numero_tubo", 1);
+        FLongitudTotal = config.value("longitud", 0.5);
+        FNTramos = 1; // Simple uniform pipe
+        FLTramo = new double[1];
+        FLTramo[0] = FLongitudTotal;
+
+        FDExtTramo = new double[1];
+        FDExtTramo[0] = config.value("diametro", 0.05);
+
+        FMallado = config.value("mallado", 0.01);
+        FTipoMallado = nmDistancia;
+
+        if (engine && *engine) {
+            CalculoPuntosMalla((*engine)->getRegimen());
+        } else {
+            CalculoPuntosMalla(-1);
+        }
+
+        FDiametroTubo = new double[FNin];
+        for(int i=0; i<FNin; ++i) {
+            FDiametroTubo[i] = FDExtTramo[0];
+        }
+
+        FFriccion = config.value("friccion", 0.02);
+        FTipoTransCal = (nmTipoTransCal)config.value("tipo_trans_cal", 1); // 1 = nmTuboAdmision
+
+        // Initial conditions
+        FPini = config.value("p_ini", 1.013);
+        FTini = config.value("t_ini", 25.0);
+        FVelMedia = config.value("vel_media", 0.1);
+        FComposicionInicial = new double[FNumeroEspecies];
+        std::vector<double> comp_vec = config.value("composicion", std::vector<double>{0.0, 0.0, 1.0, 0.0});
+        for(int i=0; i<FNumeroEspecies; ++i) {
+            FComposicionInicial[i] = comp_vec[i];
+        }
+    }
 };
 
 //---------------------------------------------------------------------------
