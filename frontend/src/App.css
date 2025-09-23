@@ -1,0 +1,27 @@
+.App {
+  text-align: center;
+  font-family: sans-serif;
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+}
+
+.App-main {
+  display: flex;
+  flex-direction: row;
+  padding: 20px;
+}
+
+.controls-container {
+  width: 30%;
+  padding: 20px;
+  border-right: 1px solid #ccc;
+}
+
+.chart-container {
+  width: 70%;
+  padding: 20px;
+}

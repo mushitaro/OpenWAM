@@ -80,7 +80,7 @@ TOpenWAM::TOpenWAM() {
 	Venturi = NULL;
 
 	// ! ARRAYS OF BOUNDARY CONDITIONS
-	BC = NULL;
+	Contorno = NULL;
 	BCIntakeValve = NULL;
 	BCExhaustValve = NULL;
 	BCReedValve = NULL;
@@ -261,10 +261,10 @@ TOpenWAM::~TOpenWAM() {
 #endif
 
 	// Liberacion memoria dinamica Condiciones de Contorno.
-	if(NumberOfConnections > 0 && *BC != NULL) {
+	if(NumberOfConnections > 0 && *Contorno != NULL) {
 		for(int i = 0; i < NumberOfConnections; i++)
-			delete BC[i];
-		delete[] BC;
+			delete Contorno[i];
+		delete[] Contorno;
 	}
 
 	// Liberacion memoria dinamica Axis de Turbogrupo.
@@ -519,8 +519,8 @@ void TOpenWAM::ReadInputData(char* FileName) {
 	fclose(FileInput);
 
 	for(int i = 0; i < NumberOfConnections; i++) {
-		if(BC[i]->getTipoCC() == nmCompresor) {
-			dynamic_cast<TCCCompresor*>(BC[i])->ReadCompressorData(fileinput.c_str(), fileposition, Compressor);
+		if(Contorno[i]->getTipoCC() == nmCompresor) {
+			dynamic_cast<TCCCompresor*>(Contorno[i])->ReadCompressorData(fileinput.c_str(), fileposition, Compressor);
 		}
 	}
 
@@ -577,7 +577,7 @@ void TOpenWAM::ReadDataDLL() {
 		if(Engine != NULL)
 			EXTERN->Lee_Sens_Motor(fileinput.c_str(), filepos, Theta, Engine[0]->getRegimen(), AcumulatedTime);
 		if(NumberOfConectionsBetweenPlenums != 0)
-			EXTERN->Lee_Sens_UED(fileinput.c_str(), filepos, BC);
+			EXTERN->Lee_Sens_UED(fileinput.c_str(), filepos, Contorno);
 		EXTERN->Lectura_Datos_Adicionales(fileinput.c_str(), filepos);
 		EXTERN->IniciaEntradaDLL();
 
@@ -1245,7 +1245,7 @@ void TOpenWAM::ReadConnections() {
 			   &numcomprtornillo, &numextremosinyeccion, &numnodoentredepositos,
 			   &numentradacompresor, &numentradapresionestatica);
 
-		BC = new TCondicionContorno*[NumberOfConnections];
+		Contorno = new TCondicionContorno*[NumberOfConnections];
 		printf("Number of boundary condition: %d\n", NumberOfConnections);
 		fgetpos(FileInput, &filepos);
 		fclose(FileInput);
@@ -1258,125 +1258,125 @@ void TOpenWAM::ReadConnections() {
 				fclose(FileInput);
 				switch(TipoCC) {
 				case 0:
-					BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndAtmosphere, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+					Contorno[i] = new TCCDescargaExtremoAbierto(nmOpenEndAtmosphere, i, SpeciesModel, SpeciesNumber, GammaCalculation,
 														  ThereIsEGR);
 					NumTCCDescargaExtremoAbierto++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
-					BC[i]->AsignAmbientConditions(AmbientTemperature, AmbientPressure, AtmosphericComposition);
+					Contorno[i]->AsignAmbientConditions(AmbientTemperature, AmbientPressure, AtmosphericComposition);
 					break;
 				case 1:
-					BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndReservoir, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCDescargaExtremoAbierto(nmOpenEndReservoir, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCDescargaExtremoAbierto++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 2:
-					BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndCalcExtern, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+					Contorno[i] = new TCCDescargaExtremoAbierto(nmOpenEndCalcExtern, i, SpeciesModel, SpeciesNumber, GammaCalculation,
 														  ThereIsEGR);
 					NumTCCDescargaExtremoAbierto++;
 					nematlab++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 3:
-					BC[i] = new TCCExtremoCerrado(nmClosedEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCExtremoCerrado(nmClosedEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCExtremoCerrado++;
-					BC[i]->AsignaTubos(NumberOfPipes, Pipe);
+					Contorno[i]->AsignaTubos(NumberOfPipes, Pipe);
 					break;
 				case 4:
-					BC[i] = new TCCExtremoAnecoico(nmAnechoicEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCExtremoAnecoico(nmAnechoicEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCExtremoAnecoico++;
-					BC[i]->AsignaTubos(NumberOfPipes, Pipe);
+					Contorno[i]->AsignaTubos(NumberOfPipes, Pipe);
 					break;
 				case 5:
-					BC[i] = new TCCPulso(nmIncidentPressurWave, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCPulso(nmIncidentPressurWave, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCPulso++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 6:
-					BC[i] = new TCCUnionEntreTubos(nmPipesConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCUnionEntreTubos(nmPipesConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCUnionEntreTubos++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 7:
-					BC[i] = new TCCCilindro(nmIntakeValve, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCCilindro(nmIntakeValve, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCCilindro++;
 					NumberOfIntakeValves++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 8:
-					BC[i] = new TCCCilindro(nmExhaustValve, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCCilindro(nmExhaustValve, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCCilindro++;
 					NumberOfExhaustValves++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 9:
-					BC[i] = new TCCPerdidadePresion(nmLinearPressureLoss, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCPerdidadePresion(nmLinearPressureLoss, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCPerdidaPresion++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 10:
-					BC[i] = new TCCPerdidadePresion(nmQuadraticPressureLoss, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCPerdidadePresion(nmQuadraticPressureLoss, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCPerdidaPresion++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 11:
-					BC[i] = new TCCDeposito(nmPipeToPlenumConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCDeposito(nmPipeToPlenumConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCDeposito++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 12:
-					BC[i] = new TCCRamificacion(nmBranch, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCRamificacion(nmBranch, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCRamificacion++;
-					BC[i]->AsignaTubos(NumberOfPipes, Pipe);
+					Contorno[i]->AsignaTubos(NumberOfPipes, Pipe);
 					break;
 				case 13:
 					FileInput = fopen(fileinput.c_str(), "r");
@@ -1384,86 +1384,86 @@ void TOpenWAM::ReadConnections() {
 					fscanf(FileInput, "%d ", &numerocv);
 					fgetpos(FileInput, &filepos);
 					fclose(FileInput);
-					BC[i] = new TCCCompresorVolumetrico(nmVolumetricCompressor, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+					Contorno[i] = new TCCCompresorVolumetrico(nmVolumetricCompressor, i, SpeciesModel, SpeciesNumber, GammaCalculation,
 														ThereIsEGR);
-					dynamic_cast<TCCCompresorVolumetrico*>(BC[i])->PutNumeroCV(numerocv);
+					dynamic_cast<TCCCompresorVolumetrico*>(Contorno[i])->PutNumeroCV(numerocv);
 					NumberOfVolumetricCompressors++;
-					dynamic_cast<TCCCompresorVolumetrico*>(BC[i])->LeeCCCompresorVol(fileinput.c_str(), filepos, NumberOfPipes, Pipe,
+					dynamic_cast<TCCCompresorVolumetrico*>(Contorno[i])->LeeCCCompresorVol(fileinput.c_str(), filepos, NumberOfPipes, Pipe,
 							EngineBlock);
-					dynamic_cast<TCCCompresorVolumetrico*>(BC[i])->IniciaMedias();
+					dynamic_cast<TCCCompresorVolumetrico*>(Contorno[i])->IniciaMedias();
 					break;
 				case 14:
-					BC[i] = new TCCExtremoInyeccion(nmInjectionEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCExtremoInyeccion(nmInjectionEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumberOfInjectionEnds++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 15:
-					BC[i] = new TCCEntradaCompresor(nmEntradaCompre, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCEntradaCompresor(nmEntradaCompre, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCEntradaCompresor++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 16:
-					BC[i] = new TCCUnionEntreDepositos(nmUnionEntreDepositos, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCUnionEntreDepositos(nmUnionEntreDepositos, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumberOfConectionsBetweenPlenums++;
-					dynamic_cast<TCCUnionEntreDepositos*>(BC[i])->LeeUEDepositos(fileinput.c_str(), filepos, Independent);
+					dynamic_cast<TCCUnionEntreDepositos*>(Contorno[i])->LeeUEDepositos(fileinput.c_str(), filepos, Independent);
 					break;
 				case 17:
-					BC[i] = new TCCCompresor(nmCompresor, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCCompresor(nmCompresor, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumberOfCompressorsConnections++;
-					dynamic_cast<TCCCompresor*>(BC[i])->LeeNumeroCompresor(fileinput.c_str(), filepos);
+					dynamic_cast<TCCCompresor*>(Contorno[i])->LeeNumeroCompresor(fileinput.c_str(), filepos);
 					break;
 				case 18:
-					BC[i] = new TCCPreVble(nmPresionVble, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCCPreVble(nmPresionVble, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 					NumTCCPreVble++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 19:
-					BC[i] = new TCFDConnection(nmCFDConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
+					Contorno[i] = new TCFDConnection(nmCFDConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation, ThereIsEGR);
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				case 20:
-					BC[i] = new TCCExternalConnectionVol(nmExternalConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+					Contorno[i] = new TCCExternalConnectionVol(nmExternalConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation,
 														 ThereIsEGR);
 					NumTCCExternalConnection++;
 #ifdef ParticulateFilter
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
 											Pipe, NumberOfDPF, DPF);
 #else
-					BC[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
+					Contorno[i]->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes, Pipe, NumberOfDPF, NULL);
 #endif
 					break;
 				}
-				if(BC[i]->getTipoCC() == nmIntakeValve || BC[i]->getTipoCC() == nmExhaustValve
-				   || BC[i]->getTipoCC() == nmPipeToPlenumConnection || BC[i]->getTipoCC() == nmUnionEntreDepositos) {
+				if(Contorno[i]->getTipoCC() == nmIntakeValve || Contorno[i]->getTipoCC() == nmExhaustValve
+				   || Contorno[i]->getTipoCC() == nmPipeToPlenumConnection || Contorno[i]->getTipoCC() == nmUnionEntreDepositos) {
 					FileInput = fopen(fileinput.c_str(), "r");
 					fsetpos(FileInput, &filepos);
 					fscanf(FileInput, "%d ", &quevalv);
 					fgetpos(FileInput, &filepos);
 					fclose(FileInput);
-					if(BC[i]->getTipoCC() == nmIntakeValve || BC[i]->getTipoCC() == nmExhaustValve) {
-						dynamic_cast<TCCCilindro*>(BC[i])->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
-					} else if(BC[i]->getTipoCC() == nmPipeToPlenumConnection) {
-						dynamic_cast<TCCDeposito*>(BC[i])->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
+					if(Contorno[i]->getTipoCC() == nmIntakeValve || Contorno[i]->getTipoCC() == nmExhaustValve) {
+						dynamic_cast<TCCCilindro*>(Contorno[i])->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
+					} else if(Contorno[i]->getTipoCC() == nmPipeToPlenumConnection) {
+						dynamic_cast<TCCDeposito*>(Contorno[i])->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
 						if(TypeOfValve[quevalv - 1]->getTypeOfValve() == nmLamina)
 							NumberOfReedValves++;
 						if(TypeOfValve[quevalv - 1]->getTypeOfValve() == nmWasteGate)
@@ -1472,8 +1472,8 @@ void TOpenWAM::ReadConnections() {
 							NumberOfExternalCalculatedValves++;
 						if(TypeOfValve[quevalv - 1]->getTypeOfValve() == nmMariposa)
 							NumberOfButerflyValves++;
-					} else if(BC[i]->getTipoCC() == nmUnionEntreDepositos) {
-						dynamic_cast<TCCUnionEntreDepositos*>(BC[i])->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
+					} else if(Contorno[i]->getTipoCC() == nmUnionEntreDepositos) {
+						dynamic_cast<TCCUnionEntreDepositos*>(Contorno[i])->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
 						if(TypeOfValve[quevalv - 1]->getTypeOfValve() == nmLamina)
 							NumberOfReedValves++;
 						if(TypeOfValve[quevalv - 1]->getTypeOfValve() == nmWasteGate)
@@ -1495,8 +1495,8 @@ void TOpenWAM::ReadConnections() {
 			BCIntakeValve = new TCondicionContorno*[NumberOfIntakeValves];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmIntakeValve) {
-					BCIntakeValve[contador] = dynamic_cast<TCCCilindro*>(BC[j]);
+				if(Contorno[j]->getTipoCC() == nmIntakeValve) {
+					BCIntakeValve[contador] = dynamic_cast<TCCCilindro*>(Contorno[j]);
 					contador++;
 				}
 			}
@@ -1506,8 +1506,8 @@ void TOpenWAM::ReadConnections() {
 			BCExhaustValve = new TCondicionContorno*[NumberOfExhaustValves];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmExhaustValve) {
-					BCExhaustValve[contador] = dynamic_cast<TCCCilindro*>(BC[j]);
+				if(Contorno[j]->getTipoCC() == nmExhaustValve) {
+					BCExhaustValve[contador] = dynamic_cast<TCCCilindro*>(Contorno[j]);
 					contador++;
 				}
 			}
@@ -1517,9 +1517,9 @@ void TOpenWAM::ReadConnections() {
 			VolumetricCompressor = new TCCCompresorVolumetrico*[NumberOfVolumetricCompressors];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmVolumetricCompressor) {
-					if(contador + 1 == dynamic_cast<TCCCompresorVolumetrico*>(BC[j])->getNumeroCV()) {
-						VolumetricCompressor[contador] = dynamic_cast<TCCCompresorVolumetrico*>(BC[j]);
+				if(Contorno[j]->getTipoCC() == nmVolumetricCompressor) {
+					if(contador + 1 == dynamic_cast<TCCCompresorVolumetrico*>(Contorno[j])->getNumeroCV()) {
+						VolumetricCompressor[contador] = dynamic_cast<TCCCompresorVolumetrico*>(Contorno[j]);
 						contador++;
 					}
 				}
@@ -1530,8 +1530,8 @@ void TOpenWAM::ReadConnections() {
 			PerdidaPresion = new TCCPerdidadePresion*[NumTCCPerdidaPresion];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmLinearPressureLoss || BC[j]->getTipoCC() == nmQuadraticPressureLoss) {
-					PerdidaPresion[contador] = dynamic_cast<TCCPerdidadePresion*>(BC[j]);
+				if(Contorno[j]->getTipoCC() == nmLinearPressureLoss || Contorno[j]->getTipoCC() == nmQuadraticPressureLoss) {
+					PerdidaPresion[contador] = dynamic_cast<TCCPerdidadePresion*>(Contorno[j]);
 					contador++;
 				}
 			}
@@ -1541,8 +1541,8 @@ void TOpenWAM::ReadConnections() {
 			MatlabDischarge = new TCCDescargaExtremoAbierto*[nematlab];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmOpenEndCalcExtern) {
-					MatlabDischarge[contador] = dynamic_cast<TCCDescargaExtremoAbierto*>(BC[j]);
+				if(Contorno[j]->getTipoCC() == nmOpenEndCalcExtern) {
+					MatlabDischarge[contador] = dynamic_cast<TCCDescargaExtremoAbierto*>(Contorno[j]);
 					contador++;
 				}
 			}
@@ -1552,8 +1552,8 @@ void TOpenWAM::ReadConnections() {
 			InjectionEnd = new TCCExtremoInyeccion*[NumberOfInjectionEnds];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmInjectionEnd) {
-					InjectionEnd[contador] = dynamic_cast<TCCExtremoInyeccion*>(BC[j]);
+				if(Contorno[j]->getTipoCC() == nmInjectionEnd) {
+					InjectionEnd[contador] = dynamic_cast<TCCExtremoInyeccion*>(Contorno[j]);
 					contador++;
 				}
 			}
@@ -1563,14 +1563,14 @@ void TOpenWAM::ReadConnections() {
 			BCReedValve = new TCondicionContorno*[NumberOfReedValves];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmPipeToPlenumConnection) {
-					if(dynamic_cast<TCCDeposito*>(BC[j])->getValvula()->getTypeOfValve() == nmLamina) {
-						BCReedValve[contador] = dynamic_cast<TCCDeposito*>(BC[j]);
+				if(Contorno[j]->getTipoCC() == nmPipeToPlenumConnection) {
+					if(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula()->getTypeOfValve() == nmLamina) {
+						BCReedValve[contador] = dynamic_cast<TCCDeposito*>(Contorno[j]);
 						contador++;
 					}
-				} else if(BC[j]->getTipoCC() == nmUnionEntreDepositos) {
-					if(dynamic_cast<TCCUnionEntreDepositos*>(BC[j])->getValvula()->getTypeOfValve() == nmLamina) {
-						BCReedValve[contador] = dynamic_cast<TCCUnionEntreDepositos*>(BC[j]);
+				} else if(Contorno[j]->getTipoCC() == nmUnionEntreDepositos) {
+					if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[j])->getValvula()->getTypeOfValve() == nmLamina) {
+						BCReedValve[contador] = dynamic_cast<TCCUnionEntreDepositos*>(Contorno[j]);
 						contador++;
 					}
 				}
@@ -1581,14 +1581,14 @@ void TOpenWAM::ReadConnections() {
 			BCWasteGate = new TCondicionContorno*[NumberOfWasteGates];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmPipeToPlenumConnection) {
-					if(dynamic_cast<TCCDeposito*>(BC[j])->getValvula()->getTypeOfValve() == nmWasteGate) {
-						BCWasteGate[contador] = BC[j];
+				if(Contorno[j]->getTipoCC() == nmPipeToPlenumConnection) {
+					if(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula()->getTypeOfValve() == nmWasteGate) {
+						BCWasteGate[contador] = Contorno[j];
 						contador++;
 					}
-				} else if(BC[j]->getTipoCC() == nmUnionEntreDepositos) {
-					if(dynamic_cast<TCCUnionEntreDepositos*>(BC[j])->getValvula()->getTypeOfValve() == nmWasteGate) {
-						BCWasteGate[contador] = BC[j];
+				} else if(Contorno[j]->getTipoCC() == nmUnionEntreDepositos) {
+					if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[j])->getValvula()->getTypeOfValve() == nmWasteGate) {
+						BCWasteGate[contador] = Contorno[j];
 						contador++;
 					}
 				}
@@ -1599,14 +1599,14 @@ void TOpenWAM::ReadConnections() {
 			CCCalcExtern = new TTipoValvula*[NumberOfExternalCalculatedValves];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmPipeToPlenumConnection) {
-					if(dynamic_cast<TCCDeposito*>(BC[j])->getValvula()->getTypeOfValve() == nmCalcExtern) {
-						CCCalcExtern[contador] = dynamic_cast<TCCDeposito*>(BC[j])->getValvula();
+				if(Contorno[j]->getTipoCC() == nmPipeToPlenumConnection) {
+					if(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula()->getTypeOfValve() == nmCalcExtern) {
+						CCCalcExtern[contador] = dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula();
 						contador++;
 					}
-				} else if(BC[j]->getTipoCC() == nmUnionEntreDepositos) {
-					if(dynamic_cast<TCCUnionEntreDepositos*>(BC[j])->getValvula()->getTypeOfValve() == nmCalcExtern) {
-						CCCalcExtern[contador] = dynamic_cast<TCCDeposito*>(BC[j])->getValvula();
+				} else if(Contorno[j]->getTipoCC() == nmUnionEntreDepositos) {
+					if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[j])->getValvula()->getTypeOfValve() == nmCalcExtern) {
+						CCCalcExtern[contador] = dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula();
 						contador++;
 					}
 				}
@@ -1617,14 +1617,14 @@ void TOpenWAM::ReadConnections() {
 			BCButerflyValve = new TTipoValvula*[NumberOfButerflyValves];
 			contador = 0;
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmPipeToPlenumConnection) {
-					if(dynamic_cast<TCCDeposito*>(BC[j])->getValvula()->getTypeOfValve() == nmMariposa) {
-						BCButerflyValve[contador] = dynamic_cast<TCCDeposito*>(BC[j])->getValvula();
+				if(Contorno[j]->getTipoCC() == nmPipeToPlenumConnection) {
+					if(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula()->getTypeOfValve() == nmMariposa) {
+						BCButerflyValve[contador] = dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula();
 						contador++;
 					}
-				} else if(BC[j]->getTipoCC() == nmUnionEntreDepositos) {
-					if(dynamic_cast<TCCUnionEntreDepositos*>(BC[j])->getValvula()->getTypeOfValve() == nmMariposa) {
-						BCButerflyValve[contador] = dynamic_cast<TCCDeposito*>(BC[j])->getValvula();
+				} else if(Contorno[j]->getTipoCC() == nmUnionEntreDepositos) {
+					if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[j])->getValvula()->getTypeOfValve() == nmMariposa) {
+						BCButerflyValve[contador] = dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula();
 						contador++;
 					}
 				}
@@ -1640,8 +1640,8 @@ void TOpenWAM::ReadConnections() {
 			}
 
 			for(int i = 0; i < NumberOfConnections; ++i) {
-				if(BC[i]->getTipoCC() == nmExternalConnection) {
-					int ID = dynamic_cast<TCCExternalConnectionVol*>(BC[i])->GetID() - 1;
+				if(Contorno[i]->getTipoCC() == nmExternalConnection) {
+					int ID = dynamic_cast<TCCExternalConnectionVol*>(Contorno[i])->GetID() - 1;
 					if(Asigned[ID] == true) {
 						std::cout << "ERROR: There are two external connection with the same ID" << std::endl;
 					}
@@ -1650,7 +1650,7 @@ void TOpenWAM::ReadConnections() {
 					if(ID >= NumTCCExternalConnection) {
 						std::cout << "ERROR: Wrong ID for the external connection node " << i << std::endl;
 					}
-					BCExtConnectionVol[ID] = dynamic_cast<TCCExternalConnectionVol*>(BC[i]);
+					BCExtConnectionVol[ID] = dynamic_cast<TCCExternalConnectionVol*>(Contorno[i]);
 				}
 			}
 		}
@@ -1757,19 +1757,19 @@ void TOpenWAM::ReadOutput(char* FileName) {
 	// OUTPUT ->
 #ifdef ParticulateFilter
 	Output->ReadAverageResults(fileinput.c_str(), filepos, Pipe, EngineBlock, Engine,
-							   Plenum, Axis, Compressor, Turbine, BC, DPF, VolumetricCompressor,
+							   Plenum, Axis, Compressor, Turbine, Contorno, DPF, VolumetricCompressor,
 							   Venturi, Sensor, Controller, SimulationDuration, FileName);
 
 	Output->ReadInstantaneousResults(fileinput.c_str(), filepos, Engine, Plenum, Pipe,
-									 Venturi, BC, DPF, Axis, Compressor, Turbine, VolumetricCompressor,
+									 Venturi, Contorno, DPF, Axis, Compressor, Turbine, VolumetricCompressor,
 									 BCWasteGate, NumberOfWasteGates, BCReedValve, NumberOfReedValves,
 									 Sensor, Controller, FileName);
 #else
-	Output->ReadAverageResults(fileinput.c_str(), filepos, Pipe, EngineBlock, Engine, Plenum, Axis, Compressor, Turbine, BC,
+	Output->ReadAverageResults(fileinput.c_str(), filepos, Pipe, EngineBlock, Engine, Plenum, Axis, Compressor, Turbine, Contorno,
 							   NULL, VolumetricCompressor, Venturi, Sensor, Controller,
 							   SimulationDuration, FileName);
 
-	Output->ReadInstantaneousResults(fileinput.c_str(), filepos, Engine, Plenum, Pipe, Venturi, BC, NULL, Axis, Compressor,
+	Output->ReadInstantaneousResults(fileinput.c_str(), filepos, Engine, Plenum, Pipe, Venturi, Contorno, NULL, Axis, Compressor,
 									 Turbine, VolumetricCompressor, BCWasteGate, NumberOfWasteGates, BCReedValve,
 									 NumberOfReedValves, Sensor, Controller, FileName);
 #endif
@@ -1790,9 +1790,9 @@ void TOpenWAM::InitializeParameters() {
 
 	for(int j = 0; j < NumberOfPipes; ++j) {
 		Pipe[j]->IniciaVariablesFundamentalesTubo();
-		Pipe[j]->InicializaCaracteristicas(BC);
-		Pipe[j]->IniciaVariablesTransmisionCalor(BC, Engine, AmbientTemperature);
-		Pipe[j]->CalculaCoeficientePeliculaInterior(BC);
+		Pipe[j]->InicializaCaracteristicas(Contorno);
+		Pipe[j]->IniciaVariablesTransmisionCalor(Contorno, Engine, AmbientTemperature);
+		Pipe[j]->CalculaCoeficientePeliculaInterior(Contorno);
 		Pipe[j]->EstabilidadMetodoCalculo();
 	}
 #ifdef ParticulateFilter
@@ -1800,10 +1800,10 @@ void TOpenWAM::InitializeParameters() {
 		DPF[i]->IniciaVariablesTransmisionCalor(AmbientTemperature);
 		for(int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
 			(DPF[i]->GetCanal(j, 0))->IniciaVariablesFundamentalesCanalDPF();
-			(DPF[i]->GetCanal(j, 0))->InicializaCaracteristicas(BC);
+			(DPF[i]->GetCanal(j, 0))->InicializaCaracteristicas(Contorno);
 			(DPF[i]->GetCanal(j, 0))->CalculaCoeficientePeliculaInterior();
 			(DPF[i]->GetCanal(j, 1))->IniciaVariablesFundamentalesCanalDPF();
-			(DPF[i]->GetCanal(j, 1))->InicializaCaracteristicas(BC);
+			(DPF[i]->GetCanal(j, 1))->InicializaCaracteristicas(Contorno);
 			(DPF[i]->GetCanal(j, 1))->CalculaCoeficientePeliculaInterior();
 			if(j == DPF[i]->getNumeroHacesCanales() - 1) {
 				(DPF[i]->GetCanal(j, 0))->CalculaCoeficientePeliculaExterior
@@ -1830,13 +1830,13 @@ void TOpenWAM::InitializeParameters() {
 
 #ifdef ConcentricElement
 	for(int i = 0; i < NumberOfConcentrics; i++) {
-		Concentric[i]->CalculaResistenciasdePared(BC);
+		Concentric[i]->CalculaResistenciasdePared(Contorno);
 	}
 #endif
 
 	if(!Independent) {
 		for(int i = 0; i < NumberOfConnections; i++) {
-			BC[i]->TuboCalculandose(10000);
+			Contorno[i]->TuboCalculandose(10000);
 		}
 	}
 
@@ -1890,11 +1890,11 @@ void TOpenWAM::InitializeParameters() {
 	}
 
 	for(int i = 0; i < NumberOfConnections; i++) {
-		if(BC[i]->getTipoCC() == nmPipeToPlenumConnection) {
-			dynamic_cast<TCCDeposito*>(BC[i])->IniciaGamma();
+		if(Contorno[i]->getTipoCC() == nmPipeToPlenumConnection) {
+			dynamic_cast<TCCDeposito*>(Contorno[i])->IniciaGamma();
 		}
-		if(BC[i]->getTipoCC() == nmPipeToPlenumConnection && EngineBlock) {
-			TTipoValvula* val = dynamic_cast<TCCDeposito*>(BC[i])->getValvula();
+		if(Contorno[i]->getTipoCC() == nmPipeToPlenumConnection && EngineBlock) {
+			TTipoValvula* val = dynamic_cast<TCCDeposito*>(Contorno[i])->getValvula();
 			if(val->getTypeOfValve() == nmDiscoRotativo) {
 				dynamic_cast<TDiscoRotativo*>(val)->PutAngle0(Engine[0]->getTheta());
 			}
@@ -1963,15 +1963,15 @@ void TOpenWAM::AllocateVGTData() {
 		for(int i = 0; i < NumberOfTurbines; i++) {
 			StatorTurbine[i] = new TEstatorTurbina*[Turbine[i]->getNumeroEntradas()];
 			for(int j = 0; j < NumberOfConnections; j++) {
-				if(BC[j]->getTipoCC() == nmPipeToPlenumConnection) {
-					if(dynamic_cast<TCCDeposito*>(BC[j])->getValvula()->getTypeOfValve() == nmStator) {
-						if(dynamic_cast<TEstatorTurbina*>(dynamic_cast<TCCDeposito*>(BC[j])->getValvula())->getNumeroTurbina() == i + 1) {
-							entr = dynamic_cast<TEstatorTurbina*>(dynamic_cast<TCCDeposito*>(BC[j])->getValvula())->getNumeroEntrada() - 1;
-							StatorTurbine[i][entr] = dynamic_cast<TEstatorTurbina*>(dynamic_cast<TCCDeposito*>(BC[j])->getValvula());
+				if(Contorno[j]->getTipoCC() == nmPipeToPlenumConnection) {
+					if(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula()->getTypeOfValve() == nmStator) {
+						if(dynamic_cast<TEstatorTurbina*>(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula())->getNumeroTurbina() == i + 1) {
+							entr = dynamic_cast<TEstatorTurbina*>(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula())->getNumeroEntrada() - 1;
+							StatorTurbine[i][entr] = dynamic_cast<TEstatorTurbina*>(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula());
 						}
-					} else if(dynamic_cast<TCCDeposito*>(BC[j])->getValvula()->getTypeOfValve() == nmRotor) {
-						if(dynamic_cast<TRotorTurbina*>(dynamic_cast<TCCDeposito*>(BC[j])->getValvula())->getNumeroTurbina() == i + 1) {
-							RotorTurbine[i] = dynamic_cast<TRotorTurbina*>(dynamic_cast<TCCDeposito*>(BC[j])->getValvula());
+					} else if(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula()->getTypeOfValve() == nmRotor) {
+						if(dynamic_cast<TRotorTurbina*>(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula())->getNumeroTurbina() == i + 1) {
+							RotorTurbine[i] = dynamic_cast<TRotorTurbina*>(dynamic_cast<TCCDeposito*>(Contorno[j])->getValvula());
 							if(RotorTurbine[i]->getTipoRotor() == nmRotVariable) {
 								CountVGT += 1;
 							}
@@ -2020,24 +2020,24 @@ void TOpenWAM::ConnectFlowElements() {
 	if(EngineBlock) {
 
 		for(int i = 0; i < Engine[0]->getGeometria().NCilin; i++) {
-			dynamic_cast<TCilindro*>(Engine[0]->GetCilindro(i))->AsignacionCC(BC, NumberOfConnections);
+			dynamic_cast<TCilindro*>(Engine[0]->GetCilindro(i))->AsignacionCC(Contorno, NumberOfConnections);
 		}
 		for(int i = 0; i < NumberOfConnections; i++) {
-			if(BC[i]->getTipoCC() == nmIntakeValve || BC[i]->getTipoCC() == nmExhaustValve) {
-				dynamic_cast<TCCCilindro*>(BC[i])->AsignaCilindro(Engine[0]);
+			if(Contorno[i]->getTipoCC() == nmIntakeValve || Contorno[i]->getTipoCC() == nmExhaustValve) {
+				dynamic_cast<TCCCilindro*>(Contorno[i])->AsignaCilindro(Engine[0]);
 			}
 		}
 	}
 
 	for(int i = 0; i < NumberOfConnections; i++) {
-		if(BC[i]->getTipoCC() == nmCompresor) {
-			dynamic_cast<TCCCompresor*>(BC[i])->AsignData(Plenum, NumberOfPipes, Pipe, BC, NumberOfConnections,
+		if(Contorno[i]->getTipoCC() == nmCompresor) {
+			dynamic_cast<TCCCompresor*>(Contorno[i])->AsignData(Plenum, NumberOfPipes, Pipe, Contorno, NumberOfConnections,
 					AtmosphericComposition, Compressor, AmbientTemperature, AmbientPressure);
 		}
 	}
 
 	for(int i = 0; i < NumberOfPlenums; i++) {
-		Plenum[i]->AsignacionCC(BC, NumberOfConnections);
+		Plenum[i]->AsignacionCC(Contorno, NumberOfConnections);
 		if(Plenum[i]->getTipoDeposito() == nmTurbinaSimple || Plenum[i]->getTipoDeposito() == nmTurbinaTwin) {
 			dynamic_cast<TTurbina*>(Plenum[i])->AsignaEntradaSalidaCC();
 		} else if(Plenum[i]->getTipoDeposito() == nmVenturi) {
@@ -2048,15 +2048,15 @@ void TOpenWAM::ConnectFlowElements() {
 	}
 
 	for(int i = 0; i < NumberOfConnections; i++) {
-		if(BC[i]->getTipoCC() == nmPipeToPlenumConnection) {
-			dynamic_cast<TCCDeposito*>(BC[i])->AsignaDeposito(Plenum);
-		} else if(BC[i]->getTipoCC() == nmUnionEntreDepositos) {
-			dynamic_cast<TCCUnionEntreDepositos*>(BC[i])->AsignaDepositos(Plenum);
+		if(Contorno[i]->getTipoCC() == nmPipeToPlenumConnection) {
+			dynamic_cast<TCCDeposito*>(Contorno[i])->AsignaDeposito(Plenum);
+		} else if(Contorno[i]->getTipoCC() == nmUnionEntreDepositos) {
+			dynamic_cast<TCCUnionEntreDepositos*>(Contorno[i])->AsignaDepositos(Plenum);
 		}
 	}
 
 	for(int i = 0; i < NumberOfPipes; i++) {
-		Pipe[i]->ComunicacionTubo_CC(BC);
+		Pipe[i]->ComunicacionTubo_CC(Contorno);
 	}
 
 	for(int i = 0; i < NumberOfCompressors; i++) {
@@ -2070,10 +2070,10 @@ void TOpenWAM::ConnectFlowElements() {
 #ifdef ParticulateFilter
 	for(int i = 0; i < NumberOfDPF; i++) {
 		for(int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
-			DPF[i]->GetCanal(j, 0)->ComunicacionCanal_CC(BC);
-			DPF[i]->GetCanal(j, 1)->ComunicacionCanal_CC(BC);
+			DPF[i]->GetCanal(j, 0)->ComunicacionCanal_CC(Contorno);
+			DPF[i]->GetCanal(j, 1)->ComunicacionCanal_CC(Contorno);
 		}
-		DPF[i]->ComunicacionTubos(BC, NumberOfConnections);
+		DPF[i]->ComunicacionTubos(Contorno, NumberOfConnections);
 	}
 #endif
 }
@@ -2136,8 +2136,8 @@ void TOpenWAM::InitialHeatTransferParameters() {
 	CalculateNewHeatPositions();
 
 	for(int i = 0; i < NumberOfPipes; i++) {
-		Pipe[i]->IniciaVariablesTransmisionCalor(BC, Engine, AmbientTemperature);
-		Pipe[i]->CalculaCoeficientePeliculaInterior(BC);
+		Pipe[i]->IniciaVariablesTransmisionCalor(Contorno, Engine, AmbientTemperature);
+		Pipe[i]->CalculaCoeficientePeliculaInterior(Contorno);
 	}
 #ifdef ParticulateFilter
 	for(int i = 0; i < NumberOfDPF; i++) {
@@ -2171,10 +2171,10 @@ void TOpenWAM::CalculateNewHeatPositions()
 		bool Encontrado = false;
 
 		for(int i = 0; i < NumberOfConnections; i++) {
-			if(BC[i]->getTipoCC() == nmExhaustValve) {
-				BC[i]->PutPosicionNodo(0.);
+			if(Contorno[i]->getTipoCC() == nmExhaustValve) {
+				Contorno[i]->PutPosicionNodo(0.);
 			} else {
-				BC[i]->PutPosicionNodo(100000.);
+				Contorno[i]->PutPosicionNodo(100000.);
 			}
 		}
 
@@ -2192,71 +2192,71 @@ void TOpenWAM::CalculateNewHeatPositions()
 				}
 				if(Encontrado) {
 					CalculateDistance(NodoOrigen, NodoFin, Pipe[j]->getLongitudTotal(), NumberOfPlenums, NumberOfPipes, NumberOfConnections,
-									  Pipe, BC);
+									  Pipe, Contorno);
 				}
 				Encontrado = false;
 			}
 
 			// PLENUMS
 			for(int i = 0; i < NumberOfPlenums; i++) {
-				if(BC[NodoOrigen - 1]->getTipoCC() == nmPipeToPlenumConnection) {
-					if(dynamic_cast<TCCDeposito*>(BC[NodoOrigen - 1])->getNumeroDeposito() == i + 1) {
+				if(Contorno[NodoOrigen - 1]->getTipoCC() == nmPipeToPlenumConnection) {
+					if(dynamic_cast<TCCDeposito*>(Contorno[NodoOrigen - 1])->getNumeroDeposito() == i + 1) {
 						for(int k = 0; k < NumberOfConnections; k++) {
-							if(BC[k]->getTipoCC() == nmPipeToPlenumConnection) {
-								if(dynamic_cast<TCCDeposito*>(BC[NodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCDeposito*>
-								   (BC[k])->getNumeroDeposito()) {
+							if(Contorno[k]->getTipoCC() == nmPipeToPlenumConnection) {
+								if(dynamic_cast<TCCDeposito*>(Contorno[NodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCDeposito*>
+								   (Contorno[k])->getNumeroDeposito()) {
 									NodoFin = k + 1;
-									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, BC);
+									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);
 								}
 							}
-							if(BC[k]->getTipoCC() == nmUnionEntreDepositos) {
-								if(dynamic_cast<TCCDeposito*>(BC[NodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCUnionEntreDepositos*>
-								   (BC[k])->getNumeroDeposito1()
-								   || dynamic_cast<TCCDeposito*>(BC[NodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCUnionEntreDepositos*>
-								   (BC[k])->getNumeroDeposito2()) {
+							if(Contorno[k]->getTipoCC() == nmUnionEntreDepositos) {
+								if(dynamic_cast<TCCDeposito*>(Contorno[NodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCUnionEntreDepositos*>
+								   (Contorno[k])->getNumeroDeposito1()
+								   || dynamic_cast<TCCDeposito*>(Contorno[NodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCUnionEntreDepositos*>
+								   (Contorno[k])->getNumeroDeposito2()) {
 									NodoFin = k + 1;
-									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, BC);
+									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);
 								}
 							}
 						}
 					}
 				}
-				if(BC[NodoOrigen - 1]->getTipoCC() == nmUnionEntreDepositos) {
-					if(dynamic_cast<TCCUnionEntreDepositos*>(BC[NodoOrigen - 1])->getNumeroDeposito1() == i + 1) {
+				if(Contorno[NodoOrigen - 1]->getTipoCC() == nmUnionEntreDepositos) {
+					if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito1() == i + 1) {
 						for(int k = 0; k < NumberOfConnections; k++) {
-							if(BC[k]->getTipoCC() == nmPipeToPlenumConnection) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(BC[NodoOrigen - 1])->getNumeroDeposito1() == dynamic_cast<TCCDeposito*>
-								   (BC[k])->getNumeroDeposito()) {
+							if(Contorno[k]->getTipoCC() == nmPipeToPlenumConnection) {
+								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito1() == dynamic_cast<TCCDeposito*>
+								   (Contorno[k])->getNumeroDeposito()) {
 									NodoFin = k + 1;
-									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, BC);
+									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);
 								}
 							}
-							if(BC[k]->getTipoCC() == nmUnionEntreDepositos) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(BC[NodoOrigen - 1])->getNumeroDeposito1() ==
-								   dynamic_cast<TCCUnionEntreDepositos*>(BC[k])->getNumeroDeposito1()
-								   || dynamic_cast<TCCUnionEntreDepositos*>(BC[NodoOrigen - 1])->getNumeroDeposito1() ==
-								   dynamic_cast<TCCUnionEntreDepositos*>(BC[k])->getNumeroDeposito2()) {
+							if(Contorno[k]->getTipoCC() == nmUnionEntreDepositos) {
+								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito1() ==
+								   dynamic_cast<TCCUnionEntreDepositos*>(Contorno[k])->getNumeroDeposito1()
+								   || dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito1() ==
+								   dynamic_cast<TCCUnionEntreDepositos*>(Contorno[k])->getNumeroDeposito2()) {
 									NodoFin = k + 1;
-									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, BC);
+									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);
 								}
 							}
 						}
-					} else if(dynamic_cast<TCCUnionEntreDepositos*>(BC[NodoOrigen - 1])->getNumeroDeposito2() == i + 1) {
+					} else if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito2() == i + 1) {
 						for(int k = 0; k < NumberOfConnections; k++) {
-							if(BC[k]->getTipoCC() == nmPipeToPlenumConnection) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(BC[NodoOrigen - 1])->getNumeroDeposito2() == dynamic_cast<TCCDeposito*>
-								   (BC[k])->getNumeroDeposito()) {
+							if(Contorno[k]->getTipoCC() == nmPipeToPlenumConnection) {
+								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito2() == dynamic_cast<TCCDeposito*>
+								   (Contorno[k])->getNumeroDeposito()) {
 									NodoFin = k + 1;
-									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, BC);
+									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);
 								}
 							}
-							if(BC[k]->getTipoCC() == nmUnionEntreDepositos) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(BC[NodoOrigen - 1])->getNumeroDeposito2() ==
-								   dynamic_cast<TCCUnionEntreDepositos*>(BC[k])->getNumeroDeposito1()
-								   || dynamic_cast<TCCUnionEntreDepositos*>(BC[NodoOrigen - 1])->getNumeroDeposito2() ==
-								   dynamic_cast<TCCUnionEntreDepositos*>(BC[k])->getNumeroDeposito2()) {
+							if(Contorno[k]->getTipoCC() == nmUnionEntreDepositos) {
+								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito2() ==
+								   dynamic_cast<TCCUnionEntreDepositos*>(Contorno[k])->getNumeroDeposito1()
+								   || dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito2() ==
+								   dynamic_cast<TCCUnionEntreDepositos*>(Contorno[k])->getNumeroDeposito2()) {
 									NodoFin = k + 1;
-									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, BC);
+									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);
 								}
 							}
 						}
@@ -2273,7 +2273,7 @@ void TOpenWAM::CalculateNewHeatPositions()
 }
 
 void TOpenWAM::CalculateDistance(int LNodoOrigen, int LNodoFin, double LLongitud, int LNumberOfPlenums,
-								 int LNumberOfPipes, int LNumberOfConnections, TTubo **LPipe, TCondicionContorno **LBC) {
+								 int LNumberOfPipes, int LNumberOfConnections, TTubo **LPipe, TCondicionContorno **LContorno) {
 
 	try {
 		int NodoOrigen1 = 0, NodoFin1 = 0;
@@ -2285,8 +2285,8 @@ void TOpenWAM::CalculateDistance(int LNodoOrigen, int LNodoFin, double LLongitud
 		else
 			Long = LLongitud;
 
-		if(LBC[LNodoFin - 1]->getPosicionNodo() > LBC[LNodoOrigen - 1]->getPosicionNodo() + Long) {
-			LBC[LNodoFin - 1]->PutPosicionNodo(LBC[LNodoOrigen - 1]->getPosicionNodo() + Long);
+		if(LContorno[LNodoFin - 1]->getPosicionNodo() > LContorno[LNodoOrigen - 1]->getPosicionNodo() + Long) {
+			LContorno[LNodoFin - 1]->PutPosicionNodo(LContorno[LNodoOrigen - 1]->getPosicionNodo() + Long);
 
 			// PIPES
 			for(int i = 0; i < LNumberOfPipes; i++) {
@@ -2294,82 +2294,82 @@ void TOpenWAM::CalculateDistance(int LNodoOrigen, int LNodoFin, double LLongitud
 					NodoOrigen1 = LNodoFin;
 					NodoFin1 = LPipe[i]->getNodoIzq();
 					CalculateDistance(NodoOrigen1, NodoFin1, LPipe[i]->getLongitudTotal(), LNumberOfPlenums, LNumberOfPipes,
-									  LNumberOfConnections, LPipe, LBC);
+									  LNumberOfConnections, LPipe, LContorno);
 				} else if(LPipe[i]->getNodoIzq() == LNodoFin && LPipe[i]->getNodoDer() != LNodoOrigen) {
 					NodoOrigen1 = LNodoFin;
 					NodoFin1 = LPipe[i]->getNodoDer();
 					CalculateDistance(NodoOrigen1, NodoFin1, LPipe[i]->getLongitudTotal(), LNumberOfPlenums, LNumberOfPipes,
-									  LNumberOfConnections, LPipe, LBC);
+									  LNumberOfConnections, LPipe, LContorno);
 				}
 			}
 
 			// PLENUMS
 			for(int i = 0; i < LNumberOfPlenums; i++) {
-				if(LBC[LNodoOrigen - 1]->getTipoCC() == nmPipeToPlenumConnection) {
-					if(dynamic_cast<TCCDeposito*>(LBC[LNodoOrigen - 1])->getNumeroDeposito() == i + 1) {
+				if(LContorno[LNodoOrigen - 1]->getTipoCC() == nmPipeToPlenumConnection) {
+					if(dynamic_cast<TCCDeposito*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito() == i + 1) {
 						for(int k = 0; k < LNumberOfConnections; k++) {
-							if(LBC[k]->getTipoCC() == nmPipeToPlenumConnection) {
-								if(dynamic_cast<TCCDeposito*>(LBC[LNodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCDeposito*>
-								   (LBC[k])->getNumeroDeposito()) {
+							if(LContorno[k]->getTipoCC() == nmPipeToPlenumConnection) {
+								if(dynamic_cast<TCCDeposito*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCDeposito*>
+								   (LContorno[k])->getNumeroDeposito()) {
 									NodoOrigen1 = LNodoFin;
 									NodoFin1 = k + 1;
-									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LBC);
+									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LContorno);
 								}
 							}
-							if(LBC[k]->getTipoCC() == nmUnionEntreDepositos) {
-								if(dynamic_cast<TCCDeposito*>(LBC[LNodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCUnionEntreDepositos*>
-								   (LBC[k])->getNumeroDeposito1()
-								   || dynamic_cast<TCCDeposito*>(LBC[LNodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCUnionEntreDepositos*>
-								   (LBC[k])->getNumeroDeposito2()) {
+							if(LContorno[k]->getTipoCC() == nmUnionEntreDepositos) {
+								if(dynamic_cast<TCCDeposito*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCUnionEntreDepositos*>
+								   (LContorno[k])->getNumeroDeposito1()
+								   || dynamic_cast<TCCDeposito*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito() == dynamic_cast<TCCUnionEntreDepositos*>
+								   (LContorno[k])->getNumeroDeposito2()) {
 									NodoOrigen1 = LNodoFin;
 									NodoFin1 = k + 1;
-									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LBC);
+									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LContorno);
 								}
 							}
 						}
 					}
 
 				}
-				if(LBC[LNodoOrigen - 1]->getTipoCC() == nmUnionEntreDepositos) {
-					if(dynamic_cast<TCCUnionEntreDepositos*>(LBC[LNodoOrigen - 1])->getNumeroDeposito1() == i + 1) {
+				if(LContorno[LNodoOrigen - 1]->getTipoCC() == nmUnionEntreDepositos) {
+					if(dynamic_cast<TCCUnionEntreDepositos*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito1() == i + 1) {
 						for(int k = 0; k < LNumberOfConnections; k++) {
-							if(LBC[k]->getTipoCC() == nmPipeToPlenumConnection) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(LBC[LNodoOrigen - 1])->getNumeroDeposito1() == dynamic_cast<TCCDeposito*>
-								   (LBC[k])->getNumeroDeposito()) {
+							if(LContorno[k]->getTipoCC() == nmPipeToPlenumConnection) {
+								if(dynamic_cast<TCCUnionEntreDepositos*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito1() == dynamic_cast<TCCDeposito*>
+								   (LContorno[k])->getNumeroDeposito()) {
 									NodoOrigen1 = LNodoFin;
 									NodoFin1 = k + 1;
-									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LBC);
+									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LContorno);
 								}
 							}
-							if(LBC[k]->getTipoCC() == nmUnionEntreDepositos) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(LBC[LNodoOrigen - 1])->getNumeroDeposito1() ==
-								   dynamic_cast<TCCUnionEntreDepositos*>(LBC[k])->getNumeroDeposito1()
-								   || dynamic_cast<TCCUnionEntreDepositos*>(LBC[LNodoOrigen - 1])->getNumeroDeposito1() ==
-								   dynamic_cast<TCCUnionEntreDepositos*>(LBC[k])->getNumeroDeposito2()) {
+							if(LContorno[k]->getTipoCC() == nmUnionEntreDepositos) {
+								if(dynamic_cast<TCCUnionEntreDepositos*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito1() ==
+								   dynamic_cast<TCCUnionEntreDepositos*>(LContorno[k])->getNumeroDeposito1()
+								   || dynamic_cast<TCCUnionEntreDepositos*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito1() ==
+								   dynamic_cast<TCCUnionEntreDepositos*>(LContorno[k])->getNumeroDeposito2()) {
 									NodoOrigen1 = LNodoFin;
 									NodoFin1 = k + 1;
-									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LBC);
+									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LContorno);
 								}
 							}
 						}
-					} else if(dynamic_cast<TCCUnionEntreDepositos*>(LBC[LNodoOrigen - 1])->getNumeroDeposito2() == i + 1) {
+					} else if(dynamic_cast<TCCUnionEntreDepositos*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito2() == i + 1) {
 						for(int k = 0; k < LNumberOfConnections; k++) {
-							if(LBC[k]->getTipoCC() == nmPipeToPlenumConnection) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(LBC[LNodoOrigen - 1])->getNumeroDeposito2() == dynamic_cast<TCCDeposito*>
-								   (LBC[k])->getNumeroDeposito()) {
+							if(LContorno[k]->getTipoCC() == nmPipeToPlenumConnection) {
+								if(dynamic_cast<TCCUnionEntreDepositos*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito2() == dynamic_cast<TCCDeposito*>
+								   (LContorno[k])->getNumeroDeposito()) {
 									NodoOrigen1 = LNodoFin;
 									NodoFin1 = k + 1;
-									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LBC);
+									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LContorno);
 								}
 							}
-							if(LBC[k]->getTipoCC() == nmUnionEntreDepositos) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(LBC[LNodoOrigen - 1])->getNumeroDeposito2() ==
-								   dynamic_cast<TCCUnionEntreDepositos*>(LBC[k])->getNumeroDeposito1()
-								   || dynamic_cast<TCCUnionEntreDepositos*>(LBC[LNodoOrigen - 1])->getNumeroDeposito2() ==
-								   dynamic_cast<TCCUnionEntreDepositos*>(LBC[k])->getNumeroDeposito2()) {
+							if(LContorno[k]->getTipoCC() == nmUnionEntreDepositos) {
+								if(dynamic_cast<TCCUnionEntreDepositos*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito2() ==
+								   dynamic_cast<TCCUnionEntreDepositos*>(LContorno[k])->getNumeroDeposito1()
+								   || dynamic_cast<TCCUnionEntreDepositos*>(LContorno[LNodoOrigen - 1])->getNumeroDeposito2() ==
+								   dynamic_cast<TCCUnionEntreDepositos*>(LContorno[k])->getNumeroDeposito2()) {
 									NodoOrigen1 = LNodoFin;
 									NodoFin1 = k + 1;
-									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LBC);
+									CalculateDistance(NodoOrigen1, NodoFin1, 0, LNumberOfPlenums, LNumberOfPipes, LNumberOfConnections, LPipe, LContorno);
 								}
 							}
 						}
@@ -3108,47 +3108,47 @@ void TOpenWAM::CalculateFlowIndependent() {
 					if(i == 1)
 						OneDEnd = Pipe[JCurrent]->getNodoDer();
 
-					BC[OneDEnd - 1]->CalculaCaracteristicas(Pipe[JCurrent]->getTime1());
+					Contorno[OneDEnd - 1]->CalculaCaracteristicas(Pipe[JCurrent]->getTime1());
 
-					BC[OneDEnd - 1]->TuboCalculandose(JCurrent);
+					Contorno[OneDEnd - 1]->TuboCalculandose(JCurrent);
 
-					if(BC[OneDEnd - 1]->getTipoCC() == nmVolumetricCompressor) {
-						dynamic_cast<TCCCompresorVolumetrico*>(BC[OneDEnd - 1])->ObtencionValoresInstantaneos(ene);
+					if(Contorno[OneDEnd - 1]->getTipoCC() == nmVolumetricCompressor) {
+						dynamic_cast<TCCCompresorVolumetrico*>(Contorno[OneDEnd - 1])->ObtencionValoresInstantaneos(ene);
 
-					} else if(BC[OneDEnd - 1]->getTipoCC() == nmInjectionEnd) {
-						dynamic_cast<TCCExtremoInyeccion*>(BC[OneDEnd - 1])->ObtencionValoresInstantaneos(Theta);
+					} else if(Contorno[OneDEnd - 1]->getTipoCC() == nmInjectionEnd) {
+						dynamic_cast<TCCExtremoInyeccion*>(Contorno[OneDEnd - 1])->ObtencionValoresInstantaneos(Theta);
 
-					} else if(BC[OneDEnd - 1]->getTipoCC() == nmCompresor) {
+					} else if(Contorno[OneDEnd - 1]->getTipoCC() == nmCompresor) {
 
-						dynamic_cast<TCCCompresor*>(BC[OneDEnd - 1])->ObtencionValoresInstantaneos(Theta, Pipe[JCurrent]->getTime1());
+						dynamic_cast<TCCCompresor*>(Contorno[OneDEnd - 1])->ObtencionValoresInstantaneos(Theta, Pipe[JCurrent]->getTime1());
 					}
 
-					BC[OneDEnd - 1]->CalculaCondicionContorno(Pipe[JCurrent]->getTime1());
+					Contorno[OneDEnd - 1]->CalculaCondicionContorno(Pipe[JCurrent]->getTime1());
 
 					SolveAdjacentElements(OneDEnd, Pipe[JCurrent]->getTime1());
 				}
 			}
-			Pipe[JCurrent]->ActualizaValoresNuevos(BC);
+			Pipe[JCurrent]->ActualizaValoresNuevos(Contorno);
 
 			Pipe[JCurrent]->ActualizaPropiedadesGas();
 
 			Pipe[JCurrent]->ReduccionFlujoSubsonico();
 
-			Pipe[JCurrent]->CalculaCoeficientePeliculaInterior(BC);
+			Pipe[JCurrent]->CalculaCoeficientePeliculaInterior(Contorno);
 			if(!EngineBlock) {
 				Pipe[JCurrent]->CalculaCoeficientePeliculaExterior(Engine, AmbientPressure, AmbientTemperature);
-				Pipe[JCurrent]->CalculaResistenciasdePared(BC);
+				Pipe[JCurrent]->CalculaResistenciasdePared(Contorno);
 			} else {
 				if(Engine[0]->getCiclo() < 1) {
 					Pipe[JCurrent]->CalculaCoeficientePeliculaExterior(Engine, AmbientPressure, AmbientTemperature);
-					Pipe[JCurrent]->CalculaResistenciasdePared(BC);
+					Pipe[JCurrent]->CalculaResistenciasdePared(Contorno);
 				}
 			}
 			if(!Pipe[JCurrent]->getConcentrico()) {
 				if(EngineBlock) {
-					Pipe[JCurrent]->CalculaTemperaturaPared(Engine, Theta, CrankAngle, BC);
+					Pipe[JCurrent]->CalculaTemperaturaPared(Engine, Theta, CrankAngle, Contorno);
 				} else {
-					Pipe[JCurrent]->CalculaTemperaturaParedSinMotor(BC);
+					Pipe[JCurrent]->CalculaTemperaturaParedSinMotor(Contorno);
 				}
 			} else {
 #ifdef ParticulateFilter
@@ -3156,7 +3156,7 @@ void TOpenWAM::CalculateFlowIndependent() {
 					if(Pipe[JCurrent]->getNumeroTubo() == Concentric[j]
 					   ->GetNumTuboExterno()) {
 						Concentric[j]->CalculaTemperaturaPared(Engine, Theta,
-															   BC);
+															   Contorno);
 					}
 				}
 #endif
@@ -3176,7 +3176,7 @@ void TOpenWAM::CalculateFlowIndependent() {
 					double IncrementoTiempo = DPF[JCurrentDPF]->getTime1DPF()
 											  - DPF[JCurrentDPF]->getTime0DPF();
 					(DPF[JCurrentDPF]->GetCanal(j, k))
-					->CalculaCaracteristicasExtremos(BC,
+					->CalculaCaracteristicasExtremos(Contorno,
 													 IncrementoTiempo);
 
 					/* Calculo de las Condiciones de Contorno en los extremos de los canales */
@@ -3189,12 +3189,12 @@ void TOpenWAM::CalculateFlowIndependent() {
 									  ->getNodoDer();
 
 						if(OneDEnd != 0) {
-							BC[OneDEnd - 1]->CalculaCondicionContorno
+							Contorno[OneDEnd - 1]->CalculaCondicionContorno
 							(DPF[JCurrentDPF]->getTime1DPF());
 						}
 					}
 					(DPF[JCurrentDPF]->GetCanal(j, k))->ActualizaValoresNuevos
-					(BC);
+					(Contorno);
 					(DPF[JCurrentDPF]->GetCanal(j, k))->ActualizaPropiedadesGas
 					();
 
@@ -3293,17 +3293,17 @@ void TOpenWAM::SolveAdjacentElements(int OneDEnd, double TiempoActual) {
 		bool CalculoDeposito = false;
 		int indiceUED = 0;
 
-		if(BC[OneDEnd - 1]->getTipoCC() == nmPipeToPlenumConnection) {
+		if(Contorno[OneDEnd - 1]->getTipoCC() == nmPipeToPlenumConnection) {
 			CalculaElementosAdyacentes = true;
 			CalculoDeposito = true;
-		} else if(BC[OneDEnd - 1]->getTipoCC() == nmCompresor) {
-			if(dynamic_cast<TCCCompresor*>(BC[OneDEnd - 1])->getCompressor()->getModeloCompresor() == nmCompOriginal) {
-				if(dynamic_cast<TCCCompresor*>(BC[OneDEnd - 1])->getEntradaCompresor() == nmPlenum) {
+		} else if(Contorno[OneDEnd - 1]->getTipoCC() == nmCompresor) {
+			if(dynamic_cast<TCCCompresor*>(Contorno[OneDEnd - 1])->getCompressor()->getModeloCompresor() == nmCompOriginal) {
+				if(dynamic_cast<TCCCompresor*>(Contorno[OneDEnd - 1])->getEntradaCompresor() == nmPlenum) {
 					CalculaElementosAdyacentes = true;
 					CalculoDeposito = true;
 				}
 			}
-		} else if(BC[OneDEnd - 1]->getTipoCC() == nmIntakeValve || BC[OneDEnd - 1]->getTipoCC() == nmExhaustValve) {
+		} else if(Contorno[OneDEnd - 1]->getTipoCC() == nmIntakeValve || Contorno[OneDEnd - 1]->getTipoCC() == nmExhaustValve) {
 			CalculaElementosAdyacentes = true;
 			CalculoCilindro = true;
 		}
@@ -3311,24 +3311,24 @@ void TOpenWAM::SolveAdjacentElements(int OneDEnd, double TiempoActual) {
 		if(CalculaElementosAdyacentes) {
 
 			/* Se determina el namero de deposito o cilindro al que pertenece la condicion de contorno current */
-			if(BC[OneDEnd - 1]->getTipoCC() == nmPipeToPlenumConnection) {
-				NumDepInicial = dynamic_cast<TCCDeposito*>(BC[OneDEnd - 1])->getPlenum()->getNumeroDeposito();
-				if(dynamic_cast<TCCDeposito*>(BC[OneDEnd - 1])->getValvula()->getCDTubVol() == 0
-				   && dynamic_cast<TCCDeposito*>(BC[OneDEnd - 1])->getValvula()->getCDVolTub() == 0) {
+			if(Contorno[OneDEnd - 1]->getTipoCC() == nmPipeToPlenumConnection) {
+				NumDepInicial = dynamic_cast<TCCDeposito*>(Contorno[OneDEnd - 1])->getPlenum()->getNumeroDeposito();
+				if(dynamic_cast<TCCDeposito*>(Contorno[OneDEnd - 1])->getValvula()->getCDTubVol() == 0
+				   && dynamic_cast<TCCDeposito*>(Contorno[OneDEnd - 1])->getValvula()->getCDVolTub() == 0) {
 					Plenum[NumDepInicial - 1]->PutCalculadoPaso(false);
 				} else
 					Plenum[NumDepInicial - 1]->PutCalculadoPaso(true);
-			} else if(BC[OneDEnd - 1]->getTipoCC() == nmCompresor) {
-				if(dynamic_cast<TCCCompresor*>(BC[OneDEnd - 1])->getCompressor()->getModeloCompresor() == nmCompOriginal) {
-					if(dynamic_cast<TCCCompresor*>(BC[OneDEnd - 1])->getEntradaCompresor() == nmPlenum) {
-						NumDepInicial = dynamic_cast<TCCCompresor*>(BC[OneDEnd - 1])->getPlenum()->getNumeroDeposito();
+			} else if(Contorno[OneDEnd - 1]->getTipoCC() == nmCompresor) {
+				if(dynamic_cast<TCCCompresor*>(Contorno[OneDEnd - 1])->getCompressor()->getModeloCompresor() == nmCompOriginal) {
+					if(dynamic_cast<TCCCompresor*>(Contorno[OneDEnd - 1])->getEntradaCompresor() == nmPlenum) {
+						NumDepInicial = dynamic_cast<TCCCompresor*>(Contorno[OneDEnd - 1])->getPlenum()->getNumeroDeposito();
 						Plenum[NumDepInicial - 1]->PutCalculadoPaso(true);
 					}
 				}
-			} else if(BC[OneDEnd - 1]->getTipoCC() == nmIntakeValve || BC[OneDEnd - 1]->getTipoCC() == nmExhaustValve) {
-				NumeroCilindro = dynamic_cast<TCCCilindro*>(BC[OneDEnd - 1])->getNumeroCilindro();
-				if(dynamic_cast<TCCCilindro*>(BC[OneDEnd - 1])->getValvula()->getCDTubVol() == 0
-				   && dynamic_cast<TCCCilindro*>(BC[OneDEnd - 1])->getValvula()->getCDVolTub() == 0) {
+			} else if(Contorno[OneDEnd - 1]->getTipoCC() == nmIntakeValve || Contorno[OneDEnd - 1]->getTipoCC() == nmExhaustValve) {
+				NumeroCilindro = dynamic_cast<TCCCilindro*>(Contorno[OneDEnd - 1])->getNumeroCilindro();
+				if(dynamic_cast<TCCCilindro*>(Contorno[OneDEnd - 1])->getValvula()->getCDTubVol() == 0
+				   && dynamic_cast<TCCCilindro*>(Contorno[OneDEnd - 1])->getValvula()->getCDVolTub() == 0) {
 					Engine[0]->GetCilindro(NumeroCilindro - 1)->PutCalculadoPaso(false);
 				} else
 					Engine[0]->GetCilindro(NumeroCilindro - 1)->PutCalculadoPaso(true);
@@ -3643,14 +3643,14 @@ void TOpenWAM::CalculateFlowCommon() {
 
 	for(int j = 0; j < NumberOfPipes; j++) {
 		Pipe[j]->CalculaVariablesFundamentales();
-		Pipe[j]->CalculaCaracteristicasExtremos(BC, Run.TimeStep);
+		Pipe[j]->CalculaCaracteristicasExtremos(Contorno, Run.TimeStep);
 	}
 #ifdef ParticulateFilter
 	for(int i = 0; i < NumberOfDPF; i++) {
 		for(int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
 			for(int k = 0; k < 2; k++) {
 				(DPF[i]->GetCanal(j, k))->CalculaVariablesFundamentales();
-				(DPF[i]->GetCanal(j, k))->CalculaCaracteristicasExtremos(BC,
+				(DPF[i]->GetCanal(j, k))->CalculaCaracteristicasExtremos(Contorno,
 						Run.TimeStep);
 			}
 		}
@@ -3658,49 +3658,49 @@ void TOpenWAM::CalculateFlowCommon() {
 #endif
 
 	for(int i = 0; i < NumberOfConnections; i++) {
-		if(BC[i]->getTipoCC() == nmVolumetricCompressor) {
-			dynamic_cast<TCCCompresorVolumetrico*>(BC[i])->ObtencionValoresInstantaneos(ene);
-		} else if(BC[i]->getTipoCC() == nmInjectionEnd) {
-			dynamic_cast<TCCExtremoInyeccion*>(BC[i])->ObtencionValoresInstantaneos(Theta);
-		} else if(BC[i]->getTipoCC() == nmCompresor) {
-			dynamic_cast<TCCCompresor*>(BC[i])->ObtencionValoresInstantaneos(Theta, TimeEndStep);
+		if(Contorno[i]->getTipoCC() == nmVolumetricCompressor) {
+			dynamic_cast<TCCCompresorVolumetrico*>(Contorno[i])->ObtencionValoresInstantaneos(ene);
+		} else if(Contorno[i]->getTipoCC() == nmInjectionEnd) {
+			dynamic_cast<TCCExtremoInyeccion*>(Contorno[i])->ObtencionValoresInstantaneos(Theta);
+		} else if(Contorno[i]->getTipoCC() == nmCompresor) {
+			dynamic_cast<TCCCompresor*>(Contorno[i])->ObtencionValoresInstantaneos(Theta, TimeEndStep);
 		}
-		BC[i]->CalculaCondicionContorno(TimeEndStep);
+		Contorno[i]->CalculaCondicionContorno(TimeEndStep);
 
-		if(BC[i]->getTipoCC() == nmUnionEntreDepositos) {
-			dynamic_cast<TCCUnionEntreDepositos*>(BC[i])->AcumulaResultadosMediosUED(TimeEndStep);
-			dynamic_cast<TCCUnionEntreDepositos*>(BC[i])->getValvula()->AcumulaCDMedio(TimeEndStep);
+		if(Contorno[i]->getTipoCC() == nmUnionEntreDepositos) {
+			dynamic_cast<TCCUnionEntreDepositos*>(Contorno[i])->AcumulaResultadosMediosUED(TimeEndStep);
+			dynamic_cast<TCCUnionEntreDepositos*>(Contorno[i])->getValvula()->AcumulaCDMedio(TimeEndStep);
 		}
 	}
 
 	for(int j = 0; j < NumberOfPipes; j++) {
-		Pipe[j]->ActualizaValoresNuevos(BC);
+		Pipe[j]->ActualizaValoresNuevos(Contorno);
 		Pipe[j]->ActualizaPropiedadesGas();
 
 		Pipe[j]->ReduccionFlujoSubsonico();
 
-		Pipe[j]->CalculaCoeficientePeliculaInterior(BC);
+		Pipe[j]->CalculaCoeficientePeliculaInterior(Contorno);
 		if(!EngineBlock) {
 			Pipe[j]->CalculaCoeficientePeliculaExterior(Engine, AmbientPressure, AmbientTemperature);
-			Pipe[j]->CalculaResistenciasdePared(BC);
+			Pipe[j]->CalculaResistenciasdePared(Contorno);
 		} else {
 			if(Engine[0]->getCiclo() < 1) {
 				Pipe[j]->CalculaCoeficientePeliculaExterior(Engine, AmbientPressure, AmbientTemperature);
-				Pipe[j]->CalculaResistenciasdePared(BC);
+				Pipe[j]->CalculaResistenciasdePared(Contorno);
 			}
 		}
 		if(!Pipe[j]->getConcentrico()) {
 			if(Engine != NULL) {
-				Pipe[j]->CalculaTemperaturaPared(Engine, Theta, CrankAngle, BC);
+				Pipe[j]->CalculaTemperaturaPared(Engine, Theta, CrankAngle, Contorno);
 			} else {
-				Pipe[j]->CalculaTemperaturaParedSinMotor(BC);
+				Pipe[j]->CalculaTemperaturaParedSinMotor(Contorno);
 			}
 		} else {
 #ifdef ConcentricElement
 			for(int j = 0; j < NumberOfConcentrics; j++) {
 				if(Pipe[j]->getNumeroTubo() == Concentric[j]->GetNumTuboExterno
 				   ()) {
-					Concentric[j]->CalculaTemperaturaPared(Engine, Theta, BC);
+					Concentric[j]->CalculaTemperaturaPared(Engine, Theta, Contorno);
 				}
 			}
 #endif
@@ -3714,7 +3714,7 @@ void TOpenWAM::CalculateFlowCommon() {
 	for(int i = 0; i < NumberOfDPF; i++) {
 		for(int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
 			for(int k = 0; k < 2; k++) {
-				(DPF[i]->GetCanal(j, k))->ActualizaValoresNuevos(BC);
+				(DPF[i]->GetCanal(j, k))->ActualizaValoresNuevos(Contorno);
 				(DPF[i]->GetCanal(j, k))->ActualizaPropiedadesGas();
 				(DPF[i]->GetCanal(j, k))->ReduccionFlujoSubsonico();
 			}
@@ -3885,7 +3885,7 @@ void TOpenWAM::NewEngineCycle() {
 			Engine[0]->PutCiclo(Engine[0]->getCiclo() + 1);
 			for(int i = 0; i < NumberOfPipes; i++) {
 				Pipe[i]->CalculaCoeficientePeliculaExterior(Engine, AmbientPressure, AmbientTemperature);
-				Pipe[i]->CalculaResistenciasdePared(BC);
+				Pipe[i]->CalculaResistenciasdePared(Contorno);
 			}
 		}
 	}

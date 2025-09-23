@@ -2395,6 +2395,21 @@ void TOutputResults::OutputInstantaneousResults(TCalculoExtern *EXTERN, bool The
 
 void TOutputResults::WriteInstantaneous(bool EngineBlock, double Angle, double AngStep, TBloqueMotor* Engine,
 										int TotalCycles) {
+	if (EngineBlock) {
+		crank_angle.push_back(Angle);
+		if (Engine->getGeometria().NCilin > 0) {
+			if (pressure.empty() || pressure.size() != Engine->getGeometria().NCilin) {
+				pressure.resize(Engine->getGeometria().NCilin);
+			}
+			if (temperature.empty() || temperature.size() != Engine->getGeometria().NCilin) {
+				temperature.resize(Engine->getGeometria().NCilin);
+			}
+			for (int i = 0; i < Engine->getGeometria().NCilin; i++) {
+				pressure[i].push_back(Engine->GetCilindro(i)->getPresion());
+				temperature[i].push_back(Engine->GetCilindro(i)->getTemperatura());
+			}
+		}
+	}
 
 	if(EngineBlock) {
 		switch(FTypeOfInsResults) {

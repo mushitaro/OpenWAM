@@ -197,6 +197,13 @@ class TBloqueMotor {
 	// ---------------------------------------------------------------------------
 
   public:
+    double torque = 0;
+    double power = 0;
+    double imep = 0;
+
+    double getTorque() { return torque; }
+    double getPower() { return power; }
+    double getIMEP() { return imep; }
 
 	bool getACT() {
 		return FACT;
@@ -208,9 +215,10 @@ class TBloqueMotor {
 	}
 	;
 
-	stGeometria& getGeometria() {
+	stGeometria getGeometria() {
 		return FGeom;
 	}
+	;
 
 	stWoschni getWoschni() {
 		return FWoschni;
@@ -558,8 +566,6 @@ class TBloqueMotor {
 	void NewInjectionData(double Time);
 
 	double TasaInyInterp(double Angle);
-
-	void setFCilindro(TCilindro** cilindro) { FCilindro = cilindro; }
 
 };
 

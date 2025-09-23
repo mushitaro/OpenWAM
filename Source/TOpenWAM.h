@@ -53,7 +53,7 @@
 
 // EXTERNAL CALCULATIONS
 #include "TCalculoExtern.h"
-// #include "TRemansoMatlab.h" // Disabled for WASM build
+#include "TRemansoMatlab.h"
 #include "TCoefDescarga.h"
 #include "TControlFuel.h"
 
@@ -184,7 +184,7 @@ class TOpenWAM {
 	TTipoValvula** BCButerflyValve;
 
 	// ! ARRAY OF PIPES
-	public: TTubo** Pipe;
+	TTubo** Pipe;
 
 	// ! ARRAY OF CONCENTRIC ELEMENTS
 #ifdef ConcentricElement
@@ -276,7 +276,7 @@ class TOpenWAM {
 	bool EngineBlock;
 
 	// ! NUMBER OF PIPES
-	public: int NumberOfPipes;
+	int NumberOfPipes;
 
 	// ! NUMBER OF CONCENTRIC ELEMENTS
 	int NumberOfConcentrics;
@@ -428,6 +428,8 @@ class TOpenWAM {
 	void Actuadores();
 
   public:
+    TOutputResults* getOutputResults() { return Output; }
+    TBloqueMotor* getEngine() { return Engine ? Engine[0] : nullptr; }
 
 	TOpenWAM();
 
@@ -485,34 +487,6 @@ class TOpenWAM {
 	void LoadNewData(int i, double* p, double* T, double* u);
 
 	bool GetIs_EndStep();
-
-    // --- Public setters/getters for WASM wrapper ---
-    void setAmbientPressure(double p) { AmbientPressure = p; }
-    double getAmbientPressure() { return AmbientPressure; }
-    void setAmbientTemperature(double t) { AmbientTemperature = t; }
-    double getAmbientTemperature() { return AmbientTemperature; }
-    void setSpeciesModel(nmTipoCalculoEspecies model) { SpeciesModel = model; }
-    nmTipoCalculoEspecies getSpeciesModel() { return SpeciesModel; }
-    void setGammaCalculation(nmCalculoGamma gamma) { GammaCalculation = gamma; }
-    nmCalculoGamma getGammaCalculation() { return GammaCalculation; }
-    void setEngineBlock(bool b) { EngineBlock = b; }
-    bool getEngineBlock() { return EngineBlock; }
-    void setEngineType(nmTipoMotor type) { EngineType = type; }
-    nmTipoMotor getEngineType() { return EngineType; }
-    void setSimulationType(nmTipoModelado type) { SimulationType = type; }
-    nmTipoModelado getSimulationType() { return SimulationType; }
-    void setThereIsEGR(bool b) { ThereIsEGR = b; }
-    bool getThereIsEGR() { return ThereIsEGR; }
-    void setThereIsFuel(bool b) { ThereIsFuel = b; }
-    bool getThereIsFuel() { return ThereIsFuel; }
-    void setFuelType(nmTipoCombustible type) { FuelType = type; }
-    nmTipoCombustible getFuelType() { return FuelType; }
-    void setSpeciesNumber(int n) { SpeciesNumber = n; }
-    int getSpeciesNumber() { return SpeciesNumber; }
-    void setAtmosphericComposition(double* comp) { AtmosphericComposition = comp; }
-    double* getAtmosphericComposition() { return AtmosphericComposition; }
-    void setEngine(TBloqueMotor** eng) { Engine = eng; }
-    TBloqueMotor** getEngine() { return Engine; }
 
 };
 // ---------------------------------------------------------------------------

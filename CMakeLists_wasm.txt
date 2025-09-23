@@ -1,0 +1,128 @@
+cmake_minimum_required(VERSION 3.5)
+project(OpenWAM_WASM)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_EXECUTABLE_SUFFIX .js)
+
+include_directories(
+    "Source"
+    "Source/Wrappers"
+    "Source/Connections"
+    "Source/ODModels"
+    "Source/Turbocompressor"
+    "Source/Engine"
+    "Source/Boundaries"
+    "Source/1DPipes"
+    "Source/DPF"
+    "Source/Concentric Pipe"
+    "Source/Extern"
+    "Source/Control"
+    "Source/Labels"
+    "Source/Math_wam"
+    "Source/Includes"
+    "nlohmann"
+)
+
+set(SOURCE_FILES
+    Source/wasm_wrapper.cpp
+    Source/OpenWAM.cpp
+    Source/TCGestorWAM.cpp
+    Source/TTimeControl.cpp
+    Source/Wrappers/Exception.cpp
+    Source/Connections/TCDExterno.cpp
+    Source/Connections/TCDFijo.cpp
+    Source/Connections/TDiscoRotativo.cpp
+    Source/Connections/TEstatorTurbina.cpp
+    Source/Connections/TLamina.cpp
+    Source/Connections/TLumbrera.cpp
+    Source/Connections/TMariposa.cpp
+    Source/Connections/TRotorTurbina.cpp
+    Source/Connections/TTipoValvula.cpp
+    Source/Connections/TValvula4T.cpp
+    Source/Connections/TValvulaContr.cpp
+    Source/Connections/TWasteGate.cpp
+    Source/ODModels/TAcousticTurbine.cpp
+    Source/ODModels/TDepVolCte.cpp
+    Source/ODModels/TDepVolCteBase.cpp
+    Source/ODModels/TDepVolVariable.cpp
+    Source/ODModels/TDeposito.cpp
+    Source/ODModels/TIsoSpeedLine.cpp
+    Source/ODModels/TTurbPosition.cpp
+    Source/ODModels/TTurbina.cpp
+    Source/ODModels/TTurbinaSimple.cpp
+    Source/ODModels/TTurbinaTwin.cpp
+    Source/ODModels/TTurbineMap.cpp
+    Source/ODModels/TUnionDireccional.cpp
+    Source/ODModels/TVenturi.cpp
+    Source/Turbocompressor/TAcousticCompressor.cpp
+    Source/Turbocompressor/TCompIsoReg.cpp
+    Source/Turbocompressor/TCompTubDep.cpp
+    Source/Turbocompressor/TCompTubos.cpp
+    Source/Turbocompressor/TCompresor.cpp
+    Source/Turbocompressor/TCompresorDep.cpp
+    Source/Turbocompressor/TCompressorMap.cpp
+    Source/Turbocompressor/TEffCorrector.cpp
+    Source/Turbocompressor/TEjeTurbogrupo.cpp
+    Source/Turbocompressor/TInterpMapaComp.cpp
+    Source/Turbocompressor/TMapaComp.cpp
+    Source/Turbocompressor/TMapaComp2Tub.cpp
+    Source/Turbocompressor/TNewMapComp.cpp
+    Source/Turbocompressor/TSAEMap.cpp
+    Source/Engine/TBloqueMotor.cpp
+    Source/Engine/TCilindro.cpp
+    Source/Engine/TCilindro2T.cpp
+    Source/Engine/TCilindro4T.cpp
+    Source/Boundaries/BoundaryFunctions.cpp
+    Source/Boundaries/TCCCilindro.cpp
+    Source/Boundaries/TCCCompresor.cpp
+    Source/Boundaries/TCCCompresorVolumetrico.cpp
+    Source/Boundaries/TCCDeposito.cpp
+    Source/Boundaries/TCCDescargaExtremoAbierto.cpp
+    Source/Boundaries/TCCEntradaCompresor.cpp
+    Source/Boundaries/TCCExternalConnection.cpp
+    Source/Boundaries/TCCExternalConnectionVol.cpp
+    Source/Boundaries/TCCExtremoAnecoico.cpp
+    Source/Boundaries/TCCExtremoCerrado.cpp
+    Source/Boundaries/TCCExtremoInyeccion.cpp
+    Source/Boundaries/TCCPerdidadePresion.cpp
+    Source/Boundaries/TCCPreVble.cpp
+    Source/Boundaries/TCCPulso.cpp
+    Source/Boundaries/TCCRamificacion.cpp
+    Source/Boundaries/TCCUnionEntreDepositos.cpp
+    Source/Boundaries/TCCUnionEntreTubos.cpp
+    Source/Boundaries/TCFDConnection.cpp
+    Source/Boundaries/TCondicionContorno.cpp
+    Source/Boundaries/TEntradaPulso.cpp
+    Source/1DPipes/TTubo.cpp
+    Source/Extern/TAjusteTransCalorCil.cpp
+    Source/Extern/TCalculoExtern.cpp
+    Source/Extern/TCoefDescarga.cpp
+    Source/Extern/TControlFuel.cpp
+    Source/Extern/TControlInyeccion.cpp
+    Source/Extern/TControlK.cpp
+    Source/Extern/TEGRV.cpp
+    Source/Extern/TFraccionMasicaCilindro.cpp
+    Source/Extern/TMuelle.cpp
+    Source/Extern/TRegimenMotor.cpp
+    Source/Extern/TTGV.cpp
+    Source/Extern/Tfql.cpp
+    Source/Control/TController.cpp
+    Source/Control/TDecisor.cpp
+    Source/Control/TGain.cpp
+    Source/Control/TPIDController.cpp
+    Source/Control/TSensor.cpp
+    Source/Control/TTable.cpp
+    Source/Control/TTable1D.cpp
+    Source/Labels/labels.cpp
+    Source/Math_wam/Math_wam.cpp
+    Source/Output/TOutputResults.cpp
+)
+
+add_executable(openwam_wasm \${SOURCE_FILES})
+
+set_target_properties(openwam_wasm PROPERTIES
+    OUTPUT_NAME openwam
+    LINK_FLAGS "-s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS=['_run_simulation_wrapper', '_main'] -s EXTRA_EXPORTED_RUNTIME_METHODS=['cwrap', 'getValue']"
+)

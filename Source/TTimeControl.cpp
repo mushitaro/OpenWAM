@@ -32,6 +32,12 @@
 
 using namespace std;
 
+#ifdef __EMSCRIPTEN__
+// rdtsc is not available in wasm
+inline unsigned long long RDTSC(void) {
+    return 0;
+}
+#else
 #ifdef __BORLANDC__
 int RDTSC(void) {
 	int k = 0;
@@ -41,13 +47,6 @@ int RDTSC(void) {
 }
 
 #elif _MSC_VER
-int RDTSC(void) {
-	return 0;
-}
-
-#elif __EMSCRIPTEN__
-// WebAssembly does not have the rdtsc instruction.
-// We return 0, effectively disabling this timer.
 int RDTSC(void) {
 	return 0;
 }
@@ -63,6 +62,7 @@ extern "C" {
 		return (unsigned long long) d << 32 | a;
 	}
 }
+#endif
 #endif
 
 //---------------------------------------------------------------------------

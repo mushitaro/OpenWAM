@@ -5,6 +5,7 @@
 
 #include "Globales.h"
 #include <sstream>
+#include <vector>
 
 #include "TTubo.h"
 #include "TBloqueMotor.h"
@@ -161,6 +162,17 @@ class TOutputResults {
 	void ConvertCharacter(int confile, char confile1[], int Characters);
 
   public:
+    std::vector<double> crank_angle;
+    std::vector<std::vector<double>> pressure;
+    std::vector<std::vector<double>> temperature;
+    double torque = 0;
+    double power = 0;
+    double imep = 0;
+
+    double getTorque() { return torque; }
+    double getPower() { return power; }
+    double getIMEP() { return imep; }
+
 	TOutputResults();
 
 	~TOutputResults();

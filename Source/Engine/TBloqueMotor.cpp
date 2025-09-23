@@ -1187,6 +1187,9 @@ void TBloqueMotor::PrestacionesMotor() {
 	try {
 
 		printf("\n \n \n");
+		this->torque = FResMediosMotor.ParEfectivoCicloMED;
+		this->power = FResMediosMotor.PotenciaCicloMED * 1000.0; // Convert kW to W
+		this->imep = FResMediosMotor.PMICicloMED;
 		std::cout << "INFO:----------------------------------------------" << std::endl;
 		std::cout << "INFO: ENGINE PERFORMANCE" << std::endl;
 		std::cout << "INFO:----------------------------------------------" << std::endl;
