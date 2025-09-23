@@ -20,6 +20,7 @@ def test_isentropic_compression_expansion():
     print("Running test: test_isentropic_compression_expansion")
 
     config = get_default_config()
+    config['engine']['combustion']['enabled'] = False # This is a closed-cycle test
     # Run for just one cycle to keep it fast
     config['simulation']['num_cycles'] = 1
 

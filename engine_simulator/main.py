@@ -32,7 +32,7 @@ class Simulator:
         print("Starting simulation run...")
 
         rpm = self.config['engine']['rpm']
-        d_theta_deg = 0.5  # Crank angle step in degrees
+        d_theta_deg = 0.1  # Crank angle step in degrees (reduced for stability)
 
         # Calculate time step based on engine speed
         # dt = d_theta_deg / (rpm * 360 deg/rev * 1 min/60s)

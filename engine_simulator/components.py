@@ -76,13 +76,70 @@ class Cylinder:
         self.swept_volume = self.area * self.stroke
         self.clearance_volume = self.swept_volume / (self.compression_ratio - 1.0)
 
+        # Combustion parameters
+        self.comb_config = self.engine_block.config['engine']['combustion']
+        self.fuel_config = self.engine_block.config['engine']['fuel']
+        self.ht_config = self.engine_block.config['engine']['heat_transfer']
+
         # Initial state
         self.state = {
             'P': 1.013e5,  # Pressure (Pa)
             'T': 293,      # Temperature (K)
             'mass': 0.001, # Mass of gas (kg)
-            'composition': {'air': 1.0}
+            'composition': {'air': 1.0},
+            'burned_fraction': 0.0
         }
+
+    def _calculate_combustion(self, crank_angle_deg):
+        """
+        Calculates the cumulative mass fraction burned using a Wiebe function.
+        """
+        if not self.comb_config['enabled']:
+            return 0.0
+
+        # Normalize crank angle to the current cycle (0-720 degrees)
+        ca_cycle = crank_angle_deg % 720
+
+        # Combustion starts relative to TDC of compression stroke (360 deg)
+        ca_start_abs = 360.0 + self.comb_config['start_angle']
+        ca_dur = self.comb_config['duration_angle']
+        m = self.comb_config['shape_param_m']
+        C = self.comb_config['duration_param_C']
+
+        if ca_cycle < ca_start_abs:
+            return 0.0
+
+        # Normalize crank angle from start of combustion
+        x = (ca_cycle - ca_start_abs) / ca_dur
+
+        if x > 1.0:
+            return 1.0
+
+        burned_fraction = 1.0 - np.exp(-C * (x ** (m + 1)))
+        return burned_fraction
+
+    def _calculate_heat_loss(self, P, T, V, dt):
+        """
+        Calculates heat loss to the walls using the Woschni correlation.
+        """
+        # Mean piston speed
+        mean_piston_speed = 2 * self.stroke * self.engine_block.config['engine']['rpm'] / 60.0
+
+        # Woschni correlation for gas velocity
+        # This is a simplified version; a full model would change C2 during combustion
+        w = self.ht_config['woschni_c1'] * mean_piston_speed
+
+        # Heat transfer coefficient
+        h = 130 * (P**0.8) * (T**-0.53) * (w**0.8) * (self.bore**-0.2)
+
+        # Exposed area (simplified: head + piston + liner area at this crank angle)
+        # This is not fully accurate but a good starting point.
+        exposed_liner_area = self.area * (self.get_volume(0) - self.get_volume(180)) / self.stroke
+        A_wall = 2 * self.area + exposed_liner_area
+
+        # Heat loss
+        dQ_loss = h * A_wall * (T - self.ht_config['coolant_temp']) * dt
+        return dQ_loss
 
     def get_volume(self, crank_angle_deg):
         """
@@ -110,7 +167,6 @@ class Cylinder:
     def update(self, crank_angle_deg, d_theta_deg, dt):
         """
         Updates the cylinder state for one time step.
-        For now, this only implements the closed-cycle (isentropic) part.
         """
         # Get volume at the beginning and end of the step
         v1 = self.get_volume(crank_angle_deg)
@@ -125,11 +181,25 @@ class Cylinder:
         # Calculate work done (using pressure at the start of the step)
         dW = P1 * dV
 
-        # First law: dU = dQ - dW. For isentropic, dQ = 0.
+        # Reset burned fraction at the start of a new combustion event
+        ca_cycle = crank_angle_deg % 720
+        # A bit before TDC compression
+        if 340 < ca_cycle < 350 and self.state['burned_fraction'] > 0.5:
+            self.state['burned_fraction'] = 0.0
+
+        # Calculate heat release from combustion
+        x_burned1 = self.state['burned_fraction']
+        x_burned2 = self._calculate_combustion(crank_angle_deg + d_theta_deg)
+        dx_burned = max(0, x_burned2 - x_burned1) # Ensure it doesn't go negative on cycle reset
+        dQ_comb = dx_burned * self.fuel_config['injected_mass_per_cycle'] * self.fuel_config['lhv']
+
+        # Calculate heat loss
+        dQ_loss = 0.0 # self._calculate_heat_loss(P1, T1, v1, dt)
+
+        # First law: dU = dQ_comb - dQ_loss - dW
         # dU = mass * Cv * dT
-        # So, dT = -dW / (mass * Cv)
         cv = thermo.Air.get_cv(T1)
-        dT = -dW / (mass * cv)
+        dT = (dQ_comb - dW - dQ_loss) / (mass * cv)
 
         # Update state
         T2 = T1 + dT
@@ -138,6 +208,7 @@ class Cylinder:
 
         self.state['P'] = P2
         self.state['T'] = T2
+        self.state['burned_fraction'] = x_burned2
 
 class EngineBlock:
     """

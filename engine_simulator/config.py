@@ -26,6 +26,7 @@ def get_default_config():
                 'compression_ratio': 10.5,
             },
             'combustion': {
+                'enabled': True,
                 # Wiebe function parameters
                 'shape_param_m': 2.0,
                 'duration_param_C': 5.0,
