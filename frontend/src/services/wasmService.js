@@ -1,5 +1,3 @@
-/* global Module */
-
 // This service wraps the WebAssembly module and provides a simple interface to it.
 
 let wasmModule;
@@ -19,7 +17,7 @@ export const initWasm = async () => {
   try {
     // Dynamically import the Emscripten-generated glue code.
     // The '.default' is needed because it's a default export.
-    const openWamModuleFactory = (await import('/openwam.js')).default;
+    const openWamModuleFactory = (await import(window.location.origin + '/openwam.js')).default;
     console.log('WASM module factory loaded.');
 
     const moduleArgs = {
