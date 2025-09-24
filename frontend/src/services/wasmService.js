@@ -22,6 +22,7 @@ export const initWasm = () => {
     // Create a script element to load the Emscripten-generated glue code.
     const script = document.createElement('script');
     script.src = '/openwam.js'; // The script is in the public folder
+    script.type = 'module';
     script.async = true;
     document.body.appendChild(script);
 
