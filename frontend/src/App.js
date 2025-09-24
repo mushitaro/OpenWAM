@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import SimulationControl from './components/SimulationControl';
+import PythonSimulationControl from './components/PythonSimulationControl';
 import SimulationChart from './components/SimulationChart';
 import { initWasm, runSimulation } from './services/wasmService';
 
@@ -8,6 +9,7 @@ function App() {
   const [isWasmReady, setIsWasmReady] = useState(false);
   const [simulationData, setSimulationData] = useState(null);
   const [error, setError] = useState(null);
+  const [isPythonSimRunning, setIsPythonSimRunning] = useState(false);
 
   // Initialize the WebAssembly module when the component mounts
   useEffect(() => {
@@ -23,27 +25,63 @@ function App() {
   }, []); // The empty dependency array ensures this runs only once.
 
   /**
-   * Handler to run the simulation with the given parameters.
+   * Handler to run the WASM simulation with the given parameters.
    * @param {object} params - The parameters for the simulation.
    */
-  const handleRunSimulation = (params) => {
+  const handleRunWasmSimulation = (params) => {
     if (!isWasmReady) {
-      console.error('handleRunSimulation called before WASM is ready.');
+      console.error('handleRunWasmSimulation called before WASM is ready.');
       setError("Simulation engine is not ready. Please wait.");
       return;
     }
-    console.log('App: Running simulation with params:', params);
+    console.log('App: Running WASM simulation with params:', params);
     setError(null); // Clear previous errors
 
     const results = runSimulation(params);
 
     if (results) {
-      console.log('App: Received simulation results:', results);
+      console.log('App: Received WASM simulation results:', results);
       setSimulationData(results);
     } else {
-      console.error('App: Simulation returned no results.');
-      setError('An error occurred during the simulation. Check the console for details.');
+      console.error('App: WASM Simulation returned no results.');
+      setError('An error occurred during the WASM simulation. Check the console for details.');
       setSimulationData(null); // Clear old data on error
+    }
+  };
+
+  /**
+   * Handler to run the Python simulation with the given parameters.
+   * @param {object} params - The parameters for the simulation.
+   */
+  const handleRunPythonSimulation = async (params) => {
+    console.log('App: Running Python simulation with params:', params);
+    setError(null);
+    setIsPythonSimRunning(true);
+
+    try {
+      const response = await fetch('http://localhost:5001/simulate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const results = await response.json();
+      console.log('App: Received Python simulation results:', results);
+      setSimulationData(results);
+
+    } catch (err) {
+      console.error('App: Python simulation failed:', err);
+      setError(`Python simulation failed: ${err.message}`);
+      setSimulationData(null); // Clear old data on error
+    } finally {
+      setIsPythonSimRunning(false);
     }
   };
 
@@ -54,10 +92,15 @@ function App() {
       </header>
       <main className="App-main">
         <div className="controls-container">
-          <h2>Simulation Controls</h2>
+          <h2>WASM Simulation</h2>
           <SimulationControl
-            onRunSimulation={handleRunSimulation}
+            onRunSimulation={handleRunWasmSimulation}
             isWasmReady={isWasmReady}
+          />
+          <hr />
+          <PythonSimulationControl
+            onRunSimulation={handleRunPythonSimulation}
+            isRunning={isPythonSimRunning}
           />
         </div>
         <div className="chart-container">

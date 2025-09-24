@@ -21,6 +21,12 @@
   border-right: 1px solid #ccc;
 }
 
+.controls-container hr {
+  margin: 20px 0;
+  border: 0;
+  border-top: 1px solid #eee;
+}
+
 .chart-container {
   width: 70%;
   padding: 20px;
