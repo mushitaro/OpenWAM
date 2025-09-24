@@ -2,47 +2,41 @@
 
 // This service wraps the WebAssembly module and provides a simple interface to it.
 
-// The Emscripten module object, which will be initialized once the script is loaded.
 let wasmModule;
 
 /**
- * Initializes the WebAssembly module.
+ * Initializes the WebAssembly module using modern ES module dynamic import.
  * This function should be called once when the application starts.
- * It loads the 'openwam.js' script, which in turn loads the .wasm file.
  *
  * @returns {Promise<void>} A promise that resolves when the module is initialized.
  */
-export const initWasm = () => {
-  return new Promise((resolve, reject) => {
-    // Check if the module is already initialized
-    if (wasmModule) {
-      return resolve();
-    }
+export const initWasm = async () => {
+  // Prevent re-initialization
+  if (wasmModule) {
+    return;
+  }
 
-    // Create a script element to load the Emscripten-generated glue code.
-    const script = document.createElement('script');
-    script.src = '/openwam.js'; // The script is in the public folder
-    script.async = true;
-    document.body.appendChild(script);
+  try {
+    // Dynamically import the Emscripten-generated glue code.
+    // The '.default' is needed because it's a default export.
+    const openWamModuleFactory = (await import('/openwam.js')).default;
+    console.log('WASM module factory loaded.');
 
-    // Emscripten's 'Module' object provides an 'onRuntimeInitialized' callback.
-    // We need to define this callback *before* the script loads.
-    window.Module = {
-      onRuntimeInitialized: () => {
-        console.log('WebAssembly module runtime initialized.');
-        wasmModule = window.Module;
-        resolve();
-      },
-      // Redirect wasm stdout to the console for debugging
+    const moduleArgs = {
+      // Redirect wasm stdout and stderr to the console for debugging
       print: (text) => console.log('WASM >', text),
       printErr: (text) => console.error('WASM ERR >', text),
     };
 
-    script.onerror = (err) => {
-      console.error('Failed to load WebAssembly module script.', err);
-      reject(err);
-    };
-  });
+    // The factory function returns a promise that resolves with the initialized module instance.
+    wasmModule = await openWamModuleFactory(moduleArgs);
+    console.log('WebAssembly module instance is ready.');
+
+  } catch (err) {
+    console.error('Failed to initialize WebAssembly module.', err);
+    // Re-throw the error to be caught by the caller in App.js
+    throw err;
+  }
 };
 
 /**
@@ -58,7 +52,7 @@ export const runSimulation = (params) => {
   }
 
   try {
-    // The C++ wrapper function is exposed via ccall
+    // The C++ wrapper function is exposed via ccall on the module instance
     const runSimulationWrapper = wasmModule.cwrap(
       'run_simulation_wrapper', // name of the C++ function
       'string',                 // return type
