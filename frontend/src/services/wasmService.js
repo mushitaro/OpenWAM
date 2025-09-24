@@ -9,30 +9,26 @@ let wasmModule;
  * @returns {Promise<void>} A promise that resolves when the module is initialized.
  */
 export const initWasm = async () => {
-  // Prevent re-initialization
   if (wasmModule) {
     return;
   }
 
   try {
-    // Dynamically import the Emscripten-generated glue code.
-    // The '.default' is needed because it's a default export.
-    const openWamModuleFactory = (await import(window.location.origin + '/openwam.js')).default;
-    console.log('WASM module factory loaded.');
+    const EmscriptenModuleFactory = (await import('../openwam.js')).default;
 
-    const moduleArgs = {
-      // Redirect wasm stdout and stderr to the console for debugging
+    const EmscriptenModule = {
       print: (text) => console.log('WASM >', text),
       printErr: (text) => console.error('WASM ERR >', text),
     };
 
-    // The factory function returns a promise that resolves with the initialized module instance.
-    wasmModule = await openWamModuleFactory(moduleArgs);
-    console.log('WebAssembly module instance is ready.');
+    await EmscriptenModuleFactory(EmscriptenModule);
+
+    wasmModule = EmscriptenModule;
+    console.log('WASM module is ready.');
+    console.dir(wasmModule); // <--- ADDED THIS LINE
 
   } catch (err) {
     console.error('Failed to initialize WebAssembly module.', err);
-    // Re-throw the error to be caught by the caller in App.js
     throw err;
   }
 };
@@ -50,12 +46,8 @@ export const runSimulation = (params) => {
   }
 
   try {
-    // The C++ wrapper function is exposed via ccall on the module instance
-    const runSimulationWrapper = wasmModule.cwrap(
-      'run_simulation_wrapper', // name of the C++ function
-      'string',                 // return type
-      ['string']                // argument types
-    );
+    // Directly call the wrapped C++ function
+    const runSimulationWrapper = wasmModule._run_simulation_wrapper; // <--- MODIFIED LINE
 
     const paramsJson = JSON.stringify(params);
     console.log('Running simulation with params:', paramsJson);
