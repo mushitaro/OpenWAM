@@ -131,6 +131,16 @@ class TValvula4T: public TTipoValvula {
 
 	void GetCDout(double Time);
 
+	void setVVT(double angle) {
+		FVVT = true;
+		FVVTTiming = true;
+		FVVTTimigGap = angle;
+	}
+
+	double getVVT() {
+		return FVVTTimigGap;
+	}
+
 };
 
 //---------------------------------------------------------------------------

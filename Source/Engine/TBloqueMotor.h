@@ -215,7 +215,7 @@ class TBloqueMotor {
 	}
 	;
 
-	stGeometria getGeometria() {
+	stGeometria& getGeometria() {
 		return FGeom;
 	}
 	;
