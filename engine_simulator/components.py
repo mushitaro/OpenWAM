@@ -58,7 +58,7 @@ class Valve:
 
 class Cylinder:
     """
-    Contains the in-cylinder thermodynamic model.
+    Contains the in-cylinder thermodynamic model with VANOS support.
     """
     def __init__(self, config, engine_block):
         self.config = config
@@ -81,13 +81,19 @@ class Cylinder:
         self.fuel_config = self.engine_block.config['engine']['fuel']
         self.ht_config = self.engine_block.config['engine']['heat_transfer']
 
+        # VANOS parameters
+        self.current_intake_vanos = 0.0  # Current intake VANOS angle (degrees)
+        self.current_exhaust_vanos = 0.0  # Current exhaust VANOS angle (degrees)
+        
         # Initial state
         self.state = {
             'P': 1.013e5,  # Pressure (Pa)
             'T': 293,      # Temperature (K)
             'mass': 0.001, # Mass of gas (kg)
             'composition': {'air': 1.0},
-            'burned_fraction': 0.0
+            'burned_fraction': 0.0,
+            'air_mass_trapped': 0.0,  # For volumetric efficiency calculation
+            'volumetric_efficiency': 0.8  # Current VE
         }
 
     def _calculate_combustion(self, crank_angle_deg):
@@ -164,9 +170,162 @@ class Cylinder:
 
         return self.clearance_volume + self.area * piston_displacement
 
-    def update(self, crank_angle_deg, d_theta_deg, dt):
+    def update_vanos_angles(self, rpm, load):
         """
-        Updates the cylinder state for one time step.
+        Update VANOS angles based on current RPM and load.
+        """
+        if hasattr(self.engine_block.config, 'vanos'):
+            vanos_config = self.engine_block.config['vanos']
+            
+            if vanos_config['intake']['enabled']:
+                self.current_intake_vanos = self._interpolate_vanos_angle(
+                    rpm, load, vanos_config['intake']
+                )
+            
+            if vanos_config['exhaust']['enabled']:
+                self.current_exhaust_vanos = self._interpolate_vanos_angle(
+                    rpm, load, vanos_config['exhaust']
+                )
+
+    def _interpolate_vanos_angle(self, rpm, load, vanos_config):
+        """
+        Interpolate VANOS angle from RPM and load.
+        """
+        rpm_points = np.array(vanos_config['rpm_points'])
+        load_points = np.array(vanos_config['load_points'])
+        
+        if 'advance_map' in vanos_config:
+            angle_map = np.array(vanos_config['advance_map'])
+        else:
+            angle_map = np.array(vanos_config['retard_map'])
+        
+        # 2D interpolation using scipy (新しいバージョン対応)
+        from scipy.interpolate import RegularGridInterpolator
+        
+        f = RegularGridInterpolator((rpm_points, load_points), angle_map, 
+                                   method='linear', bounds_error=False, fill_value=None)
+        
+        # 範囲外の値をクランプ
+        rpm_clamped = max(rpm_points[0], min(rpm_points[-1], rpm))
+        load_clamped = max(load_points[0], min(load_points[-1], load))
+        
+        return float(f([rpm_clamped, load_clamped]))
+
+    def get_effective_valve_timing(self, valve_type):
+        """
+        Get effective valve timing considering VANOS adjustment.
+        BMW S54エンジン仕様: 最大リフト11.8mm、開度期間260°
+        参考スクリプトに基づく正確な計算方式
+        """
+        valve_duration = 260.0  # BMW S54の実際のバルブ開度期間
+        
+        if valve_type == 'intake':
+            # インテークVANOS角度はATDC（上死点後）でのバルブ全開角度
+            # 参考スクリプトでは intakeMaxLiftAngle = intakeAngle (正の値)
+            valve_max_lift_angle_atdc = self.current_intake_vanos
+            
+            # バルブ全開角度を中心に±130°の開度期間（260°）
+            opening_angle = valve_max_lift_angle_atdc - valve_duration/2
+            closing_angle = valve_max_lift_angle_atdc + valve_duration/2
+            
+            return opening_angle, closing_angle
+        else:
+            # エキゾーストVANOS角度はABDC（下死点後）でのバルブ全開角度
+            # 参考スクリプトでは exhaustMaxLiftAngle = exhaustAngle (正の値だが、計算で負方向使用)
+            valve_max_lift_angle_abdc = self.current_exhaust_vanos
+            
+            # エキゾーストは正の値のまま使用（参考スクリプトと同じ）
+            # 計算時に direction で負方向に調整
+            opening_angle = valve_max_lift_angle_abdc - valve_duration/2
+            closing_angle = valve_max_lift_angle_abdc + valve_duration/2
+            
+            return opening_angle, closing_angle
+
+    def calculate_volumetric_efficiency(self, crank_angle_deg, rpm=3000):
+        """
+        Calculate volumetric efficiency considering VANOS valve timing and RPM.
+        BMW S54エンジンの実際の特性を考慮
+        """
+        intake_opening, intake_closing = self.get_effective_valve_timing('intake')
+        exhaust_opening, exhaust_closing = self.get_effective_valve_timing('exhaust')
+        
+        # 実際のオーバーラップを計算（TDC付近での重複）
+        # インテーク: -20°～240°, エキゾースト: -50°～210°
+        # 実際のオーバーラップは-20°～15°程度（TDC付近）
+        overlap = 35.0  # 固定値として設定（後でより正確な計算に置き換え可能）
+        
+        # RPMベースの体積効率カーブ（BMW S54エンジンの実際の特性）
+        # S54は約5500-6000 RPMで最高体積効率を示す
+        def rpm_ve_curve(rpm):
+            """BMW S54エンジンのRPM vs 体積効率カーブ"""
+            if rpm < 1000:
+                return 0.65
+            elif rpm < 2000:
+                # 低RPM: 線形増加
+                return 0.65 + 0.15 * (rpm - 1000) / 1000
+            elif rpm < 4000:
+                # 中低RPM: 緩やかな増加
+                return 0.80 + 0.10 * (rpm - 2000) / 2000
+            elif rpm < 6000:
+                # 中高RPM: 最高効率に向けて増加
+                return 0.90 + 0.05 * (rpm - 4000) / 2000
+            elif rpm < 7000:
+                # 高RPM: 最高効率付近
+                return 0.95 - 0.02 * (rpm - 6000) / 1000
+            else:
+                # 超高RPM: 効率低下
+                return 0.93 - 0.10 * (rpm - 7000) / 1000
+        
+        # RPMベースの基本体積効率
+        base_ve = rpm_ve_curve(rpm)
+        
+        # VANOS timing factor (実測データ範囲に対応、RPM依存)
+        # インテーク: RPMに応じた最適値
+        if rpm < 3000:
+            optimal_intake = 110.0  # 低RPMでは遅角が有利
+        elif rpm < 5000:
+            optimal_intake = 100.0  # 中RPMでは中間
+        else:
+            optimal_intake = 90.0   # 高RPMでは進角が有利
+        
+        intake_deviation = abs(self.current_intake_vanos - optimal_intake)
+        intake_factor = 1.0 - 0.001 * intake_deviation
+        
+        # エキゾースト: RPMに応じた最適値
+        if rpm < 3000:
+            optimal_exhaust = 85.0  # 低RPMでは遅角が有利
+        elif rpm < 5000:
+            optimal_exhaust = 80.0  # 中RPMでは中間
+        else:
+            optimal_exhaust = 75.0  # 高RPMでは進角が有利
+        
+        exhaust_deviation = abs(self.current_exhaust_vanos - optimal_exhaust)
+        exhaust_factor = 1.0 - 0.0005 * exhaust_deviation
+        
+        # オーバーラップ効果（RPM依存）
+        if rpm < 3000:
+            optimal_overlap = 15.0  # 低RPMでは少ないオーバーラップが有利
+        elif rpm < 5000:
+            optimal_overlap = 25.0  # 中RPMでは中程度
+        else:
+            optimal_overlap = 35.0  # 高RPMでは多いオーバーラップが有利
+        
+        overlap_deviation = abs(overlap - optimal_overlap)
+        overlap_factor = 1.0 - 0.002 * overlap_deviation
+        
+        # 最終的な体積効率
+        ve = base_ve * intake_factor * exhaust_factor * overlap_factor
+        
+
+        
+        # 現実的な範囲に制限
+        ve = max(0.60, min(0.98, ve))
+        
+        return ve
+
+    def update(self, crank_angle_deg, d_theta_deg, dt, rpm=3000):
+        """
+        Updates the cylinder state for one time step with VANOS consideration.
         """
         # Get volume at the beginning and end of the step
         v1 = self.get_volume(crank_angle_deg)
@@ -178,11 +337,45 @@ class Cylinder:
         T1 = self.state['T']
         mass = self.state['mass']
 
+        # Calculate volumetric efficiency with current VANOS settings and RPM
+        ve = self.calculate_volumetric_efficiency(crank_angle_deg, rpm)
+        self.state['volumetric_efficiency'] = ve
+        
+        # Calculate trapped air mass during intake stroke
+        ca_cycle = crank_angle_deg % 720
+        intake_opening, intake_closing = self.get_effective_valve_timing('intake')
+        
+        # Normalize angles to 0-720 range
+        intake_opening_norm = (intake_opening + 720) % 720
+        intake_closing_norm = (intake_closing + 720) % 720
+        
+        # Update trapped air mass at intake valve closing
+        if abs(ca_cycle - intake_closing_norm) < 1.0:  # Near IVC
+            # Ambient conditions
+            R_air = 287  # J/kg·K
+            ambient_pressure = 101325  # Pa
+            ambient_temperature = 298  # K
+            air_density = ambient_pressure / (R_air * ambient_temperature)
+            
+            # Theoretical air mass that could fill the swept volume
+            theoretical_air_mass = air_density * self.swept_volume
+            
+            # Actual trapped air mass considering volumetric efficiency
+            self.state['air_mass_trapped'] = theoretical_air_mass * ve
+        
+        # Maintain air mass trapped value throughout the cycle
+        if not hasattr(self, '_last_air_mass_trapped'):
+            self._last_air_mass_trapped = 0.0
+        
+        if self.state['air_mass_trapped'] > 0:
+            self._last_air_mass_trapped = self.state['air_mass_trapped']
+        else:
+            self.state['air_mass_trapped'] = self._last_air_mass_trapped
+
         # Calculate work done (using pressure at the start of the step)
         dW = P1 * dV
 
         # Reset burned fraction at the start of a new combustion event
-        ca_cycle = crank_angle_deg % 720
         # A bit before TDC compression
         if 340 < ca_cycle < 350 and self.state['burned_fraction'] > 0.5:
             self.state['burned_fraction'] = 0.0

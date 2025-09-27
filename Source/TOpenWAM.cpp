@@ -2234,26 +2234,26 @@ void TOpenWAM::CalculateNewHeatPositions()
 							if(Contorno[k]->getTipoCC() == nmUnionEntreDepositos) {
 								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito1() ==
 								   dynamic_cast<TCCUnionEntreDepositos*>(Contorno[k])->getNumeroDeposito1()
-								   || dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito1() ==
+								   || dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito1() ==
 								   dynamic_cast<TCCUnionEntreDepositos*>(Contorno[k])->getNumeroDeposito2()) {
 									NodoFin = k + 1;
 									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);
 								}
 							}
 						}
-					} else if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito2() == i + 1) {
+					} else if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito2() == i + 1) {
 						for(int k = 0; k < NumberOfConnections; k++) {
 							if(Contorno[k]->getTipoCC() == nmPipeToPlenumConnection) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito2() == dynamic_cast<TCCDeposito*>
+								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito2() == dynamic_cast<TCCDeposito*>
 								   (Contorno[k])->getNumeroDeposito()) {
 									NodoFin = k + 1;
 									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);
 								}
 							}
 							if(Contorno[k]->getTipoCC() == nmUnionEntreDepositos) {
-								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito2() ==
+								if(dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito2() ==
 								   dynamic_cast<TCCUnionEntreDepositos*>(Contorno[k])->getNumeroDeposito1()
-								   || dynamic_cast<TCCUnionEntreDepositos*>(Contorno[LNodoOrigen - 1])->getNumeroDeposito2() ==
+								   || dynamic_cast<TCCUnionEntreDepositos*>(Contorno[NodoOrigen - 1])->getNumeroDeposito2() ==
 								   dynamic_cast<TCCUnionEntreDepositos*>(Contorno[k])->getNumeroDeposito2()) {
 									NodoFin = k + 1;
 									CalculateDistance(NodoOrigen, NodoFin, 0., NumberOfPlenums, NumberOfPipes, NumberOfConnections, Pipe, Contorno);

@@ -2405,8 +2405,8 @@ void TOutputResults::WriteInstantaneous(bool EngineBlock, double Angle, double A
 				temperature.resize(Engine->getGeometria().NCilin);
 			}
 			for (int i = 0; i < Engine->getGeometria().NCilin; i++) {
-				pressure[i].push_back(Engine->GetCilindro(i)->getPresion());
-				temperature[i].push_back(Engine->GetCilindro(i)->getTemperatura());
+				pressure[i].push_back(Engine->GetCilindro(i)->getPressure());
+				temperature[i].push_back(Engine->GetCilindro(i)->getTemperature());
 			}
 		}
 	}

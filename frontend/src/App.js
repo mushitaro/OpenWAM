@@ -1,53 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
+import BMWE46M3Dashboard from './components/BMWE46M3Dashboard';
 import SimulationControl from './components/SimulationControl';
 import PythonSimulationControl from './components/PythonSimulationControl';
 import SimulationChart from './components/SimulationChart';
-import { initWasm, runSimulation } from './services/wasmService';
 
 function App() {
-  const [isWasmReady, setIsWasmReady] = useState(false);
+  const [currentView, setCurrentView] = useState('bmw-e46-m3');
   const [simulationData, setSimulationData] = useState(null);
   const [error, setError] = useState(null);
   const [isPythonSimRunning, setIsPythonSimRunning] = useState(false);
-
-  // Initialize the WebAssembly module when the component mounts
-  useEffect(() => {
-    initWasm()
-      .then(() => {
-        setIsWasmReady(true);
-        console.log('WASM module is ready.');
-      })
-      .catch(err => {
-        console.error("WASM Initialization failed:", err);
-        setError("Failed to load the simulation engine. Please refresh the page.");
-      });
-  }, []); // The empty dependency array ensures this runs only once.
-
-  /**
-   * Handler to run the WASM simulation with the given parameters.
-   * @param {object} params - The parameters for the simulation.
-   */
-  const handleRunWasmSimulation = (params) => {
-    if (!isWasmReady) {
-      console.error('handleRunWasmSimulation called before WASM is ready.');
-      setError("Simulation engine is not ready. Please wait.");
-      return;
-    }
-    console.log('App: Running WASM simulation with params:', params);
-    setError(null); // Clear previous errors
-
-    const results = runSimulation(params);
-
-    if (results) {
-      console.log('App: Received WASM simulation results:', results);
-      setSimulationData(results);
-    } else {
-      console.error('App: WASM Simulation returned no results.');
-      setError('An error occurred during the WASM simulation. Check the console for details.');
-      setSimulationData(null); // Clear old data on error
-    }
-  };
 
   /**
    * Handler to run the Python simulation with the given parameters.
@@ -89,25 +51,55 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>OpenWAM Interactive Engine Simulation</h1>
+        <nav style={{ marginTop: '10px' }}>
+          <button 
+            onClick={() => setCurrentView('bmw-e46-m3')}
+            style={{ 
+              margin: '0 10px', 
+              padding: '8px 16px',
+              backgroundColor: currentView === 'bmw-e46-m3' ? '#007bff' : '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            BMW E46 M3 VANOS
+          </button>
+          <button 
+            onClick={() => setCurrentView('general')}
+            style={{ 
+              margin: '0 10px', 
+              padding: '8px 16px',
+              backgroundColor: currentView === 'general' ? '#007bff' : '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            General Simulation
+          </button>
+        </nav>
       </header>
       <main className="App-main">
-        <div className="controls-container">
-          <h2>WASM Simulation</h2>
-          <SimulationControl
-            onRunSimulation={handleRunWasmSimulation}
-            isWasmReady={isWasmReady}
-          />
-          <hr />
-          <PythonSimulationControl
-            onRunSimulation={handleRunPythonSimulation}
-            isRunning={isPythonSimRunning}
-          />
-        </div>
-        <div className="chart-container">
-          <h2>Simulation Output</h2>
-          {error && <p className="error-message">{error}</p>}
-          <SimulationChart data={simulationData} />
-        </div>
+        {currentView === 'bmw-e46-m3' ? (
+          <BMWE46M3Dashboard />
+        ) : (
+          <>
+            <div className="controls-container">
+              <PythonSimulationControl
+                onRunSimulation={handleRunPythonSimulation}
+                isRunning={isPythonSimRunning}
+              />
+            </div>
+            <div className="chart-container">
+              <h2>Simulation Output</h2>
+              {error && <p className="error-message">{error}</p>}
+              <SimulationChart data={simulationData} />
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

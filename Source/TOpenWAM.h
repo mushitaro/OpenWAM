@@ -202,7 +202,7 @@ class TOpenWAM {
 	TVenturi** Venturi;
 
 	// ! ARRAYS OF BOUNDARY CONDITIONS
-	TCondicionContorno** BC;
+	TCondicionContorno** Contorno;
 	TCondicionContorno** BCIntakeValve;
 	TCondicionContorno** BCExhaustValve;
 	TCondicionContorno** BCReedValve;
@@ -389,7 +389,7 @@ class TOpenWAM {
 	void CalculateNewHeatPositions();
 
 	void CalculateDistance(int NodoOrigen, int NodoFin, double Longitud, int NumberOfPlenums, int NumberOfPipes,
-						   int NumberOfConnections, TTubo **Pipe, TCondicionContorno **BC);
+						   int NumberOfConnections, TTubo **Pipe, TCondicionContorno **Contorno);
 
 	int SelectPipe(TTubo **Pipe, int NumberOfPipes, int nodo1, int nodo2);
 

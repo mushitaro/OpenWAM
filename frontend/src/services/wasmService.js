@@ -33,6 +33,8 @@ export const initWasm = async () => {
   }
 };
 
+
+
 /**
  * Runs the engine simulation by calling the wrapped C++ function.
  *
@@ -46,11 +48,19 @@ export const runSimulation = (params) => {
   }
 
   try {
-    // Directly call the wrapped C++ function
-    const runSimulationWrapper = wasmModule._run_simulation_wrapper; // <--- MODIFIED LINE
+    const runSimulationWrapper = wasmModule._run_simulation_wrapper;
 
-    const paramsJson = JSON.stringify(params);
-    console.log('Running simulation with params:', paramsJson);
+    // Flatten and rename parameters to match C++ expectations
+    const cppParams = {
+      engine_speed_rpm: params.engine_speed,
+      cylinder_bore_m: params.cylinder.bore,
+      cylinder_stroke_m: params.cylinder.stroke,
+      compression_ratio: params.cylinder.compression_ratio,
+      vvt_intake_angle_deg: params.valves.vvt_angle,
+    };
+
+    const paramsJson = JSON.stringify(cppParams);
+    console.log('Running simulation with C++ params:', paramsJson);
 
     const resultJson = runSimulationWrapper(paramsJson);
     console.log('Simulation result (raw JSON string):', resultJson);
