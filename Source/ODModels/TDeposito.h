@@ -2,8 +2,8 @@
 ==========================|
  |\\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  | \\ |  X  | //  W ave     |
- |  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
- |   \\/   \//    M odel    |
+ |  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia |   \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
 
@@ -23,7 +23,8 @@
  along with OpenWAM.  If not, see <http://www.gnu.org/licenses/>.
 
 
- \*-------------------------------------------------------------------------------- */
+ \*--------------------------------------------------------------------------------
+*/
 
 // ---------------------------------------------------------------------------
 #ifndef TDepositoH
@@ -32,7 +33,7 @@
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
-//#include <cmath>
+// #include <cmath>
 #include <vector>
 #include <cstdio>
 
@@ -42,282 +43,239 @@ class TCondicionContorno;
 class TCompresor;
 
 class TDeposito {
-  protected:
-	// ---------------------------------------------------------------------------
-	// VARIABLES PRIVADAS
-	// ---------------------------------------------------------------------------
+protected:
+  // ---------------------------------------------------------------------------
+  // VARIABLES PRIVADAS
+  // ---------------------------------------------------------------------------
 
-	TCondicionContorno **FCCDeposito;
-	TCondicionContorno **FCCUnionEntreDep;
+  TCondicionContorno **FCCDeposito;
+  TCondicionContorno **FCCUnionEntreDep;
 
-	// Constantes termodinamicas
+  // Constantes termodinamicas
 
-	double FPresRef;
+  double FPresRef;
 
-	// Variables geometricas
+  // Variables geometricas
 
-	int FNumeroDeposito;
-	double FVolumen0;
-	double FVolumen;
-	nmVolumenDeposito FVolumenDeposito;
-	nmTipoDeposito FTipoDeposito;
-	int *FUnion;
-	bool asgFUnion;
-	bool asgFNumUniones;
-	int *FNumConductos;
-	bool asgFNumConductos;
-	int *FNumNodos;
-	bool asgFNumNodos;
-	int *FSentidoFlujo;
-	bool asgFSentidoFlujo;
+  int FNumeroDeposito;
+  double FVolumen0;
+  double FVolumen;
+  nmVolumenDeposito FVolumenDeposito;
+  nmTipoDeposito FTipoDeposito;
+  int *FUnion;
+  bool asgFUnion;
+  bool asgFNumUniones;
+  int *FNumConductos;
+  bool asgFNumConductos;
+  int *FNumNodos;
+  bool asgFNumNodos;
+  int *FSentidoFlujo;
+  bool asgFSentidoFlujo;
 
-	int FNUnionesED;
-	int FNumeroUnionesED;
+  int FNUnionesED;
+  int FNumeroUnionesED;
 
-	// La crea pedro. la otra desaparecera
-	std::vector<int> FUnionED;
-	std::vector<int> FSentidoUED;
+  // La crea pedro. la otra desaparecera
+  std::vector<int> FUnionED;
+  std::vector<int> FSentidoUED;
 
-	bool FHayCompresor;
-	int FNumeroCompresor;
-	int FCompresorSentido;
+  bool FHayCompresor;
+  int FNumeroCompresor;
+  int FCompresorSentido;
 
-	// Variables termodinamicas
+  // Variables termodinamicas
 
-	double FTemperature;
-	double FPressure;
-	double FPresionIsen;
-	double FDensidad;
-	double FAsonido;
-	double FMasa0;
-	double FMasa;
+  double FTemperature;
+  double FPressure;
+  double FPresionIsen;
+  double FDensidad;
+  double FAsonido;
+  double FMasa0;
+  double FMasa;
 
-	double FHeatPower;
+  double FHeatPower;
 
-	// Variables temporales
+  // Variables temporales
 
-	double FTime;
-	// bool FUpdated;
+  double FTime;
+  // bool FUpdated;
 
-	// Salida grafica
+  // Salida grafica
 
-	int FNumResMed;
+  int FNumResMed;
 
-	stResInstantDep FResInstantDep;
-	stResMediosDep FResMediosDep;
+  stResInstantDep FResInstantDep;
+  stResMediosDep FResMediosDep;
 
-	// Sensores
+  // Sensores
 
-	stSensoresDep FSensorDep;
+  stSensoresDep FSensorDep;
 
-	// Compressor acoplado (si hay)
+  // Compressor acoplado (si hay)
 
-	TCompresor *FCompresor;
+  TCompresor *FCompresor;
 
-	nmSentidoFlujo FSentidoGasto;
-
-	// Estudio de Estabilidad
+  nmSentidoFlujo FSentidoGasto;
 
-	// bool FEstudioEstabilidadRealizado;
-	// bool FCalculadoPaso;
-
-	// Variables del transporte de especies.
-	int FNumeroEspecies;
-	nmTipoCalculoEspecies FCalculoEspecies;
-	nmCalculoGamma FCalculoGamma;
-	double *FFraccionMasicaEspecie;
-	double *FMasaEspecie;
-	double FCpMezcla;
-	double FCvMezcla;
-	double FRMezcla;
-	double FGamma;
-	double FGamma1;
-	double FGamma2;
-	double FGamma3;
-	double FGamma5;
-	double FGamma6;
-	bool FHayEGR;
-	int FIntEGR;
-	double FFraccionMasicaEspecieFuel; // Para calculo completo de especies
+  // Estudio de Estabilidad
 
-	// ---------------------------------------------------------------------------
-	// FUNCIONES PRIVADAS
-	// ---------------------------------------------------------------------------
+  // bool FEstudioEstabilidadRealizado;
+  // bool FCalculadoPaso;
 
-	// void PutNUniones(int value);
+  // Variables del transporte de especies.
+  int FNumeroEspecies;
+  nmTipoCalculoEspecies FCalculoEspecies;
+  nmCalculoGamma FCalculoGamma;
+  double *FFraccionMasicaEspecie;
+  double *FMasaEspecie;
+  double FCpMezcla;
+  double FCvMezcla;
+  double FRMezcla;
+  double FGamma;
+  double FGamma1;
+  double FGamma2;
+  double FGamma3;
+  double FGamma5;
+  double FGamma6;
+  bool FHayEGR;
+  int FIntEGR;
+  double FFraccionMasicaEspecieFuel; // Para calculo completo de especies
 
-	double EntalpiaEntrada(double ASonidoE, double VelocidadE, double MasaE, double ASonidoD, double MasaD, double Gamma);
+  // ---------------------------------------------------------------------------
+  // FUNCIONES PRIVADAS
+  // ---------------------------------------------------------------------------
 
-	// void PutCalculadoPaso(bool valor);
+  // void PutNUniones(int value);
 
-  public:
-	// ---------------------------------------------------------------------------
-	// VARIABLES PUBLICAS
-	// ---------------------------------------------------------------------------
+  double EntalpiaEntrada(double ASonidoE, double VelocidadE, double MasaE,
+                         double ASonidoD, double MasaD, double Gamma);
 
-	int FNumeroUniones;
+  // void PutCalculadoPaso(bool valor);
 
-	void PutNUniones(int value);
+public:
+  // ---------------------------------------------------------------------------
+  // VARIABLES PUBLICAS
+  // ---------------------------------------------------------------------------
 
-	int getNUniones() {
-		return FNumeroUniones;
-	}
+  int FNumeroUniones;
 
-	// Numero de uniones total del deposito.
-	int getNumeroDeposito() {
-		return FNumeroDeposito;
-	}
-	;
+  void PutNUniones(int value);
 
-	int getNUnionesED() {
-		return FNumeroUnionesED;
-	}
-	;
+  int getNUniones() { return FNumeroUniones; }
 
-	double getMasa() {
-		return FMasa;
-	}
-	;
+  // Numero de uniones total del deposito.
+  int getNumeroDeposito() { return FNumeroDeposito; };
 
-	double getPressure() {
-		return FPressure;
-	}
-	;
+  int getNUnionesED() { return FNumeroUnionesED; };
 
-	double getPresionIs() {
-		return FPresionIsen;
-	}
-	;
+  double getMasa() { return FMasa; };
 
-	double getSpeedsound() {
-		return FAsonido;
-	}
-	;
+  double getPressure() { return FPressure; };
 
-	double getTemperature() {
-		return FTemperature;
-	}
-	;
+  double getPresionIs() { return FPresionIsen; };
 
-	TCondicionContorno* GetCCUnionEntreDep(int i);
+  double getSpeedsound() { return FAsonido; };
 
-	TCondicionContorno* GetCCDeposito(int i);
-	double GetFraccionMasicaEspecie(int i);
+  double getTemperature() { return FTemperature; };
 
-	// ---------------------------------------------------------------------------
-	// ---------------------------------------------------------------------------
-	double getR() {
-		return FRMezcla;
-	}
-	;
+  TCondicionContorno *GetCCUnionEntreDep(int i);
 
-	double getGamma() {
-		return FGamma;
-	}
-	;
+  TCondicionContorno *GetCCDeposito(int i);
+  double GetFraccionMasicaEspecie(int i);
 
-	double getTiempo() {
-		return FTime;
-	}
-	;
+  // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  double getR() { return FRMezcla; };
 
-	void PutUnion(int indice, int valor); // Asigna los numeros de las uniones a depositos del deposito
+  double getGamma() { return FGamma; };
 
-	void PutNumConductos(int indice, int valor); // Asigna los numeros de los tubos que descargan al deposito
+  double getTiempo() { return FTime; };
 
-	void PutNumNodos(int indice, int valor); // Asigna los numeros de los nodos que descargan al deposito
+  void PutUnion(
+      int indice,
+      int valor); // Asigna los numeros de las uniones a depositos del deposito
 
-	void PutSentidoFlujo(int indice, int valor); // Asigna el sentido del flujo de cada union
+  void PutNumConductos(
+      int indice,
+      int valor); // Asigna los numeros de los tubos que descargan al deposito
 
-	nmTipoDeposito getTipoDeposito() {
-		return FTipoDeposito;
-	}
-	;
+  void PutNumNodos(
+      int indice,
+      int valor); // Asigna los numeros de los nodos que descargan al deposito
 
-	bool FUpdated;
+  void PutSentidoFlujo(int indice,
+                       int valor); // Asigna el sentido del flujo de cada union
 
-	bool getUpdated() {
-		return FUpdated;
-	}
+  nmTipoDeposito getTipoDeposito() { return FTipoDeposito; };
 
-	void PutUpdate(bool valor) {
-		FUpdated = valor;
-	}
+  bool FUpdated;
 
-	bool FEstudioEstabilidadRealizado;
+  bool getUpdated() { return FUpdated; }
 
-	bool getEstudioEstabilidadRealizado() {
-		return FEstudioEstabilidadRealizado;
-	}
+  void PutUpdate(bool valor) { FUpdated = valor; }
 
-	void PutRealizado(bool valor) {
-		FEstudioEstabilidadRealizado = valor;
-	}
+  bool FEstudioEstabilidadRealizado;
 
-	void PutCalculadoPaso(bool valor) {
-		FCalculadoPaso = valor;
-	}
+  bool getEstudioEstabilidadRealizado() { return FEstudioEstabilidadRealizado; }
 
-	bool FCalculadoPaso;
+  void PutRealizado(bool valor) { FEstudioEstabilidadRealizado = valor; }
 
-	bool getCalculadoPaso() {
-		return FCalculadoPaso;
-	}
+  void PutCalculadoPaso(bool valor) { FCalculadoPaso = valor; }
 
-	// ---------------------------------------------------------------------------
-	// FUNCIONES PUBLICAS
-	// ---------------------------------------------------------------------------
+  bool FCalculadoPaso;
 
-	TDeposito(int i, nmTipoDeposito TipoDeposito, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-			  nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  bool getCalculadoPaso() { return FCalculadoPaso; }
 
-	virtual ~TDeposito() = 0;
+  // ---------------------------------------------------------------------------
+  // FUNCIONES PUBLICAS
+  // ---------------------------------------------------------------------------
 
-	virtual void ActualizaPropiedades(double TimeCalculo) = 0;
+  TDeposito(int i, nmTipoDeposito TipoDeposito,
+            nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+            nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-	void ReadInstantaneousResultsDep(const char *FileWAM, fpos_t &filepos);
+  virtual ~TDeposito() = 0;
 
-	void HeaderInstantaneousResultsDep(std::stringstream& insoutput, stEspecies *DatosEspecies);
+  virtual void ActualizaPropiedades(double TimeCalculo) = 0;
 
-	void ImprimeResultadosInstantaneosDep(std::stringstream& insoutput);
+  void ReadInstantaneousResultsDep(const char *FileWAM, fpos_t &filepos);
 
-	void ResultadosInstantaneosDep();
+  void HeaderInstantaneousResultsDep(std::ostream &insoutput,
+                                     stEspecies *DatosEspecies);
 
-	void ReadAverageResultsDep(const char *FileWAM, fpos_t &filepos);
+  void ImprimeResultadosInstantaneosDep(std::ostream &insoutput);
 
-	void HeaderAverageResultsDep(std::stringstream& medoutput, stEspecies *DatosEspecies);
+  void ResultadosInstantaneosDep();
 
-	void ImprimeResultadosMediosDep(std::stringstream& medoutput);
+  void ReadAverageResultsDep(const char *FileWAM, fpos_t &filepos);
 
-	void AcumulaResultadosMedios(double Actual);
+  void HeaderAverageResultsDep(std::ostream &medoutput,
+                               stEspecies *DatosEspecies);
 
-	void ResultadosMediosDep();
+  void ImprimeResultadosMediosDep(std::ostream &medoutput);
 
-	double CriterioEstabilidad(double TMinimo);
+  void AcumulaResultadosMedios(double Actual);
 
-	void SalidaGeneralDep(stEspecies *DatosEspecies);
+  void ResultadosMediosDep();
 
-	void CreaUnionED(int numero, int sentido);
+  double CriterioEstabilidad(double TMinimo);
 
-	void AsignaCompresor(TCompresor *Compressor, int sentido);
+  void SalidaGeneralDep(stEspecies *DatosEspecies);
 
-	void AsignacionCC(TCondicionContorno **BC, int numCC);
+  void CreaUnionED(int numero, int sentido);
 
-	void LeeDatosGeneralesDepositos(const char *FileWAM, fpos_t &filepos);
+  void AsignaCompresor(TCompresor *Compressor, int sentido);
 
-	void ActualizaTiempo(double TiempoActual);
+  void AsignacionCC(TCondicionContorno **BC, int numCC);
 
-	virtual void UpdateProperties0DModel(double Time) {
-	}
-	;
+  void LeeDatosGeneralesDepositos(const char *FileWAM, fpos_t &filepos);
 
-	void PutHeatPower(double Power) {
-		FHeatPower = Power;
-	}
-	;
+  void ActualizaTiempo(double TiempoActual);
 
+  virtual void UpdateProperties0DModel(double Time) {};
+
+  void PutHeatPower(double Power) { FHeatPower = Power; };
 };
 
 // ---------------------------------------------------------------------------
 #endif
-

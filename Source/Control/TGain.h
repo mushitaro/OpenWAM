@@ -2,7 +2,8 @@
  *==========================|
  *\\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  * \\ |  X  | //  W ave     |
- *  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ *  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+ Valencia
  *   \\/   \//    M odel    |
  *----------------------------------------------------------------------------------
  *License
@@ -39,66 +40,74 @@
  *
  */
 
-class TGain: public TController {
+class TGain : public TController {
 
-	int fID;					//!< ID controller number
-	double FGain;
-	stGainInput *FGainInput;
-	nmInputObjet FInObject;
-	int FObjectID;
-	double fOutput;
+  int fID; //!< ID controller number
+  double FGain;
+  stGainInput *FGainInput;
+  nmInputObjet FInObject;
+  int FObjectID;
+  double fOutput;
 
-  public:
-	TGain(int i);
+public:
+  TGain(int i);
 
-	~TGain();
+  ~TGain();
 
-	double Output(double Time);
+  double Output(double Time);
 
-	void LeeController(const char *FileWAM, fpos_t &filepos);
+  void LeeController(const char *FileWAM, fpos_t &filepos);
 
-	void AsignaObjetos(TSensor **Sensor, TController **Controller);
+  void AsignaObjetos(TSensor **Sensor, TController **Controller);
 
-	/*! Read the average results selected*/
-	void LeeResultadosMedControlador(const char *FileWAM,					//!< Input data filename
-									 fpos_t &filepos				//!< Position within the input file
-									);
+  /*! Read the average results selected*/
+  void LeeResultadosMedControlador(
+      const char *FileWAM, //!< Input data filename
+      fpos_t &filepos      //!< Position within the input file
+  );
 
-	/*! Read the instantaneous results selected*/
-	void LeeResultadosInsControlador(const char *FileWAM,				//!< Input data filename
-									 fpos_t &filepos				//!< Position within the input file
-									);
+  /*! Read the instantaneous results selected*/
+  void LeeResultadosInsControlador(
+      const char *FileWAM, //!< Input data filename
+      fpos_t &filepos      //!< Position within the input file
+  );
 
-	/*! Generate average results header */
-	void CabeceraResultadosMedControlador(stringstream& medoutput //!< StringStrems where the average results are stored
-										 );
+  /*! Generate average results header */
+  void CabeceraResultadosMedControlador(
+      std::ostream
+          &medoutput //!< StringStrems where the average results are stored
+  );
 
-	/*! Generate instantaneous results header */
-	void CabeceraResultadosInsControlador(stringstream&
-										  insoutput //!< StringStream where the instantaneous results are stored
-										 );
+  /*! Generate instantaneous results header */
+  void CabeceraResultadosInsControlador(
+      std::ostream &
+          insoutput //!< StringStream where the instantaneous results are stored
+  );
 
-	/*! Print average results */
-	void ImprimeResultadosMedControlador(stringstream& medoutput //!< StringStream where the average results are stored
-										);
+  /*! Print average results */
+  void ImprimeResultadosMedControlador(
+      std::ostream
+          &medoutput //!< StringStream where the average results are stored
+  );
 
-	/*! Print instantaneous results */
-	void ImprimeResultadosInsControlador(stringstream&
-										 insoutput //!< StringStream where the instantaneous results are stored
-										);
+  /*! Print instantaneous results */
+  void ImprimeResultadosInsControlador(
+      std::ostream &
+          insoutput //!< StringStream where the instantaneous results are stored
+  );
 
-	/*! Initialize average results */
-	void IniciaMedias();
+  /*! Initialize average results */
+  void IniciaMedias();
 
-	/*! Calculate average results */
-	void ResultadosMediosController();
+  /*! Calculate average results */
+  void ResultadosMediosController();
 
-	/*! Acumulate average results */
-	void AcumulaResultadosMediosController(double Actual	//!< Current time
-										  );
+  /*! Acumulate average results */
+  void AcumulaResultadosMediosController(double Actual //!< Current time
+  );
 
-	/*! Calculate instanteneous results */
-	void ResultadosInstantController();
+  /*! Calculate instanteneous results */
+  void ResultadosInstantController();
 };
 
 #endif /* TGAIN_H_ */

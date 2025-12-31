@@ -71,7 +71,7 @@ class TOutputResults {
 
 	stringstream FAvgOutput;
 	fstream FFileAvg;
-	char FAvgFilename[300];
+	string FAvgFilename;
 
 	vector<TCilindro*> InsCylinder;
 	vector<TDeposito*> InsPlenum;
@@ -92,7 +92,7 @@ class TOutputResults {
 
 	stringstream FInsOutput;
 	fstream FFileIns;
-	char FInsFilename[300];
+	string FInsFilename;
 
 	char FFileCountC[10];
 	int FFileCountI;
@@ -104,59 +104,59 @@ class TOutputResults {
 
 	iVector FParameterSpaceTime;
 
-	FILE *FileOutPressure; // !< Pointers to files for space time results.
-	FILE *FileOutTemp; // !< Pointers to files for space time results.
-	FILE *FileOutVel; // !< Pointers to files for space time results.
-	FILE *FileOutFlow; // !< Pointers to files for space time results.
-	FILE *FOutYO2; // !< Pointers to files for space time results.
-	FILE *FOutYN2; // !< Pointers to files for space time results.
-	FILE *FOutYCO2; // !< Pointers to files for space time results.
-	FILE *FOutYH2O; // !< Pointers to files for space time results.
-	FILE *FOutYCO; // !< Pointers to files for space time results.
-	FILE *FOutYNOx; // !< Pointers to files for space time results.
-	FILE *FOutYSoot; // !< Pointers to files for space time results.
-	FILE *FOutYHC; // !< Pointers to files for space time results.
-	FILE *FOutYFuel; // !< Pointers to files for space time results.
-	FILE *FOutYFreshAir; // !< Pointers to files for space time results.
-	FILE *FOutYBurntGas; // !< Pointers to files for space time results.
-	FILE *FOutFlowO2; // !< Pointers to files for space time results.
-	FILE *FOutFlowN2; // !< Pointers to files for space time results.
-	FILE *FOutFlowCO2; // !< Pointers to files for space time results.
-	FILE *FOutFlowH2O; // !< Pointers to files for space time results.
-	FILE *FOutFlowCO; // !< Pointers to files for space time results.
-	FILE *FOutFlowNOx; // !< Pointers to files for space time results.
-	FILE *FOutFlowSoot; // !< Pointers to files for space time results.
-	FILE *FOutFlowHC; // !< Pointers to files for space time results.
-	FILE *FOutFlowFuel; // !< Pointers to files for space time results.
-	FILE *FOutFlowFreshAir; // !< Pointers to files for space time results.
-	FILE *FOutFlowBurntGas; // !< Pointers to files for space time results.
+	ofstream FileOutPressure; // !< Pointers to files for space time results.
+	ofstream FileOutTemp; // !< Pointers to files for space time results.
+	ofstream FileOutVel; // !< Pointers to files for space time results.
+	ofstream FileOutFlow; // !< Pointers to files for space time results.
+	ofstream FOutYO2; // !< Pointers to files for space time results.
+	ofstream FOutYN2; // !< Pointers to files for space time results.
+	ofstream FOutYCO2; // !< Pointers to files for space time results.
+	ofstream FOutYH2O; // !< Pointers to files for space time results.
+	ofstream FOutYCO; // !< Pointers to files for space time results.
+	ofstream FOutYNOx; // !< Pointers to files for space time results.
+	ofstream FOutYSoot; // !< Pointers to files for space time results.
+	ofstream FOutYHC; // !< Pointers to files for space time results.
+	ofstream FOutYFuel; // !< Pointers to files for space time results.
+	ofstream FOutYFreshAir; // !< Pointers to files for space time results.
+	ofstream FOutYBurntGas; // !< Pointers to files for space time results.
+	ofstream FOutFlowO2; // !< Pointers to files for space time results.
+	ofstream FOutFlowN2; // !< Pointers to files for space time results.
+	ofstream FOutFlowCO2; // !< Pointers to files for space time results.
+	ofstream FOutFlowH2O; // !< Pointers to files for space time results.
+	ofstream FOutFlowCO; // !< Pointers to files for space time results.
+	ofstream FOutFlowNOx; // !< Pointers to files for space time results.
+	ofstream FOutFlowSoot; // !< Pointers to files for space time results.
+	ofstream FOutFlowHC; // !< Pointers to files for space time results.
+	ofstream FOutFlowFuel; // !< Pointers to files for space time results.
+	ofstream FOutFlowFreshAir; // !< Pointers to files for space time results.
+	ofstream FOutFlowBurntGas; // !< Pointers to files for space time results.
 
-	char salpre[300];
-	char saltem[300];
-	char salvel[300];
-	char salair[300];
-	char salYO2[300];
-	char salYN2[300];
-	char salYCO2[300];
-	char salYH2O[300];
-	char salYCO[300];
-	char salYNOx[300];
-	char salYSoot[300];
-	char salYHC[300];
-	char salYCombustible[300];
-	char salYAireFresco[300];
-	char salYGasQuemado[300];
-	char salGastoO2[300];
-	char salGastoN2[300];
-	char salGastoCO2[300];
-	char salGastoH2O[300];
-	char salGastoCO[300];
-	char salGastoNOx[300];
-	char salGastoSoot[300];
-	char salGastoHC[300];
-	char salGastoCombustible[300];
-	char salGastoAireFresco[300];
-	char salGastoGasQuemado[300];
+	string salpre;
+	string saltem;
+	string salvel;
+	string salair;
+	string salYO2;
+	string salYN2;
+	string salYCO2;
+	string salYH2O;
+	string salYCO;
+	string salYNOx;
+	string salYSoot;
+	string salYHC;
+	string salYCombustible;
+	string salYAireFresco;
+	string salYGasQuemado;
+	string salGastoO2;
+	string salGastoN2;
+	string salGastoCO2;
+	string salGastoH2O;
+	string salGastoCO;
+	string salGastoNOx;
+	string salGastoSoot;
+	string salGastoHC;
+	string salGastoCombustible;
+	string salGastoAireFresco;
+	string salGastoGasQuemado;
 
 	void ConvertCharacter(int confile, char confile1[], int Characters);
 

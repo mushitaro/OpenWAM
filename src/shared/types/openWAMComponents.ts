@@ -337,6 +337,310 @@ export interface CompressorProperties extends BaseComponentProperties {
 }
 
 /**
+ * Sensor properties based on OpenWAM TSensor class
+ */
+export interface SensorProperties extends BaseComponentProperties {
+  numeroSensor: number;
+  tipoSensor: SensorType;
+  posicion: { x: number; y: number; z: number };
+  resolucion: number;
+  rangoMinimo: number;
+  rangoMaximo: number;
+  filtroTiempo: number;
+  offset: number;
+  ganancia: number;
+  ruido: number;
+}
+
+/**
+ * Sensor types for VANOS control
+ */
+export enum SensorType {
+  CAM_POSITION_INTAKE = 0,      // Intake cam position sensor
+  CAM_POSITION_EXHAUST = 1,     // Exhaust cam position sensor
+  CRANK_POSITION = 2,           // Crankshaft position sensor
+  PRESSURE = 3,                 // Pressure sensor
+  TEMPERATURE = 4,              // Temperature sensor
+  FLOW_RATE = 5                 // Flow rate sensor
+}
+
+/**
+ * Table1D properties based on OpenWAM TTable1D class
+ */
+export interface Table1DProperties extends BaseComponentProperties {
+  numeroTabla: number;
+  tipoTabla: TableType;
+  interpolacion: InterpolationType;
+  extrapolacion: ExtrapolationType;
+  datosX: number[];
+  datosY: number[];
+  unidadX: string;
+  unidadY: string;
+  descripcion: string;
+}
+
+/**
+ * Table types for control systems
+ */
+export enum TableType {
+  VANOS_MAP_INTAKE = 0,         // VANOS intake timing map
+  VANOS_MAP_EXHAUST = 1,        // VANOS exhaust timing map
+  PRESSURE_MAP = 2,             // Pressure map
+  TEMPERATURE_MAP = 3,          // Temperature map
+  FLOW_MAP = 4                  // Flow map
+}
+
+/**
+ * Interpolation types for tables
+ */
+export enum InterpolationType {
+  LINEAR = 0,                   // Linear interpolation
+  CUBIC_SPLINE = 1,            // Cubic spline interpolation
+  POLYNOMIAL = 2                // Polynomial interpolation
+}
+
+/**
+ * Extrapolation types for tables
+ */
+export enum ExtrapolationType {
+  CONSTANT = 0,                 // Constant extrapolation
+  LINEAR = 1,                   // Linear extrapolation
+  ZERO = 2                      // Zero extrapolation
+}
+
+/**
+ * Controller properties based on OpenWAM TController class
+ */
+export interface ControllerProperties extends BaseComponentProperties {
+  numeroController: number;
+  tipoController: ControllerType;
+  entradas: ControllerInput[];
+  salidas: ControllerOutput[];
+  parametros: ControllerParameters;
+  modoOperacion: OperationMode;
+  limitesSeguridad: SafetyLimits;
+}
+
+/**
+ * Controller types for VANOS system
+ */
+export enum ControllerType {
+  VANOS_MASTER = 0,             // Master VANOS controller
+  VANOS_INTAKE = 1,             // Intake VANOS controller
+  VANOS_EXHAUST = 2,            // Exhaust VANOS controller
+  PRESSURE_CONTROL = 3,         // Pressure controller
+  TEMPERATURE_CONTROL = 4       // Temperature controller
+}
+
+/**
+ * Controller input definition
+ */
+export interface ControllerInput {
+  id: string;
+  tipo: InputType;
+  sensor: number;
+  ganancia: number;
+  offset: number;
+  filtro: number;
+}
+
+/**
+ * Controller output definition
+ */
+export interface ControllerOutput {
+  id: string;
+  tipo: OutputType;
+  actuador: number;
+  ganancia: number;
+  offset: number;
+  limitMin: number;
+  limitMax: number;
+}
+
+/**
+ * Input types for controllers
+ */
+export enum InputType {
+  SENSOR_ANALOG = 0,            // Analog sensor input
+  SENSOR_DIGITAL = 1,           // Digital sensor input
+  TABLE_LOOKUP = 2,             // Table lookup input
+  CALCULATED = 3                // Calculated input
+}
+
+/**
+ * Output types for controllers
+ */
+export enum OutputType {
+  PWM_SIGNAL = 0,               // PWM output signal
+  ANALOG_VOLTAGE = 1,           // Analog voltage output
+  DIGITAL_SIGNAL = 2,           // Digital signal output
+  VALVE_POSITION = 3            // Valve position command
+}
+
+/**
+ * Controller parameters
+ */
+export interface ControllerParameters {
+  frecuenciaEjecucion: number;
+  tiempoMuestreo: number;
+  retardoEjecucion: number;
+  modoDebug: boolean;
+}
+
+/**
+ * Operation modes for controllers
+ */
+export enum OperationMode {
+  AUTOMATIC = 0,                // Automatic control mode
+  MANUAL = 1,                   // Manual control mode
+  CALIBRATION = 2,              // Calibration mode
+  DIAGNOSTIC = 3                // Diagnostic mode
+}
+
+/**
+ * Safety limits for controllers
+ */
+export interface SafetyLimits {
+  temperaturaMaxima: number;
+  presionMaxima: number;
+  velocidadMaxima: number;
+  tiempoRespuestaMaximo: number;
+}
+
+/**
+ * PID Controller properties based on OpenWAM TPIDController class
+ */
+export interface PIDControllerProperties extends BaseComponentProperties {
+  numeroPID: number;
+  kp: number;                   // Proportional gain
+  ki: number;                   // Integral gain
+  kd: number;                   // Derivative gain
+  setpoint: number;             // Target setpoint
+  limiteSalidaMin: number;      // Minimum output limit
+  limiteSalidaMax: number;      // Maximum output limit
+  limiteIntegralMin: number;    // Minimum integral limit
+  limiteIntegralMax: number;    // Maximum integral limit
+  tiempoMuestreo: number;       // Sample time
+  modoAntiWindup: AntiWindupMode;
+  filtroDerivativo: number;     // Derivative filter time constant
+  deadband: number;             // Deadband around setpoint
+}
+
+/**
+ * Anti-windup modes for PID controllers
+ */
+export enum AntiWindupMode {
+  NONE = 0,                     // No anti-windup
+  CLAMP = 1,                    // Clamp integral term
+  BACK_CALCULATION = 2,         // Back calculation method
+  CONDITIONAL_INTEGRATION = 3    // Conditional integration
+}
+
+/**
+ * Control valve properties based on OpenWAM TValvulaContr class
+ */
+export interface ControlValveProperties extends BaseComponentProperties {
+  numeroValvula: number;
+  tipoValvulaControl: ControlValveType;
+  diametroNominal: number;
+  coeficienteDescarga: number;
+  tiempoRespuesta: number;
+  posicionMinima: number;
+  posicionMaxima: number;
+  caracteristicaFlujo: FlowCharacteristic;
+  actuador: ActuatorProperties;
+  realimentacion: FeedbackProperties;
+}
+
+/**
+ * Control valve types
+ */
+export enum ControlValveType {
+  HYDRAULIC_VANOS = 0,          // Hydraulic VANOS control valve
+  PNEUMATIC = 1,                // Pneumatic control valve
+  ELECTRIC = 2,                 // Electric control valve
+  PROPORTIONAL = 3              // Proportional control valve
+}
+
+/**
+ * Flow characteristics for control valves
+ */
+export enum FlowCharacteristic {
+  LINEAR = 0,                   // Linear flow characteristic
+  EQUAL_PERCENTAGE = 1,         // Equal percentage characteristic
+  QUICK_OPENING = 2,            // Quick opening characteristic
+  CUSTOM = 3                    // Custom characteristic
+}
+
+/**
+ * Actuator properties for control valves
+ */
+export interface ActuatorProperties {
+  tipo: ActuatorType;
+  fuerzaMaxima: number;
+  velocidadMaxima: number;
+  consumoEnergia: number;
+  tiempoVida: number;
+}
+
+/**
+ * Actuator types
+ */
+export enum ActuatorType {
+  HYDRAULIC = 0,                // Hydraulic actuator
+  PNEUMATIC = 1,                // Pneumatic actuator
+  ELECTRIC = 2,                 // Electric actuator
+  PIEZOELECTRIC = 3             // Piezoelectric actuator
+}
+
+/**
+ * Feedback properties for control valves
+ */
+export interface FeedbackProperties {
+  tipoSensor: FeedbackSensorType;
+  resolucion: number;
+  precision: number;
+  tiempoRespuesta: number;
+}
+
+/**
+ * Feedback sensor types
+ */
+export enum FeedbackSensorType {
+  POTENTIOMETER = 0,            // Potentiometer position sensor
+  LVDT = 1,                     // Linear Variable Differential Transformer
+  ENCODER = 2,                  // Rotary encoder
+  HALL_EFFECT = 3               // Hall effect sensor
+}
+
+/**
+ * Pipe-to-plenum connection properties based on OpenWAM TCCDeposito class
+ */
+export interface PipeToPlenumProperties extends BaseComponentProperties {
+  numeroConexion: number;
+  tuboPrincipal: number;
+  nodoTubo: number;
+  plenum: number;
+  tipoConexion: ConnectionType;
+  diametroConexion: number;
+  longitudConexion: number;
+  coeficientePerdida: number;
+  anguloConexion: number;
+  factorCorreccion: number;
+}
+
+/**
+ * Connection types for pipe-to-plenum connections
+ */
+export enum ConnectionType {
+  DIRECT = 0,                   // Direct connection
+  TAPERED = 1,                  // Tapered connection
+  SUDDEN_EXPANSION = 2,         // Sudden expansion
+  SUDDEN_CONTRACTION = 3,       // Sudden contraction
+  CURVED = 4                    // Curved connection
+}
+
+/**
  * Union type for all component properties
  */
 export type ComponentProperties = 
@@ -345,7 +649,13 @@ export type ComponentProperties =
   | ValveProperties 
   | BoundaryProperties 
   | EngineProperties 
-  | CompressorProperties;
+  | CompressorProperties
+  | SensorProperties
+  | Table1DProperties
+  | ControllerProperties
+  | PIDControllerProperties
+  | ControlValveProperties
+  | PipeToPlenumProperties;
 
 // ============================================================================
 // NODE AND CONNECTION INTERFACES

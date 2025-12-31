@@ -91,6 +91,17 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const clickedOnEmpty = e.target === e.target.getStage();
     
     if (clickedOnEmpty) {
+      // Get pointer position to check if it's in a safe area (not overlapping with palette)
+      const stage = stageRef.current;
+      const pointerPosition = stage?.getPointerPosition();
+      
+      // Avoid clicks in the left area where the palette is located (first 320px)
+      // But allow clicks in connection mode since palette is hidden
+      if (pointerPosition && pointerPosition.x < 320 && !connectionMode) {
+        console.log('Click ignored: too close to component palette');
+        return;
+      }
+      
       // In connection mode, don't add components
       if (connectionMode) {
         return;
@@ -100,9 +111,6 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
       const selectedComponentType = (window as any).selectedComponentType;
       
       if (selectedComponentType && stageRef.current) {
-        const stage = stageRef.current;
-        const pointerPosition = stage.getPointerPosition();
-        
         if (pointerPosition) {
           // Add component at click position
           if (typeof (window as any).handleAddComponent === 'function') {
@@ -224,13 +232,10 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
             // Add connection to model (we need to pass this up to the parent)
             if (typeof (window as any).handleAddConnection === 'function') {
               (window as any).handleAddConnection(newConnection);
-              console.log('Connection added to model:', newConnection);
               setConnectionFeedback('接続が作成されました');
             } else {
               console.error('handleAddConnection function not found');
             }
-            
-            console.log('Created connection:', newConnection);
           } else {
             console.log('Connection already exists, skipping duplicate');
             setConnectionFeedback('この接続は既に存在します');
@@ -403,7 +408,10 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
         backgroundColor: '#f8fafc',
         border: '1px solid #e2e8f0',
         borderRadius: '8px',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        // Ensure canvas doesn't interfere with palette
+        marginLeft: '0px', // No margin needed as palette is positioned absolutely
+        pointerEvents: 'auto' // Ensure canvas can receive events
       }}
       data-testid="canvas-editor"
     >
@@ -674,7 +682,6 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({
         
         <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#64748b' }}>
           <span>{model.components.length} コンポーネント</span>
-          <span>{model.connections.length} 接続</span>
         </div>
         
         {connectionMode && (

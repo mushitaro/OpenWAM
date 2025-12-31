@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -32,120 +33,127 @@
 #include "TController.h"
 
 /*! This object represents a PID controller*/
-class TPIDController: public TController {
-  private:
-	int fID;					//!< ID controller number
+class TPIDController : public TController {
+private:
+  int fID; //!< ID controller number
 
-	double fKP_pos;				//!< Proportional gain for positive errors.
-	double fKI_pos;				//!< Integral gain for positive errors.
-	double fKD_pos;				//!< Derivative gain for positive errors.
+  double fKP_pos; //!< Proportional gain for positive errors.
+  double fKI_pos; //!< Integral gain for positive errors.
+  double fKD_pos; //!< Derivative gain for positive errors.
 
-	double fKP_neg;				//!< Proportional gain for negative errors.
-	double fKI_neg;				//!< Integral gain for negative errors.
-	double fKD_neg;				//!< Derivative gain for negative errors.
+  double fKP_neg; //!< Proportional gain for negative errors.
+  double fKI_neg; //!< Integral gain for negative errors.
+  double fKD_neg; //!< Derivative gain for negative errors.
 
-	double fpact;				//!< Proportional term of output
-	double fdact;				//!< Derivative term of output
-	double fiact;				//!< Integral term of output
+  double fpact; //!< Proportional term of output
+  double fdact; //!< Derivative term of output
+  double fiact; //!< Integral term of output
 
-	double fMax_out;			//!< Maximum output
-	double fMin_out;			//!< Minimum output
+  double fMax_out; //!< Maximum output
+  double fMin_out; //!< Minimum output
 
-	double fError;				//!< Current error
-	double fError_ant;			//!< Previous error
+  double fError;     //!< Current error
+  double fError_ant; //!< Previous error
 
-	double fTime_ant;			//!< Previous time
+  double fTime_ant; //!< Previous time
 
-	double fSetPoint;			//!< Set point value
+  double fSetPoint; //!< Set point value
 
-	//double fVar_ant;
-	double fI_ant;				//!< Previous integral term of output
+  // double fVar_ant;
+  double fI_ant; //!< Previous integral term of output
 
-	double fOutput;				//!< Current raw PID output
-	double fOutput0;			//!< Constant output
+  double fOutput;  //!< Current raw PID output
+  double fOutput0; //!< Constant output
 
-	double fOutput_filt;		//!< Current filtered PID output
-	double fOutput_filt_ant;	//!< Previous filtered PID output
-	double fOutput_ant;			//!< Previous raw PID output
-	double fTime_ant_filt;		//!< Preivous time
+  double fOutput_filt;     //!< Current filtered PID output
+  double fOutput_filt_ant; //!< Previous filtered PID output
+  double fOutput_ant;      //!< Previous raw PID output
+  double fTime_ant_filt;   //!< Preivous time
 
-	double fPeriod;				//!< Time period to update the raw PID output
-	double fGain;				//!< Output gain
-	double fDelay;				//!< Output time delay constant
+  double fPeriod; //!< Time period to update the raw PID output
+  double fGain;   //!< Output gain
+  double fDelay;  //!< Output time delay constant
 
-	double fDwell;				//!< Dwell time
+  double fDwell; //!< Dwell time
 
-	bool fInicio;
+  bool fInicio;
 
-	bool fSetPointControlled;				//!< Is the set point controlled by another controller?
-	int fSetPointControllerID;	//!< Setpoint controller ID number
+  bool fSetPointControlled;  //!< Is the set point controlled by another
+                             //!< controller?
+  int fSetPointControllerID; //!< Setpoint controller ID number
 
-	TController *fSetPointController;	//!< Pointer to the setpoint controller.
+  TController *fSetPointController; //!< Pointer to the setpoint controller.
 
-  public:
+public:
+  /*! PID controller contructor*/
+  TPIDController(int i //!< Index
+  );
 
-	/*! PID controller contructor*/
-	TPIDController(int i					//!< Index
-				  );
+  /*! PID controller destructor*/
+  ~TPIDController();
 
-	/*! PID controller destructor*/
-	~TPIDController();
+  /*! Return the PID controller output*/
+  double Output(double Time //!< Current PID output
+  );
 
-	/*! Return the PID controller output*/
-	double Output(double Time				//!< Current PID output
-				 );
+  /*! Read the PID data */
+  void LeeController(const char *FileWAM, //!< Input data filename
+                     fpos_t &filepos      //!< Position within the input file
+  );
 
-	/*! Read the PID data */
-	void LeeController(const char *FileWAM,			//!< Input data filename
-					   fpos_t &filepos			//!< Position within the input file
-					  );
+  /*! Asign the sensor input and the setpoint controller*/
+  void AsignaObjetos(TSensor **Sensor,        //!< Array with sensor objects
+                     TController **Controller //!< Array with controller objects
+  );
 
-	/*! Asign the sensor input and the setpoint controller*/
-	void AsignaObjetos(TSensor **Sensor,		//!< Array with sensor objects
-					   TController **Controller	//!< Array with controller objects
-					  );
+  /*! Read the average results selected*/
+  void LeeResultadosMedControlador(
+      const char *FileWAM, //!< Input data filename
+      fpos_t &filepos      //!< Position within the input file
+  );
 
-	/*! Read the average results selected*/
-	void LeeResultadosMedControlador(const char *FileWAM,	//!< Input data filename
-									 fpos_t &filepos				//!< Position within the input file
-									);
+  /*! Read the instantaneous results selected*/
+  void LeeResultadosInsControlador(
+      const char *FileWAM, //!< Input data filename
+      fpos_t &filepos      //!< Position within the input file
+  );
 
-	/*! Read the instantaneous results selected*/
-	void LeeResultadosInsControlador(const char *FileWAM,				//!< Input data filename
-									 fpos_t &filepos				//!< Position within the input file
-									);
+  /*! Generate average results header */
+  void CabeceraResultadosMedControlador(
+      std::ostream
+          &medoutput //!< StringStrems where the average results are stored
+  );
 
-	/*! Generate average results header */
-	void CabeceraResultadosMedControlador(stringstream& medoutput				//!< StringStrems where the average results are stored
-										 );
+  /*! Generate instantaneous results header */
+  void CabeceraResultadosInsControlador(
+      std::ostream &
+          insoutput //!< StringStream where the instantaneous results are stored
+  );
 
-	/*! Generate instantaneous results header */
-	void CabeceraResultadosInsControlador(stringstream&
-										  insoutput				//!< StringStream where the instantaneous results are stored
-										 );
+  /*! Print average results */
+  void ImprimeResultadosMedControlador(
+      std::ostream
+          &medoutput //!< StringStream where the average results are stored
+  );
 
-	/*! Print average results */
-	void ImprimeResultadosMedControlador(stringstream& medoutput				//!< StringStream where the average results are stored
-										);
+  /*! Print instantaneous results */
+  void ImprimeResultadosInsControlador(
+      std::ostream &
+          insoutput //!< StringStream where the instantaneous results are stored
+  );
 
-	/*! Print instantaneous results */
-	void ImprimeResultadosInsControlador(stringstream&
-										 insoutput				//!< StringStream where the instantaneous results are stored
-										);
+  /*! Initialize average results */
+  void IniciaMedias();
 
-	/*! Initialize average results */
-	void IniciaMedias();
+  /*! Calculate average results */
+  void ResultadosMediosController();
 
-	/*! Calculate average results */
-	void ResultadosMediosController();
+  /*! Acumulate average results */
+  void AcumulaResultadosMediosController(double Actual //!< Current time
+  );
 
-	/*! Acumulate average results */
-	void AcumulaResultadosMediosController(double Actual	//!< Current time
-										  );
-
-	/*! Calculate instanteneous results */
-	void ResultadosInstantController();
-
+  /*! Calculate instanteneous results */
+  void ResultadosInstantController();
 };
 
 //---------------------------------------------------------------------------

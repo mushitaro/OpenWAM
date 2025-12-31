@@ -94,6 +94,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           onMouseEnter={(e) => handleButtonHover(e, true, true)}
           onMouseLeave={(e) => handleButtonHover(e, false, true)}
           onClick={onSaveModel}
+          data-testid="save-button"
         >
           保存
         </button>

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -30,89 +31,96 @@
 #define TTable1DH
 
 #include "TController.h"
-//#include "interp_1d.h"
+// #include "interp_1d.h"
 //---------------------------------------------------------------------------
 
 /*! This object is use to generate one-dimensional map to simulate ECU maps*/
-class TTable1D: public TController {
-  private:
+class TTable1D : public TController {
+private:
+  int fID;          //!< Controller ID number
+  int fDimensiones; //!< Table dimensions (one in this case)
+  dVector fX_map;   //!< Vector of the abcissas data
+  dVector fY_map;   //!< Vector of the ordinates data
 
-	int fID;						//!< Controller ID number
-	int fDimensiones;   			//!< Table dimensions (one in this case)
-	dVector fX_map;					//!< Vector of the abcissas data
-	dVector fY_map;     			//!< Vector of the ordinates data
+  Base_interp *fDatos; //!< Struct to interpolate within the table
 
-	Base_interp *fDatos;			//!< Struct to interpolate within the table
+  double fOutput; //!< Map output
 
-	double fOutput;					//!< Map output
+  double fPeriod; //!< Time period to update the table
 
-	double fPeriod;					//!< Time period to update the table
+  nmTipoInterpolacion fTipo; //!< Type of interpolation
 
-	nmTipoInterpolacion fTipo;		//!< Type of interpolation
+public:
+  /*! One dimensional table constructor*/
+  TTable1D(int i //!< Index
+  );
 
-  public:
+  /*! One dimensional table destructor*/
+  ~TTable1D();
 
-	/*! One dimensional table constructor*/
-	TTable1D(int i						//!< Index
-			);
+  /*! Return the output of this controller*/
+  double Output(double Time //!< Current time
+  );
 
-	/*! One dimensional table destructor*/
-	~TTable1D();
+  /*! Read data information of the controller*/
+  void
+  LeeController(const char *FileWAM, //!< Filename of the input data file
+                fpos_t &filepos //!< Position within the input data file to read
+  );
 
-	/*! Return the output of this controller*/
-	double Output(double Time 				//!< Current time
-				 );
+  /*! Asign the controllers and the sensors*/
+  void AsignaObjetos(TSensor **Sensor,        //!< Array with sensors
+                     TController **Controller //!< Array with controllers
+  );
 
-	/*! Read data information of the controller*/
-	void LeeController(const char *FileWAM,	//!< Filename of the input data file
-					   fpos_t &filepos 	//!< Position within the input data file to read
-					  );
+  /*! Read the average results selected for the controller*/
+  void LeeResultadosMedControlador(
+      const char *FileWAM, //!< Filename of the input data file
+      fpos_t &filepos      //!< Position within the input data file to read
+  );
 
-	/*! Asign the controllers and the sensors*/
-	void AsignaObjetos(TSensor **Sensor,			//!< Array with sensors
-					   TController **Controller    //!< Array with controllers
-					  );
+  /*! Read the instantaneous results selected for the controller*/
+  void LeeResultadosInsControlador(
+      const char *FileWAM, //!< Filename of the input data file
+      fpos_t &filepos      //!< Positon within the input data file to read
+  );
 
-	/*! Read the average results selected for the controller*/
-	void LeeResultadosMedControlador(const char *FileWAM, //!< Filename of the input data file
-									 fpos_t &filepos		//!< Position within the input data file to read
-									);
+  /*! Generate the header of the average results for the controller*/
+  void CabeceraResultadosMedControlador(
+      std::ostream
+          &medoutput //!< StringStream where the average results are stored
+  );
 
-	/*! Read the instantaneous results selected for the controller*/
-	void LeeResultadosInsControlador(const char *FileWAM,		//!< Filename of the input data file
-									 fpos_t &filepos		//!< Positon within the input data file to read
-									);
+  /*! Generate the header of the instantaneus results for the controller*/
+  void CabeceraResultadosInsControlador(
+      std::ostream &
+          insoutput //!< StringStream where the instantaneous results are stored
+  );
 
-	/*! Generate the header of the average results for the controller*/
-	void CabeceraResultadosMedControlador(stringstream& medoutput		//!< StringStream where the average results are stored
-										 );
+  /*! Print the average results*/
+  void ImprimeResultadosMedControlador(
+      std::ostream
+          &medoutput //!< StringStream where the average results are stored
+  );
 
-	/*! Generate the header of the instantaneus results for the controller*/
-	void CabeceraResultadosInsControlador(stringstream&
-										  insoutput //!< StringStream where the instantaneous results are stored
-										 );
+  /*! Print the instantaneous results*/
+  void ImprimeResultadosInsControlador(
+      std::ostream
+          &insoutput //!< StringStream where the average results are stored
+  );
 
-	/*! Print the average results*/
-	void ImprimeResultadosMedControlador(stringstream& medoutput //!< StringStream where the average results are stored
-										);
+  /*! Initialize average results*/
+  void IniciaMedias();
 
-	/*! Print the instantaneous results*/
-	void ImprimeResultadosInsControlador(stringstream& insoutput //!< StringStream where the average results are stored
-										);
+  /*! Calculate average Results*/
+  void ResultadosMediosController();
 
-	/*! Initialize average results*/
-	void IniciaMedias();
+  /*! Acumulate the average results*/
+  void AcumulaResultadosMediosController(double Actual //!< Current time
+  );
 
-	/*! Calculate average Results*/
-	void ResultadosMediosController();
-
-	/*! Acumulate the average results*/
-	void AcumulaResultadosMediosController(double Actual	//!< Current time
-										  );
-
-	/*! Calculate the instantaneous results*/
-	void ResultadosInstantController();
-
+  /*! Calculate the instantaneous results*/
+  void ResultadosInstantController();
 };
 
 #endif

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -36,63 +37,59 @@
 #include "Constantes.h"
 #include "TTurbina.h"
 
-class TTurbinaTwin: public TTurbina {
-  private:
-	//---------------------------------------------------------------------------
-	// VARIABLES PRIVADAS
-	//---------------------------------------------------------------------------
+class TTurbinaTwin : public TTurbina {
+private:
+  //---------------------------------------------------------------------------
+  // VARIABLES PRIVADAS
+  //---------------------------------------------------------------------------
 
-	//---------------------------------------------------------------------------
-	// FUNCIONES PRIVADAS
-	//---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  // FUNCIONES PRIVADAS
+  //---------------------------------------------------------------------------
 
-  public:
-	//---------------------------------------------------------------------------
-	// VARIABLES PUBLICAS
-	//---------------------------------------------------------------------------
+public:
+  //---------------------------------------------------------------------------
+  // VARIABLES PUBLICAS
+  //---------------------------------------------------------------------------
 
-	double GetEfficiency() {
-		return (FRendTurbina[0] + FRendTurbina[1]) / 2.;
-	}
-	;
+  double GetEfficiency() { return (FRendTurbina[0] + FRendTurbina[1]) / 2.; };
 
-	//---------------------------------------------------------------------------
-	// FUNCIONES PUBLICAS
-	//---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  // FUNCIONES PUBLICAS
+  //---------------------------------------------------------------------------
 
-	TTurbinaTwin(int i, nmTipoCalculoEspecies SpeciesModel, int numeroespecies, nmCalculoGamma GammaCalculation,
-				 bool ThereIsEGR);
+  TTurbinaTwin(int i, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+               nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-	~TTurbinaTwin();
+  ~TTurbinaTwin();
 
-	void CalculaCondicionTurbina(double TimeCalculo);
+  void CalculaCondicionTurbina(double TimeCalculo);
 
-	void AsignaEntradaSalidaCC();
+  void AsignaEntradaSalidaCC();
 
-	void ImprimeResultadosMediosPantalla();
+  void ImprimeResultadosMediosPantalla();
 
-	void ReadAverageResultsTurb(const char *FileWAM, fpos_t &filepos);
+  void ReadAverageResultsTurb(const char *FileWAM, fpos_t &filepos);
 
-	void CabeceraResultadosMedTurb(stringstream& medoutput);
+  void CabeceraResultadosMedTurb(std::ostream &medoutput);
 
-	void ImprimeResultadosMedTurb(stringstream& medoutput);
+  void ImprimeResultadosMedTurb(std::ostream &medoutput);
 
-	void IniciaMedias();
+  void IniciaMedias();
 
-	void AcumulaMedias(double Tiempo);
+  void AcumulaMedias(double Tiempo);
 
-	void LeeResultadosInstantTurb(const char *FileWAM, fpos_t &filepos);
+  void LeeResultadosInstantTurb(const char *FileWAM, fpos_t &filepos);
 
-	void CabeceraResultadosInstantTurb(stringstream& insoutput);
+  void CabeceraResultadosInstantTurb(std::ostream &insoutput);
 
-	void ImprimeResultadosInstantTurb(stringstream& insoutput);
+  void ImprimeResultadosInstantTurb(std::ostream &insoutput);
 
-	void ResultadosInstantTurb();
+  void ResultadosInstantTurb();
 
-	void CalculaResultadosMediosTurb();
+  void CalculaResultadosMediosTurb();
 
-	void UpdateProperties0DModel(double TimeCalculo);
-
+  void UpdateProperties0DModel(double TimeCalculo);
 };
 
 //---------------------------------------------------------------------------

@@ -1,3 +1,6 @@
+cmake_minimum_required(VERSION 3.10)
+project(OpenWAM)
+
 include_directories(1DPipes)
 include_directories(Act)
 include_directories(Boundaries)

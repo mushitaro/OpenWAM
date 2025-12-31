@@ -2,8 +2,8 @@
 ==========================|
  |\\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  | \\ |  X  | //  W ave     |
- |  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
- |   \\/   \//    M odel    |
+ |  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia |   \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
 
@@ -23,7 +23,8 @@
  along with OpenWAM.  If not, see <http://www.gnu.org/licenses/>.
 
 
- \*-------------------------------------------------------------------------------- */
+ \*--------------------------------------------------------------------------------
+*/
 
 // ---------------------------------------------------------------------------
 #ifndef TCCCompresorVolumetricoH
@@ -34,108 +35,109 @@
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-class TCCCompresorVolumetrico: public TCondicionContorno {
-  private:
+class TCCCompresorVolumetrico : public TCondicionContorno {
+private:
+  // int FNumeroCV;     // Numero Compressor Volumetrico (de tornillo)
+  bool asgNumeroCV;
 
-	// int FNumeroCV;     // Numero Compressor Volumetrico (de tornillo)
-	bool asgNumeroCV;
+  double FRelacionVelocidadesCV; // Relacion de velocidades compresor
+                                 // volumetrico - motor.
+  double FPresionCV;             // Presion de aspiracion.
+  double FTemperaturaCV;         // Temperature de aspiracion.
 
-	double FRelacionVelocidadesCV; // Relacion de velocidades compresor volumetrico - motor.
-	double FPresionCV; // Presion de aspiracion.
-	double FTemperaturaCV; // Temperature de aspiracion.
+  // Declaracion de los coeficientes de caudal, temperatura y potencia del
+  // compresor volumetrico.
+  double FC1Caudal, FC2Caudal, FC3Caudal;
+  double FC1Temperatura, FC2Temperatura, FC3Temperatura;
+  double FC1Potencia, FC2Potencia, FC3Potencia, FC4Potencia, FC5Potencia,
+      FC6Potencia;
 
-	// Declaracion de los coeficientes de caudal, temperatura y potencia del compresor volumetrico.
-	double FC1Caudal, FC2Caudal, FC3Caudal;
-	double FC1Temperatura, FC2Temperatura, FC3Temperatura;
-	double FC1Potencia, FC2Potencia, FC3Potencia, FC4Potencia, FC5Potencia, FC6Potencia;
+  int FNodoFin;  // Nodo en el extremo del tubo que esta en la condicion de
+                 // contorno.
+  int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0
+                 // Nodo izquierdo; 1 Nodo derecho)
+  double *FCC;   // Caracteristica conocida del tubo.
+  double *FCD;   // Caracteristica desconocida del tubo.
+  double FSeccionTubo; // Diametro del tubo en la condicion de contorno.
 
-	int FNodoFin; // Nodo en el extremo del tubo que esta en la condicion de contorno.
-	int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0 Nodo izquierdo; 1 Nodo derecho)
-	double *FCC; // Caracteristica conocida del tubo.
-	double *FCD; // Caracteristica desconocida del tubo.
-	double FSeccionTubo; // Diametro del tubo en la condicion de contorno.
+  double FGasto;       // Massflow volumetrico del compresor en kg/s.
+  double FDensidad;    // Density del aire en la aspiracion.
+  double FTemperature; // Temperature del gas entrante en degC.
+  double FPotencia;
+  double FPressure;
+  double FRegimen;
+  double FVelocity;
 
-	double FGasto; // Massflow volumetrico del compresor en kg/s.
-	double FDensidad; // Density del aire en la aspiracion.
-	double FTemperature; // Temperature del gas entrante en degC.
-	double FPotencia;
-	double FPressure;
-	double FRegimen;
-	double FVelocity;
+  double FSonido; // Velocity del sonido en el tubo.
 
-	double FSonido; // Velocity del sonido en el tubo.
+  stResMediosCV FResMediosCV;
+  stResInstantCV FResInstantCV;
 
-	stResMediosCV FResMediosCV;
-	stResInstantCV FResInstantCV;
+  nmRegimenValv FControlRegimen;
 
-	nmRegimenValv FControlRegimen;
+  double FGamma3; // Son expresiones con Gamma. Se usan estas variables para no
+                  // calcularlas tantas veces por instante de tiempo en la misma
+                  // funcion.
+  double FGamma4;
+  double *FComposicion;
 
-	double FGamma3; // Son expresiones con Gamma. Se usan estas variables para no calcularlas tantas veces por instante de tiempo en la misma funcion.
-	double FGamma4;
-	double *FComposicion;
+  // FUNCIONES PRIVADAS
 
-	// FUNCIONES PRIVADAS
+  // void PutNumeroCV(int valor);
 
-	// void PutNumeroCV(int valor);
+public:
+  void PutNumeroCV(int valor) {
 
-  public:
+    if (!asgNumeroCV) {
+      FNumeroCV = valor;
+      asgNumeroCV = true;
+    } else {
+      std::cout << "ERROR: Este Compressor Volumetrico ya tiene numero asignado"
+                << std::endl;
+      throw Exception("");
+    }
+  }
 
-	void PutNumeroCV(int valor) {
+  int FNumeroCV;
 
-		if(!asgNumeroCV) {
-			FNumeroCV = valor;
-			asgNumeroCV = true;
-		} else {
-			std::cout << "ERROR: Este Compressor Volumetrico ya tiene numero asignado" << std::endl;
-			throw Exception("");
-		}
+  // Numero Compressor Volumetrico (de tornillo)
+  int getNumeroCV() { return FNumeroCV; }
 
-	}
+  double getPotenciaCV() { return FPotencia; };
 
-	int FNumeroCV;
+  TCCCompresorVolumetrico(nmTypeBC TipoCC, int numCC,
+                          nmTipoCalculoEspecies SpeciesModel,
+                          int numeroespecies, nmCalculoGamma GammaCalculation,
+                          bool ThereIsEGR);
 
-	// Numero Compressor Volumetrico (de tornillo)
-	int getNumeroCV() {
-		return FNumeroCV;
-	}
+  ~TCCCompresorVolumetrico();
 
-	double getPotenciaCV() {
-		return FPotencia;
-	}
-	;
+  void CalculaCondicionContorno(double Time);
 
-	TCCCompresorVolumetrico(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-							nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void LeeCCCompresorVol(const char *FileWAM, fpos_t &filepos,
+                         int NumberOfPipes, TTubo **Pipe, bool HayMotor);
 
-	~TCCCompresorVolumetrico();
+  void ObtencionValoresInstantaneos(double ene);
 
-	void CalculaCondicionContorno(double Time);
+  void ReadAverageResultsCV(const char *FileWAM, fpos_t &filepos);
 
-	void LeeCCCompresorVol(const char *FileWAM, fpos_t &filepos, int NumberOfPipes, TTubo **Pipe, bool HayMotor);
+  void CabeceraResultadosMedCV(std::ostream &medoutput);
 
-	void ObtencionValoresInstantaneos(double ene);
+  void ImprimeResultadosMedCV(std::ostream &medoutput);
 
-	void ReadAverageResultsCV(const char *FileWAM, fpos_t &filepos);
+  void ResultadosMediosCV();
 
-	void CabeceraResultadosMedCV(stringstream& medoutput);
+  void AcumulaResultadosMediosCV(double Actual);
 
-	void ImprimeResultadosMedCV(stringstream& medoutput);
+  void LeeResultadosInstantCV(const char *FileWAM, fpos_t &filepos);
 
-	void ResultadosMediosCV();
+  void CabeceraResultadosInstantCV(std::ostream &insoutput);
 
-	void AcumulaResultadosMediosCV(double Actual);
+  void ImprimeResultadosInstantCV(std::ostream &insoutput);
 
-	void LeeResultadosInstantCV(const char *FileWAM, fpos_t &filepos);
+  void ResultadosInstantCV();
 
-	void CabeceraResultadosInstantCV(stringstream& insoutput);
-
-	void ImprimeResultadosInstantCV(stringstream& insoutput);
-
-	void ResultadosInstantCV();
-
-	void IniciaMedias();
-
+  void IniciaMedias();
 };
 
 #endif
-

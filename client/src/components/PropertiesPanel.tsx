@@ -234,6 +234,180 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         'presionReferencia': { label: '基準圧力 (Pa)', type: 'number', required: true, min: 10000, max: 200000 },
         'temperaturaReferencia': { label: '基準温度 (K)', type: 'number', required: true, min: 200, max: 2000 },
         'coeficienteDescarga': { label: '流量係数', type: 'number', required: true, min: 0.1, max: 2.0 }
+      },
+
+      // VANOS Control System Components
+      'TSensor': {
+        'numeroSensor': { label: 'センサー番号', type: 'number', required: true, min: 1 },
+        'tipoSensor': { 
+          label: 'センサータイプ', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: '吸気カムポジション' },
+            { value: 1, label: '排気カムポジション' },
+            { value: 2, label: 'クランクポジション' },
+            { value: 3, label: '圧力センサー' },
+            { value: 4, label: '温度センサー' },
+            { value: 5, label: '流量センサー' }
+          ]
+        },
+        'resolucion': { label: '分解能 (°)', type: 'number', required: true, min: 0.01, max: 10 },
+        'rangoMinimo': { label: '最小範囲 (°)', type: 'number', required: true, min: -360, max: 360 },
+        'rangoMaximo': { label: '最大範囲 (°)', type: 'number', required: true, min: -360, max: 360 },
+        'filtroTiempo': { label: 'フィルタ時定数 (s)', type: 'number', required: true, min: 0.001, max: 1 },
+        'ganancia': { label: 'ゲイン', type: 'number', required: true, min: 0.1, max: 10 },
+        'offset': { label: 'オフセット (°)', type: 'number', required: true, min: -180, max: 180 },
+        'ruido': { label: 'ノイズレベル', type: 'number', required: true, min: 0, max: 10 }
+      },
+
+      'TTable1D': {
+        'numeroTabla': { label: 'テーブル番号', type: 'number', required: true, min: 1 },
+        'tipoTabla': { 
+          label: 'テーブルタイプ', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: 'VANOS吸気マップ' },
+            { value: 1, label: 'VANOS排気マップ' },
+            { value: 2, label: '圧力マップ' },
+            { value: 3, label: '温度マップ' },
+            { value: 4, label: '流量マップ' }
+          ]
+        },
+        'interpolacion': { 
+          label: '補間方法', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: '線形補間' },
+            { value: 1, label: '3次スプライン' },
+            { value: 2, label: '多項式補間' }
+          ]
+        },
+        'extrapolacion': { 
+          label: '外挿方法', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: '定数外挿' },
+            { value: 1, label: '線形外挿' },
+            { value: 2, label: 'ゼロ外挿' }
+          ]
+        },
+        'unidadX': { label: 'X軸単位', type: 'text', required: true },
+        'unidadY': { label: 'Y軸単位', type: 'text', required: true },
+        'descripcion': { label: '説明', type: 'text', required: false }
+      },
+
+      'TController': {
+        'numeroController': { label: 'コントローラー番号', type: 'number', required: true, min: 1 },
+        'tipoController': { 
+          label: 'コントローラータイプ', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: 'VANOSマスター' },
+            { value: 1, label: 'VANOS吸気' },
+            { value: 2, label: 'VANOS排気' },
+            { value: 3, label: '圧力制御' },
+            { value: 4, label: '温度制御' }
+          ]
+        },
+        'modoOperacion': { 
+          label: '動作モード', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: '自動' },
+            { value: 1, label: '手動' },
+            { value: 2, label: 'キャリブレーション' },
+            { value: 3, label: '診断' }
+          ]
+        },
+        'parametros.frecuenciaEjecucion': { label: '実行周波数 (Hz)', type: 'number', required: true, min: 1, max: 1000 },
+        'parametros.tiempoMuestreo': { label: 'サンプル時間 (s)', type: 'number', required: true, min: 0.001, max: 1 }
+      },
+
+      'TPIDController': {
+        'numeroPID': { label: 'PID番号', type: 'number', required: true, min: 1 },
+        'kp': { label: '比例ゲイン (Kp)', type: 'number', required: true, min: 0, max: 1000 },
+        'ki': { label: '積分ゲイン (Ki)', type: 'number', required: true, min: 0, max: 1000 },
+        'kd': { label: '微分ゲイン (Kd)', type: 'number', required: true, min: 0, max: 100 },
+        'setpoint': { label: '目標値 (°)', type: 'number', required: true, min: -180, max: 180 },
+        'limiteSalidaMin': { label: '最小出力制限 (%)', type: 'number', required: true, min: -100, max: 100 },
+        'limiteSalidaMax': { label: '最大出力制限 (%)', type: 'number', required: true, min: -100, max: 100 },
+        'limiteIntegralMin': { label: '最小積分制限', type: 'number', required: true, min: -1000, max: 1000 },
+        'limiteIntegralMax': { label: '最大積分制限', type: 'number', required: true, min: -1000, max: 1000 },
+        'tiempoMuestreo': { label: 'サンプル時間 (s)', type: 'number', required: true, min: 0.001, max: 1 },
+        'modoAntiWindup': { 
+          label: 'アンチワインドアップ', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: 'なし' },
+            { value: 1, label: 'クランプ' },
+            { value: 2, label: 'バック計算' },
+            { value: 3, label: '条件付き積分' }
+          ]
+        },
+        'filtroDerivativo': { label: '微分フィルタ時定数 (s)', type: 'number', required: true, min: 0.001, max: 1 },
+        'deadband': { label: 'デッドバンド (°)', type: 'number', required: true, min: 0, max: 10 }
+      },
+
+      'TValvulaContr': {
+        'numeroValvula': { label: '制御バルブ番号', type: 'number', required: true, min: 1 },
+        'tipoValvulaControl': { 
+          label: '制御バルブタイプ', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: '油圧VANOS' },
+            { value: 1, label: '空圧' },
+            { value: 2, label: '電動' },
+            { value: 3, label: '比例制御' }
+          ]
+        },
+        'diametroNominal': { label: '公称直径 (m)', type: 'number', required: true, min: 0.001, max: 0.1 },
+        'coeficienteDescarga': { label: '流量係数', type: 'number', required: true, min: 0.1, max: 1.0 },
+        'tiempoRespuesta': { label: '応答時間 (s)', type: 'number', required: true, min: 0.001, max: 1 },
+        'posicionMinima': { label: '最小位置 (%)', type: 'number', required: true, min: 0, max: 100 },
+        'posicionMaxima': { label: '最大位置 (%)', type: 'number', required: true, min: 0, max: 100 },
+        'caracteristicaFlujo': { 
+          label: '流量特性', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: 'リニア' },
+            { value: 1, label: '等パーセント' },
+            { value: 2, label: 'クイックオープン' },
+            { value: 3, label: 'カスタム' }
+          ]
+        }
+      },
+
+      'TCCDeposito': {
+        'numeroConexion': { label: '接続番号', type: 'number', required: true, min: 1 },
+        'tuboPrincipal': { label: 'パイプ番号', type: 'number', required: true, min: 1 },
+        'nodoTubo': { label: 'パイプノード', type: 'number', required: true, min: 0 },
+        'plenum': { label: 'プレナム番号', type: 'number', required: true, min: 1 },
+        'tipoConexion': { 
+          label: '接続タイプ', 
+          type: 'select', 
+          required: true,
+          options: [
+            { value: 0, label: '直接接続' },
+            { value: 1, label: 'テーパー接続' },
+            { value: 2, label: '急拡大' },
+            { value: 3, label: '急縮小' },
+            { value: 4, label: '曲線接続' }
+          ]
+        },
+        'diametroConexion': { label: '接続直径 (m)', type: 'number', required: true, min: 0.001, max: 0.1 },
+        'longitudConexion': { label: '接続長さ (m)', type: 'number', required: true, min: 0.001, max: 1 },
+        'coeficientePerdida': { label: '損失係数', type: 'number', required: true, min: 0, max: 10 },
+        'anguloConexion': { label: '接続角度 (°)', type: 'number', required: true, min: 0, max: 180 },
+        'factorCorreccion': { label: '補正係数', type: 'number', required: true, min: 0.1, max: 10 }
       }
     };
     
@@ -269,6 +443,25 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       
       case 'TCCDescargaExtremoAbierto':
         return ['numeroCC', 'tubo', 'extremo', 'presionReferencia', 'temperaturaReferencia', 'coeficienteDescarga'];
+      
+      // VANOS Control System Components
+      case 'TSensor':
+        return ['numeroSensor', 'tipoSensor', 'resolucion', 'rangoMinimo', 'rangoMaximo', 'filtroTiempo', 'ganancia', 'offset', 'ruido'];
+      
+      case 'TTable1D':
+        return ['numeroTabla', 'tipoTabla', 'interpolacion', 'extrapolacion', 'unidadX', 'unidadY', 'descripcion'];
+      
+      case 'TController':
+        return ['numeroController', 'tipoController', 'modoOperacion', 'parametros.frecuenciaEjecucion', 'parametros.tiempoMuestreo'];
+      
+      case 'TPIDController':
+        return ['numeroPID', 'kp', 'ki', 'kd', 'setpoint', 'limiteSalidaMin', 'limiteSalidaMax', 'limiteIntegralMin', 'limiteIntegralMax', 'tiempoMuestreo', 'modoAntiWindup', 'filtroDerivativo', 'deadband'];
+      
+      case 'TValvulaContr':
+        return ['numeroValvula', 'tipoValvulaControl', 'diametroNominal', 'coeficienteDescarga', 'tiempoRespuesta', 'posicionMinima', 'posicionMaxima', 'caracteristicaFlujo'];
+      
+      case 'TCCDeposito':
+        return ['numeroConexion', 'tuboPrincipal', 'nodoTubo', 'plenum', 'tipoConexion', 'diametroConexion', 'longitudConexion', 'coeficientePerdida', 'anguloConexion', 'factorCorreccion'];
       
       default:
         return ['name', 'description'];
@@ -387,6 +580,38 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   // Get nested value from object
   const getNestedValue = (obj: any, path: string) => {
     return path.split('.').reduce((current, key) => current?.[key], obj);
+  };
+
+  // Get component display name in Japanese
+  const getComponentDisplayName = (componentType: ComponentType | string): string => {
+    const typeStr = typeof componentType === 'string' ? componentType : String(componentType);
+    const displayNames: Record<string, string> = {
+      'TTubo': '1Dパイプ',
+      'TDepVolCte': '定容積プレナム',
+      'TDepVolVariable': '可変容積プレナム',
+      'TTurbinaSimple': 'シンプルタービン',
+      'TCDFijo': '固定CDバルブ',
+      'TValvula4T': '4Tバルブ',
+      'TLamina': 'リードバルブ',
+      'TMariposa': 'バタフライバルブ',
+      'TBloqueMotor': 'エンジンブロック',
+      'TCilindro4T': '4Tシリンダー',
+      'TCilindro2T': '2Tシリンダー',
+      'TDPF': 'ディーゼル微粒子フィルター',
+      'TCCDescargaExtremoAbierto': '開放端（大気）',
+      'TCCExtremoCerrado': '閉端',
+      'TCCExtremoAnecoico': '無反射端',
+      'TCCRamificacion': '分岐',
+      // VANOS Control Components
+      'TSensor': 'センサー',
+      'TTable1D': '1Dテーブル',
+      'TController': 'コントローラー',
+      'TPIDController': 'PIDコントローラー',
+      'TValvulaContr': '制御バルブ',
+      'TCCDeposito': 'パイプ-プレナム接続'
+    };
+    
+    return displayNames[typeStr] || typeStr;
   };
 
   // Toggle button (always visible)
@@ -519,13 +744,13 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         borderRadius: '4px' 
       }}>
         <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>
-          {component.customName || component.type}
+          {component.customName || getComponentDisplayName(component.type)}
         </div>
         <div style={{ fontSize: '12px', color: '#7f8c8d' }}>
           ID: {component.id}
         </div>
         <div style={{ fontSize: '12px', color: '#7f8c8d' }}>
-          タイプ: {component.type}
+          タイプ: {getComponentDisplayName(component.type)}
         </div>
       </div>
       
@@ -560,6 +785,78 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           詳細プロパティ
         </h4>
         {formFields.map(fieldPath => renderField(fieldPath))}
+        
+        {/* Special handling for TTable1D data arrays */}
+        {component.type === 'TTable1D' && (
+          <div style={{ marginTop: '20px' }}>
+            <h5 style={{ marginBottom: '10px', color: '#34495e' }}>
+              テーブルデータ
+            </h5>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '5px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: '#2c3e50'
+              }}>
+                X軸データ (カンマ区切り)
+              </label>
+              <textarea
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #bdc3c7',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  minHeight: '60px',
+                  resize: 'vertical'
+                }}
+                value={formData.datosX ? formData.datosX.join(', ') : '800, 1500, 2500, 4000, 6000, 7000'}
+                onChange={(e) => {
+                  const values = e.target.value.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                  handleFieldChange('datosX', values);
+                }}
+                placeholder="例: 800, 1500, 2500, 4000, 6000, 7000"
+              />
+            </div>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '5px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: '#2c3e50'
+              }}>
+                Y軸データ (カンマ区切り)
+              </label>
+              <textarea
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #bdc3c7',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  minHeight: '60px',
+                  resize: 'vertical'
+                }}
+                value={formData.datosY ? formData.datosY.join(', ') : '0, 5, 15, 25, 35, 40'}
+                onChange={(e) => {
+                  const values = e.target.value.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                  handleFieldChange('datosY', values);
+                }}
+                placeholder="例: 0, 5, 15, 25, 35, 40"
+              />
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: '#7f8c8d',
+              fontStyle: 'italic'
+            }}>
+              ※ X軸とY軸のデータ数は同じである必要があります
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Validation summary */}

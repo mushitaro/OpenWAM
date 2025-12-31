@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -38,141 +39,109 @@
 //---------------------------------------------------------------------------
 
 class TDeposito;
-class TCCUnionEntreDepositos: public TCondicionContorno {
-  private:
+class TCCUnionEntreDepositos : public TCondicionContorno {
+private:
+  bool FIndependiente;
 
-	bool FIndependiente;
+  TTipoValvula *FValvula;
+  TDeposito *FDeposito1;
+  TDeposito *FDeposito2;
 
-	TTipoValvula *FValvula;
-	TDeposito *FDeposito1;
-	TDeposito *FDeposito2;
+  int FNumeroDeposito1;
+  int FNumeroDeposito2;
 
-	int FNumeroDeposito1;
-	int FNumeroDeposito2;
+  double FPresionDep1;
+  double FPresionDep2;
+  double FPresionDep1SUM;
+  double FAsonidoDep1SUM;
+  double FGammaDep1SUM;
+  double FRDep1SUM;
+  double FTiempoDep1SUM;
+  double FPresionDep2SUM;
+  double FAsonidoDep2SUM;
+  double FGammaDep2SUM;
+  double FRDep2SUM;
+  double FTiempoDep2SUM;
 
-	double FPresionDep1;
-	double FPresionDep2;
-	double FPresionDep1SUM;
-	double FAsonidoDep1SUM;
-	double FGammaDep1SUM;
-	double FRDep1SUM;
-	double FTiempoDep1SUM;
-	double FPresionDep2SUM;
-	double FAsonidoDep2SUM;
-	double FGammaDep2SUM;
-	double FRDep2SUM;
-	double FTiempoDep2SUM;
+  double FCDEntrada;
+  double FCDSalida;
+  double FCTorbellino;
 
-	double FCDEntrada;
-	double FCDSalida;
-	double FCTorbellino;
+  double FGasto; // Se calcula en valor absluto. EL tratamiento de su signo se
+                 // realiza con las variables
+  // auxialares FSentidoFlujoED.
+  double FVelocity;
+  double FGastoImpreso;
+  double Fa0; // Velocity del sonido en el deposito del que sale el flujo.
+  double Fa1; // Velocity del sonido en el deposito al que llega el flujo.
 
-	double FGasto; // Se calcula en valor absluto. EL tratamiento de su signo se realiza con las variables
-	// auxialares FSentidoFlujoED.
-	double FVelocity;
-	double FGastoImpreso;
-	double Fa0;     // Velocity del sonido en el deposito del que sale el flujo.
-	double Fa1;     // Velocity del sonido en el deposito al que llega el flujo.
+  int FSentidoFlujoED1;
+  int FSentidoFlujoED2;
 
-	int FSentidoFlujoED1;
-	int FSentidoFlujoED2;
+  stResInstantUED FResInstantUED;
+  stResMediosUED FResMediosUED;
 
-	stResInstantUED FResInstantUED;
-	stResMediosUED FResMediosUED;
+  // double FTiempoActual;
 
-//double FTiempoActual;
+  double FRegimen;
 
-	double FRegimen;
+  double FGamma1;
+  double FGamma2;
 
-	double FGamma1;
-	double FGamma2;
+  // FUNCIONES
 
-// FUNCIONES
+  double InterpolaDeposito(double vizq, double vder, double axid, double xif);
 
-	double InterpolaDeposito(double vizq, double vder, double axid, double xif);
+public:
+  int getNumeroDeposito1() { return FNumeroDeposito1; };
+  int getNumeroDeposito2() { return FNumeroDeposito2; };
+  int getSentidoFlujoED1() { return FSentidoFlujoED1; };
+  int getSentidoFlujoED2() { return FSentidoFlujoED2; };
+  double getMassflow() { return FGasto; };
+  double getVelocity() { return FVelocity; };
+  double getGastoImpreso() { return FGastoImpreso; };
+  double getSpeedSound() { return Fa0; };
+  TTipoValvula *getValvula() { return FValvula; };
+  double FTiempoActual;
+  double getInstanteCalculo() { return FTiempoActual; }
+  void PutInstanteCalculo(double valor) { FTiempoActual = valor; };
 
-  public:
+  TCCUnionEntreDepositos(nmTypeBC TipoCC, int numCC,
+                         nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+                         nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-	int getNumeroDeposito1() {
-		return FNumeroDeposito1;
-	}
-	;
-	int getNumeroDeposito2() {
-		return FNumeroDeposito2;
-	}
-	;
-	int getSentidoFlujoED1() {
-		return FSentidoFlujoED1;
-	}
-	;
-	int getSentidoFlujoED2() {
-		return FSentidoFlujoED2;
-	}
-	;
-	double getMassflow() {
-		return FGasto;
-	}
-	;
-	double getVelocity() {
-		return FVelocity;
-	}
-	;
-	double getGastoImpreso() {
-		return FGastoImpreso;
-	}
-	;
-	double getSpeedSound() {
-		return Fa0;
-	}
-	;
-	TTipoValvula* getValvula() {
-		return FValvula;
-	}
-	;
-	double FTiempoActual;
-	double getInstanteCalculo() {
-		return FTiempoActual;
-	}
-	void PutInstanteCalculo(double valor) {
-		FTiempoActual = valor;
-	}
-	;
+  ~TCCUnionEntreDepositos();
 
-	TCCUnionEntreDepositos(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-						   nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void AsignaTipoValvula(TTipoValvula **Origen, int Valv, int i);
 
-	~TCCUnionEntreDepositos();
+  void CalculaCondicionContorno(double Time);
 
-	void AsignaTipoValvula(TTipoValvula **Origen, int Valv, int i);
+  void LeeUEDepositos(const char *FileWAM, fpos_t &filepos, bool Independent);
 
-	void CalculaCondicionContorno(double Time);
+  void AsignaDepositos(TDeposito **Plenum);
 
-	void LeeUEDepositos(const char *FileWAM, fpos_t &filepos, bool Independent);
+  void CalculaCoeficientesDescarga(double Angulo, double mfcomb = 0.,
+                                   double RegimenMotor = 0.);
 
-	void AsignaDepositos(TDeposito **Plenum);
+  void LeeResultadosInstantUED(const char *FileWAM, fpos_t &filepos);
 
-	void CalculaCoeficientesDescarga(double Angulo, double mfcomb = 0., double RegimenMotor = 0.);
+  void CabeceraResultadosInstantUED(std::ostream &insoutput);
 
-	void LeeResultadosInstantUED(const char *FileWAM, fpos_t &filepos);
+  void ImprimeResultadosInstantUED(std::ostream &insoutput);
 
-	void CabeceraResultadosInstantUED(stringstream& insoutput);
+  void ResultadosInstantUED();
 
-	void ImprimeResultadosInstantUED(stringstream& insoutput);
+  void ReadAverageResultsUED(const char *FileWAM, fpos_t &filepos);
 
-	void ResultadosInstantUED();
+  void HeaderAverageResultsUED(std::ostream &medoutput);
 
-	void ReadAverageResultsUED(const char *FileWAM, fpos_t &filepos);
+  void ImprimeResultadosMediosUED(std::ostream &medoutput);
 
-	void HeaderAverageResultsUED(stringstream& medoutput);
+  void ResultadosMediosUED();
 
-	void ImprimeResultadosMediosUED(stringstream& medoutput);
+  void AcumulaResultadosMediosUED(double Actual);
 
-	void ResultadosMediosUED();
-
-	void AcumulaResultadosMediosUED(double Actual);
-
-	void CalculaUED();
-
+  void CalculaUED();
 };
 
 #endif

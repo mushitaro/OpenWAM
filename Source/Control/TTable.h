@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -32,48 +33,45 @@
 #include "TController.h"
 //---------------------------------------------------------------------------
 
-class TTable: public TController {
-  private:
+class TTable : public TController {
+private:
+  int fID;
+  int fDimensiones;
+  std::vector<double> fX_map;
+  std::vector<double> fY_map;
+  std::vector<std::vector<double>> fZ_map;
 
-	int fID;
-	int fDimensiones;
-	std::vector<double> fX_map;
-	std::vector<double> fY_map;
-	std::vector<std::vector<double> > fZ_map;
+  double fOutput;
 
-	double fOutput;
+public:
+  TTable(int i);
+  ~TTable();
 
-  public:
+  double Output(double Time);
 
-	TTable(int i);
-	~TTable();
+  void LeeController(const char *FileWAM, fpos_t &filepos);
 
-	double Output(double Time);
+  void AsignaObjetos(TSensor **Sensor, TController **Controller);
 
-	void LeeController(const char *FileWAM, fpos_t &filepos);
+  void LeeResultadosMedControlador(const char *FileWAM, fpos_t &filepos);
 
-	void AsignaObjetos(TSensor **Sensor, TController **Controller);
+  void LeeResultadosInsControlador(const char *FileWAM, fpos_t &filepos);
 
-	void LeeResultadosMedControlador(const char *FileWAM, fpos_t &filepos);
+  void CabeceraResultadosMedControlador(std::ostream &medoutput);
 
-	void LeeResultadosInsControlador(const char *FileWAM, fpos_t &filepos);
+  void CabeceraResultadosInsControlador(std::ostream &insoutput);
 
-	void CabeceraResultadosMedControlador(stringstream *medoutput);
+  void ImprimeResultadosMedControlador(std::ostream &medoutput);
 
-	void CabeceraResultadosInsControlador(stringstream *insoutput);
+  void ImprimeResultadosInsControlador(std::ostream &insoutput);
 
-	void ImprimeResultadosMedControlador(stringstream *medoutput);
+  void IniciaMedias();
 
-	void ImprimeResultadosInsControlador(stringstream *insoutput);
+  void ResultadosMediosController();
 
-	void IniciaMedias();
+  void AcumulaResultadosMediosController(double Actual);
 
-	void ResultadosMediosController();
-
-	void AcumulaResultadosMediosController(double Actual);
-
-	void ResultadosInstantController();
-
+  void ResultadosInstantController();
 };
 
 #endif

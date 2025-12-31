@@ -227,6 +227,139 @@ export const advancedConnectionRules: ConnectionRule[] = [
     isAllowed: true
   },
 
+  // ========== VANOS CONTROL SYSTEM CONNECTIONS ==========
+  
+  // Sensor connections
+  {
+    fromType: ComponentType.SENSOR,
+    fromPortType: 'output',
+    toType: ComponentType.CONTROLLER,
+    toPortType: 'sensor_input',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.SENSOR,
+    fromPortType: 'output',
+    toType: ComponentType.PID_CONTROLLER,
+    toPortType: 'feedback',
+    isAllowed: true
+  },
+
+  // Table1D connections
+  {
+    fromType: ComponentType.SENSOR,
+    fromPortType: 'output',
+    toType: ComponentType.TABLE_1D,
+    toPortType: 'input',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.TABLE_1D,
+    fromPortType: 'output',
+    toType: ComponentType.CONTROLLER,
+    toPortType: 'table_input',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.TABLE_1D,
+    fromPortType: 'output',
+    toType: ComponentType.PID_CONTROLLER,
+    toPortType: 'setpoint',
+    isAllowed: true
+  },
+
+  // Controller connections
+  {
+    fromType: ComponentType.CONTROLLER,
+    fromPortType: 'pid_output',
+    toType: ComponentType.PID_CONTROLLER,
+    toPortType: 'setpoint',
+    isAllowed: true
+  },
+
+  // PID Controller connections
+  {
+    fromType: ComponentType.PID_CONTROLLER,
+    fromPortType: 'output',
+    toType: ComponentType.CONTROL_VALVE,
+    toPortType: 'control_input',
+    isAllowed: true
+  },
+
+  // Control Valve connections
+  {
+    fromType: ComponentType.CONTROL_VALVE,
+    fromPortType: 'hydraulic_connection',
+    toType: ComponentType.PIPE,
+    toPortType: 'left',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.CONTROL_VALVE,
+    fromPortType: 'hydraulic_connection',
+    toType: ComponentType.PIPE,
+    toPortType: 'right',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.PIPE,
+    fromPortType: 'left',
+    toType: ComponentType.CONTROL_VALVE,
+    toPortType: 'hydraulic_connection',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.PIPE,
+    fromPortType: 'right',
+    toType: ComponentType.CONTROL_VALVE,
+    toPortType: 'hydraulic_connection',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.CONTROL_VALVE,
+    fromPortType: 'hydraulic_connection',
+    toType: ComponentType.CONSTANT_VOLUME_PLENUM,
+    toPortType: 'inlet',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.CONSTANT_VOLUME_PLENUM,
+    fromPortType: 'inlet',
+    toType: ComponentType.CONTROL_VALVE,
+    toPortType: 'hydraulic_connection',
+    isAllowed: true
+  },
+
+  // Pipe-to-Plenum Connection
+  {
+    fromType: ComponentType.PIPE,
+    fromPortType: 'left',
+    toType: ComponentType.PIPE_TO_PLENUM,
+    toPortType: 'pipe_connection',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.PIPE,
+    fromPortType: 'right',
+    toType: ComponentType.PIPE_TO_PLENUM,
+    toPortType: 'pipe_connection',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.PIPE_TO_PLENUM,
+    fromPortType: 'plenum_connection',
+    toType: ComponentType.CONSTANT_VOLUME_PLENUM,
+    toPortType: 'inlet',
+    isAllowed: true
+  },
+  {
+    fromType: ComponentType.PIPE_TO_PLENUM,
+    fromPortType: 'plenum_connection',
+    toType: ComponentType.VARIABLE_VOLUME_PLENUM,
+    toPortType: 'inlet',
+    isAllowed: true
+  },
+
   // ========== FORBIDDEN CONNECTIONS ==========
   
   // Plenum to Plenum direct connection (not allowed without valve)
@@ -251,6 +384,22 @@ export const advancedConnectionRules: ConnectionRule[] = [
     fromPortType: 'connection',
     toType: ComponentType.OPEN_END_ATMOSPHERE,
     toPortType: 'connection',
+    isAllowed: false
+  },
+
+  // Control system forbidden connections
+  {
+    fromType: ComponentType.SENSOR,
+    fromPortType: 'output',
+    toType: ComponentType.SENSOR,
+    toPortType: 'output',
+    isAllowed: false
+  },
+  {
+    fromType: ComponentType.CONTROL_VALVE,
+    fromPortType: 'control_input',
+    toType: ComponentType.CONTROL_VALVE,
+    toPortType: 'control_input',
     isAllowed: false
   }
 ];

@@ -2,8 +2,8 @@
 |==========================|
  |\\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  | \\ |  X  | //  W ave     |
- |  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
- |   \\/   \//    M odel    |
+ |  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia |   \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  | License
  |
@@ -137,8 +137,8 @@
 #define gestorcom true
 #define graphicalout true
 #else
-//#define gestorcom 0
-//#define graphicalout 0
+// #define gestorcom 0
+// #define graphicalout 0
 #endif
 
 #ifdef gestorcom
@@ -146,346 +146,345 @@
 #endif
 
 class TOpenWAM {
-  private:
-
+private:
 #ifdef gestorcom
 
-	TCGestorWAM *GestorWAM;
+  TCGestorWAM *GestorWAM;
 #endif
 
-	std::string tzstr;
-	struct timeb begining, final, current;
+  std::string tzstr;
+  struct timeb begining, final, current;
 
-	stRun Run;
+  stRun Run;
 
-	stDatosTGV *DatosTGV;
-	std::string fileinput;
+  stDatosTGV *DatosTGV;
+  std::string fileinput;
 
-	FILE *FileInput;
-	// !< Pointers to input and output files.
-	FILE *fc; // !< Pointers to input and output files.
+  std::ifstream FileInput;
+  // !< Pointers to input and output files.
+  FILE *fc; // !< Pointers to input and output files.
 
-	//char fileinput[8];
+  // char fileinput[8];
 
-	TBloqueMotor** Engine;
-	TCompresor** Compressor;
-	TCalculoExtern* EXTERN;
-	TEjeTurbogrupo** Axis;
+  TBloqueMotor **Engine;
+  TCompresor **Compressor;
+  TCalculoExtern *EXTERN;
+  TEjeTurbogrupo **Axis;
 
-	// ! ARRAY OF TYPES OF VALVES
-	TTipoValvula** TypeOfValve;
+  // ! ARRAY OF TYPES OF VALVES
+  TTipoValvula **TypeOfValve;
 
-	// ! POINTERS ARRAY TO VALVES TYPE TURBINE STATOR
-	TEstatorTurbina*** StatorTurbine;
-	// ! POINTERS ARRAY TO VALVES TYPE TURBINE ROTOR
-	TRotorTurbina** RotorTurbine;
-	// ! POINTERS ARRAY TO EXTERNAL CONNECTIONS
-	TTipoValvula** CCCalcExtern;
-	TTipoValvula** BCButerflyValve;
+  // ! POINTERS ARRAY TO VALVES TYPE TURBINE STATOR
+  TEstatorTurbina ***StatorTurbine;
+  // ! POINTERS ARRAY TO VALVES TYPE TURBINE ROTOR
+  TRotorTurbina **RotorTurbine;
+  // ! POINTERS ARRAY TO EXTERNAL CONNECTIONS
+  TTipoValvula **CCCalcExtern;
+  TTipoValvula **BCButerflyValve;
 
-	// ! ARRAY OF PIPES
-	TTubo** Pipe;
+  // ! ARRAY OF PIPES
+  TTubo **Pipe;
 
-	// ! ARRAY OF CONCENTRIC ELEMENTS
+  // ! ARRAY OF CONCENTRIC ELEMENTS
 #ifdef ConcentricElement
-	TConcentrico** Concentric;
+  TConcentrico **Concentric;
 #endif
 
-	// ! ARRAY OF DPFs
+  // ! ARRAY OF DPFs
 #ifdef ParticulateFilter
-	TDPF** DPF;
+  TDPF **DPF;
 #endif
 
-	// ! ARRAYS OF PLENUMS
-	TDeposito** Plenum;
-	TTurbina** Turbine;
-	TVenturi** Venturi;
-
-	// ! ARRAYS OF BOUNDARY CONDITIONS
-	TCondicionContorno** BC;
-	TCondicionContorno** BCIntakeValve;
-	TCondicionContorno** BCExhaustValve;
-	TCondicionContorno** BCReedValve;
-	TCondicionContorno** BCWasteGate;
-
-	TCCExternalConnection** BCExtConnection;
-	TCCExternalConnectionVol** BCExtConnectionVol;
-
-	TCCCompresorVolumetrico** VolumetricCompressor;
-	TCCDescargaExtremoAbierto** MatlabDischarge;
-	TCCExtremoInyeccion** InjectionEnd;
-	TCCPerdidadePresion **PerdidaPresion;
-
-	// !OUTPUT OBJECT
-	TOutputResults* Output;
-
-	// ! CONTROL PARAMETERS
-	bool FirstIteration;
-	int JStepMax;
-	int JStepMaxDPF;
-	int JCurrent;
-	int JCurrentDPF;
-	double TimeEndStep;
-	double DeltaTPlenums;
-	bool Independent;
-	bool Is_EndStep;
-	bool PipeStepMax;
-	bool DPFStepMax;
-	bool TimeMinPipe;
-	bool TimeMinDPF;
-
-	double CrankAngle;
-	double AcumulatedTime;
-	double Theta;
-	double Theta0;
-
-	// ! SPECIES MODEL PARAMETERS
-
-	stEspecies* SpeciesName;
-	int SpeciesNumber;
-
-	nmTipoCalculoEspecies SpeciesModel;
-
-	double* AtmosphericComposition;
-
-	nmTipoCombustible FuelType;
-	nmCalculoGamma GammaCalculation;
-
-	// ! GENERAL PARAMETERS
-	nmTipoMotor EngineType;
-
-	nmTipoModelado SimulationType;
-	bool ThereIsEGR;
-	bool ThereIsFuel;
-	int OpenWAMVersion;
-	int Steps;
-	int Increment;
-	float Percentage;
-	double ThetaIni;
-	double ene;
-	double agincr;
-	double thmax;
-	double grmax;
-	double SimulationDuration;
-	int CyclesWithoutThemalInertia;
-	double AmbientPressure;
-	double AmbientTemperature;
-	bool ConvergenceFirstTime;
+  // ! ARRAYS OF PLENUMS
+  TDeposito **Plenum;
+  TTurbina **Turbine;
+  TVenturi **Venturi;
+
+  // ! ARRAYS OF BOUNDARY CONDITIONS
+  TCondicionContorno **BC;
+  TCondicionContorno **BCIntakeValve;
+  TCondicionContorno **BCExhaustValve;
+  TCondicionContorno **BCReedValve;
+  TCondicionContorno **BCWasteGate;
+
+  TCCExternalConnection **BCExtConnection;
+  TCCExternalConnectionVol **BCExtConnectionVol;
+
+  TCCCompresorVolumetrico **VolumetricCompressor;
+  TCCDescargaExtremoAbierto **MatlabDischarge;
+  TCCExtremoInyeccion **InjectionEnd;
+  TCCPerdidadePresion **PerdidaPresion;
+
+  // !OUTPUT OBJECT
+  TOutputResults *Output;
+
+  // ! CONTROL PARAMETERS
+  bool FirstIteration;
+  int JStepMax;
+  int JStepMaxDPF;
+  int JCurrent;
+  int JCurrentDPF;
+  double TimeEndStep;
+  double DeltaTPlenums;
+  bool Independent;
+  bool Is_EndStep;
+  bool PipeStepMax;
+  bool DPFStepMax;
+  bool TimeMinPipe;
+  bool TimeMinDPF;
+
+  double CrankAngle;
+  double AcumulatedTime;
+  double Theta;
+  double Theta0;
+
+  // ! SPECIES MODEL PARAMETERS
+
+  stEspecies *SpeciesName;
+  int SpeciesNumber;
+
+  nmTipoCalculoEspecies SpeciesModel;
+
+  double *AtmosphericComposition;
+
+  nmTipoCombustible FuelType;
+  nmCalculoGamma GammaCalculation;
+
+  // ! GENERAL PARAMETERS
+  nmTipoMotor EngineType;
+
+  nmTipoModelado SimulationType;
+  bool ThereIsEGR;
+  bool ThereIsFuel;
+  int OpenWAMVersion;
+  int Steps;
+  int Increment;
+  float Percentage;
+  double ThetaIni;
+  double ene;
+  double agincr;
+  double thmax;
+  double grmax;
+  double SimulationDuration;
+  int CyclesWithoutThemalInertia;
+  double AmbientPressure;
+  double AmbientTemperature;
+  bool ConvergenceFirstTime;
 
-	// ! DOES THE ENGINE BLOCK EXIST?
-	bool EngineBlock;
+  // ! DOES THE ENGINE BLOCK EXIST?
+  bool EngineBlock;
 
-	// ! NUMBER OF PIPES
-	int NumberOfPipes;
+  // ! NUMBER OF PIPES
+  int NumberOfPipes;
 
-	// ! NUMBER OF CONCENTRIC ELEMENTS
-	int NumberOfConcentrics;
+  // ! NUMBER OF CONCENTRIC ELEMENTS
+  int NumberOfConcentrics;
 
-	// ! NUMBER OF DIESEL PARTICULATE FILTERS
-	int NumberOfDPF;
+  // ! NUMBER OF DIESEL PARTICULATE FILTERS
+  int NumberOfDPF;
 
-	// ! VALVES PARAMETERS
-	int NumberOfValves;
-	int NumberOfReedValves;
-	int NumberOfWasteGates;
-	int NumberOfExternalCalculatedValves;
+  // ! VALVES PARAMETERS
+  int NumberOfValves;
+  int NumberOfReedValves;
+  int NumberOfWasteGates;
+  int NumberOfExternalCalculatedValves;
 
-	// ! CONNECTIONS PARAMETERS
-	int NumberOfConnections;
-	int NumberOfVolumetricCompressors;
-	int NumberOfExhaustValves;
-	int NumberOfIntakeValves;
-	int NumberOfCompressorsConnections;
-	int NumberOfInjectionEnds;
-	int NumberOfConectionsBetweenPlenums;
-	int NumberOfButerflyValves;
+  // ! CONNECTIONS PARAMETERS
+  int NumberOfConnections;
+  int NumberOfVolumetricCompressors;
+  int NumberOfExhaustValves;
+  int NumberOfIntakeValves;
+  int NumberOfCompressorsConnections;
+  int NumberOfInjectionEnds;
+  int NumberOfConectionsBetweenPlenums;
+  int NumberOfButerflyValves;
 
-	// ! NUMBER OF PLENUMS
-	int NumberOfPlenums;
+  // ! NUMBER OF PLENUMS
+  int NumberOfPlenums;
 
-	// ! NUMBER OF VENTURIS
-	int NumberOfVenturis;
+  // ! NUMBER OF VENTURIS
+  int NumberOfVenturis;
 
-	// ! NUMBER OF DIRECTIONAL JUNCIONS
-	int NumberOfDirectionalJunctions;
+  // ! NUMBER OF DIRECTIONAL JUNCIONS
+  int NumberOfDirectionalJunctions;
 
-	// ! PARAMETER FOR THE CONTROL UNIT
-	int NumberOfSensors;
+  // ! PARAMETER FOR THE CONTROL UNIT
+  int NumberOfSensors;
 
-	TSensor **Sensor;
+  TSensor **Sensor;
 
-	int NumberOfControllers;
+  int NumberOfControllers;
 
-	TController **Controller;
+  TController **Controller;
 
-	// ! EXTERNAL CALCULATION PARAMETERS
-	bool ThereIsDLL;
-	int controlvalv;
-	int nematlab;
+  // ! EXTERNAL CALCULATION PARAMETERS
+  bool ThereIsDLL;
+  int controlvalv;
+  int nematlab;
 
-	// ! TURBINE PARAMETERS
-	int NumberOfTurbines;
-	int CountVGT;
+  // ! TURBINE PARAMETERS
+  int NumberOfTurbines;
+  int CountVGT;
 
-	// ! NUMBER OF TURBOCHARGER AXIS
-	int NumberOfAxis;
+  // ! NUMBER OF TURBOCHARGER AXIS
+  int NumberOfAxis;
 
-	// ! NUMBER OF COMPRESSORS
-	int NumberOfCompressors;
+  // ! NUMBER OF COMPRESSORS
+  int NumberOfCompressors;
 
-	// ! NUMBER OF PRESSURE LOSSES
-	int NumTCCPerdidaPresion;
+  // ! NUMBER OF PRESSURE LOSSES
+  int NumTCCPerdidaPresion;
 
-	int fi_num_threads; ///< Available threads for CalculateFlowIndependent.
+  int fi_num_threads; ///< Available threads for CalculateFlowIndependent.
 
-	/**
-	 * @brief Assigns the number of threads for CalculateFlowIndependent.
-	 *
-	 * As CalculateFlowFlowIndependent can use up to 3 threads, it counts
-	 * the number of available processors and sets fi_num_threads to 1, 2
-	 * or 3 accordingly.  Also, if OMP_NUM_THREADS is set to 2 or 1, it
-	 * observes it.
-	 */
-	void InitFlowIndependentNumThreads();
+  /**
+   * @brief Assigns the number of threads for CalculateFlowIndependent.
+   *
+   * As CalculateFlowFlowIndependent can use up to 3 threads, it counts
+   * the number of available processors and sets fi_num_threads to 1, 2
+   * or 3 accordingly.  Also, if OMP_NUM_THREADS is set to 2 or 1, it
+   * observes it.
+   */
+  void InitFlowIndependentNumThreads();
 
-	void CleanLabelsX();
+  void CleanLabelsX();
 
-	void CleanLabels();
+  void CleanLabels();
 
-	void ReadGeneralData();
+  void ReadGeneralData();
 
-	void ReadEngine();
+  void ReadEngine();
 
-	void ReadPipes();
+  void ReadPipes();
 
-	void ReadDPF();
+  void ReadDPF();
 
-	void ReadConcentric();
+  void ReadConcentric();
 
-	void ReadValves();
+  void ReadValves();
 
-	void ReadPlenums();
+  void ReadPlenums();
 
-	void ReadCompressors();
+  void ReadCompressors();
 
-	void ReadConnections();
+  void ReadConnections();
 
-	void ReadTurbochargerAxis();
+  void ReadTurbochargerAxis();
 
-	void ReadSensors();
+  void ReadSensors();
 
-	void ReadControllers();
+  void ReadControllers();
 
-	void ReadOutput(char* FileName);
+  void ReadOutput(char *FileName);
 
-	void ReadDataDLL();
+  void ReadDataDLL();
 
-	void RunningControl();
+  void RunningControl();
 
-	void InitializeRunningAngles();
+  void InitializeRunningAngles();
 
-	void AllocateVGTData();
+  void AllocateVGTData();
 
-	void CalculateNewHeatPositions();
+  void CalculateNewHeatPositions();
 
-	void CalculateDistance(int NodoOrigen, int NodoFin, double Longitud, int NumberOfPlenums, int NumberOfPipes,
-						   int NumberOfConnections, TTubo **Pipe, TCondicionContorno **BC);
+  void CalculateDistance(int NodoOrigen, int NodoFin, double Longitud,
+                         int NumberOfPlenums, int NumberOfPipes,
+                         int NumberOfConnections, TTubo **Pipe,
+                         TCondicionContorno **BC);
 
-	int SelectPipe(TTubo **Pipe, int NumberOfPipes, int nodo1, int nodo2);
+  int SelectPipe(TTubo **Pipe, int NumberOfPipes, int nodo1, int nodo2);
 
-	void MethodStability();
+  void MethodStability();
 
-	void SearchMinimumTimeStep();
+  void SearchMinimumTimeStep();
 
-	void StudyInflowOutflowMass();
+  void StudyInflowOutflowMass();
 
-	void SearchMinimumTime(int LNumDepInicial, double* LTMinimo, TDeposito **LPlenum);
+  void SearchMinimumTime(int LNumDepInicial, double *LTMinimo,
+                         TDeposito **LPlenum);
 
-	void SearchMinimumTimeGroup(double *LTMinimo, int LNumDeposito, TDeposito **LPlenum);
+  void SearchMinimumTimeGroup(double *LTMinimo, int LNumDeposito,
+                              TDeposito **LPlenum);
 
-	void FixTimeStep();
+  void FixTimeStep();
 
-	void FixTimeStepExternal(double deltat);
+  void FixTimeStepExternal(double deltat);
 
-	void RecalculateStability();
+  void RecalculateStability();
 
-	void SolveAdjacentElements(int PipeEnd, double TiempoActual);
+  void SolveAdjacentElements(int PipeEnd, double TiempoActual);
 
-	void SolveBranch(int NumDeposito, double TiempoActual);
+  void SolveBranch(int NumDeposito, double TiempoActual);
 
-	void UpdateEngine();
+  void UpdateEngine();
 
-	void SolveRoadLoadModel();
+  void SolveRoadLoadModel();
 
-	void RecalculateStabilitySolver();
+  void RecalculateStabilitySolver();
 
-	void UpdateTurbocharger();
+  void UpdateTurbocharger();
 
-	void comunica_wam_dll();
+  void comunica_wam_dll();
 
-	void ModificacionControlEjecucion();
+  void ModificacionControlEjecucion();
 
-	void Actuadores();
+  void Actuadores();
 
-  public:
+public:
+  TOpenWAM();
 
-	TOpenWAM();
+  ~TOpenWAM();
 
-	~TOpenWAM();
+  void ReadInputData(char *FileName);
 
-	void ReadInputData(char* FileName);
+  void InitializeParameters();
 
-	void InitializeParameters();
+  void ConnectFlowElements();
 
-	void ConnectFlowElements();
+  void ConnectControlElements();
 
-	void ConnectControlElements();
+  void InitialHeatTransferParameters();
 
-	void InitialHeatTransferParameters();
+  void DetermineTimeStepIndependent();
 
-	void DetermineTimeStepIndependent();
+  void DetermineTimeStepCommon();
 
-	void DetermineTimeStepCommon();
+  void DetermineTimeStep(double t);
 
-	void DetermineTimeStep(double t);
+  void InitializeOutput();
 
-	void InitializeOutput();
+  void CalculateFlowIndependent();
 
-	void CalculateFlowIndependent();
+  void CalculateFlowCommon();
 
-	void CalculateFlowCommon();
+  void ManageOutput();
 
-	void ManageOutput();
+  bool CalculationEnd();
 
-	bool CalculationEnd();
+  void Progress();
 
-	void Progress();
+  void ProgressBegin();
 
-	void ProgressBegin();
+  void ProgressEnd();
 
-	void ProgressEnd();
+  void NewEngineCycle();
 
-	void NewEngineCycle();
+  void GeneralOutput();
 
-	void GeneralOutput();
+  bool IsIndependent() { return Independent; };
 
-	bool IsIndependent() {
-		return Independent;
-	}
-	;
+  void UpdateExternalBoundary(int i, double U0, double U1, double T0, double T1,
+                              double P0, double P1, double t);
 
-	void UpdateExternalBoundary(int i, double U0, double U1, double T0, double T1, double P0, double P1, double t);
+  void UpdateExternalBoundary(int i, double U0, double T0, double P0, double t);
 
-	void UpdateExternalBoundary(int i, double U0, double T0, double P0, double t);
+  void InitiateExternalBoundary(int i, double D0, double D1, double dX);
 
-	void InitiateExternalBoundary(int i, double D0, double D1, double dX);
+  void InitiateExternalBoundary(int i, double D0, double dX);
 
-	void InitiateExternalBoundary(int i, double D0, double dX);
+  void LoadNewData(int i, double *p, double *T, double *u);
 
-	void LoadNewData(int i, double* p, double* T, double* u);
-
-	bool GetIs_EndStep();
-
+  bool GetIs_EndStep();
 };
 // ---------------------------------------------------------------------------
 #endif

@@ -221,3 +221,6 @@ export interface ChartData {
 
 // Re-export OpenWAM component types
 export * from './types/openWAMComponents';
+
+// Re-export bug tracking types
+export * from './types/bugTracking';

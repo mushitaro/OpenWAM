@@ -8,8 +8,12 @@ import { systemRoutes } from './system';
 import { createResultsRouter } from './results';
 import { templateRoutes } from './templates';
 import { presetRoutes } from './presets';
+import { bugTrackingRouter, initializeBugTrackingRoutes } from './bugTracking';
 
 export function setupRoutes(app: Application, dbManager: DatabaseManager, simulationService: SimulationService): void {
+  // Initialize bug tracking routes
+  initializeBugTrackingRoutes(dbManager);
+  
   // API routes
   app.use('/api/projects', projectRoutes(dbManager));
   app.use('/api/simulations', simulationRoutes(dbManager, simulationService));
@@ -18,6 +22,7 @@ export function setupRoutes(app: Application, dbManager: DatabaseManager, simula
   app.use('/api/results', createResultsRouter(dbManager));
   app.use('/api/templates', templateRoutes(dbManager));
   app.use('/api/presets', presetRoutes(dbManager));
+  app.use('/api/bugs', bugTrackingRouter);
 
   // Catch-all for API routes
   app.use('/api/*', (req, res) => {

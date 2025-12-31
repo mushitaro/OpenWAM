@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { logger } from '../utils/logger';
 import { Template, Preset, ProjectHistory } from '../../shared/types';
+import { BugReport, BugComment, BugAttachment } from '../../shared/types/bugTracking';
 
 export interface Project {
   id: number;
@@ -154,6 +155,82 @@ export class DatabaseManager {
       )
     `;
 
+    const createBugReportsTable = `
+      CREATE TABLE IF NOT EXISTS bug_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        severity TEXT CHECK(severity IN ('critical', 'high', 'medium', 'low')) NOT NULL,
+        status TEXT CHECK(status IN ('open', 'in_progress', 'resolved', 'closed', 'duplicate', 'wont_fix')) DEFAULT 'open',
+        category TEXT CHECK(category IN ('ui_ux', 'functionality', 'performance', 'browser_compatibility', 'file_operations', 'simulation', 'validation', 'connectivity', 'data_integrity', 'security')) NOT NULL,
+        type TEXT CHECK(type IN ('bug', 'enhancement', 'feature_request', 'performance_issue', 'compatibility_issue')) NOT NULL,
+        
+        reported_by TEXT NOT NULL,
+        reported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        
+        environment_data TEXT, -- JSON string
+        reproduction_steps TEXT, -- JSON string
+        expected_behavior TEXT NOT NULL,
+        actual_behavior TEXT NOT NULL,
+        
+        error_message TEXT,
+        stack_trace TEXT,
+        console_errors TEXT, -- JSON string
+        network_errors TEXT, -- JSON string
+        performance_metrics TEXT, -- JSON string
+        
+        project_id INTEGER,
+        model_data TEXT,
+        component_ids TEXT, -- JSON string
+        
+        assigned_to TEXT,
+        resolved_by TEXT,
+        resolved_at DATETIME,
+        resolution TEXT,
+        resolution_notes TEXT,
+        
+        duplicate_of INTEGER,
+        related_bugs TEXT, -- JSON string
+        tags TEXT, -- JSON string
+        
+        priority_score INTEGER DEFAULT 0,
+        priority_factors TEXT, -- JSON string
+        
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+        FOREIGN KEY (duplicate_of) REFERENCES bug_reports(id) ON DELETE SET NULL
+      )
+    `;
+
+    const createBugCommentsTable = `
+      CREATE TABLE IF NOT EXISTS bug_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bug_id INTEGER NOT NULL,
+        author TEXT NOT NULL,
+        content TEXT NOT NULL,
+        attachments TEXT, -- JSON string
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (bug_id) REFERENCES bug_reports(id) ON DELETE CASCADE
+      )
+    `;
+
+    const createBugAttachmentsTable = `
+      CREATE TABLE IF NOT EXISTS bug_attachments (
+        id TEXT PRIMARY KEY,
+        bug_id INTEGER NOT NULL,
+        filename TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        file_type TEXT CHECK(file_type IN ('screenshot', 'video', 'log', 'model', 'other')) NOT NULL,
+        file_size INTEGER NOT NULL,
+        description TEXT,
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (bug_id) REFERENCES bug_reports(id) ON DELETE CASCADE
+      )
+    `;
+
     const createIndexes = `
       CREATE INDEX IF NOT EXISTS idx_simulations_project_id ON simulations(project_id);
       CREATE INDEX IF NOT EXISTS idx_simulations_status ON simulations(status);
@@ -162,6 +239,16 @@ export class DatabaseManager {
       CREATE INDEX IF NOT EXISTS idx_presets_component_type ON presets(component_type);
       CREATE INDEX IF NOT EXISTS idx_project_history_project_id ON project_history(project_id);
       CREATE INDEX IF NOT EXISTS idx_project_history_version ON project_history(project_id, version_number);
+      
+      CREATE INDEX IF NOT EXISTS idx_bug_reports_status ON bug_reports(status);
+      CREATE INDEX IF NOT EXISTS idx_bug_reports_severity ON bug_reports(severity);
+      CREATE INDEX IF NOT EXISTS idx_bug_reports_category ON bug_reports(category);
+      CREATE INDEX IF NOT EXISTS idx_bug_reports_priority ON bug_reports(priority_score);
+      CREATE INDEX IF NOT EXISTS idx_bug_reports_project_id ON bug_reports(project_id);
+      CREATE INDEX IF NOT EXISTS idx_bug_reports_assigned_to ON bug_reports(assigned_to);
+      CREATE INDEX IF NOT EXISTS idx_bug_reports_reported_by ON bug_reports(reported_by);
+      CREATE INDEX IF NOT EXISTS idx_bug_comments_bug_id ON bug_comments(bug_id);
+      CREATE INDEX IF NOT EXISTS idx_bug_attachments_bug_id ON bug_attachments(bug_id);
     `;
 
     await this.db.exec(createProjectsTable);
@@ -170,6 +257,9 @@ export class DatabaseManager {
     await this.db.exec(createTemplatesTable);
     await this.db.exec(createPresetsTable);
     await this.db.exec(createProjectHistoryTable);
+    await this.db.exec(createBugReportsTable);
+    await this.db.exec(createBugCommentsTable);
+    await this.db.exec(createBugAttachmentsTable);
     await this.db.exec(createIndexes);
 
     logger.info('Database tables created successfully');
@@ -515,6 +605,400 @@ export class DatabaseManager {
     if (!this.db) throw new Error('Database not initialized');
 
     await this.db.run('DELETE FROM project_history WHERE id = ?', [id]);
+  }
+
+  // Bug tracking methods
+  async createBugReport(bugData: Omit<BugReport, 'id' | 'createdAt' | 'updatedAt'>): Promise<BugReport> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = await this.db.run(`
+      INSERT INTO bug_reports (
+        title, description, severity, status, category, type,
+        reported_by, environment_data, reproduction_steps, expected_behavior, actual_behavior,
+        error_message, stack_trace, console_errors, network_errors, performance_metrics,
+        project_id, model_data, component_ids,
+        assigned_to, resolved_by, resolved_at, resolution, resolution_notes,
+        duplicate_of, related_bugs, tags, priority_score, priority_factors
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      bugData.title,
+      bugData.description,
+      bugData.severity,
+      bugData.status,
+      bugData.category,
+      bugData.type,
+      bugData.reportedBy,
+      JSON.stringify(bugData.environment),
+      JSON.stringify(bugData.reproductionSteps),
+      bugData.expectedBehavior,
+      bugData.actualBehavior,
+      bugData.errorMessage,
+      bugData.stackTrace,
+      JSON.stringify(bugData.consoleErrors || []),
+      JSON.stringify(bugData.networkErrors || []),
+      JSON.stringify(bugData.performanceMetrics),
+      bugData.projectId,
+      bugData.modelData,
+      JSON.stringify(bugData.componentIds || []),
+      bugData.assignedTo,
+      bugData.resolvedBy,
+      bugData.resolvedAt,
+      bugData.resolution,
+      bugData.resolutionNotes,
+      bugData.duplicateOf,
+      JSON.stringify(bugData.relatedBugs || []),
+      JSON.stringify(bugData.tags || []),
+      bugData.priorityScore,
+      JSON.stringify(bugData.priorityFactors)
+    ]);
+
+    return this.getBugReport(result.lastID!);
+  }
+
+  async getBugReport(id: number): Promise<BugReport> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const row = await this.db.get(`
+      SELECT * FROM bug_reports WHERE id = ?
+    `, [id]);
+
+    if (!row) {
+      throw new Error(`Bug report with id ${id} not found`);
+    }
+
+    return this.mapRowToBugReport(row);
+  }
+
+  async getAllBugReports(filters?: {
+    status?: string[];
+    severity?: string[];
+    category?: string[];
+    assignedTo?: string;
+    projectId?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ bugs: BugReport[]; total: number }> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let whereClause = '';
+    let params: any[] = [];
+    
+    if (filters) {
+      const conditions: string[] = [];
+      
+      if (filters.status && filters.status.length > 0) {
+        conditions.push(`status IN (${filters.status.map(() => '?').join(', ')})`);
+        params.push(...filters.status);
+      }
+      
+      if (filters.severity && filters.severity.length > 0) {
+        conditions.push(`severity IN (${filters.severity.map(() => '?').join(', ')})`);
+        params.push(...filters.severity);
+      }
+      
+      if (filters.category && filters.category.length > 0) {
+        conditions.push(`category IN (${filters.category.map(() => '?').join(', ')})`);
+        params.push(...filters.category);
+      }
+      
+      if (filters.assignedTo) {
+        conditions.push('assigned_to = ?');
+        params.push(filters.assignedTo);
+      }
+      
+      if (filters.projectId) {
+        conditions.push('project_id = ?');
+        params.push(filters.projectId);
+      }
+      
+      if (conditions.length > 0) {
+        whereClause = 'WHERE ' + conditions.join(' AND ');
+      }
+    }
+
+    // Get total count
+    const countResult = await this.db.get(`
+      SELECT COUNT(*) as total FROM bug_reports ${whereClause}
+    `, params);
+
+    // Get bugs with pagination
+    let query = `
+      SELECT * FROM bug_reports ${whereClause}
+      ORDER BY priority_score DESC, created_at DESC
+    `;
+    
+    if (filters?.limit) {
+      query += ` LIMIT ${filters.limit}`;
+      if (filters.offset) {
+        query += ` OFFSET ${filters.offset}`;
+      }
+    }
+
+    const rows = await this.db.all(query, params);
+    const bugs = rows.map(row => this.mapRowToBugReport(row));
+
+    return {
+      bugs,
+      total: countResult?.total || 0
+    };
+  }
+
+  async updateBugReport(id: number, updates: Partial<BugReport>): Promise<BugReport> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const setClause: string[] = [];
+    const values: any[] = [];
+
+    // Map updates to database columns
+    if (updates.title !== undefined) {
+      setClause.push('title = ?');
+      values.push(updates.title);
+    }
+    if (updates.description !== undefined) {
+      setClause.push('description = ?');
+      values.push(updates.description);
+    }
+    if (updates.severity !== undefined) {
+      setClause.push('severity = ?');
+      values.push(updates.severity);
+    }
+    if (updates.status !== undefined) {
+      setClause.push('status = ?');
+      values.push(updates.status);
+    }
+    if (updates.category !== undefined) {
+      setClause.push('category = ?');
+      values.push(updates.category);
+    }
+    if (updates.type !== undefined) {
+      setClause.push('type = ?');
+      values.push(updates.type);
+    }
+    if (updates.assignedTo !== undefined) {
+      setClause.push('assigned_to = ?');
+      values.push(updates.assignedTo);
+    }
+    if (updates.resolvedBy !== undefined) {
+      setClause.push('resolved_by = ?');
+      values.push(updates.resolvedBy);
+    }
+    if (updates.resolvedAt !== undefined) {
+      setClause.push('resolved_at = ?');
+      values.push(updates.resolvedAt);
+    }
+    if (updates.resolution !== undefined) {
+      setClause.push('resolution = ?');
+      values.push(updates.resolution);
+    }
+    if (updates.resolutionNotes !== undefined) {
+      setClause.push('resolution_notes = ?');
+      values.push(updates.resolutionNotes);
+    }
+    if (updates.duplicateOf !== undefined) {
+      setClause.push('duplicate_of = ?');
+      values.push(updates.duplicateOf);
+    }
+    if (updates.relatedBugs !== undefined) {
+      setClause.push('related_bugs = ?');
+      values.push(JSON.stringify(updates.relatedBugs));
+    }
+    if (updates.tags !== undefined) {
+      setClause.push('tags = ?');
+      values.push(JSON.stringify(updates.tags));
+    }
+    if (updates.priorityScore !== undefined) {
+      setClause.push('priority_score = ?');
+      values.push(updates.priorityScore);
+    }
+    if (updates.priorityFactors !== undefined) {
+      setClause.push('priority_factors = ?');
+      values.push(JSON.stringify(updates.priorityFactors));
+    }
+
+    if (setClause.length === 0) {
+      return this.getBugReport(id);
+    }
+
+    setClause.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    await this.db.run(
+      `UPDATE bug_reports SET ${setClause.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    return this.getBugReport(id);
+  }
+
+  async deleteBugReport(id: number): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.run('DELETE FROM bug_reports WHERE id = ?', [id]);
+  }
+
+  async createBugComment(bugId: number, author: string, content: string, attachments?: BugAttachment[]): Promise<BugComment> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = await this.db.run(`
+      INSERT INTO bug_comments (bug_id, author, content, attachments)
+      VALUES (?, ?, ?, ?)
+    `, [
+      bugId,
+      author,
+      content,
+      JSON.stringify(attachments || [])
+    ]);
+
+    return this.getBugComment(result.lastID!);
+  }
+
+  async getBugComment(id: number): Promise<BugComment> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const row = await this.db.get(`
+      SELECT * FROM bug_comments WHERE id = ?
+    `, [id]);
+
+    if (!row) {
+      throw new Error(`Bug comment with id ${id} not found`);
+    }
+
+    return {
+      id: row.id,
+      bugId: row.bug_id,
+      author: row.author,
+      content: row.content,
+      attachments: JSON.parse(row.attachments || '[]'),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  async getBugComments(bugId: number): Promise<BugComment[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const rows = await this.db.all(`
+      SELECT * FROM bug_comments WHERE bug_id = ? ORDER BY created_at ASC
+    `, [bugId]);
+
+    return rows.map(row => ({
+      id: row.id,
+      bugId: row.bug_id,
+      author: row.author,
+      content: row.content,
+      attachments: JSON.parse(row.attachments || '[]'),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  }
+
+  async createBugAttachment(attachmentData: Omit<BugAttachment, 'uploadedAt'>): Promise<BugAttachment> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.run(`
+      INSERT INTO bug_attachments (id, bug_id, filename, file_path, file_type, file_size, description)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      attachmentData.id,
+      attachmentData.bugId,
+      attachmentData.filename,
+      attachmentData.filePath,
+      attachmentData.fileType,
+      attachmentData.fileSize,
+      attachmentData.description
+    ]);
+
+    return this.getBugAttachment(attachmentData.id);
+  }
+
+  async getBugAttachment(id: string): Promise<BugAttachment> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const row = await this.db.get(`
+      SELECT * FROM bug_attachments WHERE id = ?
+    `, [id]);
+
+    if (!row) {
+      throw new Error(`Bug attachment with id ${id} not found`);
+    }
+
+    return {
+      id: row.id,
+      bugId: row.bug_id,
+      filename: row.filename,
+      filePath: row.file_path,
+      fileType: row.file_type,
+      fileSize: row.file_size,
+      description: row.description,
+      uploadedAt: row.uploaded_at
+    };
+  }
+
+  async getBugAttachments(bugId: number): Promise<BugAttachment[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const rows = await this.db.all(`
+      SELECT * FROM bug_attachments WHERE bug_id = ? ORDER BY uploaded_at DESC
+    `, [bugId]);
+
+    return rows.map(row => ({
+      id: row.id,
+      bugId: row.bug_id,
+      filename: row.filename,
+      filePath: row.file_path,
+      fileType: row.file_type,
+      fileSize: row.file_size,
+      description: row.description,
+      uploadedAt: row.uploaded_at
+    }));
+  }
+
+  private mapRowToBugReport(row: any): BugReport {
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      severity: row.severity,
+      status: row.status,
+      category: row.category,
+      type: row.type,
+      
+      reportedBy: row.reported_by,
+      reportedAt: row.reported_at,
+      
+      environment: JSON.parse(row.environment_data || '{}'),
+      reproductionSteps: JSON.parse(row.reproduction_steps || '[]'),
+      expectedBehavior: row.expected_behavior,
+      actualBehavior: row.actual_behavior,
+      
+      errorMessage: row.error_message,
+      stackTrace: row.stack_trace,
+      consoleErrors: JSON.parse(row.console_errors || '[]'),
+      networkErrors: JSON.parse(row.network_errors || '[]'),
+      performanceMetrics: JSON.parse(row.performance_metrics || '{}'),
+      
+      projectId: row.project_id,
+      modelData: row.model_data,
+      componentIds: JSON.parse(row.component_ids || '[]'),
+      
+      assignedTo: row.assigned_to,
+      resolvedBy: row.resolved_by,
+      resolvedAt: row.resolved_at,
+      resolution: row.resolution,
+      resolutionNotes: row.resolution_notes,
+      
+      duplicateOf: row.duplicate_of,
+      relatedBugs: JSON.parse(row.related_bugs || '[]'),
+      tags: JSON.parse(row.tags || '[]'),
+      
+      priorityScore: row.priority_score,
+      priorityFactors: JSON.parse(row.priority_factors || '{}'),
+      
+      attachments: [], // Will be loaded separately if needed
+      
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   // Initialize default system data

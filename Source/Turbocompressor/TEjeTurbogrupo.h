@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -23,7 +24,8 @@
  along with OpenWAM.  If not, see <http://www.gnu.org/licenses/>.
 
 
- \*-------------------------------------------------------------------------------- */
+ \*--------------------------------------------------------------------------------
+*/
 
 // ---------------------------------------------------------------------------
 #ifndef TEjeTurbogrupoH
@@ -33,7 +35,7 @@
 
 #include "TController.h"
 #include "TTC_HTM.h"
-//#include "TTC_MechLosses.h"
+// #include "TTC_MechLosses.h"
 
 #include <cstdio>
 #include <iostream>
@@ -46,131 +48,121 @@ class TCompresor;
 
 class TEjeTurbogrupo {
 
-  private:
+private:
+protected:
+  int FNumeroEje; // Numero de Axis (empieza en 1).
+  int FNumCilindros;
 
-  protected:
+  double FRegimenEje;
+  nmAxisSpeedCalculation FVariacionRegimen;
+  double FAngle0;
 
-	int FNumeroEje; // Numero de Axis (empieza en 1).
-	int FNumCilindros;
+  double FMomentoInercia; // Momento de Inercia del Axis.
 
-	double FRegimenEje;
-	nmAxisSpeedCalculation FVariacionRegimen;
-	double FAngle0;
+  int FNumCompresoresAcoplados; // Numero de Compresores acoplados al eje.
+  int FNumTurbinasAcopladas;    // Numero de Turbinas acoplados al eje.
+  int *
+      FNumeroCompresor; // Vector con los numeros de compresor acoplados al eje.
+  int *FNumeroTurbina;  // Vector con los numeros de turbina acopladas al eje.
+  TCompresor **FCompresor; // Vector de objetos Compressor.
+  TTurbina **FTurbina;     // Vector de objetos Turbine.
 
-	double FMomentoInercia; // Momento de Inercia del Axis.
+  double FSumTrabajoCompresores;
+  double FSumTrabajoTurbinas;
+  double FDeltaReg;
 
-	int FNumCompresoresAcoplados; // Numero de Compresores acoplados al eje.
-	int FNumTurbinasAcopladas; // Numero de Turbinas acoplados al eje.
-	int *FNumeroCompresor; // Vector con los numeros de compresor acoplados al eje.
-	int *FNumeroTurbina; // Vector con los numeros de turbina acopladas al eje.
-	TCompresor **FCompresor; // Vector de objetos Compressor.
-	TTurbina **FTurbina; // Vector de objetos Turbine.
+  stResMediosEje FResMediosEje;
+  stResInstantEje FResInstantEje;
+  int FNumCiclo;
 
-	double FSumTrabajoCompresores;
-	double FSumTrabajoTurbinas;
-	double FDeltaReg;
+  TController *FController;
+  int FControllerID;
+  bool FRPMControlled;
 
-	stResMediosEje FResMediosEje;
-	stResInstantEje FResInstantEje;
-	int FNumCiclo;
+  double FTime;
 
-	TController *FController;
-	int FControllerID;
-	bool FRPMControlled;
+  double FDShaft;
+  double FHD;
+  double FDoil;
+  double FDwater;
+  double FJournalBLengh;
+  double FTthrustBRmin;
+  double FTthrustBRmax;
 
-	double FTime;
+  double FJournalB_K;
+  double FC_p3;
+  double Fk_m;
+  double F_f;
 
-	double FDShaft;
-	double FHD;
-	double FDoil;
-	double FDwater;
-	double FJournalBLengh;
-	double FTthrustBRmin;
-	double FTthrustBRmax;
+  double FCWArea;
+  double FTWArea;
 
-	double FJournalB_K;
-	double FC_p3;
-	double Fk_m;
-	double F_f;
+  double FCAC;
+  double FCAT;
 
-	double FCWArea;
-	double FTWArea;
+  double FMoil;
+  double FToil;
+  double FPoil;
 
-	double FCAC;
-	double FCAT;
+  double FTwater;
+  double FMwater;
 
-	double FMoil;
-	double FToil;
-	double FPoil;
+  double FTamb;
 
-	double FTwater;
-	double FMwater;
+  bool FThereIsHTM;
+  TTC_HTM *FHTM;
 
-	double FTamb;
+  stHTMoil *FOil;
+  stHTMwater *FWater;
 
-	bool FThereIsHTM;
-	TTC_HTM *FHTM;
+  TurboBearings *FMechLosses;
+  double FMechPower;
+  double FMechEff;
 
-	stHTMoil *FOil;
-	stHTMwater *FWater;
+public:
+  double getRegimen() { return FRegimenEje; };
 
-	TurboBearings *FMechLosses;
-	double FMechPower;
-	double FMechEff;
+  int getNumeroEje() { return FNumeroEje; };
 
-  public:
+  int GetNumeroCompresor(int i);
 
-	double getRegimen() {
-		return FRegimenEje;
-	}
-	;
+  int getNumeroCompresoresAcoplados() { return FNumCompresoresAcoplados; };
 
-	int getNumeroEje() {
-		return FNumeroEje;
-	}
-	;
+  TEjeTurbogrupo(int i, int ncilin);
 
-	int GetNumeroCompresor(int i);
+  ~TEjeTurbogrupo();
 
-	int getNumeroCompresoresAcoplados() {
-		return FNumCompresoresAcoplados;
-	}
-	;
+  void ReadTurbochargerAxis(const char *FileWAM, fpos_t &filepos,
+                            TCompresor **Compressor, TTurbina **Turbine);
 
-	TEjeTurbogrupo(int i, int ncilin);
+  void CalculaEjesTurbogrupo(double Theta, nmTipoModelado SimulationType,
+                             double Time, double CrankAngle);
 
-	~TEjeTurbogrupo();
+  void ReadAverageResultsEje(const char *FileWAM, fpos_t &filepos);
 
-	void ReadTurbochargerAxis(const char *FileWAM, fpos_t &filepos, TCompresor **Compressor, TTurbina **Turbine);
+  void CabeceraResultadosMedEje(std::ostream &medoutput);
 
-	void CalculaEjesTurbogrupo(double Theta, nmTipoModelado SimulationType, double Time, double CrankAngle);
+  void ImprimeResultadosMedEje(std::ostream &medoutput);
 
-	void ReadAverageResultsEje(const char *FileWAM, fpos_t &filepos);
+  void IniciaMedias();
 
-	void CabeceraResultadosMedEje(stringstream& medoutput);
+  void ResultadosMediosEje();
 
-	void ImprimeResultadosMedEje(stringstream& medoutput);
+  void AcumulaResultadosMediosEje(double Actual);
 
-	void IniciaMedias();
+  void ReadInstantaneousResultsEje(const char *FileWAM, fpos_t &filepos);
 
-	void ResultadosMediosEje();
+  void HeaderInstantaneousResultsEje(std::ostream &insoutput);
 
-	void AcumulaResultadosMediosEje(double Actual);
+  void ImprimeResultadosInstantaneosEje(std::ostream &insoutput);
 
-	void ReadInstantaneousResultsEje(const char *FileWAM, fpos_t &filepos);
+  void ResultadosInstantEje();
 
-	void HeaderInstantaneousResultsEje(stringstream& insoutput);
+  void InterpolaValoresMapa();
 
-	void ImprimeResultadosInstantaneosEje(stringstream& insoutput);
+  void AsignaRPMController(TController **Controller);
 
-	void ResultadosInstantEje();
-
-	void InterpolaValoresMapa();
-
-	void AsignaRPMController(TController **Controller);
-
-	void InitizlizeHTM(double Tamb);
-
+  void InitizlizeHTM(double Tamb);
 };
 
 #endif

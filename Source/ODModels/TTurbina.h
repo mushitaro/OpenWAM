@@ -2,8 +2,8 @@
 |==========================|
  |\\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  | \\ |  X  | //  W ave     |
- |  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
- |   \\/   \//    M odel    |
+ |  \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia |   \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
 
@@ -23,7 +23,8 @@
  along with OpenWAM.  If not, see <http://www.gnu.org/licenses/>.
 
 
- \*-------------------------------------------------------------------------------- */
+ \*--------------------------------------------------------------------------------
+*/
 
 // ---------------------------------------------------------------------------
 #ifndef TTurbinaH
@@ -38,231 +39,213 @@
 #include "TTC_HTM.h"
 #include "TAcousticTurbine.h"
 
-class TTurbina: public TDepVolCteBase {
-  protected:
-	// ---------------------------------------------------------------------------
-	// VARIABLES PRIVADAS
-	// ---------------------------------------------------------------------------
+class TTurbina : public TDepVolCteBase {
+protected:
+  // ---------------------------------------------------------------------------
+  // VARIABLES PRIVADAS
+  // ---------------------------------------------------------------------------
 
-	TCondicionContorno **FCCEntrada;
-	TCondicionContorno **FCCSalida;
+  TCondicionContorno **FCCEntrada;
+  TCondicionContorno **FCCSalida;
 
-	TTC_HTM *FHTM;
+  TTC_HTM *FHTM;
 
-	TTurbineMap *FMapa;
+  TTurbineMap *FMapa;
 
-	double FRack;
-	int FNumControlObject;
-	TController *FRackController;
-	bool FRackIsControlled;
+  double FRack;
+  int FNumControlObject;
+  TController *FRackController;
+  bool FRackIsControlled;
 
-	nmTipoGas FTipoGas;
-	int Fncilin;
+  nmTipoGas FTipoGas;
+  int Fncilin;
 
-	// int FNumeroTurbina;
-	int FNumeroEntradas;
-	int FNumeroTurbinaTGV;
-	int FNodoSalida;
-	int FTuboSalida;
-	int FExtremoSalida;
-	int FSentidoSalida;
-	int FTipoAjusteRdTurbina;
-	bool asgNumeroTurbina;
-	nmRendimientoTurbina FCalRendTurbina;
-	double FPresionSalida;
-	double FVelocidadSalida;
-	double FGastoSalida;
-	double FTempSalida;
-	double FAsonidoSalida;
-	double FRhoSalida;
+  // int FNumeroTurbina;
+  int FNumeroEntradas;
+  int FNumeroTurbinaTGV;
+  int FNodoSalida;
+  int FTuboSalida;
+  int FExtremoSalida;
+  int FSentidoSalida;
+  int FTipoAjusteRdTurbina;
+  bool asgNumeroTurbina;
+  nmRendimientoTurbina FCalRendTurbina;
+  double FPresionSalida;
+  double FVelocidadSalida;
+  double FGastoSalida;
+  double FTempSalida;
+  double FAsonidoSalida;
+  double FRhoSalida;
 
-	double FDiametroRodete;
-	double FDiametroTurbinaIn;
-	double FDiametroRodeteOut;
-	double FDiametroTuerca;
+  double FDiametroRodete;
+  double FDiametroTurbinaIn;
+  double FDiametroRodeteOut;
+  double FDiametroTuerca;
 
-	double FTrabajoIsen;
-	double FTrabajoReal;
-	double FTrabajoRealPaso;
-	double FTrabajoTotal;
-	double FTrabajoFluido;
-	double FRendInstantaneo;
-	double *FRelacionCinAcum;
-	double FAjustRendTurb;
-	double FDeltaPaso;
-	double FTrabajoPaso;
-	double FRegimen;
-	stResMediosTurbina FResMediosTurbina;
-	stResInstantTurbina FResInstantTurbina;
-	int *FNodoEntrada;
-	int *FTuboEntrada;
-	int *FExtremoEntrada;
-	int *FSentidoEntrada;
-	double *FPresionEntrada;
-	double *FVelocidadEntrada;
-	double *FGastoEntrada;
-	double *FTempEntrada;
-	double *FAsonidoEntrada;
-	double *FRhoEntrada;
-	double *FTemp0Entrada;
-	double *FEntalpia0Entrada;
-	double *FPresion0Entrada;
-	double *FEntalpiaIsenSalida;
-	double *FRelacionCinematica;
-	double *FRendTurbina;
-	double *FRDTAjuste;
-	double FRcoptima;
-	double FRcmaxima;
-	double FRendmaximo;
+  double FTrabajoIsen;
+  double FTrabajoReal;
+  double FTrabajoRealPaso;
+  double FTrabajoTotal;
+  double FTrabajoFluido;
+  double FRendInstantaneo;
+  double *FRelacionCinAcum;
+  double FAjustRendTurb;
+  double FDeltaPaso;
+  double FTrabajoPaso;
+  double FRegimen;
+  stResMediosTurbina FResMediosTurbina;
+  stResInstantTurbina FResInstantTurbina;
+  int *FNodoEntrada;
+  int *FTuboEntrada;
+  int *FExtremoEntrada;
+  int *FSentidoEntrada;
+  double *FPresionEntrada;
+  double *FVelocidadEntrada;
+  double *FGastoEntrada;
+  double *FTempEntrada;
+  double *FAsonidoEntrada;
+  double *FRhoEntrada;
+  double *FTemp0Entrada;
+  double *FEntalpia0Entrada;
+  double *FPresion0Entrada;
+  double *FEntalpiaIsenSalida;
+  double *FRelacionCinematica;
+  double *FRendTurbina;
+  double *FRDTAjuste;
+  double FRcoptima;
+  double FRcmaxima;
+  double FRendmaximo;
 
-	double FPotenciaPaso;
-	double FPotencia;
-	double FTrabajoIsenInstTotal;
-	double FRelacionCinGlobalAcum;
-	double *FPonderacionRelacionCinematica;
+  double FPotenciaPaso;
+  double FPotencia;
+  double FTrabajoIsenInstTotal;
+  double FRelacionCinGlobalAcum;
+  double *FPonderacionRelacionCinematica;
 
-	double *FGastoCorregido;
-	double *FRegimenCorregido;
-	double *FRelacionExpansion;
+  double *FGastoCorregido;
+  double *FRegimenCorregido;
+  double *FRelacionExpansion;
 
-	nmTurbineType FTipoTurbina;
-	stDatosTGV *FDatosTGV;
+  nmTurbineType FTipoTurbina;
+  stDatosTGV *FDatosTGV;
 
-	double FTimeTurbina;
-	TAcousticTurbine* FAcTurb;
-	bool FIsAcoustic;
+  double FTimeTurbina;
+  TAcousticTurbine *FAcTurb;
+  bool FIsAcoustic;
 
-	// ---------------------------------------------------------------------------
-	// FUNCIONES PRIVADAS
-	// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // FUNCIONES PRIVADAS
+  // ---------------------------------------------------------------------------
 
-	void TransformaContorno(double *L, double *B, double *E, double *a, double *v, double *p, int modo, double Gamma);
+  void TransformaContorno(double *L, double *B, double *E, double *a, double *v,
+                          double *p, int modo, double Gamma);
 
-	// void PutNumeroTurbina(int NumeroTurbina);
+  // void PutNumeroTurbina(int NumeroTurbina);
 
-	// void PutRegimen(double valor);
+  // void PutRegimen(double valor);
 
-	double CpTurbineSimple(double Temperature, double YBurnt);
+  double CpTurbineSimple(double Temperature, double YBurnt);
 
-	double CpTurbineComplete(double YO2, double YCO2, double YH2O, double Temperature);
+  double CpTurbineComplete(double YO2, double YCO2, double YH2O,
+                           double Temperature);
 
-  public:
-	// ---------------------------------------------------------------------------
-	// VARIABLES PUBLICAS
-	// ---------------------------------------------------------------------------
+public:
+  // ---------------------------------------------------------------------------
+  // VARIABLES PUBLICAS
+  // ---------------------------------------------------------------------------
 
-	void PutNumeroTurbina(int NumeroTurbina) {
-		if(!asgNumeroTurbina) {
-			FNumeroTurbina = NumeroTurbina;
-			asgNumeroTurbina = true;
-		} else {
-			std::cout << "ERROR: Esta turbina ya tiene numero asignada" << std::endl;
-			throw Exception("");
-		}
-	}
+  void PutNumeroTurbina(int NumeroTurbina) {
+    if (!asgNumeroTurbina) {
+      FNumeroTurbina = NumeroTurbina;
+      asgNumeroTurbina = true;
+    } else {
+      std::cout << "ERROR: Esta turbina ya tiene numero asignada" << std::endl;
+      throw Exception("");
+    }
+  }
 
-	TTurbineMap* getMap() {
-		return FMapa;
-	}
-	;
+  TTurbineMap *getMap() { return FMapa; };
 
-	int FNumeroTurbina;
+  int FNumeroTurbina;
 
-	int getNumeroTurbina() {
-		return FNumeroTurbina;
-	}
+  int getNumeroTurbina() { return FNumeroTurbina; }
 
-	int getNumeroEntradas() {
-		return FNumeroEntradas;
-	}
-	;
+  int getNumeroEntradas() { return FNumeroEntradas; };
 
-	void PutRegimen(double valor) {
-		FRegimen = valor;
-	}
+  void PutRegimen(double valor) { FRegimen = valor; }
 
-	TCondicionContorno* GetCCEntrada(int i);
+  TCondicionContorno *GetCCEntrada(int i);
 
-	TCondicionContorno* GetCCSalida(int i);
+  TCondicionContorno *GetCCSalida(int i);
 
-	double getPotenciaPaso() {
-		return FPotenciaPaso;
-	}
-	;
+  double getPotenciaPaso() { return FPotenciaPaso; };
 
-	double GetRelacionCinematica(int i);
+  double GetRelacionCinematica(int i);
 
-	virtual double GetEfficiency() = 0;
+  virtual double GetEfficiency() = 0;
 
-	// ---------------------------------------------------------------------------
-	// FUNCIONES PUBLICAS
-	// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // FUNCIONES PUBLICAS
+  // ---------------------------------------------------------------------------
 
-	TTurbina(int i, nmTipoDeposito TipoDeposito, int nentradas, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-			 nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  TTurbina(int i, nmTipoDeposito TipoDeposito, int nentradas,
+           nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+           nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-	virtual ~TTurbina() = 0;
+  virtual ~TTurbina() = 0;
 
-	void ActualizaPropiedades(double TimeCalculo);
+  void ActualizaPropiedades(double TimeCalculo);
 
-	void LeeTurbina(const char *FileWAM, fpos_t &filepos);
+  void LeeTurbina(const char *FileWAM, fpos_t &filepos);
 
-	void AsignaDatosSalida(int nodsaltur, int tubsaltur, int extremo, int sentido);
+  void AsignaDatosSalida(int nodsaltur, int tubsaltur, int extremo,
+                         int sentido);
 
-	virtual void ReadAverageResultsTurb(const char *FileWAM, fpos_t &filepos) = 0;
+  virtual void ReadAverageResultsTurb(const char *FileWAM, fpos_t &filepos) = 0;
 
-	virtual void CabeceraResultadosMedTurb(stringstream& medoutput) = 0;
+  virtual void CabeceraResultadosMedTurb(std::ostream &medoutput) = 0;
 
-	virtual void ImprimeResultadosMedTurb(stringstream& medoutput) = 0;
+  virtual void ImprimeResultadosMedTurb(std::ostream &medoutput) = 0;
 
-	virtual void IniciaMedias() = 0;
+  virtual void IniciaMedias() = 0;
 
-	virtual void AcumulaMedias(double Tiempo) = 0;
+  virtual void AcumulaMedias(double Tiempo) = 0;
 
-	virtual void LeeResultadosInstantTurb(const char *FileWAM, fpos_t &filepos) = 0;
+  virtual void LeeResultadosInstantTurb(const char *FileWAM,
+                                        fpos_t &filepos) = 0;
 
-	virtual void CabeceraResultadosInstantTurb(stringstream& insoutput) = 0;
+  virtual void CabeceraResultadosInstantTurb(std::ostream &insoutput) = 0;
 
-	virtual void ImprimeResultadosInstantTurb(stringstream& insoutput) = 0;
+  virtual void ImprimeResultadosInstantTurb(std::ostream &insoutput) = 0;
 
-	virtual void ResultadosInstantTurb() = 0;
+  virtual void ResultadosInstantTurb() = 0;
 
-	virtual void CalculaResultadosMediosTurb() = 0;
+  virtual void CalculaResultadosMediosTurb() = 0;
 
-	void AsignaDatosEntrada(int nodentur, int tubsaltur, int extremo, int sentido, int n);
+  void AsignaDatosEntrada(int nodentur, int tubsaltur, int extremo, int sentido,
+                          int n);
 
-	virtual void CalculaCondicionTurbina(double TimeCalculo) = 0;
+  virtual void CalculaCondicionTurbina(double TimeCalculo) = 0;
 
-	virtual void AsignaEntradaSalidaCC() = 0;
+  virtual void AsignaEntradaSalidaCC() = 0;
 
-	void CalculoPotenciaPaso();
+  void CalculoPotenciaPaso();
 
-	virtual void ImprimeResultadosMediosPantalla() = 0;
+  virtual void ImprimeResultadosMediosPantalla() = 0;
 
-	void AsignaRackController(TController **Controller);
+  void AsignaRackController(TController **Controller);
 
-	void AllocateDatosTGV(stDatosTGV *DatosTGV);
+  void AllocateDatosTGV(stDatosTGV *DatosTGV);
 
-	void AsignTCHTM(TTC_HTM *HTM) {
-		FHTM = HTM;
-	}
-	;
+  void AsignTCHTM(TTC_HTM *HTM) { FHTM = HTM; };
 
-	void CalculateAdiabaticMap(double TinC);
+  void CalculateAdiabaticMap(double TinC);
 
-	double TempMeasure() {
-		return FMapa->TempMeasure();
-	}
-	;
+  double TempMeasure() { return FMapa->TempMeasure(); };
 
-	void AsignAcousticElements(TTubo **Pipe);
+  void AsignAcousticElements(TTubo **Pipe);
 
-	TAcousticTurbine* AcousticT() {
-		return FAcTurb;
-	}
-	;
-
+  TAcousticTurbine *AcousticT() { return FAcTurb; };
 };
 // ---------------------------------------------------------------------------
 #endif
-

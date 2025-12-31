@@ -384,7 +384,7 @@ const ComponentShape: React.FC<ComponentShapeProps> = ({
         });
       }}
       onClick={(e) => {
-        console.log('ComponentShape clicked:', component.id, 'connectionMode:', connectionMode);
+        e.evt.stopPropagation();
         if (connectionMode) {
           // 接続モードの場合、デフォルトの接続ポイント（右側）を使用
           if (onConnectionPointClick) {
@@ -395,7 +395,6 @@ const ComponentShape: React.FC<ComponentShapeProps> = ({
         }
       }}
       onTap={(e) => {
-        console.log('ComponentShape tapped:', component.id, 'connectionMode:', connectionMode);
         if (connectionMode) {
           // 接続モードの場合、デフォルトの接続ポイント（右側）を使用
           if (onConnectionPointClick) {
