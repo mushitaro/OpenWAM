@@ -70,10 +70,9 @@ TCCCompresorVolumetrico::~TCCCompresorVolumetrico() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCCompresorVolumetrico::LeeCCCompresorVol(const char *FileWAM,
-                                                fpos_t &filepos,
-                                                int NumberOfPipes, TTubo **Pipe,
-                                                bool HayMotor) {
+void TCCCompresorVolumetrico::LeeCCCompresorVol(
+    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::vector<std::unique_ptr<TTubo>> &Pipe, bool HayMotor) {
   try {
     int i = 0, ControlRegimen;
     double fracciontotal = 0.;
@@ -83,7 +82,7 @@ void TCCCompresorVolumetrico::LeeCCCompresorVol(const char *FileWAM,
 
     while (FNumeroTubosCC < 1 && i < NumberOfPipes) {
       if (Pipe[i]->getNodoIzq() == FNumeroCC) {
-        FTuboExtremo[FNumeroTubosCC].Pipe = Pipe[i];
+        FTuboExtremo[FNumeroTubosCC].Pipe = Pipe[i].get();
         FTuboExtremo[FNumeroTubosCC].TipoExtremo = nmLeft;
         FNodoFin = 0;
         FIndiceCC = 0;
@@ -93,7 +92,7 @@ void TCCCompresorVolumetrico::LeeCCCompresorVol(const char *FileWAM,
         FNumeroTubosCC++;
       }
       if (Pipe[i]->getNodoDer() == FNumeroCC) {
-        FTuboExtremo[FNumeroTubosCC].Pipe = Pipe[i];
+        FTuboExtremo[FNumeroTubosCC].Pipe = Pipe[i].get();
         FTuboExtremo[FNumeroTubosCC].TipoExtremo = nmRight;
         FNodoFin = Pipe[i]->getNin() - 1;
         FIndiceCC = 1;

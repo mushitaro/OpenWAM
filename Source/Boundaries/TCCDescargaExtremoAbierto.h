@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -23,7 +24,8 @@
  along with OpenWAM.  If not, see <http://www.gnu.org/licenses/>.
 
 
- \*-------------------------------------------------------------------------------- */
+ \*--------------------------------------------------------------------------------
+*/
 
 // ---------------------------------------------------------------------------
 #ifndef TCCDescargaExtremoAbiertoH
@@ -31,7 +33,7 @@
 
 #include "TCondicionContorno.h"
 
-//#include <cmath>
+// #include <cmath>
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
@@ -40,82 +42,92 @@
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-class TCCDescargaExtremoAbierto: public TCondicionContorno {
-  private:
+class TCCDescargaExtremoAbierto : public TCondicionContorno {
+private:
+  int FNodoFin;  // Nodo del extremo del tubo que conecta con la condicion de
+                 // contorno.
+  int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0
+                 // Nodo izquierdo; 1 Nodo derecho)
+  double *FComposicion; // Composicion de la atmasfera,el remanso o el deposito
+                        // matlab(este inicialmente);
+  double FPressure;     // Presion de descarga.
+  double FPref;         // Presion de referencia.
+  double FTemperaturaDep; // Temperature en la atmasfera o remanso.  (degC)
+  double FPerdidaExtremo; // Coeficiente de perdidas en el extremo del tubo.
+  double
+      FVelocidadSonidoDep; // Velocity del sonido en el deposito adimensional.
+  nmTipoDescarga FTipoDescarga;
 
-	int FNodoFin; // Nodo del extremo del tubo que conecta con la condicion de contorno.
-	int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0 Nodo izquierdo; 1 Nodo derecho)
-	double *FComposicion; // Composicion de la atmasfera,el remanso o el deposito matlab(este inicialmente);
-	double FPressure; // Presion de descarga.
-	double FPref; // Presion de referencia.
-	double FTemperaturaDep; // Temperature en la atmasfera o remanso.  (degC)
-	double FPerdidaExtremo; // Coeficiente de perdidas en el extremo del tubo.
-	double FVelocidadSonidoDep; // Velocity del sonido en el deposito adimensional.
-	nmTipoDescarga FTipoDescarga;
+  double FGamma3; // Son expresiones con Gamma. Se usan estas variables para no
+                  // calcularlas tantas veces por instante de tiempo en la misma
+                  // funcion.
+  bool FModeladoEscape;
 
-	double FGamma3; // Son expresiones con Gamma. Se usan estas variables para no calcularlas tantas veces por instante de tiempo en la misma funcion.
-	bool FModeladoEscape;
+  double *FCC; // Caracteristica conocida del tubo.
+  double *FCD; // Caracteristica desconocida del tubo.
 
-	double *FCC; // Caracteristica conocida del tubo.
-	double *FCD; // Caracteristica desconocida del tubo.
+  // void PutPresion(double valor);
+  // void PutTemperatura(double valor);
 
-	// void PutPresion(double valor);
-	// void PutTemperatura(double valor);
+public:
+  void PutComposicion(int i, double valor) {
+    FFraccionMasicaEspecie[i] = valor;
+  }
 
-  public:
+  void PutPresion(double valor) { FPressure = valor; }
 
-	void PutComposicion(int i, double valor) {
-		FFraccionMasicaEspecie[i] = valor;
-	}
+  void PutTemperatura(double valor) {
+    try {
+      double RMezclaDep, CvMezclaDep, CpMezclaDep, GammaDep;
 
-	void PutPresion(double valor) {
+      FTemperaturaDep = valor;
+      if (FCalculoEspecies == nmCalculoCompleto) {
 
-		FPressure = valor;
+        RMezclaDep =
+            CalculoCompletoRMezcla(FComposicion[0], FComposicion[1],
+                                   FComposicion[2], 0, FCalculoGamma, nmMEP);
+        CpMezclaDep = CalculoCompletoCpMezcla(
+            FComposicion[0], FComposicion[1], FComposicion[2], 0,
+            FTemperaturaDep, FCalculoGamma, nmMEP);
+        GammaDep = CalculoCompletoGamma(RMezclaDep, CpMezclaDep, FCalculoGamma);
 
-	}
+      } else if (FCalculoEspecies == nmCalculoSimple) {
 
-	void PutTemperatura(double valor) {
-		try {
-			double RMezclaDep, CvMezclaDep, CpMezclaDep, GammaDep;
+        RMezclaDep =
+            CalculoSimpleRMezcla(FComposicion[0], 0, FCalculoGamma, nmMEP);
+        CvMezclaDep = CalculoSimpleCvMezcla(FTemperaturaDep, FComposicion[0], 0,
+                                            FCalculoGamma, nmMEP);
+        GammaDep = CalculoSimpleGamma(RMezclaDep, CvMezclaDep, FCalculoGamma);
+      }
+      FVelocidadSonidoDep =
+          sqrt(FTemperaturaDep * GammaDep * RMezclaDep) / __cons::ARef;
+    } catch (exception &N) {
+      std::cout << "ERROR: TCCDescargaExtremoAbierto::PutTemperatura en la "
+                   "condicion de contorno: "
+                << FNumeroCC << std::endl;
+      std::cout << "Tipo de error: " << N.what() << std::endl;
+      throw Exception(N.what());
+    }
+  }
 
-			FTemperaturaDep = valor;
-			if(FCalculoEspecies == nmCalculoCompleto) {
+  TCCDescargaExtremoAbierto(nmTypeBC TipoCC, int numCC,
+                            nmTipoCalculoEspecies SpeciesModel,
+                            int numeroespecies, nmCalculoGamma GammaCalculation,
+                            bool ThereIsEGR);
 
-				RMezclaDep = CalculoCompletoRMezcla(FComposicion[0], FComposicion[1], FComposicion[2], 0, FCalculoGamma, nmMEP);
-				CpMezclaDep = CalculoCompletoCpMezcla(FComposicion[0], FComposicion[1], FComposicion[2], 0, FTemperaturaDep,
-													  FCalculoGamma, nmMEP);
-				GammaDep = CalculoCompletoGamma(RMezclaDep, CpMezclaDep, FCalculoGamma);
+  ~TCCDescargaExtremoAbierto();
 
-			} else if(FCalculoEspecies == nmCalculoSimple) {
+  void CalculaCondicionContorno(double Time);
 
-				RMezclaDep = CalculoSimpleRMezcla(FComposicion[0], 0, FCalculoGamma, nmMEP);
-				CvMezclaDep = CalculoSimpleCvMezcla(FTemperaturaDep, FComposicion[0], 0, FCalculoGamma, nmMEP);
-				GammaDep = CalculoSimpleGamma(RMezclaDep, CvMezclaDep, FCalculoGamma);
+  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                        int nDPF,
+                        const std::vector<std::unique_ptr<TDPF>> &DPF);
 
-			}
-			FVelocidadSonidoDep = sqrt(FTemperaturaDep * GammaDep * RMezclaDep) / __cons::ARef;
-		} catch(exception & N) {
-			std::cout << "ERROR: TCCDescargaExtremoAbierto::PutTemperatura en la condicion de contorno: " << FNumeroCC << std::endl;
-			std::cout << "Tipo de error: " << N.what() << std::endl;
-			throw Exception(N.what());
-		}
-	}
+  void AsignAmbientConditions(double Tamb, double Pamb,
+                              double *AtmosphericComposition);
 
-	TCCDescargaExtremoAbierto(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-							  nmCalculoGamma GammaCalculation, bool ThereIsEGR);
-
-	~TCCDescargaExtremoAbierto();
-
-	void CalculaCondicionContorno(double Time);
-
-	void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes, TTubo **Pipe, int nDPF, TDPF **DPF);
-
-	void AsignAmbientConditions(double Tamb, double Pamb, double *AtmosphericComposition);
-
-	void TuboCalculandose(int TuboActual) {
-	}
-	;
-
+  void TuboCalculandose(int TuboActual) {};
 };
 
 #endif

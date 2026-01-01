@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -36,38 +37,38 @@
 
 class TEntradaPulso;
 
-class TCCPulso: public TCondicionContorno {
-  private:
+class TCCPulso : public TCondicionContorno {
+private:
+  TEntradaPulso *FPulso;
+  int FNodoFin;   // Nodo del extremo del tubo que conecta con la condicion de
+                  // contorno.
+  int FIndiceCC;  // Posicion del vector para tomar datos del tubo para la BC (0
+                  // Nodo izquierdo; 1 Nodo derecho)
+  double FPref;   // Pressure de referencia.
+  double FTiempo; // Instante de calculo. Para interpolar presion y entropia.
 
-	TEntradaPulso *FPulso;
-	int FNodoFin; // Nodo del extremo del tubo que conecta con la condicion de contorno.
-	int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0 Nodo izquierdo; 1 Nodo derecho)
-	double FPref;               //Pressure de referencia.
-	double FTiempo;   //Instante de calculo. Para interpolar presion y entropia.
+  double *FCC; // Caracteristica conocida del tubo.
+  double *FCD; // Caracteristica desconocida del tubo.
 
-	double *FCC;          // Caracteristica conocida del tubo.
-	double *FCD;          // Caracteristica desconocida del tubo.
+  double *FComposicion;
 
-	double *FComposicion;
+public:
+  // FUNCIONES
 
-  public:
+  TCCPulso(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel,
+           int numeroespecies, nmCalculoGamma GammaCalculation,
+           bool ThereIsEGR);
 
-	//FUNCIONES
+  ~TCCPulso();
 
-	TCCPulso(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-			 nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                        int nDPF,
+                        const std::vector<std::unique_ptr<TDPF>> &DPF);
 
-	~TCCPulso();
+  void CalculaCondicionContorno(double Time);
 
-	void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes, TTubo **Pipe, int nDPF, TDPF **DPF);
-
-	void CalculaCondicionContorno(double Time);
-
-	void TuboCalculandose(int TuboActual) {
-	}
-	;
-
+  void TuboCalculandose(int TuboActual) {};
 };
 
 #endif
-

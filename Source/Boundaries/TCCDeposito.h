@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -37,137 +38,112 @@
 //---------------------------------------------------------------------------
 class TDeposito;
 
-class TCCDeposito: public TCondicionContorno {
-  private:
+class TCCDeposito : public TCondicionContorno {
+private:
+  TTipoValvula *FValvula;
+  TDeposito *FDeposito;
 
-	TTipoValvula *FValvula;
-	TDeposito *FDeposito;
+  int FNumeroDeposito; // Numero de deposito ligado a la condicion de contorno.
 
-	int FNumeroDeposito; // Numero de deposito ligado a la condicion de contorno.
+  int FNodoFin;  // Nodo en el extremo del tubo.
+  int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0
+                 // Nodo izquierdo; 1 Nodo derecho)
+  double *FCC;   // Caracteristica conocida del tubo.
+  double *FCD;   // Caracteristica desconocida del tubo.
 
-	int FNodoFin;               // Nodo en el extremo del tubo.
-	int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0 Nodo izquierdo; 1 Nodo derecho)
-	double *FCC;                // Caracteristica conocida del tubo.
-	double *FCD;                // Caracteristica desconocida del tubo.
+  double FPref; // Pressure de referencia
 
-	double FPref;            // Pressure de referencia
+  double FCDEntrada;   // Coeficiente de descarga a la entrada
+  double FCDSalida;    // Coeficiente de descarga a la salida
+  double FCTorbellino; // Coeficiente de torbellino
 
-	double FCDEntrada;       // Coeficiente de descarga a la entrada
-	double FCDSalida;        // Coeficiente de descarga a la salida
-	double FCTorbellino;    // Coeficiente de torbellino
+  double FSeccionEficaz; // Seccion eficaz de la valvula
+  double FGasto; // Massflow en el extremo del tubo. Si es entrante, signo -. Si
+                 // es saliente, signo +
+  double FVelocity;          // Velocity en el extremo del tubo
+  double FSonido;            // Velocity del sonido en el extremo del tubo
+  double FVelocidadGarganta; // Velocity en la garganta
+  double FMachGarganta;      // Numero de Mach en la garganta.
+  double FGastoGarganta;     // Massflow en la garganta.
+  double FRelacionPresionGarganta;
+  double FAd;
+  double FAdCr; // Ad teniendo en cuenta la recuperacion de energia cinetica.
 
-	double FSeccionEficaz;   // Seccion eficaz de la valvula
-	double FGasto; // Massflow en el extremo del tubo. Si es entrante, signo -. Si es saliente, signo +
-	double FVelocity;         // Velocity en el extremo del tubo
-	double FSonido;            // Velocity del sonido en el extremo del tubo
-	double FVelocidadGarganta;  // Velocity en la garganta
-	double FMachGarganta;       // Numero de Mach en la garganta.
-	double FGastoGarganta;      // Massflow en la garganta.
-	double FRelacionPresionGarganta;
-	double FAd;
-	double FAdCr;  // Ad teniendo en cuenta la recuperacion de energia cinetica.
+  double FSeccionValvula; // Seccion en la garganta
+  double FSeccionTubo;    // Seccion en el extremo del tubo
 
-	double FSeccionValvula;   // Seccion en la garganta
-	double FSeccionTubo;      // Seccion en el extremo del tubo
+  double FCarrera;
+  double Fk;  // Relacion entre la seccion del tubo en el extremo y la seccion
+              // eficaz de la valvula.
+  double Fcc; // Variable auxiliar utilizada para el calculo de el caso saliente
+              // supercritico.
+  // double FMachVenturi;      // Numero de Mach en la condicion de contorno que
+  // para el calculo de presion de parada en                    // por el modelo
+  // en el extremo del tubo. Influye en el calculo de FAdCr el extremo del tubo.
+  nmCaso FCaso;
+  nmSentidoFlujo FSentidoFlujo;
 
-	double FCarrera;
-	double Fk; // Relacion entre la seccion del tubo en el extremo y la seccion eficaz de la valvula.
-	double Fcc; // Variable auxiliar utilizada para el calculo de el caso saliente supercritico.
-// double FMachVenturi;      // Numero de Mach en la condicion de contorno que para el calculo de presion de parada en                    // por el modelo en el extremo del tubo. Influye en el calculo de FAdCr
-	// el extremo del tubo.
-	nmCaso FCaso;
-	nmSentidoFlujo FSentidoFlujo;
+  double FRegimen;
 
-	double FRegimen;
+  double FGamma1;
+  double FGamma2;
+  double FGamma3;
+  double FGamma4;
+  double FGamma5;
+  double FGamma6;
 
-	double FGamma1;
-	double FGamma2;
-	double FGamma3;
-	double FGamma4;
-	double FGamma5;
-	double FGamma6;
+  bool FEncontrado;
 
-	bool FEncontrado;
+  // FUNCIONES
 
-// FUNCIONES
+  void FEDRecuperacionEnergiaCinetica();
 
-	void FEDRecuperacionEnergiaCinetica();
+  void FlujoEntranteDeposito();
 
-	void FlujoEntranteDeposito();
+  void FlujoSalienteDeposito();
 
-	void FlujoSalienteDeposito();
+  void Resolucion(double ext1, double ext2, nmCaso Caso, double *u2t,
+                  double *a2t);
 
-	void Resolucion(double ext1, double ext2, nmCaso Caso, double *u2t, double *a2t);
+public:
+  int getNumeroDeposito() { return FNumeroDeposito; };
+  double getMassflow() { return FGasto; };
+  double getVelocity() { return FVelocity; };
+  double getSpeedSound() { return FSonido; };
+  double getSeccionTubo() { return FSeccionTubo; };
+  TTipoValvula *getValvula() { return FValvula; };
+  nmSentidoFlujo getSentidoFlujo() { return FSentidoFlujo; };
+  TDeposito *getPlenum() { return FDeposito; };
+  void PutCDSalida(double valor) { FCDSalida = valor; };
+  double FMachVenturi;
+  double getMachVenturi() { return FMachVenturi; };
+  void putMachVenturi(double valor) { FMachVenturi = valor; }
 
-  public:
+  TCCDeposito(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel,
+              int numeroespecies, nmCalculoGamma GammaCalculation,
+              bool ThereIsEGR);
 
-	int getNumeroDeposito() {
-		return FNumeroDeposito;
-	}
-	;
-	double getMassflow() {
-		return FGasto;
-	}
-	;
-	double getVelocity() {
-		return FVelocity;
-	}
-	;
-	double getSpeedSound() {
-		return FSonido;
-	}
-	;
-	double getSeccionTubo() {
-		return FSeccionTubo;
-	}
-	;
-	TTipoValvula* getValvula() {
-		return FValvula;
-	}
-	;
-	nmSentidoFlujo getSentidoFlujo() {
-		return FSentidoFlujo;
-	}
-	;
-	TDeposito* getPlenum() {
-		return FDeposito;
-	}
-	;
-	void PutCDSalida(double valor) {
-		FCDSalida = valor;
-	}
-	;
-	double FMachVenturi;
-	double getMachVenturi() {
-		return FMachVenturi;
-	}
-	;
-	void putMachVenturi(double valor) {
-		FMachVenturi = valor;
-	}
+  ~TCCDeposito();
 
-	TCCDeposito(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-				nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                        int nDPF,
+                        const std::vector<std::unique_ptr<TDPF>> &DPF);
 
-	~TCCDeposito();
+  void AsignaDeposito(const std::vector<std::unique_ptr<TDeposito>> &Plenum);
 
-	void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes, TTubo **Pipe, int nDPF, TDPF **DPF);
+  void CalculaCondicionContorno(double Time);
 
-	void AsignaDeposito(TDeposito **Plenum);
+  void
+  AsignaTipoValvula(const std::vector<std::unique_ptr<TTipoValvula>> &Origen,
+                    int Valv, int i);
 
-	void CalculaCondicionContorno(double Time);
+  void CalculaCoeficientesDescarga(double TiempoAcutal, double mfcomb = 0.,
+                                   double RegimenMotor = 0.);
 
-	void AsignaTipoValvula(TTipoValvula **Origen, int Valv, int i);
+  void IniciaGamma();
 
-	void CalculaCoeficientesDescarga(double TiempoAcutal, double mfcomb = 0., double RegimenMotor = 0.);
-
-	void IniciaGamma();
-
-	void TuboCalculandose(int TuboActual) {
-	}
-	;
-
+  void TuboCalculandose(int TuboActual) {};
 };
 
 #endif
-

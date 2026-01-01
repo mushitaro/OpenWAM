@@ -390,7 +390,7 @@ TCilindro::~TCilindro() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCilindro::AsignacionCC(TCondicionContorno **BC, int numCC) {
+void TCilindro::AsignacionCC_Pointers(TCondicionContorno **BC, int numCC) {
   try {
     bool UnionAsignada;
 

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -31,7 +32,7 @@
 
 #include "TCondicionContorno.h"
 
-//#include <cmath>
+// #include <cmath>
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
@@ -41,49 +42,49 @@
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TCCPerdidadePresion: public TCondicionContorno {
-  private:
+class TCCPerdidadePresion : public TCondicionContorno {
+private:
+  nmTipoPP FTipoPP;
 
-	nmTipoPP FTipoPP;
+  int *FNodoFin;  // Nodo del tubo en la condicion de contorno.
+  int *FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0
+                  // Nodo izquierdo; 1 Nodo derecho)
+  double **FCC;   // Caracteristica conocida del tubo.
+  double **FCD;   // Caracteristica desconocida del tubo.
+  int *FNumeroTubo;
+  int FTuboActual;
 
-	int *FNodoFin;               // Nodo del tubo en la condicion de contorno.
-	int *FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0 Nodo izquierdo; 1 Nodo derecho)
-	double **FCC;                // Caracteristica conocida del tubo.
-	double **FCD;                // Caracteristica desconocida del tubo.
-	int *FNumeroTubo;
-	int FTuboActual;
+  double FGamma3; // Son expresiones con Gamma. Se usan estas variables para no
+                  // calcularlas tantas veces por instante de tiempo en la misma
+                  // funcion.
+  double FGamma2;
+  double FGamma5;
+  double FGamma1;
 
-	double FGamma3; // Son expresiones con Gamma. Se usan estas variables para no calcularlas tantas veces por instante de tiempo en la misma funcion.
-	double FGamma2;
-	double FGamma5;
-	double FGamma1;
+  double FK; // Coeficiente de resistencia caracteristico. Negativo.
+  // Se encuentra dividida por 2 respecto de la definicion teorica.
+  double FRelacionEntropia; // Relacion entre la entropia del tubo saliente y la
+                            // del tubo entrante.
 
-	double FK;           // Coeficiente de resistencia caracteristico. Negativo.
-	// Se encuentra dividida por 2 respecto de la definicion teorica.
-	double FRelacionEntropia; // Relacion entre la entropia del tubo saliente y la del tubo entrante.
+public:
+  TCCPerdidadePresion(nmTypeBC TipoCC, int numCC,
+                      nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+                      nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-  public:
+  ~TCCPerdidadePresion();
 
-	TCCPerdidadePresion(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-						nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                        int nDPF,
+                        const std::vector<std::unique_ptr<TDPF>> &DPF);
 
-	~TCCPerdidadePresion();
+  void CalculaCondicionContorno(double Time);
 
-	void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes, TTubo **Pipe, int nDPF, TDPF **DPF);
+  void TuboCalculandose(int TuboActual);
 
-	void CalculaCondicionContorno(double Time);
+  double getK() { return FK; };
 
-	void TuboCalculandose(int TuboActual);
-
-	double getK() {
-		return FK;
-	}
-	;
-
-	void PutK(double valor) {
-		FK = valor;
-	}
-
+  void PutK(double valor) { FK = valor; }
 };
 
 //---------------------------------------------------------------------------

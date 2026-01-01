@@ -20,12 +20,20 @@ TOutputResults::TOutputResults() {
 TOutputResults::~TOutputResults() {}
 
 void TOutputResults::ReadAverageResults(
-    const char *FileWAM, fpos_t &filepos, TTubo **Pipe, bool EngineBlock,
-    TBloqueMotor **Engine, TDeposito **Plenum, TEjeTurbogrupo **Axis,
-    TCompresor **Compressor, TTurbina **Turbine, TCondicionContorno **BC,
-    TDPF **DPF, TCCCompresorVolumetrico **Root, TVenturi **Venturi,
-    TSensor **Sensor, TController **Controller, int TotalCycles,
-    char *ModelName) {
+    const char *FileWAM, fpos_t &filepos,
+    const std::vector<std::unique_ptr<TTubo>> &Pipe, bool EngineBlock,
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
+    const std::vector<std::unique_ptr<TDeposito>> &Plenum,
+    const std::vector<std::unique_ptr<TEjeTurbogrupo>> &Axis,
+    const std::vector<std::unique_ptr<TCompresor>> &Compressor,
+    const std::vector<TTurbina *> &Turbine,
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
+    const std::vector<std::unique_ptr<TDPF>> &DPF,
+    const std::vector<TCCCompresorVolumetrico *> &Root,
+    const std::vector<TVenturi *> &Venturi,
+    const std::vector<std::unique_ptr<TSensor>> &Sensor,
+    const std::vector<std::unique_ptr<TController>> &Controller,
+    int TotalCycles, const char *ModelName) {
 
   char buffer[300];
   GetName(ModelName, buffer, "AVG.DAT");
@@ -79,7 +87,7 @@ void TOutputResults::ReadAverageResults(
   FileInput >> EngineAvg;
   if (EngineAvg == 1) {
     if (EngineBlock) {
-      AvgEngine = Engine[0];
+      AvgEngine = Engine[0].get();
       filepos = (fpos_t)FileInput.tellg();
       FileInput.close();
       AvgEngine->ReadAverageResultsBloqueMotor(FileWAM, filepos);
@@ -94,7 +102,7 @@ void TOutputResults::ReadAverageResults(
   FileInput >> NumPlenumsAvg;
   for (int i = 0; i < NumPlenumsAvg; i++) {
     FileInput >> PlenumID;
-    AvgPlenum.push_back(Plenum[PlenumID - 1]);
+    AvgPlenum.push_back(Plenum[PlenumID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     AvgPlenum[i]->ReadAverageResultsDep(FileWAM, filepos);
@@ -111,10 +119,10 @@ void TOutputResults::ReadAverageResults(
   FileInput >> numeroparawamer;
   for (int i = 0; i < NumPipesAvg; i++) {
     FileInput >> PipeID;
-    AvgPipe.push_back(Pipe[PipeID - 1]);
+    AvgPipe.push_back(Pipe[PipeID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    AvgPipe[i]->ReadAverageResultsTubo(FileWAM, filepos, Engine);
+    AvgPipe[i]->ReadAverageResultsTubo(FileWAM, filepos, !Engine.empty());
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -125,7 +133,7 @@ void TOutputResults::ReadAverageResults(
   FileInput >> NumAxisAvg;
   for (int i = 0; i < NumAxisAvg; i++) {
     FileInput >> AxisID;
-    AvgAxis.push_back(Axis[AxisID - 1]);
+    AvgAxis.push_back(Axis[AxisID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     AvgAxis[i]->ReadAverageResultsEje(FileWAM, filepos);
@@ -139,7 +147,7 @@ void TOutputResults::ReadAverageResults(
   FileInput >> NumCompressorAvg;
   for (int i = 0; i < NumCompressorAvg; i++) {
     FileInput >> CompressorID;
-    AvgCompressor.push_back(Compressor[CompressorID - 1]);
+    AvgCompressor.push_back(Compressor[CompressorID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     AvgCompressor[i]->LeeDatosGraficasMedias(FileWAM, filepos);
@@ -170,13 +178,14 @@ void TOutputResults::ReadAverageResults(
     if (BC[ValveID - 1]->getTipoCC() == nmIntakeValve ||
         BC[ValveID - 1]->getTipoCC() == nmExhaustValve) {
       AvgValve.push_back(
-          dynamic_cast<TCCCilindro *>(BC[ValveID - 1])->getValvula());
+          dynamic_cast<TCCCilindro *>(BC[ValveID - 1].get())->getValvula());
     } else if (BC[ValveID - 1]->getTipoCC() == nmPipeToPlenumConnection) {
       AvgValve.push_back(
-          dynamic_cast<TCCDeposito *>(BC[ValveID - 1])->getValvula());
+          dynamic_cast<TCCDeposito *>(BC[ValveID - 1].get())->getValvula());
     } else if (BC[ValveID - 1]->getTipoCC() == nmUnionEntreDepositos) {
-      AvgValve.push_back(dynamic_cast<TCCUnionEntreDepositos *>(BC[ValveID - 1])
-                             ->getValvula());
+      AvgValve.push_back(
+          dynamic_cast<TCCUnionEntreDepositos *>(BC[ValveID - 1].get())
+              ->getValvula());
     } else
       std::cerr << "ERROR: There is no valves asigned in the connection number "
                 << ValveID << std::endl;
@@ -227,7 +236,7 @@ void TOutputResults::ReadAverageResults(
     FileInput >> ConnectionID;
     if (BC[ConnectionID - 1]->getTipoCC() == nmUnionEntreDepositos) {
       AvgConnection.push_back(
-          dynamic_cast<TCCUnionEntreDepositos *>(BC[ConnectionID - 1]));
+          dynamic_cast<TCCUnionEntreDepositos *>(BC[ConnectionID - 1].get()));
     } else {
       std::cerr << "ERROR: Connection " << ConnectionID
                 << "\n does not connect two plenums" << std::endl;
@@ -246,7 +255,7 @@ void TOutputResults::ReadAverageResults(
   FileInput >> NumDPFAvg;
   for (int i = 0; i < NumDPFAvg; i++) {
     FileInput >> DPFID;
-    AvgDPF.push_back(DPF[DPFID - 1]);
+    AvgDPF.push_back(DPF[DPFID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     AvgDPF[i]->LeeResultadosMediosDPF(FileWAM, filepos);
@@ -261,7 +270,7 @@ void TOutputResults::ReadAverageResults(
   FileInput >> NumSensorAvg;
   for (int i = 0; i < NumSensorAvg; ++i) {
     FileInput >> SensorID;
-    AvgSensor.push_back(Sensor[SensorID - 1]);
+    AvgSensor.push_back(Sensor[SensorID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     AvgSensor[i]->LeeResultadosMedSensor(FileWAM, filepos);
@@ -276,7 +285,7 @@ void TOutputResults::ReadAverageResults(
 
   for (int i = 0; i < NumControllersAvg; ++i) {
     FileInput >> ControllerID;
-    AvgController.push_back(Controller[ControllerID - 1]);
+    AvgController.push_back(Controller[ControllerID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     AvgController[i]->LeeResultadosMedControlador(FileWAM, filepos);
@@ -542,13 +551,23 @@ void TOutputResults::CopyInstananeousResultsToFile(int mode) {
 }
 
 void TOutputResults::ReadInstantaneousResults(
-    const char *FileWAM, fpos_t &filepos, TBloqueMotor **Engine,
-    TDeposito **Plenum, TTubo **Pipe, TVenturi **Venturi,
-    TCondicionContorno **BC, TDPF **DPF, TEjeTurbogrupo **Turbo,
-    TCompresor **Compressor, TTurbina **Turbine, TCCCompresorVolumetrico **Root,
-    TCondicionContorno **BCWasteGate, int NumberOfWasteGates,
-    TCondicionContorno **BCReedValve, int NumberOfReedValves, TSensor **Sensor,
-    TController **Controller, char *ModelName) {
+    const char *FileWAM, fpos_t &filepos,
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
+    const std::vector<std::unique_ptr<TDeposito>> &Plenum,
+    const std::vector<std::unique_ptr<TTubo>> &Pipe,
+    const std::vector<TVenturi *> &Venturi,
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
+    const std::vector<std::unique_ptr<TDPF>> &DPF,
+    const std::vector<std::unique_ptr<TEjeTurbogrupo>> &Turbo,
+    const std::vector<std::unique_ptr<TCompresor>> &Compressor,
+    const std::vector<TTurbina *> &Turbine,
+    const std::vector<TCCCompresorVolumetrico *> &Root,
+    const std::vector<TCondicionContorno *> &BCWasteGate,
+    int NumberOfWasteGates,
+    const std::vector<TCondicionContorno *> &BCReedValve,
+    int NumberOfReedValves, const std::vector<std::unique_ptr<TSensor>> &Sensor,
+    const std::vector<std::unique_ptr<TController>> &Controller,
+    const char *ModelName) {
 
   char buffer[300];
   GetName(ModelName, buffer, "INS.DAT");
@@ -579,7 +598,7 @@ void TOutputResults::ReadInstantaneousResults(
   FileInput >> NumPlenumsIns;
   for (int i = 0; i < NumPlenumsIns; i++) {
     FileInput >> PlenumID;
-    InsPlenum.push_back(Plenum[PlenumID - 1]);
+    InsPlenum.push_back(Plenum[PlenumID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     InsPlenum[i]->ReadInstantaneousResultsDep(FileWAM, filepos);
@@ -596,7 +615,7 @@ void TOutputResults::ReadInstantaneousResults(
   FileInput >> numeroparawamer;
   for (int i = 0; i < NumPipesIns; i++) {
     FileInput >> PipeID;
-    InsPipe.push_back(Pipe[PipeID - 1]);
+    InsPipe.push_back(Pipe[PipeID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     InsPipe[i]->ReadInstantaneousResultsTubo(FileWAM, filepos, Engine);
@@ -627,13 +646,14 @@ void TOutputResults::ReadInstantaneousResults(
     if (BC[ValveID - 1]->getTipoCC() == nmIntakeValve ||
         BC[ValveID - 1]->getTipoCC() == nmExhaustValve) {
       InsValve.push_back(
-          dynamic_cast<TCCCilindro *>(BC[ValveID - 1])->getValvula());
+          dynamic_cast<TCCCilindro *>(BC[ValveID - 1].get())->getValvula());
     } else if (BC[ValveID - 1]->getTipoCC() == nmPipeToPlenumConnection) {
       InsValve.push_back(
-          dynamic_cast<TCCDeposito *>(BC[ValveID - 1])->getValvula());
+          dynamic_cast<TCCDeposito *>(BC[ValveID - 1].get())->getValvula());
     } else if (BC[ValveID - 1]->getTipoCC() == nmUnionEntreDepositos) {
-      InsValve.push_back(dynamic_cast<TCCUnionEntreDepositos *>(BC[ValveID - 1])
-                             ->getValvula());
+      InsValve.push_back(
+          dynamic_cast<TCCUnionEntreDepositos *>(BC[ValveID - 1].get())
+              ->getValvula());
     } else
       std::cerr << "ERROR: There is no valves asigned in the connection number "
                 << ValveID << std::endl;
@@ -651,7 +671,7 @@ void TOutputResults::ReadInstantaneousResults(
   FileInput >> NumTurboIns;
   for (int i = 0; i < NumTurboIns; i++) {
     FileInput >> TurboID;
-    InsTurbo.push_back(Turbo[TurboID - 1]);
+    InsTurbo.push_back(Turbo[TurboID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     InsTurbo[i]->ReadInstantaneousResultsEje(FileWAM, filepos);
@@ -664,7 +684,7 @@ void TOutputResults::ReadInstantaneousResults(
   FileInput >> NumCompressorIns;
   for (int i = 0; i < NumCompressorIns; i++) {
     FileInput >> CompressorID;
-    InsCompressor.push_back(Compressor[CompressorID - 1]);
+    InsCompressor.push_back(Compressor[CompressorID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     InsCompressor[i]->LeeDatosGraficasInstantaneas(FileWAM, filepos);
@@ -706,7 +726,7 @@ void TOutputResults::ReadInstantaneousResults(
     FileInput >> ConnectionID;
     if (BC[ConnectionID - 1]->getTipoCC() == nmUnionEntreDepositos) {
       InsConnection.push_back(
-          dynamic_cast<TCCUnionEntreDepositos *>(BC[ConnectionID - 1]));
+          dynamic_cast<TCCUnionEntreDepositos *>(BC[ConnectionID - 1].get()));
     } else {
       std::cerr << "ERROR: Connection " << ConnectionID
                 << "\n does not connect two plenums" << std::endl;
@@ -788,7 +808,7 @@ void TOutputResults::ReadInstantaneousResults(
   FileInput >> NumDPFIns;
   for (int i = 0; i < NumDPFIns; ++i) {
     FileInput >> DPFID;
-    InsDPF.push_back(DPF[DPFID - 1]);
+    InsDPF.push_back(DPF[DPFID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     InsDPF[i]->LeeResultadosInstantaneosDPF(FileWAM, filepos);
@@ -803,7 +823,7 @@ void TOutputResults::ReadInstantaneousResults(
   FileInput >> NumSensorIns;
   for (int i = 0; i < NumSensorIns; ++i) {
     FileInput >> SensorID;
-    InsSensor.push_back(Sensor[SensorID - 1]);
+    InsSensor.push_back(Sensor[SensorID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     InsSensor[i]->LeeResultadosInsSensor(FileWAM, filepos);
@@ -819,7 +839,7 @@ void TOutputResults::ReadInstantaneousResults(
 
   for (int i = 0; i < NumControllersIns; ++i) {
     FileInput >> ControllerID;
-    InsController.push_back(Controller[ControllerID - 1]);
+    InsController.push_back(Controller[ControllerID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
     InsController[i]->LeeResultadosInsControlador(FileWAM, filepos);
@@ -831,9 +851,11 @@ void TOutputResults::ReadInstantaneousResults(
   FileInput.close();
 }
 
-void TOutputResults::ReadSpaceTimeResults(const char *FileWAM, fpos_t &filepos,
-                                          TTubo **Pipe, TBloqueMotor **Engine,
-                                          TDeposito **Plenum) {
+void TOutputResults::ReadSpaceTimeResults(
+    const char *FileWAM, fpos_t &filepos,
+    const std::vector<std::unique_ptr<TTubo>> &Pipe,
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
+    const std::vector<std::unique_ptr<TDeposito>> &Plenum) {
 
   // Numero de elementos en los que se grafica
   int FNumMagnitudesEspTemp = 0;
@@ -857,13 +879,13 @@ void TOutputResults::ReadSpaceTimeResults(const char *FileWAM, fpos_t &filepos,
     int PlenumID = 0;
     for (int i = 0; i < NumDepEspTemp; ++i) {
       FileInput >> PlenumID;
-      STPlenum.push_back(Plenum[PlenumID - 1]);
+      STPlenum.push_back(Plenum[PlenumID - 1].get());
     }
 
     int PipeID = 0;
     for (int i = 0; i < NumTubEspTemp; ++i) {
       FileInput >> PipeID;
-      STPipe.push_back(Pipe[PipeID - 1]);
+      STPipe.push_back(Pipe[PipeID - 1].get());
     }
 
     // Magnitudes que se grafican
@@ -1631,10 +1653,9 @@ void TOutputResults::HeaderSpaceTimeResults(double thmax, double grmax,
   }
 }
 
-void TOutputResults::PrintSpaceTimeResults(bool EngineBlock, double Theta,
-                                           double SimulationDuration,
-                                           TBloqueMotor **Engine,
-                                           int SpeciesNumber)
+void TOutputResults::PrintSpaceTimeResults(
+    bool EngineBlock, double Theta, double SimulationDuration,
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine, int SpeciesNumber)
 
 {
 

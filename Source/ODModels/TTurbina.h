@@ -243,7 +243,7 @@ public:
 
   double TempMeasure() { return FMapa->TempMeasure(); };
 
-  void AsignAcousticElements(TTubo **Pipe);
+  void AsignAcousticElements(const std::vector<std::unique_ptr<TTubo>> &Pipe);
 
   TAcousticTurbine *AcousticT() { return FAcTurb; };
 };

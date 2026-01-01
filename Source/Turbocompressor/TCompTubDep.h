@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -29,6 +30,8 @@
 #ifndef TCompTubDepH
 #define TCompTubDepH
 #include "TCompresor.h"
+#include <vector>
+#include <memory>
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
@@ -37,126 +40,113 @@ class TTubo;
 class TDeposito;
 class TCondicionContorno;
 
-class TCompTubDep: public TCompresor {
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
+class TCompTubDep : public TCompresor {
+  //---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
 
-  private:
+private:
+  TDeposito *FDeposito;
+  TTubo *FTuboRotor;
+  int FTubRotor;
+  int FTubStator;
+  int FIndiceCC;
+  double FNodoFinTuboSalida;
+  double FNodoFinEntrada;
+  nmCompressorInlet FEntradaCompresor;
+  nmPipeEnd FExtremoTuboRotor;
+  nmCompressorMapFormat FCompressorMapFormat;
 
-	TDeposito *FDeposito;
-	TTubo *FTuboRotor;
-	int FTubRotor;
-	int FTubStator;
-	int FIndiceCC;
-	double FNodoFinTuboSalida;
-	double FNodoFinEntrada;
-	nmCompressorInlet FEntradaCompresor;
-	nmPipeEnd FExtremoTuboRotor;
-	nmCompressorMapFormat FCompressorMapFormat;
+  int FParticionEntrada; // Se pueden borrar.Pedro
+  int FParticionSalida;
 
-	int FParticionEntrada;    // Se pueden borrar.Pedro
-	int FParticionSalida;
+  double FAreaSalComp;
+  nmPipeEnd FExtremoSalida;
 
-	double FAreaSalComp;
-	nmPipeEnd FExtremoSalida;
+  double *FLanda;
+  double *FBeta;
+  double *FEntro;
 
-	double *FLanda;
-	double *FBeta;
-	double *FEntro;
+  double FTemperatura20;
+  double FEntropia2;
+  double FTemperatura2;
+  double FVelocidad2;
+  double FDensidad20;
+  double FDensidad2;
 
-	double FTemperatura20;
-	double FEntropia2;
-	double FTemperatura2;
-	double FVelocidad2;
-	double FDensidad20;
-	double FDensidad2;
+  double FGasto0;
+  double FGasto0Correg;
+  double FGasto1;
 
-	double FGasto0;
-	double FGasto0Correg;
-	double FGasto1;
+  bool FCambiaReg;
+  double FVariacionRegimen;
+  double FCorrector;
 
-	bool FCambiaReg;
-	double FVariacionRegimen;
-	double FCorrector;
+  // Transporte de especies
+  double FGamma1;
+  double FGamma3;
+  double FGamma4;
+  double FGamma5;
+  double FRAtm;     // Valor de R para la composicion atmosferica.
+  double FCvAtm;    // Valor de Cv para la composicion atmosferica.
+  double FCpAtm;    // Valor de Cp para la composicion atmosferica.
+  double FGammaAtm; // Valor de Gamma para la composicion atmosferica.
 
-// Transporte de especies
-	double FGamma1;
-	double FGamma3;
-	double FGamma4;
-	double FGamma5;
-	double FRAtm;       // Valor de R para la composicion atmosferica.
-	double FCvAtm;      // Valor de Cv para la composicion atmosferica.
-	double FCpAtm;      // Valor de Cp para la composicion atmosferica.
-	double FGammaAtm;   // Valor de Gamma para la composicion atmosferica.
+  // Damping
+  double FMass_filt_ant;
+  double FMass_ant;
+  double FDelay;
 
-// Damping
-	double FMass_filt_ant;
-	double FMass_ant;
-	double FDelay;
+  double RC_filt;
+  double RC_filt_ant;
+  double RC_ant;
 
-	double RC_filt;
-	double RC_filt_ant;
-	double RC_ant;
+  //---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
+  double CalGastoNuevo(double MasaAire);
 
-	double CalGastoNuevo(double MasaAire);
+  double RegulaFalsi();
 
-	double RegulaFalsi();
+  void CalculaCompresor(double Theta);
 
-	void CalculaCompresor(double Theta);
+  int GetTubStator() { return FTubStator; }
 
-	int GetTubStator() {
-		return FTubStator;
-	}
+  int GetParticionSalida() { return FParticionSalida; }
 
-	int GetParticionSalida() {
-		return FParticionSalida;
-	}
+  //---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
+public:
+  int getTubStator() { return GetTubStator(); };
 
-  public:
+  int getParticionSalida() { return GetParticionSalida(); };
 
-	int getTubStator() {
-		return GetTubStator();
-	}
-	;
+  nmCompressorInlet getEntradaCompresor() { return FEntradaCompresor; };
 
-	int getParticionSalida() {
-		return GetParticionSalida();
-	}
-	;
+  TCompTubDep(int i, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+              nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-	nmCompressorInlet getEntradaCompresor() {
-		return FEntradaCompresor;
-	}
-	;
+  ~TCompTubDep();
 
-	TCompTubDep(int i, nmTipoCalculoEspecies SpeciesModel, int numeroespecies, nmCalculoGamma GammaCalculation,
-				bool ThereIsEGR);
+  void LeeCompresor(const char *FileWAM, fpos_t &filepos);
 
-	~TCompTubDep();
+  void CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo,
+                          double AcumulatedTime, int TuboCalculado);
 
-	void LeeCompresor(const char *FileWAM, fpos_t &filepos);
+  void DatosEntradaCompresor(double AmbientTemperature, double AmbientPressure,
+                             TCondicionContorno *BC);
 
-	void CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo, double AcumulatedTime, int TuboCalculado);
+  void BusquedaEntradaSalida(
+      nmCompressorInlet EntradaCompresor, double AmbientTemperature,
+      int numeroCC, const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
+      double *AtmosphericComposition);
 
-	void DatosEntradaCompresor(double AmbientTemperature, double AmbientPressure, TCondicionContorno *BC);
+  // NO SE UTILIZA EN ESTE TIPO DE COMPRESOR
+  void CalculaGasto(double TrabajoInsTurbina, double TiempoActual) {}
 
-	void BusquedaEntradaSalida(nmCompressorInlet EntradaCompresor, double AmbientTemperature, int numeroCC,
-							   TCondicionContorno **BC, double *AtmosphericComposition);
+  void Initialize();
 
-// NO SE UTILIZA EN ESTE TIPO DE COMPRESOR
-	void CalculaGasto(double TrabajoInsTurbina, double TiempoActual) {
-	}
-
-	void Initialize();
-
-	double NewDampedSolution(double Mass);
-
+  double NewDampedSolution(double Mass);
 };
 
 //---------------------------------------------------------------------------

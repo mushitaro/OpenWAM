@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -23,7 +24,8 @@
  along with OpenWAM.  If not, see <http://www.gnu.org/licenses/>.
 
 
- \*-------------------------------------------------------------------------------- */
+ \*--------------------------------------------------------------------------------
+*/
 
 // ---------------------------------------------------------------------------
 #ifndef TCCCompresorH
@@ -41,113 +43,93 @@ class TCompresor;
 
 class TDeposito;
 
-class TCCCompresor: public TCondicionContorno {
-  private:
+class TCCCompresor : public TCondicionContorno {
+private:
+  nmCompressorInlet FEntradaCompresor;
+  nmPipeEnd FExtremoTuboRotor;
 
-	nmCompressorInlet FEntradaCompresor;
-	nmPipeEnd FExtremoTuboRotor;
+  int FNumeroCompresor;
+  int FNumeroDeposito;
+  int FNumeroDepositoRot;
+  int FNumeroDepositoEst;
 
-	int FNumeroCompresor;
-	int FNumeroDeposito;
-	int FNumeroDepositoRot;
-	int FNumeroDepositoEst;
+  TDeposito *FDeposito;
+  TDeposito *FDepositoRot;
+  TDeposito *FDepositoEst;
 
-	TDeposito *FDeposito;
-	TDeposito *FDepositoRot;
-	TDeposito *FDepositoEst;
+  TCompresor *FCompresor;
 
-	TCompresor *FCompresor;
+  TTubo *FTuboRotor;
 
-	TTubo *FTuboRotor;
+  int FTuboActual; // Identifica el tubo que se esta calculando para el caso de
+                   // Compressor de 2 tubos.
+  int *FNumeroTubo;
 
-	int FTuboActual; // Identifica el tubo que se esta calculando para el caso de Compressor de 2 tubos.
-	int *FNumeroTubo;
+  double FPamb;
+  double FTamb;
 
-	double FPamb;
-	double FTamb;
+  double FTheta;
+  // double FTiempoActual;
 
-	double FTheta;
-	// double FTiempoActual;
+public:
+  int getNumeroCompresor() { return FNumeroCompresor; };
 
-  public:
+  TCompresor *getCompressor() { return FCompresor; };
 
-	int getNumeroCompresor() {
-		return FNumeroCompresor;
-	}
-	;
+  TDeposito *getPlenum() { return FDeposito; };
 
-	TCompresor* getCompressor() {
-		return FCompresor;
-	}
-	;
+  TTubo *getTuboRotor() { return FTuboRotor; };
 
-	TDeposito* getPlenum() {
-		return FDeposito;
-	}
-	;
+  nmPipeEnd getExtremoTuboRotor() { return FExtremoTuboRotor; };
 
-	TTubo* getTuboRotor() {
-		return FTuboRotor;
-	}
-	;
+  int getNumeroDeposito() { return FNumeroDeposito; };
 
-	nmPipeEnd getExtremoTuboRotor() {
-		return FExtremoTuboRotor;
-	}
-	;
+  int getNumeroDepositoRot() { return FNumeroDepositoRot; };
 
-	int getNumeroDeposito() {
-		return FNumeroDeposito;
-	}
-	;
+  int getNumeroDepositoEst() { return FNumeroDepositoEst; };
 
-	int getNumeroDepositoRot() {
-		return FNumeroDepositoRot;
-	}
-	;
+  double FTiempoActual;
 
-	int getNumeroDepositoEst() {
-		return FNumeroDepositoEst;
-	}
-	;
+  double getInstanteCalculo() { return FTiempoActual; }
 
-	double FTiempoActual;
+  void PutInstanteCalculo(double valor) { FTiempoActual = valor; };
 
-	double getInstanteCalculo() {
-		return FTiempoActual;
-	}
+  nmCompressorInlet getEntradaCompresor() { return FEntradaCompresor; };
 
-	void PutInstanteCalculo(double valor) {
-		FTiempoActual = valor;
-	}
-	;
+  TCCCompresor(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel,
+               int numeroespecies, nmCalculoGamma GammaCalculation,
+               bool ThereIsEGR);
 
-	nmCompressorInlet getEntradaCompresor() {
-		return FEntradaCompresor;
-	}
-	;
+  ~TCCCompresor();
 
-	TCCCompresor(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-				 nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void LeeNumeroCompresor(const char *FileWAM, fpos_t &filepos);
 
-	~TCCCompresor();
+  void
+  AsignacionDatos(const std::vector<std::unique_ptr<TCompresor>> &Compressor,
+                  const std::vector<std::unique_ptr<TDeposito>> &Plenum,
+                  const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                  const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                  const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
+                  int numCC, double AmbientTemperature, double AmbientPressure,
+                  double *AtmosphericComposition);
 
-	void LeeNumeroCompresor(const char *FileWAM, fpos_t &filepos);
+  void ObtencionValoresInstantaneos(double Theta, double tiempoactual);
 
-	void AsignacionDatos(TCompresor **Compressor, TDeposito **Plenum, const char *FileWAM, fpos_t &filepos,
-						 int NumberOfPipes, TTubo **Pipe, TCondicionContorno **BC, int numCC, double AmbientTemperature, double AmbientPressure,
-						 double *AtmosphericComposition);
+  void CalculaCondicionContorno(double Time);
 
-	void ObtencionValoresInstantaneos(double Theta, double tiempoactual);
+  void TuboCalculandose(int TuboActual);
 
-	void CalculaCondicionContorno(double Time);
+  void ReadCompressorData(
+      const char *FileWAM, fpos_t &filepos,
+      const std::vector<std::unique_ptr<TCompresor>> &Compressor);
 
-	void TuboCalculandose(int TuboActual);
-
-	void ReadCompressorData(const char *FileWAM, fpos_t &filepos, TCompresor **Compressor);
-
-	void AsignData(TDeposito **Plenum, int NumberOfPipes, TTubo **Pipe, TCondicionContorno **BC, int numCC,
-				   double *AtmosphericComposition, TCompresor **Compressor, double AmbientTemperature, double AmbientPressure);
+  void AsignData(const std::vector<std::unique_ptr<TDeposito>> &Plenum,
+                 int NumberOfPipes,
+                 const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                 const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
+                 int numCC, double *AtmosphericComposition,
+                 const std::vector<std::unique_ptr<TCompresor>> &Compressor,
+                 double AmbientTemperature, double AmbientPressure);
 };
 
 #endif

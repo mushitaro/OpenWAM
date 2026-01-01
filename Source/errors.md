@@ -1,0 +1,1 @@
+C:\Users\kazuh\OpenWAM\Source\TOpenWAM.cpp(4329,18): error C2039: 'CalculaTemperaturaParedRefactored': 'TTubo' 縺ｮ繝｡繝ｳ繝舌・縺ｧ縺ｯ縺ゅｊ縺ｾ縺帙ｓ [C:\Users\kazuh\OpenWAM\Source\build\OpenWAM.vcxproj]

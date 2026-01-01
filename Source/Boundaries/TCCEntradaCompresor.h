@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -38,44 +39,44 @@
 
 class TCompresor;
 
-class TCCEntradaCompresor: public TCondicionContorno {
-  private:
+class TCCEntradaCompresor : public TCondicionContorno {
+private:
+  int FNumeroCompresor;
+  TCompresor *FCompresor;
 
-	int FNumeroCompresor;
-	TCompresor *FCompresor;
+  int FNodoFin; // Nodo en el extremo del tubo que esta en la condicion de
+                // contorno.
+  double *FCC;  // Caracteristica conocida del tubo.
+  double *FCD;  // Caracteristica desconocida del tubo.
+  double FSeccionTubo; // Diametro del tubo en la condicion de contorno.
 
-	int FNodoFin; // Nodo en el extremo del tubo que esta en la condicion de contorno.
-	double *FCC;          // Caracteristica conocida del tubo.
-	double *FCD;          // Caracteristica desconocida del tubo.
-	double FSeccionTubo;  // Diametro del tubo en la condicion de contorno.
+  double FVelocity;
+  double FSonido;
+  double FPressure;
+  double FGasto;
 
-	double FVelocity;
-	double FSonido;
-	double FPressure;
-	double FGasto;
+  double FGamma1;
+  double FGamma3;
+  double FGamma5;
 
-	double FGamma1;
-	double FGamma3;
-	double FGamma5;
+public:
+  int getNumeroCompresor() { return FNumeroCompresor; };
 
-  public:
+  TCCEntradaCompresor(nmTypeBC TipoCC, int numCC,
+                      nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+                      nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-	int getNumeroCompresor() {
-		return FNumeroCompresor;
-	}
-	;
+  ~TCCEntradaCompresor();
 
-	TCCEntradaCompresor(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-						nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void CalculaCondicionContorno(double Time);
 
-	~TCCEntradaCompresor();
+  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                        int nDPF,
+                        const std::vector<std::unique_ptr<TDPF>> &DPF);
 
-	void CalculaCondicionContorno(double Time);
-
-	void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes, TTubo **Pipe, int nDPF, TDPF **DPF);
-
-	void AsignaCompresor(TCompresor **Compressor);
-
+  void
+  AsignaCompresor(const std::vector<std::unique_ptr<TCompresor>> &Compressor);
 };
 
 #endif

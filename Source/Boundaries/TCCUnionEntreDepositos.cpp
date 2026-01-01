@@ -30,11 +30,9 @@ Valencia
 #pragma hdrstop
 
 #include "TCCUnionEntreDepositos.h"
-// #include <cmath>
-#ifdef __BORLANDC__
-#include <vcl.h>
-#endif
-
+#include <vector>
+#include <memory>
+#include "TTipoValvula.h"
 #include "TCDFijo.h"
 #include "TValvula4T.h"
 #include "TLamina.h"
@@ -45,6 +43,7 @@ Valencia
 #include "TEstatorTurbina.h"
 #include "TRotorTurbina.h"
 #include "TCDExterno.h"
+#include "TMariposa.h"
 
 #include "TDepVolVariable.h"
 #include "TDepVolCte.h"
@@ -122,11 +121,12 @@ void TCCUnionEntreDepositos::LeeUEDepositos(const char *FileWAM,
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-void TCCUnionEntreDepositos::AsignaDepositos(TDeposito **Plenum) {
+void TCCUnionEntreDepositos::AsignaDepositos(
+    const std::vector<std::unique_ptr<TDeposito>> &Plenum) {
   try {
 
-    FDeposito1 = Plenum[FNumeroDeposito1 - 1];
-    FDeposito2 = Plenum[FNumeroDeposito2 - 1];
+    FDeposito1 = Plenum[FNumeroDeposito1 - 1].get();
+    FDeposito2 = Plenum[FNumeroDeposito2 - 1].get();
 
     // Inicializacion del transporte de especies quimicas.
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
@@ -147,47 +147,54 @@ void TCCUnionEntreDepositos::AsignaDepositos(TDeposito **Plenum) {
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-void TCCUnionEntreDepositos::AsignaTipoValvula(TTipoValvula **Origen, int Valv,
-                                               int i) {
+void TCCUnionEntreDepositos::AsignaTipoValvula(
+    const std::vector<std::unique_ptr<TTipoValvula>> &Origen, int Valv, int i) {
   try {
 
     switch (Origen[Valv - 1]->getTypeOfValve()) {
     case nmCDFijo:
-      FValvula = new TCDFijo(dynamic_cast<TCDFijo *>(Origen[Valv - 1]), i);
+      FValvula =
+          new TCDFijo(dynamic_cast<TCDFijo *>(Origen[Valv - 1].get()), i);
       break;
     case nmValvula4T:
       FValvula =
-          new TValvula4T(dynamic_cast<TValvula4T *>(Origen[Valv - 1]), i);
+          new TValvula4T(dynamic_cast<TValvula4T *>(Origen[Valv - 1].get()), i);
       break;
     case nmLamina:
-      FValvula = new TLamina(dynamic_cast<TLamina *>(Origen[Valv - 1]), i);
+      FValvula =
+          new TLamina(dynamic_cast<TLamina *>(Origen[Valv - 1].get()), i);
       break;
     case nmDiscoRotativo:
       FValvula = new TDiscoRotativo(
-          dynamic_cast<TDiscoRotativo *>(Origen[Valv - 1]), i);
+          dynamic_cast<TDiscoRotativo *>(Origen[Valv - 1].get()), i);
       break;
     case nmLumbrera2T:
-      FValvula = new TLumbrera(dynamic_cast<TLumbrera *>(Origen[Valv - 1]), i);
+      FValvula =
+          new TLumbrera(dynamic_cast<TLumbrera *>(Origen[Valv - 1].get()), i);
       break;
     case nmValvulaContr:
-      FValvula =
-          new TValvulaContr(dynamic_cast<TValvulaContr *>(Origen[Valv - 1]), i);
+      FValvula = new TValvulaContr(
+          dynamic_cast<TValvulaContr *>(Origen[Valv - 1].get()), i);
       break;
     case nmWasteGate:
       FValvula =
-          new TWasteGate(dynamic_cast<TWasteGate *>(Origen[Valv - 1]), i);
+          new TWasteGate(dynamic_cast<TWasteGate *>(Origen[Valv - 1].get()), i);
       break;
     case nmStator:
       FValvula = new TEstatorTurbina(
-          dynamic_cast<TEstatorTurbina *>(Origen[Valv - 1]), i);
+          dynamic_cast<TEstatorTurbina *>(Origen[Valv - 1].get()), i);
       break;
     case nmRotor:
-      FValvula =
-          new TRotorTurbina(dynamic_cast<TRotorTurbina *>(Origen[Valv - 1]), i);
+      FValvula = new TRotorTurbina(
+          dynamic_cast<TRotorTurbina *>(Origen[Valv - 1].get()), i);
       break;
     case nmCalcExtern:
       FValvula =
-          new TCDExterno(dynamic_cast<TCDExterno *>(Origen[Valv - 1]), i);
+          new TCDExterno(dynamic_cast<TCDExterno *>(Origen[Valv - 1].get()), i);
+      break;
+    case nmMariposa:
+      FValvula =
+          new TMariposa(dynamic_cast<TMariposa *>(Origen[Valv - 1].get()), i);
       break;
     }
 

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -31,7 +32,7 @@
 
 #include "TConcentrico.h"
 
-//#include <cmath>
+// #include <cmath>
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
@@ -41,23 +42,25 @@
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TConcentricoTubos: public TConcentrico {
-  private:
+class TConcentricoTubos : public TConcentrico {
+private:
+public:
+  TConcentricoTubos(int NumeroConcentrico);
 
-  public:
+  ~TConcentricoTubos();
 
-	TConcentricoTubos(int NumeroConcentrico);
+  void LeeDatosTuboConcentrico(const char *FileWAM, fpos_t &filepos,
+                               TTubo **Tubo, TDPF **DPF);
 
-	~TConcentricoTubos();
+  void CalculaTemperaturaPared(
+      const std::vector<std::unique_ptr<TBloqueMotor>> &Motor, double theta,
+      const std::vector<std::unique_ptr<TCondicionContorno>> &CC);
 
-	void LeeDatosTuboConcentrico(const char *FileWAM, fpos_t &filepos, TTubo **Tubo, TDPF **DPF);
+  void CalculaTemperaturaParedSinMotor(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &CC);
 
-	void CalculaTemperaturaPared(TBloqueMotor **Motor, double theta, TCondicionContorno **CC);
-
-	void CalculaTemperaturaParedSinMotor(TCondicionContorno **CC);
-
-	void CalculaResistenciasdePared(TCondicionContorno **CC);
-
+  void CalculaResistenciasdePared(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &CC);
 };
 
 //---------------------------------------------------------------------------

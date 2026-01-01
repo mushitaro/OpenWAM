@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -23,7 +24,8 @@
  along with OpenWAM.  If not, see <http://www.gnu.org/licenses/>.
 
 
- \*-------------------------------------------------------------------------------- */
+ \*--------------------------------------------------------------------------------
+*/
 
 // ---------------------------------------------------------------------------
 #ifndef TCCExtremoInyeccionH
@@ -34,59 +36,55 @@
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-class TCCExtremoInyeccion: public TCondicionContorno {
-  private:
+class TCCExtremoInyeccion : public TCondicionContorno {
+private:
+  int FNodoFin;  // Nodo en el extremo del tubo que esta en la condicion de
+                 // contorno.
+  int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0
+                 // Nodo izquierdo; 1 Nodo derecho)
+  double *FCC;   // Caracteristica conocida del tubo.
+  double *FCD;   // Caracteristica desconocida del tubo.
+  double FSeccion; // Diametro del tubo en la condicion de contorno.
 
-	int FNodoFin; // Nodo en el extremo del tubo que esta en la condicion de contorno.
-	int FIndiceCC; // Posicion del vector para tomar datos del tubo para la BC (0 Nodo izquierdo; 1 Nodo derecho)
-	double *FCC; // Caracteristica conocida del tubo.
-	double *FCD; // Caracteristica desconocida del tubo.
-	double FSeccion; // Diametro del tubo en la condicion de contorno.
+  double FAngap;
 
-	double FAngap;
+  double FTheta; // Angulo del ciclo.
+  double FVelocity;
+  double FSonido;
+  double FPressure;
 
-	double FTheta; // Angulo del ciclo.
-	double FVelocity;
-	double FSonido;
-	double FPressure;
+  double FTemperaturaIny;
+  double FGastoIny;
+  double FDuracionIny;
+  double FInicioIny;
 
-	double FTemperaturaIny;
-	double FGastoIny;
-	double FDuracionIny;
-	double FInicioIny;
+  double *FComposicion;
+  double FGamma3;
+  double FGamma5;
 
-	double *FComposicion;
-	double FGamma3;
-	double FGamma5;
+  // void PutIniIny(double valor);
 
-	// void PutIniIny(double valor);
+  // void PutDuracionIny(double valor);
 
-	// void PutDuracionIny(double valor);
+public:
+  void PutIniIny(double valor) { FInicioIny = valor; };
 
-  public:
+  void PutDuracionIny(double valor) { FDuracionIny = valor; };
 
-	void PutIniIny(double valor) {
-		FInicioIny = valor;
-	}
-	;
+  TCCExtremoInyeccion(nmTypeBC TipoCC, int numCC,
+                      nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+                      nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-	void PutDuracionIny(double valor) {
-		FDuracionIny = valor;
-	}
-	;
+  ~TCCExtremoInyeccion();
 
-	TCCExtremoInyeccion(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-						nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void CalculaCondicionContorno(double Time);
 
-	~TCCExtremoInyeccion();
+  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                        int nDPF,
+                        const std::vector<std::unique_ptr<TDPF>> &DPF);
 
-	void CalculaCondicionContorno(double Time);
-
-	void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes, TTubo **Pipe, int nDPF, TDPF **DPF);
-
-	void ObtencionValoresInstantaneos(double Theta);
-
+  void ObtencionValoresInstantaneos(double Theta);
 };
 
 #endif
-

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -45,299 +46,199 @@ class TTubo;
 class TDeposito;
 
 class TCompresor {
-  private:
-
-//---------------------------------------------------------------------------
-//          FUNCIONES PRIVADAS
-//---------------------------------------------------------------------------
-
-	double GetTrabajoCiclo() {
-		return FMedias.Trabajo;
-	}
-
-	double GetRendimientoMedio() {
-		return FMedias.Rendimiento;
-	}
-
-	double GetRelCompMedia() {
-		return FMedias.RelacionCompresion;
-	}
-
-	double GetGastoMedio() {
-		return FMedias.Massflow;
-	}
-
-	double GetRendimientoInstant() {
-		return FInstant.Rendimiento;
-	}
-
-	double GetPotenciaInstant() {
-		return FInstant.Potencia;
-	}
-
-	double GetRelCompInstant() {
-		return FInstant.RelacionCompresion;
-	}
-
-	double GetGastoInstant() {
-		return FInstant.Massflow;
-	}
-
-	nmCompressorModel GetModeloCompresor() {
-		return FModeloCompresor;
-	}
-
-	int GetDepRotor() {
-		return FDepRotor;
-	}
-
-	int GetDepStator() {
-		return FDepStator;
-	}
-
-	double GetRelCompBombeo() {
-		return Mapa->getRelCompBombeo();
-	}
-
-	double GetRegimen() {
-		return FRegimen;
-	}
-
-	int GetEje() {
-		return FEje;
-	}
-
-	double GetASonidoComp();
-
-  protected:
-
-//---------------------------------------------------------------------------
-//          VARIABLES PROTEGIDAS
-//---------------------------------------------------------------------------
-
-	int FNumeroCompresor;
-	int FEje;
-	int FDepRotor;                     // Numero del deposito conectado al rotor
-	int FDepStator;       // Numero del deposito conectado al estator (si tiene)
-//TMapaComp *Mapa;                             // Puntero al mapa del compresor
-	TCompressorMap *Mapa;
-	TMapaComp2Tub *Mapa2T;
-	double FRendimiento;                         // Rendimiento (-)
-	double FTrabajo;                             // Trabajo del compresor (W)
-	double FRelacionCompresion;                  // Relacion de compresion (-)
-	double FGastoCompresor;         // Massflow que pasa por el compresor (kg/h)
-	double FGastoCorregido;
-	double FRegimen;
-	double FRegimenCorregido;
-	double FPresion10;
-	double FPresion20;
-	double FTemperatura10;
-	double FTemperatura20;
-
-	double FASonidoSalida;
-
-	double FDeltaTiempo;
-	double FTiempo0;
-
-	bool FBombeo;
-
-	TTC_HTM *FHTM;
-
-	bool FIsAcoustic;
-	TAcousticCompressor *FAcComp;
-
-	nmCompressorModel FModeloCompresor;
-
-	stMediasCompresor FMedias;             // Estructura para los valores medios
-	stInstantaneosCompresor FInstant; // Estructura para los valores instantaneos
-
-	double FPotenciaPaso;
-	double FTrabajoPaso;
-	double FDeltaTPaso;
-	double FPotencia;
-
-// Calculo de Especies
-	double FGamma;
-	double FRMezcla;
-	double FCpMezcla;
-	double *FFraccionMasicaEspecie;
-	double GetFraccionMasiscaEspecie(int i);
-	int FNumeroEspecies;
-	bool FHayEGR;
-	int FIntEGR;
-	nmTipoCalculoEspecies FCalculoEspecies;
-	nmCalculoGamma FCalculoGamma;
-	double FFraccionMasicaEspecieFuel; // Para calculo completo de especies
-
-  public:
-
-//---------------------------------------------------------------------------
-//          VARIABLES PUBLICAS
-//---------------------------------------------------------------------------
-
-	double getEfficiency() {
-		return FRendimiento;
-	}
-	;
-
-	double getMassflow() {
-		return FGastoCompresor;
-	}
-	;
-
-	double getTrabajo() {
-		return FTrabajo;
-	}
-	;
-
-	double getRendMed() {
-		return GetRendimientoMedio();
-	}
-	;
-
-	double getTrabCiclo() {
-		return GetTrabajoCiclo();
-	}
-	;
-
-	double getRCMed() {
-		return GetRelCompMedia();
-	}
-	;
-
-	double getGastoMed() {
-		return GetGastoMedio();
-	}
-	;
-
-	double getRendINS() {
-		return GetRendimientoInstant();
-	}
-	;
-
-	double getPotenciaINS() {
-		return GetPotenciaInstant();
-	}
-	;
+private:
+  //---------------------------------------------------------------------------
+  //          FUNCIONES PRIVADAS
+  //---------------------------------------------------------------------------
 
-	double getGastoINS() {
-		return GetGastoInstant();
-	}
-	;
+  double GetTrabajoCiclo() { return FMedias.Trabajo; }
 
-	double getRCINS() {
-		return GetRelCompInstant();
-	}
-	;
+  double GetRendimientoMedio() { return FMedias.Rendimiento; }
 
-	nmCompressorModel getModeloCompresor() {
-		return GetModeloCompresor();
-	}
-	;
+  double GetRelCompMedia() { return FMedias.RelacionCompresion; }
 
-	int getDepRotor() {
-		return GetDepRotor();
-	}
-	;
+  double GetGastoMedio() { return FMedias.Massflow; }
 
-	int getDepStator() {
-		return GetDepStator();
-	}
-	;
+  double GetRendimientoInstant() { return FInstant.Rendimiento; }
 
-	double getRCInicial() {
-		return GetRelCompBombeo();
-	}
-	;
+  double GetPotenciaInstant() { return FInstant.Potencia; }
 
-	double getRegimen() {
-		return GetRegimen();
-	}
-	;
+  double GetRelCompInstant() { return FInstant.RelacionCompresion; }
 
-	int getAxis() {
-		return GetEje();
-	}
-	;
+  double GetGastoInstant() { return FInstant.Massflow; }
 
-	double getTiempo0() {
-		return FTiempo0;
-	}
-	;
+  nmCompressorModel GetModeloCompresor() { return FModeloCompresor; }
 
-	double getSpeedSound() {
-		return GetASonidoComp();
-	}
-	;
+  int GetDepRotor() { return FDepRotor; }
 
-	double getPotenciaPaso() {
-		return FPotenciaPaso;
-	}
-	;
+  int GetDepStator() { return FDepStator; }
 
-	double getGamma() {
-		return FGamma;
-	}
-	;
+  double GetRelCompBombeo() { return Mapa->getRelCompBombeo(); }
 
-	double GetFraccionMasicaEspecie(int i);
+  double GetRegimen() { return FRegimen; }
 
-	TCompressorMap* GetMap() {
-		return Mapa;
-	}
-	;
+  int GetEje() { return FEje; }
 
-//---------------------------------------------------------------------------
-//          FUNCIONES PUBLICAS
-//---------------------------------------------------------------------------
+  double GetASonidoComp();
 
-	TCompresor(int i, nmTipoCalculoEspecies SpeciesModel, int numeroespecies, nmCalculoGamma GammaCalculation,
-			   bool ThereIsEGR);
+protected:
+  //---------------------------------------------------------------------------
+  //          VARIABLES PROTEGIDAS
+  //---------------------------------------------------------------------------
 
-	virtual ~TCompresor() = 0;
+  int FNumeroCompresor;
+  int FEje;
+  int FDepRotor;  // Numero del deposito conectado al rotor
+  int FDepStator; // Numero del deposito conectado al estator (si tiene)
+  // TMapaComp *Mapa;                             // Puntero al mapa del
+  // compresor
+  TCompressorMap *Mapa;
+  TMapaComp2Tub *Mapa2T;
+  double FRendimiento;        // Rendimiento (-)
+  double FTrabajo;            // Trabajo del compresor (W)
+  double FRelacionCompresion; // Relacion de compresion (-)
+  double FGastoCompresor;     // Massflow que pasa por el compresor (kg/h)
+  double FGastoCorregido;
+  double FRegimen;
+  double FRegimenCorregido;
+  double FPresion10;
+  double FPresion20;
+  double FTemperatura10;
+  double FTemperatura20;
 
-	virtual void CalculaGasto(double TrabajoInsTurbina, double TiempoActual) = 0;
+  double FASonidoSalida;
 
-	virtual void CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo, double AcumulatedTime, int TuboCalculado) = 0;
+  double FDeltaTiempo;
+  double FTiempo0;
 
-	virtual void Initialize() = 0;
+  bool FBombeo;
 
-	void InterpolaValoresMapa(double rtc);
+  TTC_HTM *FHTM;
 
-	void AcumulaMedias(double Tiempo);
+  bool FIsAcoustic;
+  TAcousticCompressor *FAcComp;
 
-	void IniciaMedias();
+  nmCompressorModel FModeloCompresor;
 
-	void CalculaMedias();
+  stMediasCompresor FMedias;        // Estructura para los valores medios
+  stInstantaneosCompresor FInstant; // Estructura para los valores instantaneos
 
-	void CalculaInstantaneos();
+  double FPotenciaPaso;
+  double FTrabajoPaso;
+  double FDeltaTPaso;
+  double FPotencia;
 
-	void LeeDatosGraficasMedias(const char *FileWAM, fpos_t &filepos);
+  // Calculo de Especies
+  double FGamma;
+  double FRMezcla;
+  double FCpMezcla;
+  double *FFraccionMasicaEspecie;
+  double GetFraccionMasiscaEspecie(int i);
+  int FNumeroEspecies;
+  bool FHayEGR;
+  int FIntEGR;
+  nmTipoCalculoEspecies FCalculoEspecies;
+  nmCalculoGamma FCalculoGamma;
+  double FFraccionMasicaEspecieFuel; // Para calculo completo de especies
 
-	void CabeceraGraficasMedias(stringstream& medoutput);
+public:
+  //---------------------------------------------------------------------------
+  //          VARIABLES PUBLICAS
+  //---------------------------------------------------------------------------
 
-	void ImprimeGraficasMedias(stringstream& medoutput);
+  double getEfficiency() { return FRendimiento; };
 
-	void LeeDatosGraficasInstantaneas(const char *FileWAM, fpos_t &filepos);
+  double getMassflow() { return FGastoCompresor; };
 
-	void CabeceraGraficasInstantaneas(stringstream& insoutput);
+  double getTrabajo() { return FTrabajo; };
 
-	void ImprimeGraficasInstantaneas(stringstream& insoutput);
+  double getRendMed() { return GetRendimientoMedio(); };
 
-	void CalculoPotenciaPaso();
+  double getTrabCiclo() { return GetTrabajoCiclo(); };
 
-	void AsignTCHTM(TTC_HTM *HTM) {
-		FHTM = HTM;
-	}
-	;
+  double getRCMed() { return GetRelCompMedia(); };
 
-	void AsignAcousticElements(TTubo **Pipe, TDeposito **Volume);
+  double getGastoMed() { return GetGastoMedio(); };
 
-	TAcousticCompressor* AcousticC() {
-		return FAcComp;
-	}
-	;
+  double getRendINS() { return GetRendimientoInstant(); };
 
+  double getPotenciaINS() { return GetPotenciaInstant(); };
+
+  double getGastoINS() { return GetGastoInstant(); };
+
+  double getRCINS() { return GetRelCompInstant(); };
+
+  nmCompressorModel getModeloCompresor() { return GetModeloCompresor(); };
+
+  int getDepRotor() { return GetDepRotor(); };
+
+  int getDepStator() { return GetDepStator(); };
+
+  double getRCInicial() { return GetRelCompBombeo(); };
+
+  double getRegimen() { return GetRegimen(); };
+
+  int getAxis() { return GetEje(); };
+
+  double getTiempo0() { return FTiempo0; };
+
+  double getSpeedSound() { return GetASonidoComp(); };
+
+  double getPotenciaPaso() { return FPotenciaPaso; };
+
+  double getGamma() { return FGamma; };
+
+  double GetFraccionMasicaEspecie(int i);
+
+  TCompressorMap *GetMap() { return Mapa; };
+
+  //---------------------------------------------------------------------------
+  //          FUNCIONES PUBLICAS
+  //---------------------------------------------------------------------------
+
+  TCompresor(int i, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+             nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+
+  virtual ~TCompresor() = 0;
+
+  virtual void CalculaGasto(double TrabajoInsTurbina, double TiempoActual) = 0;
+
+  virtual void CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo,
+                                  double AcumulatedTime, int TuboCalculado) = 0;
+
+  virtual void Initialize() = 0;
+
+  void InterpolaValoresMapa(double rtc);
+
+  void AcumulaMedias(double Tiempo);
+
+  void IniciaMedias();
+
+  void CalculaMedias();
+
+  void CalculaInstantaneos();
+
+  void LeeDatosGraficasMedias(const char *FileWAM, fpos_t &filepos);
+
+  void CabeceraGraficasMedias(stringstream &medoutput);
+
+  void ImprimeGraficasMedias(stringstream &medoutput);
+
+  void LeeDatosGraficasInstantaneas(const char *FileWAM, fpos_t &filepos);
+
+  void CabeceraGraficasInstantaneas(stringstream &insoutput);
+
+  void ImprimeGraficasInstantaneas(stringstream &insoutput);
+
+  void CalculoPotenciaPaso();
+
+  void AsignTCHTM(TTC_HTM *HTM) { FHTM = HTM; };
+
+  void
+  AsignAcousticElements(const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                        const std::vector<std::unique_ptr<TDeposito>> &Volume);
+
+  TAcousticCompressor *AcousticC() { return FAcComp; };
 };
 
 #endif

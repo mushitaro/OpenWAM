@@ -56,6 +56,8 @@ Valencia
 #define TTuboH
 #include <cstdio>
 #include <iostream>
+#include <memory>
+#include <vector>
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
@@ -1020,7 +1022,8 @@ public:
         int j,             //!< Index of the pipe
         double SimulationDuration, //!< Duration of the simulation. If there is
                                    //!< not engine.
-        TBloqueMotor **Engine,     //!< Pointer to the engine object
+        const std::vector<std::unique_ptr<TBloqueMotor>>
+            &Engine,                        //!< Pointer to the engine object
         nmTipoCalculoEspecies SpeciesModel, //!< Type of species calculation
         nmCalculoGamma GammaCalculation, //!< Type of specific heat calculation
         bool ThereIsEGR                  //!< EGR specie is considered?
@@ -1035,20 +1038,22 @@ public:
   );
 
   /*!Comment  */
-  void LeeDatosGeometricosTubo(const char *FileWAM,  //!< Comment
-                               fpos_t &filepos,      //!< Comment
-                               double ene,           //!< Comment
-                               int tipomallado,      //!< Comment
-                               TBloqueMotor **Engine //!< Comment
+  void LeeDatosGeometricosTubo(
+      const char *FileWAM,                                     //!< Comment
+      fpos_t &filepos,                                         //!< Comment
+      double ene,                                              //!< Comment
+      int tipomallado,                                         //!< Comment
+      const std::vector<std::unique_ptr<TBloqueMotor>> &Engine //!< Comment
   );
 
   /*!Comment  */
   void IniciaVariablesFundamentalesTubo();
 
   /*!Comment  */
-  void IniciaVariablesTransmisionCalor(TCondicionContorno **BC,  //!< Comment
-                                       TBloqueMotor **Engine,    //!< Comment
-                                       double AmbientTemperature //!< Comment
+  void IniciaVariablesTransmisionCalor(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC, //!< Comment
+      const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,   //!< Comment
+      double AmbientTemperature                                   //!< Comment
   );
 
   /*!Comment  */
@@ -1058,7 +1063,8 @@ public:
   void CalculaVariablesFundamentales();
 
   /*!Comment  */
-  void ActualizaValoresNuevos(TCondicionContorno **BC //!< Comment
+  void ActualizaValoresNuevos(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC //!< Comment
   );
 
   /*!Comment  */
@@ -1083,9 +1089,10 @@ public:
   ) const;
 
   /*!Comment  */
-  void ReadInstantaneousResultsTubo(const char *FileWAM, //!< Comment
-                                    fpos_t &filepos,     //!< Comment
-                                    bool HayMotor        //!< Comment
+  void ReadInstantaneousResultsTubo(
+      const char *FileWAM,                                     //!< Comment
+      fpos_t &filepos,                                         //!< Comment
+      const std::vector<std::unique_ptr<TBloqueMotor>> &Engine //!< Comment
   );
 
   /*!Comment  */
@@ -1109,21 +1116,24 @@ public:
   ) const;
 
   /*!Comment  */
-  void CalculaTemperaturaPared(TBloqueMotor **Engine,  //!< Comment
-                               double Theta,           //!< Comment
-                               double CrankAngle,      //!< Comment
-                               TCondicionContorno **BC //!< Comment
+  void CalculaTemperaturaPared(
+      const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,  //!< Comment
+      double Theta,                                              //!< Comment
+      double CrankAngle,                                         //!< Comment
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC //!< Comment
   );
 
-  void CalculaTemperaturaParedSinMotor(TCondicionContorno **BC);
+  void CalculaTemperaturaParedSinMotor(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC);
 
   /*!Comment  */
   void AjustaPaso(double Intervalo //!< Comment
   );
 
   /*!Comment  */
-  void CalculaCaracteristicasExtremos(TCondicionContorno **BC, //!< Comment
-                                      double DeltaTiempo       //!< Comment
+  void CalculaCaracteristicasExtremos(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC, //!< Comment
+      double DeltaTiempo                                          //!< Comment
   );
 
   /*!Comment  */
@@ -1139,30 +1149,36 @@ public:
   );
 
   /*!Comment  */
-  void ComunicacionTubo_CC(TCondicionContorno **BC //!< Comment
+  void ComunicacionTubo_CC(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC //!< Comment
   );
 
   /*!Comment  */
-  void ComunicacionDPF(TCondicionContorno **CC, //!< Comment
-                       TDeposito **Deposito     //!< Comment
+  void ComunicacionDPF(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &CC, //!< Comment
+      const std::vector<std::unique_ptr<TDeposito>> &Deposito     //!< Comment
   );
 
   /*!Comment  */
-  void InicializaCaracteristicas(TCondicionContorno **BC //!< Comment
+  void InicializaCaracteristicas(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC //!< Comment
   );
 
   /*!Comment  */
-  void CalculaCoeficientePeliculaExterior(TBloqueMotor **Engine,    //!< Comment
-                                          double AmbientPressure,   //!< Comment
-                                          double AmbientTemperature //!< Comment
+  void CalculaCoeficientePeliculaExterior(
+      const std::vector<std::unique_ptr<TBloqueMotor>> &Engine, //!< Comment
+      double AmbientPressure,                                   //!< Comment
+      double AmbientTemperature                                 //!< Comment
   );
 
   /*!Comment  */
-  void CalculaResistenciasdePared(TCondicionContorno **BC //!< Comment
+  void CalculaResistenciasdePared(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC //!< Comment
   );
 
   /*!Comment  */
-  void CalculaCoeficientePeliculaInterior(TCondicionContorno **BC //!< Comment
+  void CalculaCoeficientePeliculaInterior(
+      const std::vector<std::unique_ptr<TCondicionContorno>> &BC //!< Comment
   );
 
   /*!Comment  */

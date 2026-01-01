@@ -1,0 +1,274 @@
+81:  // ! ARRAY OF DPFs
+83:  //   DPF = NULL;
+113:  JStepMaxDPF = 0;
+144:  DPFStepMax = false;
+146:  TimeMinDPF = false;
+158:  NumberOfDPF = 0;
+265:  // Liberacion memoria dinamica DPFs.
+269:// Liberacion memoria dinamica DPFs.
+271:  // if (NumberOfDPF > 0 && DPF != NULL) {
+272:  //   for (int i = 0; i < NumberOfDPF; i++)
+273:  //     delete DPF[i];
+274:  //   delete[] DPF;
+504:  ReadDPF();
+916:void TOpenWAM::ReadDPF() {
+921:    FileInput >> NumberOfDPF;
+922:    // DPF = new TDPF *[NumberOfDPF];
+923:    DPF.reserve(NumberOfDPF);
+924:    printf("Number of DPF: %d\n", NumberOfDPF);
+936:    for (int i = 0; i < NumberOfDPF; i++) {
+937:      // DPF[i] = new TDPF(i + 1, Engine, SpeciesNumber);
+938:      DPF.push_back(
+939:          std::make_unique<TDPF>(i + 1, EnginePtrs.data(), SpeciesNumber));
+940:      DPF.back()->LeeDatosDPF(fileinput.c_str(), filepos, SpeciesModel,
+948:    std::cout << "ERROR: ReadDPF" << std::endl;
+971:    std::vector<TDPF *> DPFPtrs;
+973:    if (!DPF.empty()) {
+974:      DPFPtrs.reserve(DPF.size());
+975:      for (const auto &d : DPF)
+976:        DPFPtrs.push_back(d.get());
+989:            fileinput.c_str(), filepos, PipePtrs.data(), DPFPtrs.data());
+995:        // Concentric[i] = new TConcentricoDPF(i);
+996:        Concentric.push_back(std::make_unique<TConcentricoDPF>(i));
+999:            fileinput.c_str(), filepos, PipePtrs.data(), DPFPtrs.data());
+1410:                                      Pipe, NumberOfDPF, this->DPF);
+1425:                                      Pipe, NumberOfDPF, this->DPF);
+1438:                                      Pipe, NumberOfDPF, this->DPF);
+1469:                                      Pipe, NumberOfDPF, this->DPF);
+1480:                                      Pipe, NumberOfDPF, this->DPF);
+1492:                                      Pipe, NumberOfDPF, this->DPF);
+1504:                                      Pipe, NumberOfDPF, this->DPF);
+1516:                                      Pipe, NumberOfDPF, this->DPF);
+1527:                                      Pipe, NumberOfDPF, this->DPF);
+1538:                                      Pipe, NumberOfDPF, this->DPF);
+1580:                                      Pipe, NumberOfDPF, this->DPF);
+1591:                                      Pipe, NumberOfDPF, this->DPF);
+1624:                                      Pipe, NumberOfDPF, this->DPF);
+1635:                                      Pipe, NumberOfDPF, this->DPF);
+1646:                                      Pipe, NumberOfDPF, this->DPF);
+2017:                             Engine, Plenum, Axis, Compressor, Turbine, BC, DPF,
+2022:      fileinput.c_str(), filepos, Engine, Plenum, Pipe, Venturi, BC, DPF, Axis,
+2028:                             Engine, Plenum, Axis, Compressor, Turbine, BC, DPF,
+2033:      fileinput.c_str(), filepos, Engine, Plenum, Pipe, Venturi, BC, DPF, Axis,
+2062:  for (int i = 0; i < NumberOfDPF; i++) {
+2063:    DPF[i]->IniciaVariablesTransmisionCalor(AmbientTemperature);
+2064:    for (int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
+2065:      (DPF[i]->GetCanal(j, 0))->IniciaVariablesFundamentalesCanalDPF();
+2066:      (DPF[i]->GetCanal(j, 0))->InicializaCaracteristicas(BC);
+2067:      (DPF[i]->GetCanal(j, 0))->CalculaCoeficientePeliculaInterior();
+2068:      (DPF[i]->GetCanal(j, 1))->IniciaVariablesFundamentalesCanalDPF();
+2069:      (DPF[i]->GetCanal(j, 1))->InicializaCaracteristicas(BC);
+2070:      (DPF[i]->GetCanal(j, 1))->CalculaCoeficientePeliculaInterior();
+2071:      if (j == DPF[i]->getNumeroHacesCanales() - 1) {
+2072:        (DPF[i]->GetCanal(j, 0))
+2074:        (DPF[i]->GetCanal(j, 1))
+2078:      DPF[i]->CalculoResistenciaTC_First_Time(j, Pipe, Concentric);
+2080:      DPF[i]->CalculoResistenciaTC_First_Time(j, Pipe, NULL);
+2084:    DPF[i]->InicializaDPF(NumberOfConcentrics, Concentric);
+2086:    DPF[i]->InicializaDPF(NumberOfConcentrics, NULL);
+2088:    DPF[i]->CalculoEstabilidadDPF();
+2392:  for (int i = 0; i < NumberOfDPF; i++) {
+2393:    for (int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
+2394:      DPF[i]->GetCanal(j, 0)->ComunicacionCanal_CC(BC);
+2395:      DPF[i]->GetCanal(j, 1)->ComunicacionCanal_CC(BC);
+2397:    DPF[i]->ComunicacionTubos(BC, NumberOfConnections);
+2483:  for (int i = 0; i < NumberOfDPF; i++) {
+2484:    DPF[i]->IniciaVariablesTransmisionCalor(AmbientTemperature);
+2485:    for (int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
+2486:      (DPF[i]->GetCanal(j, 0))->CalculaCoeficientePeliculaInterior();
+2487:      (DPF[i]->GetCanal(j, 1))->CalculaCoeficientePeliculaInterior();
+2488:      if (j == DPF[i]->getNumeroHacesCanales() - 1) {
+2489:        (DPF[i]->GetCanal(j, 0))
+2491:        (DPF[i]->GetCanal(j, 1))
+2495:      DPF[i]->CalculoResistenciaTC_First_Time(j, Pipe, Concentric);
+2497:      DPF[i]->CalculoResistenciaTC_First_Time(j, Pipe, NULL);
+2882:    TimeEndStep = DPF[JCurrentDPF]->getTime1DPF();
+2884:        DPF[JCurrentDPF]->getTime1DPF() - DPF[JCurrentDPF]->getTime0DPF();
+2891:  for (int j = 0; j < NumberOfDPF; j++) {
+2892:    DPF[j]->AjustaPaso(TimeEndStep);
+2930:    DPFStepMax = false;
+2931:    JStepMaxDPF = -1;
+2935:  for (int j = 0; j < NumberOfDPF; j++) {
+2936:    if (DPF[j]->getTime1DPF() >= TimeEndStep) {
+2937:      TimeEndStep = DPF[j]->getTime1DPF();
+2938:      JStepMaxDPF = j;
+2939:      DPFStepMax = true;
+2948:    if (Concentric[j]->GetHayDPF()) {
+2949:      if (Concentric[j]->GetTiempoDPF() > Concentric[j]->GetTiempo(0)) {
+2950:        Concentric[j]->PutTiempoDPF(Concentric[j]->GetTiempo(0));
+2952:        Concentric[j]->PutTiempo(0, Concentric[j]->GetTiempoDPF());
+2974:    JCurrentDPF = -2;
+2976:    TimeMinDPF = false;
+2979:    TMinimo = DPF[JStepMaxDPF]->getTime1DPF();
+2980:    JCurrentDPF = JStepMaxDPF;
+2983:    TimeMinDPF = true;
+2991:      JCurrentDPF = -2;
+2993:      TimeMinDPF = false;
+2997:  for (int j = 0; j < NumberOfDPF; j++) {
+2998:    if (DPF[j]->getTime1DPF() <= TMinimo && j != JStepMaxDPF) {
+2999:      TMinimo = DPF[j]->getTime1DPF();
+3001:      JCurrentDPF = j;
+3003:      TimeMinDPF = true;
+3102:          if (LPlenum[LNumDepInicial - 1]->GetCCDeposito(i)->getUnionDPF()) {
+3107:                    .DPF->getTime1DPF() < *LTMinimo) {
+3111:                              .DPF->getTime1DPF();
+3185:        if (Plenum[LNumDeposito - 1]->GetCCDeposito(i)->getUnionDPF()) {
+3190:                  .DPF->getTime1DPF() < *LTMinimo) {
+3194:                            .DPF->getTime1DPF();
+3275:    for (int j = 0; j < NumberOfDPF; j++) {
+3276:      if (DPF[j]->getTime1DPF() > TimeEndStep) {
+3277:        DPF[j]->AjustaPaso(TimeEndStep);
+3279:      if (DPFStepMax) {
+3280:        JStepMaxDPF = j;
+3369:    for (int j = 0; j < NumberOfDPF; j++) {
+3370:      if ((Pipe[JStepMax]->getTime1() - DPF[j]->getTime0DPF()) <
+3371:          (DPF[j]->getTime1DPF() - DPF[j]->getTime0DPF())) {
+3372:        DPF[j]->putTime1DPF(Pipe[JStepMax]->getTime1());
+3375:        while ((DPF[j]->getTime1DPF() - DPF[j]->getTime0DPF()) <
+3380:        DPF[j]->putTime1DPF(
+3381:            DPF[j]->getTime0DPF() +
+3385:      DPF[j]->putDeltaTimeDPF(DPF[j]->getTime1DPF() - DPF[j]->getTime0DPF());
+3386:      for (int k = 0; k < DPF[j]->getNumeroHacesCanales(); k++) {
+3387:        (DPF[j]->GetCanal(k, 0))->putTime1(DPF[j]->getTime1DPF());
+3388:        (DPF[j]->GetCanal(k, 0))->putDeltaTime(DPF[j]->getDeltaTimeDPF());
+3389:        (DPF[j]->GetCanal(k, 1))->putTime1(DPF[j]->getTime1DPF());
+3390:        (DPF[j]->GetCanal(k, 1))->putDeltaTime(DPF[j]->getDeltaTimeDPF());
+3394:  } else if (DPFStepMax) {
+3397:      if ((DPF[JStepMaxDPF]->getTime1DPF() - Pipe[j]->getTime0()) <
+3399:        Pipe[j]->PutTime1(DPF[JStepMaxDPF]->getTime1DPF());
+3403:               (DPF[JStepMaxDPF]->getTime1DPF() -
+3404:                DPF[JStepMaxDPF]->getTime0DPF()) /
+3409:                          (DPF[JStepMaxDPF]->getTime1DPF() -
+3410:                           DPF[JStepMaxDPF]->getTime0DPF()) /
+3416:    for (int j = 0; j < NumberOfDPF; j++) {
+3417:      if ((DPF[JStepMaxDPF]->getTime1DPF() - DPF[j]->getTime0DPF()) <
+3418:          (DPF[j]->getTime1DPF() - DPF[j]->getTime0DPF())) {
+3419:        DPF[j]->putTime1DPF(DPF[JStepMaxDPF]->getTime1DPF());
+3422:        while ((DPF[j]->getTime1DPF() - DPF[j]->getTime0DPF()) <
+3423:               (DPF[JStepMaxDPF]->getTime1DPF() -
+3424:                DPF[JStepMaxDPF]->getTime0DPF()) /
+3428:        DPF[j]->putTime1DPF(DPF[j]->getTime0DPF() +
+3429:                            (DPF[JStepMaxDPF]->getTime1DPF() -
+3430:                             DPF[JStepMaxDPF]->getTime0DPF()) /
+3433:      DPF[j]->putDeltaTimeDPF(DPF[j]->getTime1DPF() - DPF[j]->getTime0DPF());
+3434:      for (int k = 0; k < DPF[j]->getNumeroHacesCanales(); k++) {
+3435:        (DPF[j]->GetCanal(k, 0))->putTime1(DPF[j]->getTime1DPF());
+3436:        (DPF[j]->GetCanal(k, 0))->putDeltaTime(DPF[j]->getDeltaTimeDPF());
+3437:        (DPF[j]->GetCanal(k, 1))->putTime1(DPF[j]->getTime1DPF());
+3438:        (DPF[j]->GetCanal(k, 1))->putDeltaTime(DPF[j]->getDeltaTimeDPF());
+3464:    } else if (TimeMinDPF) {
+3466:      if ((Pipe[JStepMax]->getTime1() - DPF[JCurrentDPF]->getTime0DPF()) <
+3467:          (DPF[JCurrentDPF]->getTime1DPF() - DPF[JCurrentDPF]->getTime0DPF())) {
+3468:        DPF[JCurrentDPF]->putTime1DPF(Pipe[JStepMax]->getTime1());
+3471:        while ((DPF[JCurrentDPF]->getTime1DPF() -
+3472:                DPF[JCurrentDPF]->getTime0DPF()) <
+3477:        DPF[JCurrentDPF]->putTime1DPF(
+3478:            DPF[JCurrentDPF]->getTime0DPF() +
+3482:      DPF[JCurrentDPF]->putDeltaTimeDPF(DPF[JCurrentDPF]->getTime1DPF() -
+3483:                                        DPF[JCurrentDPF]->getTime0DPF());
+3484:      for (int j = 0; j < DPF[JCurrentDPF]->getNumeroHacesCanales(); j++) {
+3485:        (DPF[JCurrentDPF]->GetCanal(j, 0))
+3486:            ->putTime1(DPF[JCurrentDPF]->getTime1DPF());
+3487:        (DPF[JCurrentDPF]->GetCanal(j, 0))
+3488:            ->putDeltaTime(DPF[JCurrentDPF]->getDeltaTimeDPF());
+3489:        (DPF[JCurrentDPF]->GetCanal(j, 1))
+3490:            ->putTime1(DPF[JCurrentDPF]->getTime1DPF());
+3491:        (DPF[JCurrentDPF]->GetCanal(j, 1))
+3492:            ->putDeltaTime(DPF[JCurrentDPF]->getDeltaTimeDPF());
+3496:  } else if (DPFStepMax) {
+3499:      if ((DPF[JStepMaxDPF]->getTime1DPF() - Pipe[JCurrent]->getTime0()) <
+3501:        Pipe[JCurrent]->PutTime1(DPF[JStepMaxDPF]->getTime1DPF());
+3505:               (DPF[JStepMaxDPF]->getTime1DPF() -
+3506:                DPF[JStepMaxDPF]->getTime0DPF()) /
+3511:                                 (DPF[JStepMaxDPF]->getTime1DPF() -
+3512:                                  DPF[JStepMaxDPF]->getTime0DPF()) /
+3517:    } else if (TimeMinDPF) {
+3518:      if ((DPF[JStepMaxDPF]->getTime1DPF() - DPF[JCurrentDPF]->getTime0DPF()) <
+3519:          (DPF[JCurrentDPF]->getTime1DPF() - DPF[JCurrentDPF]->getTime0DPF())) {
+3520:        DPF[JCurrentDPF]->putTime1DPF(DPF[JStepMaxDPF]->getTime1DPF());
+3523:        while ((DPF[JCurrentDPF]->getTime1DPF() -
+3524:                DPF[JCurrentDPF]->getTime0DPF()) <
+3525:               (DPF[JStepMaxDPF]->getTime1DPF() -
+3526:                DPF[JStepMaxDPF]->getTime0DPF()) /
+3530:        DPF[JCurrentDPF]->putTime1DPF(DPF[JCurrentDPF]->getTime0DPF() +
+3531:                                      (DPF[JStepMaxDPF]->getTime1DPF() -
+3532:                                       DPF[JStepMaxDPF]->getTime0DPF()) /
+3535:      DPF[JCurrentDPF]->putDeltaTimeDPF(DPF[JCurrentDPF]->getTime1DPF() -
+3536:                                        DPF[JCurrentDPF]->getTime0DPF());
+3537:      for (int j = 0; j < DPF[JCurrentDPF]->getNumeroHacesCanales(); j++) {
+3538:        (DPF[JCurrentDPF]->GetCanal(j, 0))
+3539:            ->putTime1(DPF[JCurrentDPF]->getTime1DPF());
+3540:        (DPF[JCurrentDPF]->GetCanal(j, 0))
+3541:            ->putDeltaTime(DPF[JCurrentDPF]->getDeltaTimeDPF());
+3542:        (DPF[JCurrentDPF]->GetCanal(j, 1))
+3543:            ->putTime1(DPF[JCurrentDPF]->getTime1DPF());
+3544:        (DPF[JCurrentDPF]->GetCanal(j, 1))
+3545:            ->putDeltaTime(DPF[JCurrentDPF]->getDeltaTimeDPF());
+3657:    } else if (TimeMinDPF) {
+3659:      for (int j = 0; j < DPF[JCurrentDPF]->getNumeroHacesCanales(); j++) {
+3661:          (DPF[JCurrentDPF]->GetCanal(j, k))->CalculaVariablesFundamentales();
+3662:          // printf("%lf\n",DPF[JActualDPF]->Time1DPF);
+3664:              DPF[JCurrentDPF]->getTime1DPF() - DPF[JCurrentDPF]->getTime0DPF();
+3665:          (DPF[JCurrentDPF]->GetCanal(j, k))
+3672:              OneDEnd = (DPF[JCurrentDPF]->GetCanal(j, k))->getNodoIzq();
+3674:              OneDEnd = (DPF[JCurrentDPF]->GetCanal(j, k))->getNodoDer();
+3678:                  DPF[JCurrentDPF]->getTime1DPF());
+3681:          (DPF[JCurrentDPF]->GetCanal(j, k))->ActualizaValoresNuevos(BC);
+3682:          (DPF[JCurrentDPF]->GetCanal(j, k))->ActualizaPropiedadesGas();
+3684:          (DPF[JCurrentDPF]->GetCanal(j, k))->ReduccionFlujoSubsonico();
+3686:        SolveAdjacentElements(OneDEnd, DPF[JCurrentDPF]->getTime1DPF());
+3689:          if (DPF[JCurrentDPF]->getTime1DPF() <
+3690:              DPF[JCurrentDPF]->getDuracionCiclo()) {
+3691:            if (j == DPF[JCurrentDPF]->getNumeroHacesCanales() - 1) {
+3692:              (DPF[JCurrentDPF]->GetCanal(j, 0))
+3696:            DPF[JCurrentDPF]->CalculoResistenciaTC(j, Pipe, Concentric);
+3698:            DPF[JCurrentDPF]->CalculoResistenciaTC(j, Pipe, NULL);
+3702:          if (j == DPF[JCurrentDPF]->getNumeroHacesCanales() - 1) {
+3703:            (DPF[JCurrentDPF]->GetCanal(j, 0))
+3707:          DPF[JCurrentDPF]->CalculoResistenciaTC(j, Pipe, Concentric);
+3709:          DPF[JCurrentDPF]->CalculoResistenciaTC(j, Pipe, NULL);
+3714:      DPF[JCurrentDPF]->CalculoTransmisionCalor(Engine, Theta, Pipe,
+3717:      DPF[JCurrentDPF]->CalculoTransmisionCalor(Engine, Theta, Pipe, NULL);
+3719:      DPF[JCurrentDPF]->CalculoSubmodelos();
+3720:      DPF[JCurrentDPF]->CalculaResultadosMedios(Theta);
+3722:      DPF[JCurrentDPF]->CalculoEstabilidadDPF();
+3723:      if (DPF[JCurrentDPF]->getTime0DPF() < TimeEndStep) {
+3731:  } while (JCurrent != JStepMax && JCurrentDPF != JStepMaxDPF);
+3749:      } else if (DPFStepMax) {
+3752:          Plenum[i]->UpdateProperties0DModel(DPF[JStepMaxDPF]->getTime0DPF());
+3754:          Plenum[i]->ActualizaTiempo(DPF[JStepMaxDPF]->getTime0DPF());
+4209:      } else if (DPFStepMax) {
+4212:            DPF[JStepMaxDPF]->getTime0DPF()) {
+4214:              DPF[JStepMaxDPF]->getTime0DPF());
+4217:              DPF[JStepMaxDPF]->getTime0DPF());
+4219:              DPF[JStepMaxDPF]->getTime0DPF(), i + 1);
+4224:                ->ActualizaAnguloValvula(DPF[JStepMaxDPF]->getTime0DPF(),
+4231:                ->ActualizaAnguloValvula(DPF[JStepMaxDPF]->getTime0DPF(),
+4276:  for (int i = 0; i < NumberOfDPF; i++) {
+4277:    for (int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
+4279:        (DPF[i]->GetCanal(j, k))->CalculaVariablesFundamentales();
+4280:        (DPF[i]->GetCanal(j, k))
+4348:  for (int i = 0; i < NumberOfDPF; i++) {
+4349:    for (int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
+4351:        (DPF[i]->GetCanal(j, k))->ActualizaValoresNuevos(BC);
+4352:        (DPF[i]->GetCanal(j, k))->ActualizaPropiedadesGas();
+4353:        (DPF[i]->GetCanal(j, k))->ReduccionFlujoSubsonico();
+4356:        if (j == DPF[i]->getNumeroHacesCanales() - 1) {
+4357:          (DPF[i]->GetCanal(j, 0))
+4360:        DPF[i]->CalculoResistenciaTC(j, Pipe, Concentric);
+4362:        if (j == DPF[i]->getNumeroHacesCanales() - 1) {
+4363:          (DPF[i]->GetCanal(j, 0))
+4366:        DPF[i]->CalculoResistenciaTC(j, Pipe, Concentric);
+4369:    DPF[i]->CalculoTransmisionCalor(Engine, Theta, Pipe, Concentric);
+4370:    DPF[i]->CalculoSubmodelos();
+4371:    DPF[i]->CalculaResultadosMedios(Theta);
+4373:    DPF[i]->CalculoEstabilidadDPF();
+4534:  for (int i = 0; i < NumberOfDPF; i++) {
+4535:    if (DPF[i]->getCicloDPF() > 1) {
+4536:      for (int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
+4537:        (DPF[i]->GetCanal(j, 0))->CalculaCoeficientePeliculaInterior();
+4538:        (DPF[i]->GetCanal(j, 1))->CalculaCoeficientePeliculaInterior();
+4539:        if (j == DPF[i]->getNumeroHacesCanales() - 1) {
+4540:          (DPF[i]->GetCanal(j, 0))
+4542:          (DPF[i]->GetCanal(j, 1))
+4545:        DPF[i]->CalculoResistenciaTC(j, Pipe, Concentric);

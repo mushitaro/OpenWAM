@@ -105,10 +105,8 @@ Valencia |   \\/   \//    M odel    |
 #include "TEjeTurbogrupo.h"
 
 // DIESEL PARTICULATE FILTER
-#ifdef ParticulateFilter
 #include "TDPF.h"
 #include "TCanalDPF.h"
-#endif
 
 // CONCENTRIC 1D ELEMENTS
 #ifdef ConcentricElement
@@ -145,11 +143,15 @@ Valencia |   \\/   \//    M odel    |
 #include "TCGestorWAM.h"
 #endif
 
+#include <memory>
+#include <vector>
+
+// ... (includes)
+
 class TOpenWAM {
 private:
 #ifdef gestorcom
-
-  TCGestorWAM *GestorWAM;
+  std::unique_ptr<TCGestorWAM> GestorWAM;
 #endif
 
   std::string tzstr;
@@ -157,7 +159,8 @@ private:
 
   stRun Run;
 
-  stDatosTGV *DatosTGV;
+  stDatosTGV *DatosTGV; // Keep raw for now if shared ownership isn't clear, or
+                        // move to vector if array
   std::string fileinput;
 
   std::ifstream FileInput;
@@ -166,100 +169,78 @@ private:
 
   // char fileinput[8];
 
-  TBloqueMotor **Engine;
-  TCompresor **Compressor;
-  TCalculoExtern *EXTERN;
-  TEjeTurbogrupo **Axis;
+  std::vector<std::unique_ptr<TBloqueMotor>> Engine;
+  std::vector<std::unique_ptr<TCompresor>> Compressor;
+  std::unique_ptr<TCalculoExtern> EXTERN;
+  std::vector<std::unique_ptr<TEjeTurbogrupo>> Axis;
 
   // ! ARRAY OF TYPES OF VALVES
-  TTipoValvula **TypeOfValve;
+  // ! ARRAY OF TYPES OF VALVES
+  std::vector<std::unique_ptr<TTipoValvula>>
+      TypeOfValve; // Ownership transferred to vector
+                   // need to check ownership. Keeping as raw observers for now
+                   // if unsure, or vector of pointers.
 
   // ! POINTERS ARRAY TO VALVES TYPE TURBINE STATOR
-  TEstatorTurbina ***StatorTurbine;
+  TEstatorTurbina ***StatorTurbine; // Triple pointer??
   // ! POINTERS ARRAY TO VALVES TYPE TURBINE ROTOR
   TRotorTurbina **RotorTurbine;
   // ! POINTERS ARRAY TO EXTERNAL CONNECTIONS
-  TTipoValvula **CCCalcExtern;
-  TTipoValvula **BCButerflyValve;
+  std::vector<TTipoValvula *> CCCalcExtern;
+  std::vector<TTipoValvula *> BCButerflyValve;
 
   // ! ARRAY OF PIPES
-  TTubo **Pipe;
+  std::vector<std::unique_ptr<TTubo>> Pipe;
 
-  // ! ARRAY OF CONCENTRIC ELEMENTS
 #ifdef ConcentricElement
-  TConcentrico **Concentric;
+  // ! ARRAY OF CONCENTRIC ELEMENTS
+  std::vector<std::unique_ptr<TConcentrico>> Concentric;
 #endif
 
   // ! ARRAY OF DPFs
-#ifdef ParticulateFilter
-  TDPF **DPF;
-#endif
+  std::vector<std::unique_ptr<TDPF>> DPF;
 
   // ! ARRAYS OF PLENUMS
-  TDeposito **Plenum;
-  TTurbina **Turbine;
-  TVenturi **Venturi;
+  std::vector<std::unique_ptr<TDeposito>> Plenum;
+  std::vector<TTurbina *> Turbine;
+  std::vector<TVenturi *> Venturi;
 
   // ! ARRAYS OF BOUNDARY CONDITIONS
-  TCondicionContorno **BC;
-  TCondicionContorno **BCIntakeValve;
-  TCondicionContorno **BCExhaustValve;
-  TCondicionContorno **BCReedValve;
-  TCondicionContorno **BCWasteGate;
+  std::vector<std::unique_ptr<TCondicionContorno>> BC;
 
-  TCCExternalConnection **BCExtConnection;
-  TCCExternalConnectionVol **BCExtConnectionVol;
+  // These likely point to subsets of BC, so they should remain raw pointers
+  // (observers)
+  std::vector<TCondicionContorno *> BCIntakeValve;
+  std::vector<TCondicionContorno *> BCExhaustValve;
+  std::vector<TCondicionContorno *> BCReedValve;
+  std::vector<TCondicionContorno *> BCWasteGate;
 
-  TCCCompresorVolumetrico **VolumetricCompressor;
-  TCCDescargaExtremoAbierto **MatlabDischarge;
-  TCCExtremoInyeccion **InjectionEnd;
-  TCCPerdidadePresion **PerdidaPresion;
+  std::vector<TCCExternalConnection *> BCExtConnection;
+  std::vector<TCCExternalConnectionVol *> BCExtConnectionVol;
+
+  std::vector<TCCCompresorVolumetrico *> VolumetricCompressor;
+  std::vector<TCCDescargaExtremoAbierto *> MatlabDischarge;
+  std::vector<TCCExtremoInyeccion *> InjectionEnd;
+  std::vector<TCCPerdidadePresion *> PerdidaPresion;
 
   // !OUTPUT OBJECT
-  TOutputResults *Output;
+  std::unique_ptr<TOutputResults> Output;
 
-  // ! CONTROL PARAMETERS
-  bool FirstIteration;
-  int JStepMax;
-  int JStepMaxDPF;
-  int JCurrent;
-  int JCurrentDPF;
-  double TimeEndStep;
-  double DeltaTPlenums;
-  bool Independent;
-  bool Is_EndStep;
-  bool PipeStepMax;
-  bool DPFStepMax;
-  bool TimeMinPipe;
-  bool TimeMinDPF;
+  // ! NUMBER OF COMPRESSORS
+  int NumberOfCompressors;
 
-  double CrankAngle;
-  double AcumulatedTime;
-  double Theta;
-  double Theta0;
+  // ! NUMBER OF PRESSURE LOSSES
+  int NumTCCPerdidaPresion;
 
-  // ! SPECIES MODEL PARAMETERS
+  int fi_num_threads; ///< Available threads for CalculateFlowIndependent.
 
-  stEspecies *SpeciesName;
-  int SpeciesNumber;
-
-  nmTipoCalculoEspecies SpeciesModel;
-
-  double *AtmosphericComposition;
-
-  nmTipoCombustible FuelType;
-  nmCalculoGamma GammaCalculation;
-
-  // ! GENERAL PARAMETERS
-  nmTipoMotor EngineType;
-
-  nmTipoModelado SimulationType;
+  // Simulation variables
   bool ThereIsEGR;
   bool ThereIsFuel;
   int OpenWAMVersion;
   int Steps;
   int Increment;
-  float Percentage;
+  int Percentage;
   double ThetaIni;
   double ene;
   double agincr;
@@ -270,26 +251,36 @@ private:
   double AmbientPressure;
   double AmbientTemperature;
   bool ConvergenceFirstTime;
+  bool Independent;
+  bool PipeStepMax;
+  bool DPFStepMax;
+  bool TimeMinPipe;
+  bool TimeMinDPF;
 
-  // ! DOES THE ENGINE BLOCK EXIST?
+  double CrankAngle;
+  double AcumulatedTime;
+  double Theta;
+  double Theta0;
+
+  stEspecies *SpeciesName;
+  int SpeciesNumber;
+  double *AtmosphericComposition;
+
+  nmTipoModelado SimulationType;
+  nmTipoCalculoEspecies SpeciesModel;
+  nmCalculoGamma GammaCalculation;
+  nmTipoMotor EngineType;
+  nmTipoCombustible FuelType;
   bool EngineBlock;
+  bool ThereIsDLL;
 
-  // ! NUMBER OF PIPES
   int NumberOfPipes;
-
-  // ! NUMBER OF CONCENTRIC ELEMENTS
   int NumberOfConcentrics;
-
-  // ! NUMBER OF DIESEL PARTICULATE FILTERS
   int NumberOfDPF;
-
-  // ! VALVES PARAMETERS
   int NumberOfValves;
   int NumberOfReedValves;
   int NumberOfWasteGates;
   int NumberOfExternalCalculatedValves;
-
-  // ! CONNECTIONS PARAMETERS
   int NumberOfConnections;
   int NumberOfVolumetricCompressors;
   int NumberOfExhaustValves;
@@ -298,44 +289,27 @@ private:
   int NumberOfInjectionEnds;
   int NumberOfConectionsBetweenPlenums;
   int NumberOfButerflyValves;
-
-  // ! NUMBER OF PLENUMS
   int NumberOfPlenums;
-
-  // ! NUMBER OF VENTURIS
   int NumberOfVenturis;
-
-  // ! NUMBER OF DIRECTIONAL JUNCIONS
   int NumberOfDirectionalJunctions;
-
-  // ! PARAMETER FOR THE CONTROL UNIT
   int NumberOfSensors;
-
-  TSensor **Sensor;
-
   int NumberOfControllers;
-
-  TController **Controller;
-
-  // ! EXTERNAL CALCULATION PARAMETERS
-  bool ThereIsDLL;
   int controlvalv;
   int nematlab;
-
-  // ! TURBINE PARAMETERS
   int NumberOfTurbines;
   int CountVGT;
-
-  // ! NUMBER OF TURBOCHARGER AXIS
   int NumberOfAxis;
+  double TimeEndStep;
+  int JCurrent;
+  int JCurrentDPF;
+  bool FirstIterStep;
+  int JStepMax;
+  int JStepMaxDPF;
+  bool Is_EndStep;
+  double DeltaTPlenums;
 
-  // ! NUMBER OF COMPRESSORS
-  int NumberOfCompressors;
-
-  // ! NUMBER OF PRESSURE LOSSES
-  int NumTCCPerdidaPresion;
-
-  int fi_num_threads; ///< Available threads for CalculateFlowIndependent.
+  std::vector<std::unique_ptr<TSensor>> Sensor;
+  std::vector<std::unique_ptr<TController>> Controller;
 
   /**
    * @brief Assigns the number of threads for CalculateFlowIndependent.
@@ -375,7 +349,7 @@ private:
 
   void ReadControllers();
 
-  void ReadOutput(char *FileName);
+  void ReadOutput(std::string FileName);
 
   void ReadDataDLL();
 
@@ -387,12 +361,15 @@ private:
 
   void CalculateNewHeatPositions();
 
-  void CalculateDistance(int NodoOrigen, int NodoFin, double Longitud,
-                         int NumberOfPlenums, int NumberOfPipes,
-                         int NumberOfConnections, TTubo **Pipe,
-                         TCondicionContorno **BC);
+  void
+  CalculateDistance(int NodoOrigen, int NodoFin, double Longitud,
+                    int NumberOfPlenums, int NumberOfPipes,
+                    int NumberOfConnections,
+                    const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                    const std::vector<std::unique_ptr<TCondicionContorno>> &BC);
 
-  int SelectPipe(TTubo **Pipe, int NumberOfPipes, int nodo1, int nodo2);
+  int SelectPipe(const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                 int NumberOfPipes, int nodo1, int nodo2);
 
   void MethodStability();
 
@@ -400,11 +377,13 @@ private:
 
   void StudyInflowOutflowMass();
 
-  void SearchMinimumTime(int LNumDepInicial, double *LTMinimo,
-                         TDeposito **LPlenum);
+  void
+  SearchMinimumTime(int LNumDepInicial, double *LTMinimo,
+                    const std::vector<std::unique_ptr<TDeposito>> &LPlenum);
 
-  void SearchMinimumTimeGroup(double *LTMinimo, int LNumDeposito,
-                              TDeposito **LPlenum);
+  void SearchMinimumTimeGroup(
+      double *LTMinimo, int LNumDeposito,
+      const std::vector<std::unique_ptr<TDeposito>> &LPlenum);
 
   void FixTimeStep();
 
@@ -435,7 +414,7 @@ public:
 
   ~TOpenWAM();
 
-  void ReadInputData(char *FileName);
+  void ReadInputData(std::string FileName);
 
   void InitializeParameters();
 

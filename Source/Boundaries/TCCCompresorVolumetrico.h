@@ -115,7 +115,9 @@ public:
   void CalculaCondicionContorno(double Time);
 
   void LeeCCCompresorVol(const char *FileWAM, fpos_t &filepos,
-                         int NumberOfPipes, TTubo **Pipe, bool HayMotor);
+                         int NumberOfPipes,
+                         const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                         bool HayMotor);
 
   void ObtencionValoresInstantaneos(double ene);
 

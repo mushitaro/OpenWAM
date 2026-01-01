@@ -20,6 +20,7 @@ include_directories(Wrappers)
 add_subdirectory(1DPipes)
 add_subdirectory(Act)
 add_subdirectory(Boundaries)
+add_subdirectory(DPF)
 add_subdirectory(Connections)
 add_subdirectory(Control)
 add_subdirectory(Engine)
@@ -41,6 +42,7 @@ target_link_libraries(
   1DPipes
   Act
   Boundaries
+  DPF
   Connections
   Control
   Engine

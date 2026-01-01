@@ -55,18 +55,20 @@ Valencia |    \\/   \//    M odel    |
 #pragma hdrstop
 
 #include "TTubo.h"
+#include "../Boundaries/BoundaryFunctions.h"
 #include "TBloqueMotor.h"
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
 TTubo::TTubo(int SpeciesNumber, int j, double SimulationDuration,
-             TBloqueMotor **Engine, nmTipoCalculoEspecies SpeciesModel,
+             const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
+             nmTipoCalculoEspecies SpeciesModel,
              nmCalculoGamma GammaCalculation, bool ThereIsEGR) {
 
-  if (Engine != NULL) {
+  if (!Engine.empty()) {
     FAnguloTotalCiclo = Engine[0]->getAngTotalCiclo();
-  } else if (Engine == NULL) {
+  } else {
     FAnguloTotalCiclo = 720.;
     FRegimenFicticio = 720. / 6. / SimulationDuration;
   }
@@ -683,9 +685,9 @@ void TTubo::LeeDatosGeneralesTubo(const char *FileWAM, fpos_t &filepos) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::LeeDatosGeometricosTubo(const char *FileWAM, fpos_t &filepos,
-                                    double ene, int tipomallado,
-                                    TBloqueMotor **Engine) {
+void TTubo::LeeDatosGeometricosTubo(
+    const char *FileWAM, fpos_t &filepos, double ene, int tipomallado,
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine) {
   double EspesorPrin = 0.;
   int EsPrincipal = 0, refrigerante = 0, EsFluida = 0;
   int datoWAMer = 0;
@@ -730,7 +732,7 @@ void TTubo::LeeDatosGeometricosTubo(const char *FileWAM, fpos_t &filepos,
       FCapMed = new double[FNin];
       FCapExt = new double[FNin];
 
-      if (Engine == NULL) {
+      if (Engine.empty()) {
         fscanf(fich, "%lf %d ", &FDuracionCiclo, &FNumCiclosSinInerciaTermica);
       }
 
@@ -877,24 +879,26 @@ void TTubo::CalculoPuntosMalla(double ene) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::ComunicacionTubo_CC(TCondicionContorno **BC) {
+void TTubo::ComunicacionTubo_CC(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC) {
 #ifdef usetry
   try {
 #endif
 
     for (int i = 0; i < BC[FNodoIzq - 1]->getNumeroTubosCC(); i++) {
-      if (FNumeroTubo ==
-          BC[FNodoIzq - 1]->GetTuboExtremo(i).Pipe->getNumeroTubo()) {
+      TTubo *tempPipe = BC[FNodoIzq - 1]->GetTuboExtremo(i).Pipe;
+      if (FNumeroTubo == tempPipe->getNumeroTubo()) {
         FTuboCCNodoIzq = i;
       }
     }
 
     for (int i = 0; i < BC[FNodoDer - 1]->getNumeroTubosCC(); i++) {
-      if (FNumeroTubo ==
-          BC[FNodoDer - 1]->GetTuboExtremo(i).Pipe->getNumeroTubo()) {
+      TTubo *tempPipe = BC[FNodoDer - 1]->GetTuboExtremo(i).Pipe;
+      if (FNumeroTubo == tempPipe->getNumeroTubo()) {
         FTuboCCNodoDer = i;
       }
     }
+
 #ifdef usetry
   }
 
@@ -912,7 +916,9 @@ void TTubo::ComunicacionTubo_CC(TCondicionContorno **BC) {
 
 #ifdef ParticulateFilter
 
-void TTubo::ComunicacionDPF(TCondicionContorno **CC, TDeposito **Deposito) {
+void TTubo::ComunicacionDPF(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &CC,
+    const std::vector<std::unique_ptr<TDeposito>> &Deposito) {
   try {
     int numDeposito = 0;
     bool PrimeraVez = false;
@@ -920,8 +926,8 @@ void TTubo::ComunicacionDPF(TCondicionContorno **CC, TDeposito **Deposito) {
     if (FTipoCalcTempPared != nmTempConstante) {
       FTipoCanal = new int[2];
       if (CC[FNodoIzq - 1]->getTipoCC() == nmPipeToPlenumConnection) {
-        numDeposito =
-            dynamic_cast<TCCDeposito *>(CC[FNodoIzq - 1])->getNumeroDeposito();
+        numDeposito = dynamic_cast<TCCDeposito *>(CC[FNodoIzq - 1].get())
+                          ->getNumeroDeposito();
         for (int k = 0; k < Deposito[numDeposito - 1]->getNUniones(); k++) {
           if (Deposito[numDeposito - 1]->GetCCDeposito(k)->getUnionDPF() &&
               !PrimeraVez) {
@@ -948,8 +954,8 @@ void TTubo::ComunicacionDPF(TCondicionContorno **CC, TDeposito **Deposito) {
       }
       PrimeraVez = false;
       if (CC[FNodoDer - 1]->getTipoCC() == nmPipeToPlenumConnection) {
-        numDeposito =
-            dynamic_cast<TCCDeposito *>(CC[FNodoDer - 1])->getNumeroDeposito();
+        numDeposito = dynamic_cast<TCCDeposito *>(CC[FNodoDer - 1].get())
+                          ->getNumeroDeposito();
         for (int k = 0; k < Deposito[numDeposito - 1]->getNUniones(); k++) {
           if (Deposito[numDeposito - 1]->GetCCDeposito(k)->getUnionDPF() &&
               !PrimeraVez) {
@@ -1524,9 +1530,10 @@ void TTubo::Transforma4Area(double **U1, double **Ufctd, double Area,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::IniciaVariablesTransmisionCalor(TCondicionContorno **BC,
-                                            TBloqueMotor **Engine,
-                                            double AmbientTemperature) {
+void TTubo::IniciaVariablesTransmisionCalor(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
+    double AmbientTemperature) {
   double dist1 = 0., dist2 = 0.;
 #ifdef usetry
   try {
@@ -2380,7 +2387,8 @@ inline double TTubo::DerLinFArea(double area1, double area2, double xref) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::ActualizaValoresNuevos(TCondicionContorno **BC) {
+void TTubo::ActualizaValoresNuevos(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC) {
 #ifdef usetry
   try {
 #endif
@@ -2846,8 +2854,10 @@ void TTubo::ImprimeResultadosMedios(std::ostream &medoutput) const {
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-void TTubo::ReadInstantaneousResultsTubo(const char *FileWAM, fpos_t &filepos,
-                                         bool HayMotor) {
+void TTubo::ReadInstantaneousResultsTubo(
+    const char *FileWAM, fpos_t &filepos,
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine) {
+  bool HayMotor = !Engine.empty();
   int NumVars = 0, TipoVar = 0;
 #ifdef usetry
   try {
@@ -3566,9 +3576,9 @@ double TTubo::CalculaNIT(double a, double v, double p, double d, double Gamma,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::CalculaCoeficientePeliculaExterior(TBloqueMotor **Engine,
-                                               double AmbientPressure,
-                                               double AmbientTemperature) {
+void TTubo::CalculaCoeficientePeliculaExterior(
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
+    double AmbientPressure, double AmbientTemperature) {
 #ifdef usetry
   try {
 #endif
@@ -3704,7 +3714,8 @@ void TTubo::CalculaCoeficientePeliculaExterior(TBloqueMotor **Engine,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::CalculaResistenciasdePared(TCondicionContorno **BC) {
+void TTubo::CalculaResistenciasdePared(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC) {
 #ifdef usetry
   try {
 #endif
@@ -3784,10 +3795,12 @@ void TTubo::CalculaResistenciasdePared(TCondicionContorno **BC) {
         DIntPrin = FDiametroTubo[i] + 2 * FEspesorIntPrin;
         if (i == 0) {
           if (BC[FNodoIzq - 1]->getTipoCC() == nmPipesConnection) {
-            UnionEspes = dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1])
-                             ->getEspesor();
-            UnionConduct = dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1])
-                               ->getConductividad();
+            UnionEspes =
+                dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1].get())
+                    ->getEspesor();
+            UnionConduct =
+                dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1].get())
+                    ->getConductividad();
             if (UnionConduct > 0) {
               FResistAxiAnt[i] =
                   UnionEspes / UnionConduct /
@@ -3829,10 +3842,12 @@ void TTubo::CalculaResistenciasdePared(TCondicionContorno **BC) {
               FXref / FConductPrin /
               (__cons::Pi * (DIntPrin + FEspesorPrin) * FEspesorPrin);
           if (BC[FNodoDer - 1]->getTipoCC() == nmPipesConnection) {
-            UnionEspes = dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1])
-                             ->getEspesor();
-            UnionConduct = dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1])
-                               ->getConductividad();
+            UnionEspes =
+                dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1].get())
+                    ->getEspesor();
+            UnionConduct =
+                dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1].get())
+                    ->getConductividad();
             if (UnionConduct > 0) {
               FResistAxiPos[i] =
                   UnionEspes / UnionConduct /
@@ -3934,7 +3949,8 @@ void TTubo::CalculaResistenciasdePared(TCondicionContorno **BC) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::CalculaCoeficientePeliculaInterior(TCondicionContorno **BC) {
+void TTubo::CalculaCoeficientePeliculaInterior(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC) {
 #ifdef usetry
   try {
 #endif
@@ -4001,9 +4017,10 @@ void TTubo::CalculaCoeficientePeliculaInterior(TCondicionContorno **BC) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::CalculaTemperaturaPared(TBloqueMotor **Engine, double Theta,
-                                    double CrankAngle,
-                                    TCondicionContorno **BC) {
+void TTubo::CalculaTemperaturaPared(
+    const std::vector<std::unique_ptr<TBloqueMotor>> &Engine, double Theta,
+    double CrankAngle,
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC) {
   double Tg = 0.;
   double zzz = 0., czz = 0., cz1 = 0., uq1 = 0.;
   double DeltaTTPared = 0.;
@@ -4055,7 +4072,7 @@ void TTubo::CalculaTemperaturaPared(TBloqueMotor **Engine, double Theta,
         // Tpantpos=FTParedAnt[1][i]+273.;
         if (i == 0) {
           if (BC[FNodoIzq - 1]->getTipoCC() == nmPipesConnection) {
-            if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1])
+            if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1].get())
                     ->getConductividad() > 0) {
               if (BC[FNodoIzq - 1]->GetTuboExtremo(0).Pipe->getNumeroTubo() ==
                   FNumeroTubo) {
@@ -4096,7 +4113,7 @@ void TTubo::CalculaTemperaturaPared(TBloqueMotor **Engine, double Theta,
         } else if (i == FNin - 1) {
           Tpantant = __units::degCToK(FTParedAnt[1][i - 1]);
           if (BC[FNodoDer - 1]->getTipoCC() == nmPipesConnection) {
-            if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1])
+            if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1].get())
                     ->getConductividad() > 0) {
               if (BC[getNodoDer() - 1]
                       ->GetTuboExtremo(0)
@@ -4239,7 +4256,7 @@ void TTubo::CalculaTemperaturaPared(TBloqueMotor **Engine, double Theta,
               Tpantpos = __units::degCToK(FTPTubo[1][i]);
               if (i == 0) {
                 if (BC[FNodoIzq - 1]->getTipoCC() == nmPipesConnection) {
-                  if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1])
+                  if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1].get())
                           ->getConductividad() > 0) {
                     if (BC[FNodoIzq - 1]
                             ->GetTuboExtremo(0)
@@ -4287,7 +4304,7 @@ void TTubo::CalculaTemperaturaPared(TBloqueMotor **Engine, double Theta,
               } else if (i == FNin - 1) {
                 Tpantant = __units::degCToK(FTPTubo[1][i - 1]);
                 if (BC[FNodoDer - 1]->getTipoCC() == nmPipesConnection) {
-                  if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1])
+                  if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1].get())
                           ->getConductividad() > 0) {
                     if (BC[FNodoDer - 1]
                             ->GetTuboExtremo(0)
@@ -4427,7 +4444,8 @@ void TTubo::CalculaTemperaturaPared(TBloqueMotor **Engine, double Theta,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::CalculaTemperaturaParedSinMotor(TCondicionContorno **BC) {
+void TTubo::CalculaTemperaturaParedSinMotor(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC) {
   double Tg = 0.;
   double zzz = 0., czz = 0., cz1 = 0., uq1 = 0.;
   double DeltaTTPared = 0.;
@@ -4477,7 +4495,7 @@ void TTubo::CalculaTemperaturaParedSinMotor(TCondicionContorno **BC) {
         // Tpantpos=FTParedAnt[1][i]+273.;
         if (i == 0) {
           if (BC[FNodoIzq - 1]->getTipoCC() == nmPipesConnection) {
-            if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1])
+            if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1].get())
                     ->getConductividad() > 0) {
               if (BC[FNodoIzq - 1]->GetTuboExtremo(0).Pipe->getNumeroTubo() ==
                   FNumeroTubo) {
@@ -4518,7 +4536,7 @@ void TTubo::CalculaTemperaturaParedSinMotor(TCondicionContorno **BC) {
         } else if (i == FNin - 1) {
           Tpantant = __units::degCToK(FTParedAnt[1][i - 1]);
           if (BC[FNodoDer - 1]->getTipoCC() == nmPipesConnection) {
-            if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1])
+            if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1].get())
                     ->getConductividad() > 0) {
               if (BC[getNodoDer() - 1]
                       ->GetTuboExtremo(0)
@@ -4659,7 +4677,7 @@ void TTubo::CalculaTemperaturaParedSinMotor(TCondicionContorno **BC) {
               Tpantpos = __units::degCToK(FTPTubo[1][i]);
               if (i == 0) {
                 if (BC[FNodoIzq - 1]->getTipoCC() == nmPipesConnection) {
-                  if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1])
+                  if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoIzq - 1].get())
                           ->getConductividad() > 0) {
                     if (BC[FNodoIzq - 1]
                             ->GetTuboExtremo(0)
@@ -4707,7 +4725,7 @@ void TTubo::CalculaTemperaturaParedSinMotor(TCondicionContorno **BC) {
               } else if (i == FNin - 1) {
                 Tpantant = __units::degCToK(FTPTubo[1][i - 1]);
                 if (BC[FNodoDer - 1]->getTipoCC() == nmPipesConnection) {
-                  if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1])
+                  if (dynamic_cast<TCCUnionEntreTubos *>(BC[FNodoDer - 1].get())
                           ->getConductividad() > 0) {
                     if (BC[FNodoDer - 1]
                             ->GetTuboExtremo(0)
@@ -4920,8 +4938,9 @@ void TTubo::AjustaPaso(double TimeEndStep) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::CalculaCaracteristicasExtremos(TCondicionContorno **BC,
-                                           double DeltaTiempo) {
+void TTubo::CalculaCaracteristicasExtremos(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
+    double DeltaTiempo) {
 #ifdef usetry
   try {
 #endif
@@ -5278,7 +5297,8 @@ void TTubo::Calculo_Caracteristica(double &caracteristica, double &velocidadp,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::InicializaCaracteristicas(TCondicionContorno **BC) {
+void TTubo::InicializaCaracteristicas(
+    const std::vector<std::unique_ptr<TCondicionContorno>> &BC) {
 #ifdef usetry
   try {
 #endif

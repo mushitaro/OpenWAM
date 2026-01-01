@@ -472,7 +472,7 @@ public:
 
   void IniciaVariables();
 
-  void AsignacionCC(TCondicionContorno **BC, int numCC);
+  void AsignacionCC_Pointers(TCondicionContorno **BC, int numCC);
 
   void CalculaVariablesResultados();
 

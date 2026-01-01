@@ -6,66 +6,66 @@
 
 #include "TCondicionContorno.h"
 
-class TCCExternalConnectionVol: public TCondicionContorno {
-  private:
+class TCCExternalConnectionVol : public TCondicionContorno {
+private:
+  double FUExt;
+  double FTExt;
+  double FPExt;
 
-	double FUExt;
-	double FTExt;
-	double FPExt;
+  double FDExt;
+  double FAExt;
 
-	double FDExt;
-	double FAExt;
+  double FDeltaX;
 
-	double FDeltaX;
+  double FCurrentTime;
 
-	double FCurrentTime;
+  double FA_AExt;
+  double FK_CExt;
 
-	double FA_AExt;
-	double FK_CExt;
+  double FP_Boundary;
+  double FT_Boundary;
+  double FU_Boundary;
 
-	double FP_Boundary;
-	double FT_Boundary;
-	double FU_Boundary;
+  double FP_BoundarySum;
+  double FT_BoundarySum;
+  double FU_BoundarySum;
 
-	double FP_BoundarySum;
-	double FT_BoundarySum;
-	double FU_BoundarySum;
+  double *FCC; // Caracteristica conocida del tubo.
+  double *FCD; // Caracteristica desconocida del tubo.
 
-	double *FCC; // Caracteristica conocida del tubo.
-	double *FCD; // Caracteristica desconocida del tubo.
+  int FNodoFin;
+  int FIndiceCC;
 
-	int FNodoFin;
-	int FIndiceCC;
+  int FID;
 
-	int FID;
+  double FTime0;
+  double FTimeSum;
 
-	double FTime0;
-	double FTimeSum;
+protected:
+public:
+  TCCExternalConnectionVol(nmTypeBC TipoCC, int numCC,
+                           nmTipoCalculoEspecies SpeciesModel,
+                           int numeroespecies, nmCalculoGamma GammaCalculation,
+                           bool ThereIsEGR);
 
-  protected:
+  ~TCCExternalConnectionVol();
 
-  public:
-	TCCExternalConnectionVol(nmTypeBC TipoCC, int numCC, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-							 nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void UpdateCurrentExternalProperties(double U0, double T0, double P0,
+                                       double t);
 
-	~TCCExternalConnectionVol();
+  void AsignGeometricalData(double D0, double deltaX);
 
-	void UpdateCurrentExternalProperties(double U0, double T0, double P0, double t);
+  void ExternalCharacteristics(double Time);
 
-	void AsignGeometricalData(double D0, double deltaX);
+  void CalculaCondicionContorno(double Time);
 
-	void ExternalCharacteristics(double Time);
+  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
+                        int nDPF,
+                        const std::vector<std::unique_ptr<TDPF>> &DPF);
 
-	void CalculaCondicionContorno(double Time);
+  int GetID() { return FID; };
 
-	void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes, TTubo **Pipe, int nDPF, TDPF **DPF);
-
-	int GetID() {
-		return FID;
-	}
-	;
-
-	void LoadNewData(double* p, double* T, double* u);
-
+  void LoadNewData(double *p, double *T, double *u);
 };
 #endif

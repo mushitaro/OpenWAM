@@ -112,13 +112,15 @@ public:
 
   ~TCCUnionEntreDepositos();
 
-  void AsignaTipoValvula(TTipoValvula **Origen, int Valv, int i);
+  void
+  AsignaTipoValvula(const std::vector<std::unique_ptr<TTipoValvula>> &Origen,
+                    int Valv, int i);
 
   void CalculaCondicionContorno(double Time);
 
   void LeeUEDepositos(const char *FileWAM, fpos_t &filepos, bool Independent);
 
-  void AsignaDepositos(TDeposito **Plenum);
+  void AsignaDepositos(const std::vector<std::unique_ptr<TDeposito>> &Plenum);
 
   void CalculaCoeficientesDescarga(double Angulo, double mfcomb = 0.,
                                    double RegimenMotor = 0.);
