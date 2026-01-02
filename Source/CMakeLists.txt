@@ -31,14 +31,24 @@ add_subdirectory(ODModels)
 add_subdirectory(Output)
 add_subdirectory(Turbocompressor)
 add_subdirectory(Wrappers)
+
+find_package(OpenMP REQUIRED)
+
 add_executable(OpenWAM
   OpenWAM.cpp
   TOpenWAM.cpp
   TTimeControl.cpp
   OpenWAM.rc
 )
+
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(OpenWAM PRIVATE OpenMP::OpenMP_CXX)
+  target_compile_definitions(OpenWAM PRIVATE WITH_OPENMP)
+endif()
+
 target_link_libraries(
   OpenWAM
+  PRIVATE
   1DPipes
   Act
   Boundaries

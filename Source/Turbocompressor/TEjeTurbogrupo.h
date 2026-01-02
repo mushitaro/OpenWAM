@@ -132,13 +132,13 @@ public:
 
   ~TEjeTurbogrupo();
 
-  void ReadTurbochargerAxis(const char *FileWAM, fpos_t &filepos,
+  void ReadTurbochargerAxis(const std::string &FileWAM, fpos_t &filepos,
                             TCompresor **Compressor, TTurbina **Turbine);
 
   void CalculaEjesTurbogrupo(double Theta, nmTipoModelado SimulationType,
                              double Time, double CrankAngle);
 
-  void ReadAverageResultsEje(const char *FileWAM, fpos_t &filepos);
+  void ReadAverageResultsEje(const std::string &FileWAM, fpos_t &filepos);
 
   void CabeceraResultadosMedEje(std::ostream &medoutput);
 
@@ -150,7 +150,7 @@ public:
 
   void AcumulaResultadosMediosEje(double Actual);
 
-  void ReadInstantaneousResultsEje(const char *FileWAM, fpos_t &filepos);
+  void ReadInstantaneousResultsEje(const std::string &FileWAM, fpos_t &filepos);
 
   void HeaderInstantaneousResultsEje(std::ostream &insoutput);
 

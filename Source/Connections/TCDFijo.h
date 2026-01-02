@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -34,35 +35,33 @@
 #include <vcl.h>
 #endif
 #include <iostream>
-//#include <cmath>
+// #include <cmath>
 
 #include "TTipoValvula.h"
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TCDFijo: public TTipoValvula {
-  private:
+class TCDFijo : public TTipoValvula {
+private:
+  double FCDEntrada;
+  double FCDSalida;
+  bool FActivaDiamRef;
+  double FDiametroRef;
+  int FValvula;
 
-	double FCDEntrada;
-	double FCDSalida;
-	bool FActivaDiamRef;
-	double FDiametroRef;
-	int FValvula;
+public:
+  TCDFijo(TCDFijo *Origen, int valv);
 
-  public:
+  TCDFijo();
 
-	TCDFijo(TCDFijo *Origen, int valv);
+  ~TCDFijo();
 
-	TCDFijo();
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	~TCDFijo();
-
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
-
-	void CalculaCD();
+  void CalculaCD();
 };
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 #endif
-

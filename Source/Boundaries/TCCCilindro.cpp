@@ -143,7 +143,7 @@ void TCCCilindro::AsignaTipoValvula(
 // ---------------------------------------------------------------------------
 
 void TCCCilindro::ReadBoundaryData(
-    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -176,7 +176,7 @@ void TCCCilindro::ReadBoundaryData(
       }
       i++;
     }
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ",
@@ -713,7 +713,7 @@ void TCCCilindro::Resolucion(double ext1, double ext2, nmCaso Caso, double *u2t,
 // {
 //
 //// Resolucion de la ecuacion de la energia entre el cilindro y el extremo del
-///tubo.
+/// tubo.
 // *a2_1 =
 // sqrt(pow(FCilindro->getSpeedsound()/__cons::ARef,2)-FGamma3*pow(vel_supuesta,2));
 //

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -35,74 +36,66 @@
 #endif
 #include <iostream>
 #include "Constantes.h"
-//#include <cmath>
+// #include <cmath>
 
 #include "TTipoValvula.h"
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TLumbrera: public TTipoValvula {
-  private:
+class TLumbrera : public TTipoValvula {
+private:
+  // DATOS INICIALES
+  double FAltura;
+  double FAnchura;
+  double FRadioSup;
+  double FRadioInf;
+  double FPosicionPMI;
+  double FDiametroRef;
+  double FCarrera;
+  double FBiela;
 
-//DATOS INICIALES
-	double FAltura;
-	double FAnchura;
-	double FRadioSup;
-	double FRadioInf;
-	double FPosicionPMI;
-	double FDiametroRef;
-	double FCarrera;
-	double FBiela;
+  double FAnguloApertura; // Hector 2T
+  double FAnguloCierre;   // Hector 2T
 
-	double FAnguloApertura;  // Hector 2T
-	double FAnguloCierre;  // Hector 2T
+  int FNumCD;
+  dVector FApertura;
+  dVector FDatosCDEntrada;
+  Hermite_interp *fun_CDin;
+  dVector FDatosCDSalida;
+  Hermite_interp *fun_CDout;
 
-	int FNumCD;
-	dVector FApertura;
-	dVector FDatosCDEntrada;
-	Hermite_interp *fun_CDin;
-	dVector FDatosCDSalida;
-	Hermite_interp *fun_CDout;
+  // VARIABLES DE CALCULO
+  int FValvula;
+  double FApertActual;
 
-//VARIABLES DE CALCULO
-	int FValvula;
-	double FApertActual;
+  void CalculateOpeningANDClose();
 
-	void CalculateOpeningANDClose();
+public:
+  double getAnguloApertura() { return FAnguloApertura; }; // Hector 2T
 
-  public:
+  double getAnguloCierre() { return FAnguloCierre; }; // Hector 2T
 
-	double getAnguloApertura() {
-		return FAnguloApertura;
-	}
-	; // Hector 2T
+  TLumbrera(TLumbrera *Origen, int valv);
 
-	double getAnguloCierre() {
-		return FAnguloCierre;
-	}
-	; // Hector 2T
+  TLumbrera(double Biela, double Carrera);
 
-	TLumbrera(TLumbrera *Origen, int valv);
+  ~TLumbrera();
 
-	TLumbrera(double Biela, double Carrera);
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	~TLumbrera();
+  void CalculaCD(double Angulo);
 
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
+  double CalculaDistPMI(double x);
 
-	void CalculaCD(double Angulo);
+  double CalculaApertura(double x);
 
-	double CalculaDistPMI(double x);
+  void GetCDin(double Time);
 
-	double CalculaApertura(double x);
-
-	void GetCDin(double Time);
-
-	void GetCDout(double Time);
+  void GetCDout(double Time);
 };
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 #endif
-

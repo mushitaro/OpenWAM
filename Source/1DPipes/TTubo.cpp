@@ -2610,14 +2610,14 @@ void TTubo::ReduccionFlujoSubsonicoFCT() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTubo::ReadAverageResultsTubo(const char *FileWAM, fpos_t &filepos,
-                                   bool HayMotor) {
+void TTubo::ReadAverageResultsTubo(const std::string &FileWAM, fpos_t &filepos,
+                                   bool ThereIsEngine) {
   int NumVars = 0, TipoVar = 0;
 #ifdef usetry
   try {
 #endif
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &FNumResMedios);
@@ -2691,7 +2691,7 @@ void TTubo::ReadAverageResultsTubo(const char *FileWAM, fpos_t &filepos,
           break;
         case 7:
           ResultadosMedios[i].NITmedio = true;
-          if (!HayMotor) {
+          if (!ThereIsEngine) {
             std::cout << "ERROR: No puedes pedir el NIT como resultado si no "
                          "hay motor"
                       << std::endl;

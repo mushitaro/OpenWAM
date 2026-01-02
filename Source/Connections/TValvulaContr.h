@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -39,45 +40,40 @@
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-enum nmTipoContr {
-	nmContrAngulo = 0, nmContrFuel = 1
-};
+enum nmTipoContr { nmContrAngulo = 0, nmContrFuel = 1 };
 
-class TValvulaContr: public TTipoValvula {
-  private:
+class TValvulaContr : public TTipoValvula {
+private:
+  nmTipoContr FTipoContr;
+  double FLimiteInf1;
+  double FLimiteInf2;
+  double FLimiteSup1;
+  double FLimiteSup2;
+  double FCDInicial;
+  double FCDFinal;
 
-	nmTipoContr FTipoContr;
-	double FLimiteInf1;
-	double FLimiteInf2;
-	double FLimiteSup1;
-	double FLimiteSup2;
-	double FCDInicial;
-	double FCDFinal;
+  double FAngle0;
 
-	double FAngle0;
+  int FValvula;
 
-	int FValvula;
+public:
+  TValvulaContr(TValvulaContr *Origen, int valv);
 
-  public:
+  TValvulaContr();
 
-	TValvulaContr(TValvulaContr *Origen, int valv);
+  ~TValvulaContr();
 
-	TValvulaContr();
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	~TValvulaContr();
+  void CalculaCD(double AnguloActual, double Mf);
 
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
+  void GetCDin(double Time);
 
-	void CalculaCD(double AnguloActual, double Mf);
-
-	void GetCDin(double Time);
-
-	void GetCDout(double Time);
-
+  void GetCDout(double Time);
 };
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 #endif
-

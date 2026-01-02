@@ -114,14 +114,14 @@ public:
 
   void CalculaCondicionContorno(double Time);
 
-  void LeeCCCompresorVol(const char *FileWAM, fpos_t &filepos,
+  void LeeCCCompresorVol(const std::string &FileWAM, fpos_t &filepos,
                          int NumberOfPipes,
                          const std::vector<std::unique_ptr<TTubo>> &Pipe,
                          bool HayMotor);
 
   void ObtencionValoresInstantaneos(double ene);
 
-  void ReadAverageResultsCV(const char *FileWAM, fpos_t &filepos);
+  void ReadAverageResultsCV(const std::string &FileWAM, fpos_t &filepos);
 
   void CabeceraResultadosMedCV(std::ostream &medoutput);
 
@@ -131,7 +131,7 @@ public:
 
   void AcumulaResultadosMediosCV(double Actual);
 
-  void LeeResultadosInstantCV(const char *FileWAM, fpos_t &filepos);
+  void LeeResultadosInstantCV(const std::string &FileWAM, fpos_t &filepos);
 
   void CabeceraResultadosInstantCV(std::ostream &insoutput);
 

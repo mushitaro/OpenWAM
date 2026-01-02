@@ -69,7 +69,7 @@ TCCPreVble::~TCCPreVble() {
 // ---------------------------------------------------------------------------
 
 void TCCPreVble::ReadBoundaryData(
-    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -104,7 +104,7 @@ void TCCPreVble::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FPulso = new TEntradaPulso();

@@ -98,7 +98,7 @@ TBloqueMotor::~TBloqueMotor() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TBloqueMotor::LeeMotor(const char *FileWAM, fpos_t &filepos,
+void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
                             nmTipoModelado &SimulationType,
                             int CiclosSinInerciaTermica, nmTipoMotor EngineType,
                             double *AtmosphericComposition) {
@@ -111,7 +111,7 @@ void TBloqueMotor::LeeMotor(const char *FileWAM, fpos_t &filepos,
 
     FTipoMotor = EngineType;
     FTipoModelado = SimulationType;
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     // -------------------------------
@@ -445,7 +445,7 @@ void TBloqueMotor::LeeMotor(const char *FileWAM, fpos_t &filepos,
         FX_dat[i] = FX_dat[i - 1] + FAStepIny;
       }
       //			Se comprueba que la integral de la tasa
-      //corresponde al combustible total inyectado, si no, se reescala
+      // corresponde al combustible total inyectado, si no, se reescala
       for (int i = 0; i < xnum; i++) {
         FFuelTasaInt += FY_dat[i] * FTStepIny / 1000.;
       }
@@ -599,12 +599,12 @@ void TBloqueMotor::IniciaAnguloCalculo() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TBloqueMotor::ReadAverageResultsBloqueMotor(const char *FileWAM,
+void TBloqueMotor::ReadAverageResultsBloqueMotor(const std::string &FileWAM,
                                                  fpos_t &filepos) {
   try {
     int nvars = 0, Tipovar = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FResMediosMotor.ParNeto = false;

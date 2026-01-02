@@ -55,8 +55,8 @@ double TDecisor::Output(double Time) {
   return fOutput;
 }
 
-void TDecisor::LeeController(const char *FileWAM, fpos_t &filepos) {
-  FILE *fich = fopen(FileWAM, "r");
+void TDecisor::LeeController(const std::string &FileWAM, fpos_t &filepos) {
+  FILE *fich = fopen(FileWAM.c_str(), "r");
   fsetpos(fich, &filepos);
 
   fscanf(fich, "%lf ", &fTarget);
@@ -89,11 +89,11 @@ void TDecisor::AsignaObjetos(TSensor **Sensor, TController **Controller) {
     fControllerTarget = Controller[fControllerTargetID - 1];
 }
 
-void TDecisor::LeeResultadosMedControlador(const char *FileWAM,
+void TDecisor::LeeResultadosMedControlador(const std::string &FileWAM,
                                            fpos_t &filepos) {
   int nvars = 0, var = 0;
 
-  FILE *fich = fopen(FileWAM, "r");
+  FILE *fich = fopen(FileWAM.c_str(), "r");
   fsetpos(fich, &filepos);
 
   fscanf(fich, "%d ", &nvars);
@@ -113,11 +113,11 @@ void TDecisor::LeeResultadosMedControlador(const char *FileWAM,
   fclose(fich);
 }
 
-void TDecisor::LeeResultadosInsControlador(const char *FileWAM,
+void TDecisor::LeeResultadosInsControlador(const std::string &FileWAM,
                                            fpos_t &filepos) {
   int nvars = 0, var = 0;
 
-  FILE *fich = fopen(FileWAM, "r");
+  FILE *fich = fopen(FileWAM.c_str(), "r");
   fsetpos(fich, &filepos);
 
   fscanf(fich, "%d ", &nvars);

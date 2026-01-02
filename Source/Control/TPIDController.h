@@ -97,8 +97,8 @@ public:
   );
 
   /*! Read the PID data */
-  void LeeController(const char *FileWAM, //!< Input data filename
-                     fpos_t &filepos      //!< Position within the input file
+  void LeeController(const std::string &FileWAM, //!< Input data filename
+                     fpos_t &filepos //!< Position within the input file
   );
 
   /*! Asign the sensor input and the setpoint controller*/
@@ -108,14 +108,14 @@ public:
 
   /*! Read the average results selected*/
   void LeeResultadosMedControlador(
-      const char *FileWAM, //!< Input data filename
-      fpos_t &filepos      //!< Position within the input file
+      const std::string &FileWAM, //!< Input data filename
+      fpos_t &filepos             //!< Position within the input file
   );
 
   /*! Read the instantaneous results selected*/
   void LeeResultadosInsControlador(
-      const char *FileWAM, //!< Input data filename
-      fpos_t &filepos      //!< Position within the input file
+      const std::string &FileWAM, //!< Input data filename
+      fpos_t &filepos             //!< Position within the input file
   );
 
   /*! Generate average results header */

@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\BoundaryFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCCilindro.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCCompresor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCCompresorVolumetrico.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCDeposito.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCDescargaExtremoAbierto.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCEntradaCompresor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCExternalConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCExternalConnectionVol.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCExtremoAnecoico.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCExtremoCerrado.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCExtremoInyeccion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCPerdidadePresion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCPreVble.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCPulso.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCRamificacion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCUnionEntreDepositos.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCCUnionEntreTubos.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCFDConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TCondicionContorno.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\TEntradaPulso.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\kazuh\OpenWAM\Source\Boundaries\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{FC5B56A8-93AA-31DC-87BD-73B32BF9695A}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -32,65 +33,61 @@
 #include "Constantes.h"
 #include "TDeposito.h"
 
-class TDepVolVariable: public TDeposito {
-  private:
-	//---------------------------------------------------------------------------
-	// VARIABLES PRIVADAS
-	//---------------------------------------------------------------------------
+class TDepVolVariable : public TDeposito {
+private:
+  //---------------------------------------------------------------------------
+  // VARIABLES PRIVADAS
+  //---------------------------------------------------------------------------
 
-	int FNumeroCompresorVol;
-	double FLBiela;
-	double FCarrera;
-	double FDiametro;
-	double FDescentramiento;
-	double FRelCompre;
-	double FDesfase;
-	double FVolumenMuerto;
-	double FAngulo;
+  int FNumeroCompresorVol;
+  double FLBiela;
+  double FCarrera;
+  double FDiametro;
+  double FDescentramiento;
+  double FRelCompre;
+  double FDesfase;
+  double FVolumenMuerto;
+  double FAngulo;
 
-	double FRegimen;
-	nmRegimenValv FControlRegimen;
-	double FRelacionVelocidades;
+  double FRegimen;
+  nmRegimenValv FControlRegimen;
+  double FRelacionVelocidades;
 
-	//---------------------------------------------------------------------------
-	// FUNCIONES PRIVADAS
-	//---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  // FUNCIONES PRIVADAS
+  //---------------------------------------------------------------------------
 
-	double CalculaVolumen(double CrankAngle, double carrera, double lbiela, double diametro, double vol_muerto);
+  double CalculaVolumen(double CrankAngle, double carrera, double lbiela,
+                        double diametro, double vol_muerto);
 
-  public:
-	//---------------------------------------------------------------------------
-	// VARIABLES PUBLICAS
-	//---------------------------------------------------------------------------
+public:
+  //---------------------------------------------------------------------------
+  // VARIABLES PUBLICAS
+  //---------------------------------------------------------------------------
 
-	double getRegimen() {
-		return FRegimen;
-	}
-	;
-	double getRelacionVelocidades() {
-		return FRelacionVelocidades;
-	}
-	;
+  double getRegimen() { return FRegimen; };
+  double getRelacionVelocidades() { return FRelacionVelocidades; };
 
-	//---------------------------------------------------------------------------
-	// FUNCIONES PUBLICAS
-	//---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  // FUNCIONES PUBLICAS
+  //---------------------------------------------------------------------------
 
-	TDepVolVariable(int i, int ncv, nmTipoCalculoEspecies SpeciesModel, int numeroespecies, nmCalculoGamma GammaCalculation,
-					bool ThereIsEGR);
+  TDepVolVariable(int i, int ncv, nmTipoCalculoEspecies SpeciesModel,
+                  int numeroespecies, nmCalculoGamma GammaCalculation,
+                  bool ThereIsEGR);
 
-	~TDepVolVariable();
+  ~TDepVolVariable();
 
-	void ActualizaPropiedades(double TimeCalculo);
+  void ActualizaPropiedades(double TimeCalculo);
 
-	void IniciaVolumen(double Theta);
+  void IniciaVolumen(double Theta);
 
-	void LeeDatosDepVolVariable(const char *FileWAM, fpos_t &filepos, bool HayMotor);
+  void LeeDatosDepVolVariable(const std::string &FileWAM, fpos_t &filepos,
+                              bool HayMotor);
 
-	void UpdateProperties0DModel(double TimeCalculo);
+  void UpdateProperties0DModel(double TimeCalculo);
 
-	void UpdateSpeed(double NewSpeed);
-
+  void UpdateSpeed(double NewSpeed);
 };
 //---------------------------------------------------------------------------
 #endif

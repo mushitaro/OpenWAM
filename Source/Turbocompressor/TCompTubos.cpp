@@ -434,11 +434,11 @@ void TCompTubos::Biseccion(double *VelIn, double *VelOut, double *AIn,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCompTubos::LeeCompresor(const char *FileWAM, fpos_t &filepos) {
+void TCompTubos::LeeCompresor(const std::string &FileWAM, fpos_t &filepos) {
   int tipo = 0;
   try {
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d %d ", &FTuboRotor, &FTuboStator);

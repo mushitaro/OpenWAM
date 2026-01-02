@@ -78,11 +78,12 @@ TCCUnionEntreTubos::~TCCUnionEntreTubos() {
 // ---------------------------------------------------------------------------
 
 void TCCUnionEntreTubos::ReadBoundaryData(
-    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
     int i = 0;
+    int numid = 0;
 
     FEspesor = 0.;
     FConductividad = 0.;
@@ -202,7 +203,7 @@ void TCCUnionEntreTubos::ReadBoundaryData(
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%lf %lf", &FEspesor, &FConductividad);

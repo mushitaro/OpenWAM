@@ -125,7 +125,8 @@ public:
 
   ~TCCDeposito();
 
-  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+  void ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
+                        int NumberOfPipes,
                         const std::vector<std::unique_ptr<TTubo>> &Pipe,
                         int nDPF,
                         const std::vector<std::unique_ptr<TDPF>> &DPF);

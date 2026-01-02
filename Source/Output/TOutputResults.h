@@ -171,7 +171,7 @@ public:
   double GetFControlAngle1() { return FControlAngle1; };
 
   void ReadAverageResults(
-      const char *FileWAM, fpos_t &filepos,
+      const std::string &FileWAM, fpos_t &filepos,
       const std::vector<std::unique_ptr<TTubo>> &Pipe, bool EngineBlock,
       const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
       const std::vector<std::unique_ptr<TDeposito>> &Plenum,
@@ -184,7 +184,7 @@ public:
       const std::vector<TVenturi *> &Venturi,
       const std::vector<std::unique_ptr<TSensor>> &Sensor,
       const std::vector<std::unique_ptr<TController>> &Controller,
-      int TotalCycles, const char *ModelName);
+      int TotalCycles, const std::string &ModelName);
 
   void HeaderAverageResults(stEspecies *SpeciesName, TCalculoExtern *EXTERN,
                             bool ThereIsDLL);
@@ -197,7 +197,7 @@ public:
   void CopyInstananeousResultsToFile(int mode);
 
   void ReadInstantaneousResults(
-      const char *FileWAM, fpos_t &filepos,
+      const std::string &FileWAM, fpos_t &filepos,
       const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
       const std::vector<std::unique_ptr<TDeposito>> &Plenum,
       const std::vector<std::unique_ptr<TTubo>> &Pipe,
@@ -214,10 +214,10 @@ public:
       int NumberOfReedValves,
       const std::vector<std::unique_ptr<TSensor>> &Sensor,
       const std::vector<std::unique_ptr<TController>> &Controller,
-      const char *ModelName);
+      const std::string &ModelName);
 
   void
-  ReadSpaceTimeResults(const char *FileWAM, fpos_t &filepos,
+  ReadSpaceTimeResults(const std::string &FileWAM, fpos_t &filepos,
                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
                        const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
                        const std::vector<std::unique_ptr<TDeposito>> &Plenum);

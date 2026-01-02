@@ -69,7 +69,7 @@ public:
 
   void ImprimeResultadosMediosPantalla();
 
-  void ReadAverageResultsTurb(const char *FileWAM, fpos_t &filepos);
+  void ReadAverageResultsTurb(const std::string &FileWAM, fpos_t &filepos);
 
   void CabeceraResultadosMedTurb(std::ostream &medoutput);
 
@@ -79,7 +79,7 @@ public:
 
   void AcumulaMedias(double Tiempo);
 
-  void LeeResultadosInstantTurb(const char *FileWAM, fpos_t &filepos);
+  void LeeResultadosInstantTurb(const std::string &FileWAM, fpos_t &filepos);
 
   void CabeceraResultadosInstantTurb(std::ostream &insoutput);
 

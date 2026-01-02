@@ -720,12 +720,12 @@ void TCilindro::AsignacionCC_Pointers(TCondicionContorno **BC, int numCC) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCilindro::ReadAverageResultsCilindro(const char *FileWAM,
+void TCilindro::ReadAverageResultsCilindro(const std::string &FileWAM,
                                            fpos_t &filepos) {
   try {
     int Tipovar = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FResMediosCilindro.TrabajoNeto = false;
@@ -1414,12 +1414,12 @@ void TCilindro::CalculaResultadosMediosCilindro() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCilindro::ReadInstantaneousResultsCilindro(const char *FileWAM,
+void TCilindro::ReadInstantaneousResultsCilindro(const std::string &FileWAM,
                                                  fpos_t &filepos) {
   try {
-    int nvars = 0, var = 0;
+    int numvar = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FResInstantCilindro.Pressure = false;
@@ -1491,112 +1491,114 @@ void TCilindro::ReadInstantaneousResultsCilindro(const char *FileWAM,
     FResInstantCilindro.HeatPis = false;
     FResInstantCilindro.HeatPisINS = 0;
 
-    fscanf(fich, "%d ", &FNumVarIns);
-    for (int i = 0; i < FNumVarIns; i++) {
-      fscanf(fich, "%d ", &var);
-      switch (var) {
-      case 0:
-        FResInstantCilindro.Pressure = true;
-        break;
-      case 1:
-        FResInstantCilindro.Temperature = true;
-        break;
-      case 2:
-        FResInstantCilindro.MomentoAngularEsc = true;
-        break;
-      case 3:
-        FResInstantCilindro.MomentoAngularAdm = true;
-        break;
-      case 4:
-        FResInstantCilindro.GastoEsc = true;
-        break;
-      case 5:
-        FResInstantCilindro.GastoAdm = true;
-        break;
-      case 6:
-        FResInstantCilindro.MachEsc = true;
-        break;
-      case 7:
-        FResInstantCilindro.MachAdm = true;
-        break;
-      case 8:
-        FResInstantCilindro.SeccionEfectivaAdm = true;
-        break;
-      case 9:
-        FResInstantCilindro.SeccionEfectivaEsc = true;
-        break;
-      case 10:
-        FResInstantCilindro.Masa = true;
-        break;
-      case 11:
-        FResInstantCilindro.Volumen = true;
-        break;
-      case 12:
-        FResInstantCilindro.MasaCombustible = true;
-        break;
-      case 13:
-        FResInstantCilindro.FQL = true;
-        break;
-      case 14:
-        FResInstantCilindro.CoeficienteWoschni = true;
-        break;
-      case 15:
-        FResInstantCilindro.TemperaturaCilindroInterna = true;
-        break;
-      case 16:
-        FResInstantCilindro.TemperaturaCilindroMedia = true;
-        break;
-      case 17:
-        FResInstantCilindro.TemperaturaCilindroExterna = true;
-        break;
-      case 18:
-        FResInstantCilindro.TemperaturaPistonInterna = true;
-        break;
-      case 19:
-        FResInstantCilindro.TemperaturaPistonMedia = true;
-        break;
-      case 20:
-        FResInstantCilindro.TemperaturaPistonExterna = true;
-        break;
-      case 21:
-        FResInstantCilindro.TemperaturaCulataInterna = true;
-        break;
-      case 22:
-        FResInstantCilindro.TemperaturaCulataMedia = true;
-        break;
-      case 23:
-        FResInstantCilindro.TemperaturaCulataExterna = true;
-        break;
-      case 24:
-        FResInstantCilindro.NIT = true;
-        break;
-      case 25:
-        FResInstantCilindro.ParInstantaneo = true;
-        break;
-      case 26:
-        FResInstantCilindro.GastoCortocircuito = true;
-        break;
-      case 27:
-        FResInstantCilindro.GastoBlowBy = true;
-        break;
-      case 28:
-        FResInstantCilindro.FraccionMasica = true;
-        break;
-      case 29:
-        FResInstantCilindro.Gamma = true;
-        break;
+    fscanf(fich, "%d ", &numvar);
 
-      case 30:
-        FResInstantCilindro.HeatHead = true;
-        break;
+    FNumVarIns = numvar;
 
-      case 31:
-        FResInstantCilindro.HeatCyl = true;
-        break;
-
-      case 32:
-        FResInstantCilindro.HeatPis = true;
-        break;
+    if (numvar > 0) {
+      for (int i = 0; i < numvar; i++) {
+        fscanf(fich, "%d ", &var);
+        switch (var) {
+        case 1:
+          FResInstantCilindro.Pressure = true;
+          break;
+        case 2:
+          FResInstantCilindro.Temperature = true;
+          break;
+        case 3:
+          FResInstantCilindro.MomentoAngularEsc = true;
+          break;
+        case 4:
+          FResInstantCilindro.MomentoAngularAdm = true;
+          break;
+        case 5:
+          FResInstantCilindro.GastoEsc = true;
+          break;
+        case 6:
+          FResInstantCilindro.GastoAdm = true;
+          break;
+        case 7:
+          FResInstantCilindro.MachEsc = true;
+          break;
+        case 8:
+          FResInstantCilindro.MachAdm = true;
+          break;
+        case 9:
+          FResInstantCilindro.SeccionEfectivaEsc = true;
+          break;
+        case 10:
+          FResInstantCilindro.SeccionEfectivaAdm = true;
+          break;
+        case 11:
+          FResInstantCilindro.Masa = true;
+          break;
+        case 12:
+          FResInstantCilindro.Volumen = true;
+          break;
+        case 13:
+          FResInstantCilindro.CoeficienteWoschni = true;
+          break;
+        case 14:
+          FResInstantCilindro.MasaCombustible = true;
+          break;
+        case 15:
+          FResInstantCilindro.FQL = true;
+          break;
+        case 16:
+          FResInstantCilindro.TemperaturaCilindroInterna = true;
+          break;
+        case 17:
+          FResInstantCilindro.TemperaturaCilindroMedia = true;
+          break;
+        case 18:
+          FResInstantCilindro.TemperaturaCilindroExterna = true;
+          break;
+        case 19:
+          FResInstantCilindro.TemperaturaPistonInterna = true;
+          break;
+        case 20:
+          FResInstantCilindro.TemperaturaPistonMedia = true;
+          break;
+        case 21:
+          FResInstantCilindro.TemperaturaPistonExterna = true;
+          break;
+        case 22:
+          FResInstantCilindro.TemperaturaCulataInterna = true;
+          break;
+        case 23:
+          FResInstantCilindro.TemperaturaCulataMedia = true;
+          break;
+        case 24:
+          FResInstantCilindro.TemperaturaCulataExterna = true;
+          break;
+        case 25:
+          FResInstantCilindro.NIT = true;
+          break;
+        case 26:
+          FResInstantCilindro.ParInstantaneo = true;
+          break;
+        case 27:
+          FResInstantCilindro.GastoCortocircuito = true;
+          break;
+        case 28:
+          FResInstantCilindro.GastoBlowBy = true;
+          break;
+        case 29:
+          FResInstantCilindro.FraccionMasica = true;
+          break;
+        case 30:
+          FResInstantCilindro.Gamma = true;
+          break;
+        case 31:
+          FResInstantCilindro.HeatHead = true;
+          break;
+        case 32:
+          FResInstantCilindro.HeatCyl = true;
+          break;
+        case 33:
+          FResInstantCilindro.HeatPis = true;
+          break;
+        }
       }
     }
 

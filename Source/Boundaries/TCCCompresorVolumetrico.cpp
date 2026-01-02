@@ -71,7 +71,7 @@ TCCCompresorVolumetrico::~TCCCompresorVolumetrico() {
 //---------------------------------------------------------------------------
 
 void TCCCompresorVolumetrico::LeeCCCompresorVol(
-    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, bool HayMotor) {
   try {
     int i = 0, ControlRegimen;
@@ -104,7 +104,7 @@ void TCCCompresorVolumetrico::LeeCCCompresorVol(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &ControlRegimen);
@@ -317,12 +317,12 @@ void TCCCompresorVolumetrico::CalculaCondicionContorno(double Time) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCCompresorVolumetrico::ReadAverageResultsCV(const char *FileWAM,
+void TCCCompresorVolumetrico::ReadAverageResultsCV(const std::string &FileWAM,
                                                    fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -491,12 +491,12 @@ void TCCCompresorVolumetrico::AcumulaResultadosMediosCV(double Actual) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCCompresorVolumetrico::LeeResultadosInstantCV(const char *FileWAM,
+void TCCCompresorVolumetrico::LeeResultadosInstantCV(const std::string &FileWAM,
                                                      fpos_t &filepos) {
   int nvars = 0, var = 0;
 
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

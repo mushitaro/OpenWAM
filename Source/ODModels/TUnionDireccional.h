@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -30,48 +31,51 @@
 #define TUnionDireccionalH
 #include "TDepVolCteBase.h"
 
-class TUnionDireccional: public TDepVolCteBase {
-  private:
+class TUnionDireccional : public TDepVolCteBase {
+private:
+  // Variable privadas
 
-// Variable privadas
+  TCondicionContorno **FCCEntrada;
+  TCondicionContorno *FCCSalida;
 
-	TCondicionContorno **FCCEntrada;
-	TCondicionContorno *FCCSalida;
+  int FNumUnionDireccional; // Numero de Union Direccional.
+  int *FNodoEntrada;        // Nodo de entrada(en cada una de las dos entradas.
+  int FNodoSalida;          // Nodo de salida.
+  int *FSentidoEntrada; // Sentido del flujo en los nodos de entrada a la union
+                        // direccional.
+  double
+      *FCDSalidaInicial; // Valor del coeficiente de descarga de salida hasta la
+                         // velocidad en que aparece el efecto direccional.
+  double *FVelocidadCorte; // Valor de la velocidad en el tubo i para la que
+                           // aparece el efecto direccional sobre el tubo j.
+  double
+      *FVelocidadFin; // Valor de la velocidad en el tubo i para la que se anula
+                      // el coeficiente de descarga de salida en el tubo j.
+  double *FVelocity; // Velocity en los nodos de entrada a la union direccional.
+  double *FCoefA;
+  double *FCoefB;
 
-	int FNumUnionDireccional; // Numero de Union Direccional.
-	int *FNodoEntrada;       // Nodo de entrada(en cada una de las dos entradas.
-	int FNodoSalida;          // Nodo de salida.
-	int *FSentidoEntrada; // Sentido del flujo en los nodos de entrada a la union direccional.
-	double *FCDSalidaInicial; // Valor del coeficiente de descarga de salida hasta la velocidad en que aparece el efecto direccional.
-	double *FVelocidadCorte; // Valor de la velocidad en el tubo i para la que aparece el efecto direccional sobre el tubo j.
-	double *FVelocidadFin; // Valor de la velocidad en el tubo i para la que se anula el coeficiente de descarga de salida en el tubo j.
-	double *FVelocity; // Velocity en los nodos de entrada a la union direccional.
-	double *FCoefA;
-	double *FCoefB;
+protected:
+public:
+  //---------------------------------------------------------------------------
+  // FUNCIONES PUBLICAS
+  //---------------------------------------------------------------------------
 
-  protected:
+  TUnionDireccional(int i, int NUnionDireccional,
+                    nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+                    nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-  public:
+  ~TUnionDireccional();
 
-	//---------------------------------------------------------------------------
-	// FUNCIONES PUBLICAS
-	//---------------------------------------------------------------------------
+  void ActualizaPropiedades(double TimeCalculo);
 
-	TUnionDireccional(int i, int NUnionDireccional, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
-					  nmCalculoGamma GammaCalculation, bool ThereIsEGR);
+  void AsignaCCUnionDireccional();
 
-	~TUnionDireccional();
+  void LeeDatosUnionDireccional(const std::string &FileWAM, fpos_t &filepos);
 
-	void ActualizaPropiedades(double TimeCalculo);
+  void CalculoUnionDireccional();
 
-	void AsignaCCUnionDireccional();
-
-	void LeeDatosUnionDireccional(const char *FileWAM, fpos_t &filepos);
-
-	void CalculoUnionDireccional();
-
-	void UpdateProperties0DModel(double TimeCalculo);
-
+  void UpdateProperties0DModel(double TimeCalculo);
 };
 
 //---------------------------------------------------------------------------

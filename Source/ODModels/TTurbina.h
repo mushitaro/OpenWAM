@@ -201,7 +201,8 @@ public:
   void AsignaDatosSalida(int nodsaltur, int tubsaltur, int extremo,
                          int sentido);
 
-  virtual void ReadAverageResultsTurb(const char *FileWAM, fpos_t &filepos) = 0;
+  virtual void ReadAverageResultsTurb(const std::string &FileWAM,
+                                      fpos_t &filepos) = 0;
 
   virtual void CabeceraResultadosMedTurb(std::ostream &medoutput) = 0;
 
@@ -211,7 +212,7 @@ public:
 
   virtual void AcumulaMedias(double Tiempo) = 0;
 
-  virtual void LeeResultadosInstantTurb(const char *FileWAM,
+  virtual void LeeResultadosInstantTurb(const std::string &FileWAM,
                                         fpos_t &filepos) = 0;
 
   virtual void CabeceraResultadosInstantTurb(std::ostream &insoutput) = 0;

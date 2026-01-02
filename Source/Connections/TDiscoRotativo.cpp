@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -36,130 +37,129 @@
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TDiscoRotativo::TDiscoRotativo() :
-	TTipoValvula(nmDiscoRotativo) {
+TDiscoRotativo::TDiscoRotativo() : TTipoValvula(nmDiscoRotativo) {
 
-	fun_CDin = NULL;
-	fun_CDout = NULL;
-	FAngle0 = 0.;
+  fun_CDin = NULL;
+  fun_CDout = NULL;
+  FAngle0 = 0.;
 
-	FDCMultiplier = 1.;
-	FShift = 0.;
-	FDuration = 1.;
+  FDCMultiplier = 1.;
+  FShift = 0.;
+  FDuration = 1.;
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TDiscoRotativo::~TDiscoRotativo() {
+TDiscoRotativo::~TDiscoRotativo() {}
 
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+TDiscoRotativo::TDiscoRotativo(TDiscoRotativo *Origen, int Valvula)
+    : TTipoValvula(nmDiscoRotativo) {
+
+  FDiametroRef = Origen->FDiametroRef;
+  FNumeroPuntos = Origen->FNumeroPuntos;
+
+  FNumeroOrden = Origen->FNumeroOrden;
+
+  FEngine = Origen->FEngine;
+
+  FValvula = Valvula;
+
+  FDiamRef = FDiametroRef;
+
+  FAngle0 = Origen->FAngle0;
+
+  FDCMultiplier = Origen->FDCMultiplier;
+  FShift = Origen->FShift;
+  FDuration = Origen->FDuration;
+
+  FAngulo.resize(Origen->FAngulo.size());
+  FDatosCDEntrada.resize(Origen->FDatosCDEntrada.size());
+  FDatosCDSalida.resize(Origen->FDatosCDSalida.size());
+
+  for (int i = 0; i < FNumeroPuntos; i++) {
+    FAngulo[i] = Origen->FAngulo[i];
+    FDatosCDEntrada[i] = Origen->FDatosCDEntrada[i];
+    FDatosCDSalida[i] = Origen->FDatosCDSalida[i];
+  }
+  fun_CDin = new Hermite_interp(FAngulo, FDatosCDEntrada);
+  fun_CDout = new Hermite_interp(FAngulo, FDatosCDSalida);
+
+  FRegimen = Origen->getRegimen();
+  FRelacionVelocidades = Origen->getRelacionVelocidades();
+  FControlRegimen = Origen->getControlRegimen();
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TDiscoRotativo::TDiscoRotativo(TDiscoRotativo *Origen, int Valvula) :
-	TTipoValvula(nmDiscoRotativo) {
+void TDiscoRotativo::LeeDatosIniciales(const std::string &FileWAM,
+                                       fpos_t &filepos, int norden,
+                                       bool HayMotor, TBloqueMotor *Engine) {
+  try {
+    int ControlRegimen = 0;
 
-	FDiametroRef = Origen->FDiametroRef;
-	FNumeroPuntos = Origen->FNumeroPuntos;
+    FILE *fich = fopen(FileWAM.c_str(), "r");
+    fsetpos(fich, &filepos);
 
-	FNumeroOrden = Origen->FNumeroOrden;
+    FNumeroOrden = norden;
 
-	FEngine = Origen->FEngine;
+    FEngine = Engine;
 
-	FValvula = Valvula;
+    fscanf(fich, "%lf ", &FDiametroRef);
+    fscanf(fich, "%lf %lf %lf ", &FDCMultiplier, &FShift, &FDuration);
 
-	FDiamRef = FDiametroRef;
+    fscanf(fich, "%d ", &FNumeroPuntos);
 
-	FAngle0 = Origen->FAngle0;
+    FAngulo.resize(FNumeroPuntos);
+    FDatosCDEntrada.resize(FNumeroPuntos);
+    FDatosCDSalida.resize(FNumeroPuntos);
 
-	FDCMultiplier = Origen->FDCMultiplier;
-	FShift = Origen->FShift;
-	FDuration = Origen->FDuration;
+    for (int j = 0; j < FNumeroPuntos; ++j) {
+      fscanf(fich, "%lf ", &FAngulo[j]);
+      FAngulo[j] *= FDuration;
+    }
+    for (int j = 0; j < FNumeroPuntos; ++j) {
+      fscanf(fich, "%lf ", &FDatosCDEntrada[j]);
+      FDatosCDEntrada[j] *= FDCMultiplier;
+    }
+    for (int j = 0; j < FNumeroPuntos; ++j) {
+      fscanf(fich, "%lf ", &FDatosCDSalida[j]);
+      FDatosCDEntrada[j] *= FDCMultiplier;
+    }
 
-	FAngulo.resize(Origen->FAngulo.size());
-	FDatosCDEntrada.resize(Origen->FDatosCDEntrada.size());
-	FDatosCDSalida.resize(Origen->FDatosCDSalida.size());
+    fscanf(fich, "%d ", &ControlRegimen);
 
-	for(int i = 0; i < FNumeroPuntos; i++) {
-		FAngulo[i] = Origen->FAngulo[i];
-		FDatosCDEntrada[i] = Origen->FDatosCDEntrada[i];
-		FDatosCDSalida[i] = Origen->FDatosCDSalida[i];
-	}
-	fun_CDin = new Hermite_interp(FAngulo, FDatosCDEntrada);
-	fun_CDout = new Hermite_interp(FAngulo, FDatosCDSalida);
+    switch (ControlRegimen) {
+    case 0:
+      FControlRegimen = nmPropio;
+      break;
+    case 1:
+      FControlRegimen = nmMotor;
+      break;
+    }
+    if (FControlRegimen == nmPropio) {
+      fscanf(fich, "%lf ", &FRegimen);
+      FRelacionVelocidades = 1.;
+    } else if (FControlRegimen == nmMotor && HayMotor) {
+      fscanf(fich, "%lf ", &FRelacionVelocidades);
+    } else {
+      std::cout << "ERROR: TDiscoRotativo::LeeDatosIniciales Lectura del "
+                   "Control del Regimen erronea "
+                << std::endl;
+      throw Exception(" ");
+    }
 
-	FRegimen = Origen->getRegimen();
-	FRelacionVelocidades = Origen->getRelacionVelocidades();
-	FControlRegimen = Origen->getControlRegimen();
-}
-
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
-
-void TDiscoRotativo::LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor,
-									   TBloqueMotor *Engine) {
-	try {
-		int ControlRegimen = 0;
-
-		FILE *fich = fopen(FileWAM, "r");
-		fsetpos(fich, &filepos);
-
-		FNumeroOrden = norden;
-
-		FEngine = Engine;
-
-		fscanf(fich, "%lf ", &FDiametroRef);
-		fscanf(fich, "%lf %lf %lf ", &FDCMultiplier, &FShift, &FDuration);
-
-		fscanf(fich, "%d ", &FNumeroPuntos);
-
-		FAngulo.resize(FNumeroPuntos);
-		FDatosCDEntrada.resize(FNumeroPuntos);
-		FDatosCDSalida.resize(FNumeroPuntos);
-
-		for(int j = 0; j < FNumeroPuntos; ++j) {
-			fscanf(fich, "%lf ", &FAngulo[j]);
-			FAngulo[j] *= FDuration;
-		}
-		for(int j = 0; j < FNumeroPuntos; ++j) {
-			fscanf(fich, "%lf ", &FDatosCDEntrada[j]);
-			FDatosCDEntrada[j] *= FDCMultiplier;
-		}
-		for(int j = 0; j < FNumeroPuntos; ++j) {
-			fscanf(fich, "%lf ", &FDatosCDSalida[j]);
-			FDatosCDEntrada[j] *= FDCMultiplier;
-		}
-
-		fscanf(fich, "%d ", &ControlRegimen);
-
-		switch(ControlRegimen) {
-		case 0:
-			FControlRegimen = nmPropio;
-			break;
-		case 1:
-			FControlRegimen = nmMotor;
-			break;
-		}
-		if(FControlRegimen == nmPropio) {
-			fscanf(fich, "%lf ", &FRegimen);
-			FRelacionVelocidades = 1.;
-		} else if(FControlRegimen == nmMotor && HayMotor) {
-			fscanf(fich, "%lf ", &FRelacionVelocidades);
-		} else {
-			std::cout << "ERROR: TDiscoRotativo::LeeDatosIniciales Lectura del Control del Regimen erronea " << std::endl;
-			throw Exception(" ");
-		}
-
-		fgetpos(fich, &filepos);
-		fclose(fich);
-	} catch(exception &N) {
-		std::cout << "ERROR: LeeDatosIniciales DiscoRotativo" << std::endl;
-		//std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-		throw Exception(N.what());
-
-	}
+    fgetpos(fich, &filepos);
+    fclose(fich);
+  } catch (exception &N) {
+    std::cout << "ERROR: LeeDatosIniciales DiscoRotativo" << std::endl;
+    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
@@ -167,71 +167,73 @@ void TDiscoRotativo::LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int
 
 void TDiscoRotativo::CalculaCD(double AnguloActual) {
 
-	FCDTubVol = fun_CDin->interp(AnguloActual) * FSectionRatio;
-	FCDVolTub = fun_CDout->interp(AnguloActual) * FSectionRatio;
-
+  FCDTubVol = fun_CDin->interp(AnguloActual) * FSectionRatio;
+  FCDVolTub = fun_CDout->interp(AnguloActual) * FSectionRatio;
 }
 
 void TDiscoRotativo::GetCDin(double Time) {
 
-	double X = 0., XLv = 0., XCd = 0., Angulo = 0.;
+  double X = 0., XLv = 0., XCd = 0., Angulo = 0.;
 
-	if(FControlRegimen == nmPropio) {
-		Angulo = 6. * FRegimen * Time - FShift; // It's correct if FRegimen is constant.
-	} else {
-		if(FToCylinder) {
-			Angulo = FCylinder->getAnguloActual() * 360. / FEngine->getAngTotalCiclo() - FShift;
+  if (FControlRegimen == nmPropio) {
+    Angulo =
+        6. * FRegimen * Time - FShift; // It's correct if FRegimen is constant.
+  } else {
+    if (FToCylinder) {
+      Angulo =
+          FCylinder->getAnguloActual() * 360. / FEngine->getAngTotalCiclo() -
+          FShift;
 
-		} else {
-			double DeltaT = Time - FTime0;
-			FTime0 = Time;
-			double DeltaA = 6 * FEngine->getRegimen() * DeltaT * FRelacionVelocidades;
-			Angulo = DeltaA + FAngle0;
-		}
-	}
-	if(Angulo < 0.)
-		Angulo += 360.;
-	else
-		Angulo = Angulo - 360 * int(floor(Angulo / 360));
+    } else {
+      double DeltaT = Time - FTime0;
+      FTime0 = Time;
+      double DeltaA = 6 * FEngine->getRegimen() * DeltaT * FRelacionVelocidades;
+      Angulo = DeltaA + FAngle0;
+    }
+  }
+  if (Angulo < 0.)
+    Angulo += 360.;
+  else
+    Angulo = Angulo - 360 * int(floor(Angulo / 360));
 
-	FAngle0 = Angulo;
+  FAngle0 = Angulo;
 
-	FCDTubVol = fun_CDin->interp(Angulo) * FSectionRatio;
+  FCDTubVol = fun_CDin->interp(Angulo) * FSectionRatio;
 
-	if(FCDTubVol > 1)
-		FCDTubVol = 1.;
-
+  if (FCDTubVol > 1)
+    FCDTubVol = 1.;
 }
 
 void TDiscoRotativo::GetCDout(double Time) {
-	double X = 0., XLv = 0., XCd = 0., Angulo = 0.;
+  double X = 0., XLv = 0., XCd = 0., Angulo = 0.;
 
-	if(FControlRegimen == nmPropio) {
-		Angulo = 360. * FRegimen / 60. * Time - FShift;
-		; // It's correct if FRegimen is constant.
-	} else {
-		if(FToCylinder) {
-			Angulo = FCylinder->getAnguloActual() * 360. / FEngine->getAngTotalCiclo() - FShift;
-		} else {
-			double DeltaT = Time - FTime0;
-			FTime0 = Time;
-			double DeltaA = 6 * FEngine->getRegimen() * DeltaT * FRelacionVelocidades;
-			Angulo = DeltaA + FAngle0;
-		}
-	}
+  if (FControlRegimen == nmPropio) {
+    Angulo = 360. * FRegimen / 60. * Time - FShift;
+    ; // It's correct if FRegimen is constant.
+  } else {
+    if (FToCylinder) {
+      Angulo =
+          FCylinder->getAnguloActual() * 360. / FEngine->getAngTotalCiclo() -
+          FShift;
+    } else {
+      double DeltaT = Time - FTime0;
+      FTime0 = Time;
+      double DeltaA = 6 * FEngine->getRegimen() * DeltaT * FRelacionVelocidades;
+      Angulo = DeltaA + FAngle0;
+    }
+  }
 
-	if(Angulo < 0.)
-		Angulo += 360.;
-	else
-		Angulo = Angulo - 360 * int(floor(Angulo / 360));
+  if (Angulo < 0.)
+    Angulo += 360.;
+  else
+    Angulo = Angulo - 360 * int(floor(Angulo / 360));
 
-	FAngle0 = Angulo;
+  FAngle0 = Angulo;
 
-	FCDVolTub = fun_CDout->interp(Angulo) * FSectionRatio;
+  FCDVolTub = fun_CDout->interp(Angulo) * FSectionRatio;
 
-	if(FCDVolTub > 1)
-		FCDVolTub = 1.;
-
+  if (FCDVolTub > 1)
+    FCDVolTub = 1.;
 }
 
 //---------------------------------------------------------------------------

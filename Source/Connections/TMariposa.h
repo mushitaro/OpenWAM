@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -40,40 +41,38 @@
 #include "TTipoValvula.h"
 //---------------------------------------------------------------------------
 
-class TMariposa: public TTipoValvula {
-  private:
+class TMariposa : public TTipoValvula {
+private:
+  int FNumLev;
+  dVector FLevantamiento;
+  dVector FDatosCDEntrada;
+  Hermite_interp *fun_CDin;
+  dVector FDatosCDSalida;
+  Hermite_interp *fun_CDout;
+  double FDiametroRef;
+  double FLevActual;
+  bool FLevControlled;
+  int FControllerID;
 
-	int FNumLev;
-	dVector FLevantamiento;
-	dVector FDatosCDEntrada;
-	Hermite_interp *fun_CDin;
-	dVector FDatosCDSalida;
-	Hermite_interp *fun_CDout;
-	double FDiametroRef;
-	double FLevActual;
-	bool FLevControlled;
-	int FControllerID;
+  TController *FController;
 
-	TController *FController;
+public:
+  TMariposa(TMariposa *Origen, int valv);
 
-  public:
+  TMariposa();
 
-	TMariposa(TMariposa *Origen, int valv);
+  ~TMariposa();
 
-	TMariposa();
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	~TMariposa();
+  void AsignaLevController(TController **Controller);
 
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
+  void CalculaCD(double Time);
 
-	void AsignaLevController(TController **Controller);
+  void GetCDin(double Time);
 
-	void CalculaCD(double Time);
-
-	void GetCDin(double Time);
-
-	void GetCDout(double Time);
-
+  void GetCDout(double Time);
 };
 
 #endif

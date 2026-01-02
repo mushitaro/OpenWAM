@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -32,102 +33,101 @@
 
 //---------------------------------------------------------------------------
 
-TMariposa::TMariposa() :
-	TTipoValvula(nmMariposa) {
-	FLevControlled = false;
-	fun_CDin = NULL;
-	fun_CDout = NULL;
+TMariposa::TMariposa() : TTipoValvula(nmMariposa) {
+  FLevControlled = false;
+  fun_CDin = NULL;
+  fun_CDout = NULL;
 }
 
-TMariposa::~TMariposa() {
+TMariposa::~TMariposa() {}
+
+TMariposa::TMariposa(TMariposa *Origen, int valv) : TTipoValvula(nmMariposa) {
+  FNumLev = Origen->FNumLev;
+
+  FDiametroRef = Origen->FDiametroRef;
+
+  FDiamRef = FDiametroRef;
+
+  FValvula = valv;
+
+  FLevantamiento.resize(Origen->FLevantamiento.size());
+  FDatosCDEntrada.resize(Origen->FDatosCDEntrada.size());
+  FDatosCDSalida.resize(Origen->FDatosCDSalida.size());
+
+  for (int i = 0; i < FNumLev; i++) {
+    FLevantamiento[i] = Origen->FLevantamiento[i];
+    FDatosCDEntrada[i] = Origen->FDatosCDEntrada[i];
+    FDatosCDSalida[i] = Origen->FDatosCDSalida[i];
+  }
+  fun_CDin = new Hermite_interp(FLevantamiento, FDatosCDEntrada);
+  fun_CDout = new Hermite_interp(FLevantamiento, FDatosCDSalida);
+
+  FLevActual = Origen->FLevActual;
+  FLevControlled = Origen->FLevControlled;
+  FControllerID = Origen->FControllerID;
+  FLevControlled = Origen->FLevControlled;
 }
 
-TMariposa::TMariposa(TMariposa *Origen, int valv) :
-	TTipoValvula(nmMariposa) {
-	FNumLev = Origen->FNumLev;
+void TMariposa::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                                  int norden, bool HayMotor,
+                                  TBloqueMotor *Engine) {
+  int ctrl = 0, prm = 0;
 
-	FDiametroRef = Origen->FDiametroRef;
+  FILE *fich = fopen(FileWAM.c_str(), "r");
+  fsetpos(fich, &filepos);
 
-	FDiamRef = FDiametroRef;
+  FNumeroOrden = norden;
 
-	FValvula = valv;
+  fscanf(fich, "%d %lf ", &FNumLev, &FDiametroRef);
 
-	FLevantamiento.resize(Origen->FLevantamiento.size());
-	FDatosCDEntrada.resize(Origen->FDatosCDEntrada.size());
-	FDatosCDSalida.resize(Origen->FDatosCDSalida.size());
+  FLevantamiento.resize(FNumLev);
+  FDatosCDEntrada.resize(FNumLev);
+  FDatosCDSalida.resize(FNumLev);
 
-	for(int i = 0; i < FNumLev; i++) {
-		FLevantamiento[i] = Origen->FLevantamiento[i];
-		FDatosCDEntrada[i] = Origen->FDatosCDEntrada[i];
-		FDatosCDSalida[i] = Origen->FDatosCDSalida[i];
-	}
-	fun_CDin = new Hermite_interp(FLevantamiento, FDatosCDEntrada);
-	fun_CDout = new Hermite_interp(FLevantamiento, FDatosCDSalida);
+  for (int i = 0; i < FNumLev; i++) {
+    fscanf(fich, " %lf %lf %lf", &FLevantamiento[i], &FDatosCDEntrada[i],
+           &FDatosCDSalida[i]);
+  }
 
-	FLevActual = Origen->FLevActual;
-	FLevControlled = Origen->FLevControlled;
-	FControllerID = Origen->FControllerID;
-	FLevControlled = Origen->FLevControlled;
-}
+  fscanf(fich, " %lf", &FLevActual);
 
-void TMariposa::LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor,
-								  TBloqueMotor *Engine) {
-	int ctrl = 0, prm = 0;
+  fscanf(fich, " %d", &ctrl);
+  if (ctrl != 0) {
+    FLevControlled = true;
+    fscanf(fich, " %d %d", &prm, &FControllerID);
+  }
 
-	FILE *fich = fopen(FileWAM, "r");
-	fsetpos(fich, &filepos);
-
-	FNumeroOrden = norden;
-
-	fscanf(fich, "%d %lf ", &FNumLev, &FDiametroRef);
-
-	FLevantamiento.resize(FNumLev);
-	FDatosCDEntrada.resize(FNumLev);
-	FDatosCDSalida.resize(FNumLev);
-
-	for(int i = 0; i < FNumLev; i++) {
-		fscanf(fich, " %lf %lf %lf", &FLevantamiento[i], &FDatosCDEntrada[i], &FDatosCDSalida[i]);
-	}
-
-	fscanf(fich, " %lf", &FLevActual);
-
-	fscanf(fich, " %d", &ctrl);
-	if(ctrl != 0) {
-		FLevControlled = true;
-		fscanf(fich, " %d %d", &prm, &FControllerID);
-	}
-
-	fgetpos(fich, &filepos);
-	fclose(fich);
+  fgetpos(fich, &filepos);
+  fclose(fich);
 }
 
 void TMariposa::AsignaLevController(TController **Controller) {
-	if(FLevControlled)
-		FController = Controller[FControllerID - 1];
+  if (FLevControlled)
+    FController = Controller[FControllerID - 1];
 }
 
 void TMariposa::CalculaCD(double Time) {
-	if(FLevControlled)
-		FLevActual = FController->Output(Time);
+  if (FLevControlled)
+    FLevActual = FController->Output(Time);
 
-	FCDTubVol = fun_CDin->interp(FLevActual) * FSectionRatio;
-	FCDVolTub = fun_CDout->interp(FLevActual) * FSectionRatio;
+  FCDTubVol = fun_CDin->interp(FLevActual) * FSectionRatio;
+  FCDVolTub = fun_CDout->interp(FLevActual) * FSectionRatio;
 }
 
 void TMariposa::GetCDin(double Time) {
 
-	if(FLevControlled)
-		FLevActual = FController->Output(Time);
+  if (FLevControlled)
+    FLevActual = FController->Output(Time);
 
-	FCDTubVol = fun_CDin->interp(FLevActual) * FSectionRatio;
+  FCDTubVol = fun_CDin->interp(FLevActual) * FSectionRatio;
 }
 
 void TMariposa::GetCDout(double Time) {
 
-	if(FLevControlled)
-		FLevActual = FController->Output(Time);
+  if (FLevControlled)
+    FLevActual = FController->Output(Time);
 
-	FCDVolTub = fun_CDout->interp(FLevActual) * FSectionRatio;
+  FCDVolTub = fun_CDout->interp(FLevActual) * FSectionRatio;
 }
 
 #pragma package(smart_init)

@@ -1074,9 +1074,9 @@ public:
   void ReduccionFlujoSubsonicoFCT();
 
   /*!Comment  */
-  void ReadAverageResultsTubo(const char *FileWAM, //!< Comment
-                              fpos_t &filepos,     //!< Comment
-                              bool HayMotor        //!< Comment
+  void ReadAverageResultsTubo(const std::string &FileWAM, //!< Comment
+                              fpos_t &filepos,            //!< Comment
+                              bool HayMotor               //!< Comment
   );
 
   /*!Comment  */

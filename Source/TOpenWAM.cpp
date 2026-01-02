@@ -52,20 +52,14 @@ TOpenWAM::TOpenWAM() {
 #endif
   tzstr = "TZ=PST8PDT";
 
-  DatosTGV = NULL;
-  fc = NULL;
-
-  // Optimized containers and smart pointers do not need explicit NULL
+  // Optimize containers and smart pointers do not need explicit NULL
   // initialization
   EXTERN = NULL;
 
-  // ! ARRAY OF TYPES OF VALVES
-  // TypeOfValve = NULL; // vector
-
   // ! POINTERS ARRAY TO VALVES TYPE TURBINE STATOR
-  StatorTurbine = NULL;
+  // StatorTurbine = NULL; // vector
   // ! POINTERS ARRAY TO VALVES TYPE TURBINE ROTOR
-  RotorTurbine = NULL;
+  // RotorTurbine = NULL; // vector
   // ! POINTERS ARRAY TO EXTERNAL CONNECTIONS
   // CCCalcExtern = NULL;
   // BCButerflyValve = NULL;
@@ -115,10 +109,12 @@ TOpenWAM::TOpenWAM() {
 
   // ! SPECIES MODEL PARAMETERS
 
-  SpeciesName = NULL;
+  // ! SPECIES MODEL PARAMETERS
+
+  // SpeciesName = NULL; // vector
   SpeciesNumber = 0;
 
-  AtmosphericComposition = NULL;
+  // AtmosphericComposition = NULL; // vector
 
   // ! GENERAL PARAMETERS
   SimulationType = nmEstacionario;
@@ -319,31 +315,24 @@ TOpenWAM::~TOpenWAM() {
   // if (NumTCCPerdidaPresion > 0 && PerdidaPresion != NULL)
   //   delete[] PerdidaPresion;
 
-  if (SpeciesName != NULL)
-    delete[] SpeciesName;
+  // if (SpeciesName != NULL)
+  //   delete[] SpeciesName;
 
-  if (AtmosphericComposition != NULL)
-    delete[] AtmosphericComposition;
+  // if (AtmosphericComposition != NULL)
+  //   delete[] AtmosphericComposition;
 
-  if (DatosTGV != NULL)
-    delete[] DatosTGV;
+  // if (DatosTGV != NULL)
+  //   delete[] DatosTGV;
 
-  // if (TypeOfValve != NULL) {
-  //   for (int i = 0; i < NumberOfValves; i++) {
-  //     delete TypeOfValve[i];
+  // if (StatorTurbine != NULL) {
+  //   for (int i = 0; i < NumberOfTurbines; i++) {
+  //     delete[] StatorTurbine[i]; // internal vectors handle this
   //   }
-  //   delete[] TypeOfValve;
+  //   delete[] StatorTurbine;
   // }
 
-  if (StatorTurbine != NULL) {
-    for (int i = 0; i < NumberOfTurbines; i++) {
-      delete[] StatorTurbine[i];
-    }
-    delete[] StatorTurbine;
-  }
-
-  if (RotorTurbine != NULL)
-    delete[] RotorTurbine;
+  // if (RotorTurbine != NULL)
+  //   delete[] RotorTurbine;
 
   // if (CCCalcExtern != NULL)
   //   delete[] CCCalcExtern;
@@ -537,7 +526,7 @@ void TOpenWAM::ReadInputData(std::string FileName) {
   for (int i = 0; i < NumberOfConnections; i++) {
     if (BC[i]->getTipoCC() == nmCompresor) {
       dynamic_cast<TCCCompresor *>(BC[i].get())
-          ->ReadCompressorData(fileinput.c_str(), fileposition, Compressor);
+          ->ReadCompressorData(fileinput, fileposition, Compressor);
     }
   }
 
@@ -622,8 +611,8 @@ void TOpenWAM::ReadGeneralData() {
     int tipociclo = 0, tipomod = 0, tipocalculoespecies = 0;
     double fracciontotal = 0.;
     int haycombustible, tipocombustible, tipogamma, EGR, IntEGR = 1;
-    stEspecies *DatEsp;
-    double *CompAtmosfera;
+    stEspecies *DatEsp = nullptr;
+    double *CompAtmosfera = nullptr;
 
     FileInput >> agincr >> SimulationDuration;
     FileInput >> AmbientPressure >> AmbientTemperature;
@@ -700,7 +689,8 @@ void TOpenWAM::ReadGeneralData() {
         SpeciesNumber = 9;
       }
 
-      DatEsp = new stEspecies[SpeciesNumber - IntEGR];
+      SpeciesName.resize(SpeciesNumber - IntEGR);
+      DatEsp = SpeciesName.data();
 
       // DatEsp[0].Nombre = new char[15];
       DatEsp[0].Nombre = "O2";
@@ -778,9 +768,10 @@ void TOpenWAM::ReadGeneralData() {
         // No existe inyeccion de combustible
         SpeciesNumber = 3;
       }
-      DatEsp = new stEspecies[SpeciesNumber - IntEGR];
+      SpeciesName.resize(SpeciesNumber - IntEGR);
+      DatEsp = SpeciesName.data();
 
-      DatEsp[0].Nombre = new char[15];
+      // DatEsp[0].Nombre = new char[15];
       DatEsp[0].Nombre = "GasesQuemados";
       DatEsp[0].R = 285.4; // J/kgK
 
@@ -815,11 +806,12 @@ void TOpenWAM::ReadGeneralData() {
         }
       }
     }
-    SpeciesName = DatEsp;
+    // SpeciesName = DatEsp;
 
     // A continuacion se lee la composicion del aire atmosferico
 
-    CompAtmosfera = new double[SpeciesNumber - IntEGR];
+    AtmosphericComposition.resize(SpeciesNumber - IntEGR);
+    CompAtmosfera = AtmosphericComposition.data();
     for (int i = 0; i < SpeciesNumber - 1; i++) {
       FileInput >> CompAtmosfera[i];
 
@@ -834,7 +826,7 @@ void TOpenWAM::ReadGeneralData() {
       throw Exception(" ");
     }
 
-    AtmosphericComposition = CompAtmosfera;
+    // AtmosphericComposition = CompAtmosfera;
 
   } catch (exception &N) {
     std::cout << "ERROR: ReadGeneralData" << std::endl;
@@ -860,9 +852,9 @@ void TOpenWAM::ReadEngine()
           AmbientPressure, AmbientTemperature, SpeciesModel, SpeciesNumber,
           GammaCalculation, ThereIsEGR));
 
-      Engine[0]->LeeMotor(fileinput.c_str(), filepos, SimulationType,
+      Engine[0]->LeeMotor(fileinput, filepos, SimulationType,
                           CyclesWithoutThemalInertia, EngineType,
-                          AtmosphericComposition);
+                          AtmosphericComposition.data());
       FileInput.open(fileinput.c_str());
       FileInput.seekg((std::streamoff)filepos);
     }
@@ -1417,7 +1409,7 @@ void TOpenWAM::ReadConnections() {
                                       Pipe, NumberOfDPF, this->DPF);
           dynamic_cast<TCCDescargaExtremoAbierto *>(BC.back().get())
               ->AsignAmbientConditions(AmbientTemperature, AmbientPressure,
-                                       AtmosphericComposition);
+                                       AtmosphericComposition.data());
           break;
         case 1:
           // BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndReservoir, i,
@@ -1570,8 +1562,8 @@ void TOpenWAM::ReadConnections() {
               ->PutNumeroCV(numerocv);
           NumberOfVolumetricCompressors++;
           dynamic_cast<TCCCompresorVolumetrico *>(BC.back().get())
-              ->LeeCCCompresorVol(fileinput.c_str(), filepos, NumberOfPipes,
-                                  Pipe, EngineBlock);
+              ->LeeCCCompresorVol(fileinput, filepos, NumberOfPipes, Pipe,
+                                  EngineBlock);
           dynamic_cast<TCCCompresorVolumetrico *>(BC.back().get())
               ->IniciaMedias();
           break;
@@ -1583,8 +1575,8 @@ void TOpenWAM::ReadConnections() {
               nmInjectionEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation,
               ThereIsEGR));
           NumberOfInjectionEnds++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
+          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                      NumberOfDPF, this->DPF);
           break;
         case 15:
           // BC[i] = new TCCEntradaCompresor(nmEntradaCompre, i, SpeciesModel,
@@ -1594,8 +1586,8 @@ void TOpenWAM::ReadConnections() {
               nmEntradaCompre, i, SpeciesModel, SpeciesNumber, GammaCalculation,
               ThereIsEGR));
           NumTCCEntradaCompresor++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
+          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                      NumberOfDPF, this->DPF);
           break;
         case 16:
           // BC[i] = new TCCUnionEntreDepositos(nmUnionEntreDepositos, i,
@@ -1606,7 +1598,7 @@ void TOpenWAM::ReadConnections() {
               GammaCalculation, ThereIsEGR));
           NumberOfConectionsBetweenPlenums++;
           dynamic_cast<TCCUnionEntreDepositos *>(BC.back().get())
-              ->LeeUEDepositos(fileinput.c_str(), filepos, Independent);
+              ->LeeUEDepositos(fileinput, filepos, Independent);
           break;
         case 17:
           // BC[i] = new TCCCompresor(nmCompresor, i, SpeciesModel,
@@ -1617,7 +1609,7 @@ void TOpenWAM::ReadConnections() {
               ThereIsEGR));
           NumberOfCompressorsConnections++;
           dynamic_cast<TCCCompresor *>(BC.back().get())
-              ->LeeNumeroCompresor(fileinput.c_str(), filepos);
+              ->LeeNumeroCompresor(fileinput, filepos);
           break;
         case 18:
           // BC[i] = new TCCPreVble(nmPresionVble, i, SpeciesModel,
@@ -1627,8 +1619,8 @@ void TOpenWAM::ReadConnections() {
               nmPresionVble, i, SpeciesModel, SpeciesNumber, GammaCalculation,
               ThereIsEGR));
           NumTCCPreVble++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
+          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                      NumberOfDPF, this->DPF);
           break;
         case 19:
           // BC[i] =
@@ -1638,8 +1630,8 @@ void TOpenWAM::ReadConnections() {
           BC.push_back(std::make_unique<TCFDConnection>(
               nmCFDConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation,
               ThereIsEGR));
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
+          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                      NumberOfDPF, this->DPF);
           break;
         case 20:
           // BC[i] = new TCCExternalConnectionVol(nmExternalConnection, i,
@@ -1649,8 +1641,8 @@ void TOpenWAM::ReadConnections() {
               nmExternalConnection, i, SpeciesModel, SpeciesNumber,
               GammaCalculation, ThereIsEGR));
           NumTCCExternalConnection++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
+          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                      NumberOfDPF, this->DPF);
           break;
         }
         if (BC.back()->getTipoCC() == nmIntakeValve ||
@@ -1918,31 +1910,30 @@ void TOpenWAM::ReadOutput(std::string FileName) {
 
   // OUTPUT ->
 #ifdef ParticulateFilter
-  Output->ReadAverageResults(fileinput.c_str(), filepos, Pipe, EngineBlock,
-                             Engine, Plenum, Axis, Compressor, Turbine, BC, DPF,
+  Output->ReadAverageResults(fileinput, filepos, Pipe, EngineBlock, Engine,
+                             Plenum, Axis, Compressor, Turbine, BC, DPF,
                              VolumetricCompressor, Venturi, Sensor, Controller,
-                             (int)SimulationDuration, FileName.c_str());
+                             (int)SimulationDuration, FileName);
 
   Output->ReadInstantaneousResults(
-      fileinput.c_str(), filepos, Engine, Plenum, Pipe, Venturi, BC, DPF, Axis,
+      fileinput, filepos, Engine, Plenum, Pipe, Venturi, BC, DPF, Axis,
       Compressor, Turbine, VolumetricCompressor, BCWasteGate,
       NumberOfWasteGates, BCReedValve, NumberOfReedValves, Sensor, Controller,
-      FileName.c_str());
+      FileName);
 #else
-  Output->ReadAverageResults(fileinput.c_str(), filepos, Pipe, EngineBlock,
-                             Engine, Plenum, Axis, Compressor, Turbine, BC, DPF,
+  Output->ReadAverageResults(fileinput, filepos, Pipe, EngineBlock, Engine,
+                             Plenum, Axis, Compressor, Turbine, BC, DPF,
                              VolumetricCompressor, Venturi, Sensor, Controller,
-                             (int)SimulationDuration, FileName.c_str());
+                             (int)SimulationDuration, FileName);
 
   Output->ReadInstantaneousResults(
-      fileinput.c_str(), filepos, Engine, Plenum, Pipe, Venturi, BC, DPF, Axis,
+      fileinput, filepos, Engine, Plenum, Pipe, Venturi, BC, DPF, Axis,
       Compressor, Turbine, VolumetricCompressor, BCWasteGate,
       NumberOfWasteGates, BCReedValve, NumberOfReedValves, Sensor, Controller,
-      FileName.c_str());
+      FileName);
 #endif
 
-  Output->ReadSpaceTimeResults(fileinput.c_str(), filepos, Pipe, Engine,
-                               Plenum);
+  Output->ReadSpaceTimeResults(fileinput, filepos, Pipe, Engine, Plenum);
 
   FileInput.open(FileName.c_str());
   FileInput.seekg((std::streamoff)filepos);
@@ -2235,10 +2226,10 @@ void TOpenWAM::AllocateVGTData() {
     int tgv = 0;
     int entr = 0;
 
-    StatorTurbine = new TEstatorTurbina **[NumberOfTurbines];
-    RotorTurbine = new TRotorTurbina *[NumberOfTurbines];
+    StatorTurbine.resize(NumberOfTurbines);
+    RotorTurbine.resize(NumberOfTurbines);
     for (int i = 0; i < NumberOfTurbines; i++) {
-      StatorTurbine[i] = new TEstatorTurbina *[Turbine[i]->getNumeroEntradas()];
+      StatorTurbine[i].resize(Turbine[i]->getNumeroEntradas());
       for (int j = 0; j < NumberOfConnections; j++) {
         if (BC[j]->getTipoCC() == nmPipeToPlenumConnection) {
           if (dynamic_cast<TCCDeposito *>(BC[j].get())
@@ -2271,17 +2262,15 @@ void TOpenWAM::AllocateVGTData() {
       }
     }
     if (CountVGT != 0) {
-      DatosTGV = new stDatosTGV[CountVGT];
+      DatosTGV.resize(CountVGT);
       for (int i = 0; i < NumberOfTurbines; i++) {
         if (RotorTurbine[i]->getTipoRotor() == nmRotVariable) {
           // En su momento asignar al objeto turbina correspondiente el namero
           // de TGV que le corresponde.Falta hacer.26-12-05
           DatosTGV[tgv].Entradas = Turbine[i]->getNumeroEntradas();
           DatosTGV[tgv].Turbine = i;
-          DatosTGV[tgv].Estator =
-              new TTipoValvula *[Turbine[i]->getNumeroEntradas()];
-          DatosTGV[tgv].Rendimiento =
-              new double[Turbine[i]->getNumeroEntradas()];
+          DatosTGV[tgv].Estator.resize(Turbine[i]->getNumeroEntradas());
+          DatosTGV[tgv].Rendimiento.resize(Turbine[i]->getNumeroEntradas());
           for (int j = 0; j < Turbine[i]->getNumeroEntradas(); ++j) {
             if (Turbine[i]->GetCCEntrada(j)->getTipoCC() ==
                 nmPipeToPlenumConnection) {
@@ -2306,7 +2295,7 @@ void TOpenWAM::AllocateVGTData() {
                      i + 1);
             tgv++;
           }
-          Turbine[i]->AllocateDatosTGV(DatosTGV);
+          Turbine[i]->AllocateDatosTGV(DatosTGV.data());
         }
       }
     }
@@ -2354,9 +2343,9 @@ void TOpenWAM::ConnectFlowElements() {
   for (int i = 0; i < NumberOfConnections; i++) {
     if (BC[i]->getTipoCC() == nmCompresor) {
       dynamic_cast<TCCCompresor *>(BC[i].get())
-          ->AsignData(Plenum, NumberOfPipes, Pipe, BC, NumberOfConnections,
-                      AtmosphericComposition, Compressor, AmbientTemperature,
-                      AmbientPressure);
+          ->AsignData(Plenum, NumberOfPlenums, Pipe, BC, NumberOfConnections,
+                      AtmosphericComposition.data(), Compressor,
+                      AmbientTemperature, AmbientPressure);
     }
   }
 
@@ -3014,7 +3003,7 @@ void TOpenWAM::SearchMinimumTimeStep() {
 
 void TOpenWAM::StudyInflowOutflowMass() {
   try {
-    double smadd = 0, cociente, gasta = 0, gaste = 0;
+    double smadd = 0, cociente = 0, gasta = 0, gaste = 0;
     int i = 0;
     bool masacil, masadep;
     double TMinimo = 0.;
@@ -3560,7 +3549,7 @@ void TOpenWAM::InitializeOutput() {
 
   Output->HeaderSpaceTimeResults(thmax, grmax, agincr, SpeciesNumber);
 
-  Output->HeaderAverageResults(SpeciesName, EXTERN.get(), ThereIsDLL);
+  Output->HeaderAverageResults(SpeciesName.data(), EXTERN.get(), ThereIsDLL);
 
   Output->CopyAverageResultsToFile(0);
 
@@ -4274,6 +4263,7 @@ void TOpenWAM::UpdateTurbocharger() {
 
 void TOpenWAM::CalculateFlowCommon() {
 
+#pragma omp parallel for
   for (int j = 0; j < NumberOfPipes; j++) {
     Pipe[j]->CalculaVariablesFundamentales();
     Pipe[j]->CalculaCaracteristicasExtremos(BC, Run.TimeStep);
@@ -4312,6 +4302,7 @@ void TOpenWAM::CalculateFlowCommon() {
     }
   }
 
+#pragma omp parallel for
   for (int j = 0; j < NumberOfPipes; j++) {
     Pipe[j]->ActualizaValoresNuevos(BC);
     Pipe[j]->ActualizaPropiedadesGas();
@@ -4415,7 +4406,7 @@ void TOpenWAM::ManageOutput() {
   Output->CopyInstananeousResultsToFile(0);
 
   Output->HeaderInstantaneousResults(EXTERN.get(), ThereIsDLL, EngineBlock,
-                                     SpeciesName);
+                                     SpeciesName.data());
 
 #ifdef gestorcom
   if (GestorWAM)
@@ -4477,10 +4468,10 @@ void TOpenWAM::GeneralOutput() {
     }
   }
   for (int i = 0; i < NumberOfPlenums; i++) {
-    Plenum[i]->SalidaGeneralDep(SpeciesName);
+    Plenum[i]->SalidaGeneralDep(SpeciesName.data());
   }
   for (int i = 0; i < NumberOfPipes; i++) {
-    Pipe[i]->SalidaGeneralTubos(SpeciesName);
+    Pipe[i]->SalidaGeneralTubos(SpeciesName.data());
   }
 }
 

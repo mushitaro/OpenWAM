@@ -475,12 +475,12 @@ void TTurbinaTwin::CalculaCondicionTurbina(double TimeCalculo) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTurbinaTwin::ReadAverageResultsTurb(const char *FileWAM,
+void TTurbinaTwin::ReadAverageResultsTurb(const std::string &FileWAM,
                                           fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -746,12 +746,12 @@ void TTurbinaTwin::CalculaResultadosMediosTurb() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTurbinaTwin::LeeResultadosInstantTurb(const char *FileWAM,
+void TTurbinaTwin::LeeResultadosInstantTurb(const std::string &FileWAM,
                                             fpos_t &filepos) {
   int nvars = 0, var = 0;
 
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

@@ -67,7 +67,8 @@ public:
 
   // Updated signature for vectors
   virtual void
-  ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+  ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
+                   int NumberOfPipes,
                    const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
                    const std::vector<std::unique_ptr<TDPF>> &DPF) {};
 

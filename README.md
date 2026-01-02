@@ -13,49 +13,77 @@ A modern web-based interface for the OpenWAM engine simulation software, providi
 
 ## Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 - OpenWAM executable (for running simulations)
+
+## Engine Core Development (C++)
+
+The OpenWAM engine core has been modernized to serve as a base for specific vehicle model development.
+
+### Key Changes
+
+- **Modern C++ (C++14/17)**: Raw pointers replaced with `std::unique_ptr` and `std::shared_ptr` for robust memory management.
+- **I/O Modernization**: `FILE*` and `char*` replaced with `<fstream>` and `std::string`.
+- **Parallelization**: OpenMP enabled for key calculation loops (`TOpenWAM::CalculateFlowCommon`).
+
+### Build Instructions
+
+Requirements: CMake 3.10+, C++17 compliant compiler, OpenMP (optional but recommended).
+
+```bash
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release
+```
 
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd openwam-webapp
 ```
 
-2. Install dependencies:
+1. Install dependencies:
+
 ```bash
 npm install
 ```
 
-3. Copy environment configuration:
+1. Copy environment configuration:
+
 ```bash
 cp .env.example .env
 ```
 
-4. Edit `.env` file with your configuration
+1. Edit `.env` file with your configuration
 
 ## Development
 
 Start the development server:
+
 ```bash
 npm run dev
 ```
 
 This will start:
-- Backend server on http://localhost:5000
-- Frontend development server on http://localhost:3000
+
+- Backend server on <http://localhost:5000>
+- Frontend development server on <http://localhost:3000>
 
 ## Building for Production
 
 Build the application:
+
 ```bash
 npm run build
 ```
 
 Start the production server:
+
 ```bash
 npm start
 ```
@@ -63,11 +91,13 @@ npm start
 ## Testing
 
 Run tests:
+
 ```bash
 npm test
 ```
 
 Run tests in watch mode:
+
 ```bash
 npm run test:watch
 ```
@@ -92,6 +122,7 @@ npm run test:watch
 ## API Documentation
 
 ### Projects
+
 - `GET /api/projects` - Get all projects
 - `POST /api/projects` - Create new project
 - `GET /api/projects/:id` - Get project by ID
@@ -99,17 +130,20 @@ npm run test:watch
 - `DELETE /api/projects/:id` - Delete project
 
 ### Simulations
+
 - `GET /api/simulations/:id` - Get simulation status
 - `POST /api/simulations` - Start new simulation
 - `PUT /api/simulations/:id` - Update simulation
 - `DELETE /api/simulations/:id` - Cancel simulation
 
 ### Files
+
 - `POST /api/files/upload` - Upload file
 - `GET /api/files/:id/download` - Download file
 - `DELETE /api/files/:id` - Delete file
 
 ### System
+
 - `GET /api/system/status` - Get system status
 - `GET /api/system/health` - Health check
 - `GET /api/system/logs` - Get recent logs

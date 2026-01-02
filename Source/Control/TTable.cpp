@@ -43,13 +43,13 @@ TTable::~TTable() {}
 
 double TTable::Output(double Time) {}
 
-void TTable::LeeController(const char *FileWAM, fpos_t &filepos) {
+void TTable::LeeController(const std::string &FileWAM, fpos_t &filepos) {
 
   int xnum = 0, ynum = 0;
   double x = 0., y = 0., z = 0.;
   std::vector<double> zz;
 
-  FILE *fich = fopen(FileWAM, "r");
+  FILE *fich = fopen(FileWAM.c_str(), "r");
   fsetpos(fich, &filepos);
 
   fscanf(fich, "%d ", &fDimensiones);
@@ -78,11 +78,12 @@ void TTable::AsignaObjetos(TSensor **Sensor, TController **Controller) {
   // fSetPointController=Controller[fSetPointControllerID-1];
 }
 
-void TTable::LeeResultadosMedControlador(const char *FileWAM, fpos_t &filepos) {
+void TTable::LeeResultadosMedControlador(const std::string &FileWAM,
+                                         fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -123,11 +124,12 @@ void TTable::LeeResultadosMedControlador(const char *FileWAM, fpos_t &filepos) {
   }
 }
 
-void TTable::LeeResultadosInsControlador(const char *FileWAM, fpos_t &filepos) {
+void TTable::LeeResultadosInsControlador(const std::string &FileWAM,
+                                         fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

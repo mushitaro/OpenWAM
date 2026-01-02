@@ -45,11 +45,11 @@ double TGain::Output(double Time) {
   return fOutput;
 }
 
-void TGain::LeeController(const char *FileWAM, fpos_t &filepos) {
+void TGain::LeeController(const std::string &FileWAM, fpos_t &filepos) {
 
   int Type = 0;
 
-  FILE *fich = fopen(FileWAM, "r");
+  FILE *fich = fopen(FileWAM.c_str(), "r");
   fsetpos(fich, &filepos);
 
   fscanf(fich, "%lf ", &FGain);
@@ -73,11 +73,12 @@ void TGain::AsignaObjetos(TSensor **Sensor, TController **Controller) {
   }
 }
 
-void TGain::LeeResultadosMedControlador(const char *FileWAM, fpos_t &filepos) {
+void TGain::LeeResultadosMedControlador(const std::string &FileWAM,
+                                        fpos_t &filepos) {
 
   int nvars = 0, var = 0;
 
-  FILE *fich = fopen(FileWAM, "r");
+  FILE *fich = fopen(FileWAM.c_str(), "r");
   fsetpos(fich, &filepos);
 
   fscanf(fich, "%d ", &nvars);
@@ -98,11 +99,12 @@ void TGain::LeeResultadosMedControlador(const char *FileWAM, fpos_t &filepos) {
   fclose(fich);
 }
 
-void TGain::LeeResultadosInsControlador(const char *FileWAM, fpos_t &filepos) {
+void TGain::LeeResultadosInsControlador(const std::string &FileWAM,
+                                        fpos_t &filepos) {
 
   int nvars = 0, var = 0;
 
-  FILE *fich = fopen(FileWAM, "r");
+  FILE *fich = fopen(FileWAM.c_str(), "r");
   fsetpos(fich, &filepos);
 
   fscanf(fich, "%d ", &nvars);

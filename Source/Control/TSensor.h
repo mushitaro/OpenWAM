@@ -88,7 +88,7 @@ public:
   ~TSensor();
 
   /*! Read from the input data the sensor information*/
-  void ReadSensor(const char *FileWAM, //!< Filename of the input data
+  void ReadSensor(const std::string &FileWAM, //!< Filename of the input data
                   fpos_t &filepos //!< Specify a position within the input file.
   );
 
@@ -111,14 +111,14 @@ public:
 
   /*! Read the average results selected for the sensor*/
   void LeeResultadosMedSensor(
-      const char *FileWAM, //!< Filename of the input data
-      fpos_t &filepos      //!< Specify a position within the input file.
+      const std::string &FileWAM, //!< Filename of the input data
+      fpos_t &filepos             //!< Specify a position within the input file.
   );
 
   /*! Read de instantaneous results selected for the sensor*/
   void LeeResultadosInsSensor(
-      const char *FileWAM, //!< Filename of the input data
-      fpos_t &filepos      //!< Specify a position within the input file.
+      const std::string &FileWAM, //!< Filename of the input data
+      fpos_t &filepos             //!< Specify a position within the input file.
   );
 
   /*! Generate the header of the average results*/

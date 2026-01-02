@@ -84,10 +84,10 @@ TVenturi::~TVenturi() {}
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TVenturi::LeeDatosVenturi(const char *FileWAM, fpos_t &filepos) {
+void TVenturi::LeeDatosVenturi(const std::string &FileWAM, fpos_t &filepos) {
   try {
     int numid = 0; // dato para Wamer
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &numid); /* DATO PARA WAMER */
@@ -384,26 +384,26 @@ void TVenturi::CalculaVenturi() {
 //		}
 //		else {
 //			std::cout << "ERROR: Este Venturi ya tiene numero
-//asignado" << std::endl; 			throw Exception("");
+// asignado" << std::endl; 			throw Exception("");
 //		}
 //	}
 //	catch(Exception & N) {
 //		std::cout << "ERROR: TVenturi::PutNumeroVenturi en la Venturi "
-//<< FNumeroVenturi << std::endl; 		std::cout << "Tipo de error: " << N.what() <<
-//std::endl; 		throw Exception(N.what());
+//<< FNumeroVenturi << std::endl; 		std::cout << "Tipo de error: "
+//<< N.what() << std::endl; 		throw Exception(N.what());
 //	}
 // }
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TVenturi::LeeResultadosInstantVenturi(const char *FileWAM,
+void TVenturi::LeeResultadosInstantVenturi(const std::string &FileWAM,
                                            fpos_t &filepos) {
 
   int nvars = 0, var = 0;
 
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -635,11 +635,12 @@ void TVenturi::CalculaResultadosVenturi() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TVenturi::ReadAverageResultsVenturi(const char *FileWAM, fpos_t &filepos) {
+void TVenturi::ReadAverageResultsVenturi(const std::string &FileWAM,
+                                         fpos_t &filepos) {
   int nvars = 0, var = 0;
 
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

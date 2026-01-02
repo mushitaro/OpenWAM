@@ -66,12 +66,13 @@ TCCExtremoInyeccion::~TCCExtremoInyeccion() {
 //---------------------------------------------------------------------------
 
 void TCCExtremoInyeccion::ReadBoundaryData(
-    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
     int i = 0;
     double fracciontotal = 0.;
+    int numid;
 
     FTuboExtremo = new stTuboExtremo[1];
     FTuboExtremo[0].Pipe = NULL;
@@ -100,7 +101,7 @@ void TCCExtremoInyeccion::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%lf %lf %lf ", &FGastoIny, &FTemperaturaIny, &FInicioIny);

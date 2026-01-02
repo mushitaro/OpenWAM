@@ -90,14 +90,14 @@ TCCUnionEntreDepositos::~TCCUnionEntreDepositos() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCUnionEntreDepositos::LeeUEDepositos(const char *FileWAM,
+void TCCUnionEntreDepositos::LeeUEDepositos(const std::string &FileWAM,
                                             fpos_t &filepos, bool Independent) {
   try {
     int numid = 0; // Variable necesaria para WAMer.
 
     FIndependiente = Independent;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ",
@@ -742,11 +742,11 @@ void TCCUnionEntreDepositos::CalculaUED() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCUnionEntreDepositos::LeeResultadosInstantUED(const char *FileWAM,
+void TCCUnionEntreDepositos::LeeResultadosInstantUED(const std::string &FileWAM,
                                                      fpos_t &filepos) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -836,11 +836,11 @@ void TCCUnionEntreDepositos::ImprimeResultadosInstantUED(
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 
-void TCCUnionEntreDepositos::ReadAverageResultsUED(const char *FileWAM,
+void TCCUnionEntreDepositos::ReadAverageResultsUED(const std::string &FileWAM,
                                                    fpos_t &filepos) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

@@ -11,7 +11,7 @@ class TCFDConnection : public TCondicionContorno {
 private:
   int FNodoFin;  //<! Node of the pipe connected to the boundary.
   int FIndiceCC; //<! Vector position for the pipe boundaries (0 Left node; 1
-                 //Right node)
+                 // Right node)
 
   double *FCC; //<! Known characteristic at the boundary.
   double *FCD; //<! Unknown characteristic at the boundary.
@@ -38,7 +38,8 @@ public:
 
   ~TCFDConnection();
 
-  void ReadBoundaryData(const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+  void ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
+                        int NumberOfPipes,
                         const std::vector<std::unique_ptr<TTubo>> &Pipe,
                         int nDPF,
                         const std::vector<std::unique_ptr<TDPF>> &DPF);

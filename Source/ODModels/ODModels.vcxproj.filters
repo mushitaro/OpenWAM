@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TAcousticTurbine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TDeposito.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TDepVolCte.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TDepVolCteBase.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TDepVolVariable.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TIsoSpeedLine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TTurbina.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TTurbinaSimple.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TTurbinaTwin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TTurbineMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TTurbPosition.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TUnionDireccional.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\ODModels\TVenturi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\kazuh\OpenWAM\Source\ODModels\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{FC5B56A8-93AA-31DC-87BD-73B32BF9695A}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

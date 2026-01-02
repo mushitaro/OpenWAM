@@ -149,12 +149,12 @@ TDeposito::~TDeposito() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TDeposito::LeeDatosGeneralesDepositos(const char *FileWAM,
+void TDeposito::LeeDatosGeneralesDepositos(const std::string &FileWAM,
                                            fpos_t &filepos) {
   try {
     double fracciontotal = 0.;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
@@ -841,11 +841,11 @@ void TDeposito::ResultadosMediosDep() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TDeposito::ReadInstantaneousResultsDep(const char *FileWAM,
+void TDeposito::ReadInstantaneousResultsDep(const std::string &FileWAM,
                                             fpos_t &filepos) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -890,10 +890,11 @@ void TDeposito::ReadInstantaneousResultsDep(const char *FileWAM,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TDeposito::ReadAverageResultsDep(const char *FileWAM, fpos_t &filepos) {
+void TDeposito::ReadAverageResultsDep(const std::string &FileWAM,
+                                      fpos_t &filepos) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &FNumResMed);
@@ -1216,7 +1217,8 @@ TCondicionContorno *TDeposito::GetCCDeposito(int i) {
 //	}
 //	catch(Exception & N) {
 //		std::cout << "ERROR: TDeposito::PutCalculadoPaso en el deposito:
-//" << FNumeroDeposito << std::endl; 		std::cout << "Tipo de error: " << N.what()
+//" << FNumeroDeposito << std::endl; 		std::cout << "Tipo de error: "
+//<< N.what()
 //<< std::endl; 		throw Exception(N.what());
 //	}
 //}

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -33,69 +34,63 @@
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TCDExterno::TCDExterno() :
-	TTipoValvula(nmCalcExtern) {
-
-}
+TCDExterno::TCDExterno() : TTipoValvula(nmCalcExtern) {}
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TCDExterno::~TCDExterno() {
-
-}
+TCDExterno::~TCDExterno() {}
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TCDExterno::TCDExterno(TCDExterno *Origen, int Valvula) :
-	TTipoValvula(nmCalcExtern) {
+TCDExterno::TCDExterno(TCDExterno *Origen, int Valvula)
+    : TTipoValvula(nmCalcExtern) {
 
-	FCDEInicial = Origen->FCDEInicial;
-	FCDSInicial = Origen->FCDSInicial;
-	FCTorbInicial = Origen->FCTorbInicial;
+  FCDEInicial = Origen->FCDEInicial;
+  FCDSInicial = Origen->FCDSInicial;
+  FCTorbInicial = Origen->FCTorbInicial;
 
-//Se utilizara el diametro del tubo.
-	FDiamRef = -1;
+  // Se utilizara el diametro del tubo.
+  FDiamRef = -1;
 
-	FNumeroOrden = Origen->FNumeroOrden;
-	FValvula = Valvula;
+  FNumeroOrden = Origen->FNumeroOrden;
+  FValvula = Valvula;
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCDExterno::LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor,
-								   TBloqueMotor *Engine) {
-	try {
-		FILE *fich = fopen(FileWAM, "r");
-		fsetpos(fich, &filepos);
+void TCDExterno::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                                   int norden, bool HayMotor,
+                                   TBloqueMotor *Engine) {
+  try {
+    FILE *fich = fopen(FileWAM.c_str(), "r");
+    fsetpos(fich, &filepos);
 
-		fscanf(fich, "%lf %lf %lf ", &FCDEInicial, &FCDSInicial, &FCTorbInicial);
+    fscanf(fich, "%lf %lf %lf ", &FCDEInicial, &FCDSInicial, &FCTorbInicial);
 
-		fgetpos(fich, &filepos);
-		fclose(fich);
+    fgetpos(fich, &filepos);
+    fclose(fich);
 
-	} catch(exception &N) {
-		std::cout << "ERROR: LeeDatosIniciales CDExterno" << std::endl;
-		//std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-		throw Exception(N.what());
-
-	}
+  } catch (exception &N) {
+    std::cout << "ERROR: LeeDatosIniciales CDExterno" << std::endl;
+    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 void TCDExterno::CalculaCD() {
-	try {
-		FCDTubVol = FCDEntMatlab;
-		FCDVolTub = FCDSalMatlab;
-		FCTorb = FCTorMatlab;
-	} catch(exception &N) {
-		std::cout << "ERROR: CalculaCD CDExterno" << std::endl;
-		//std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-		throw Exception(N.what());
-
-	}
+  try {
+    FCDTubVol = FCDEntMatlab;
+    FCDVolTub = FCDSalMatlab;
+    FCTorb = FCTorMatlab;
+  } catch (exception &N) {
+    std::cout << "ERROR: CalculaCD CDExterno" << std::endl;
+    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 #pragma package(smart_init)

@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TAjusteTransCalorCil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TCalculoExtern.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TCoefDescarga.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TControlFuel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TControlInyeccion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TControlK.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TEGRV.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\Tfql.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TFraccionMasicaCilindro.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TMuelle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TRegimenMotor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TRemansoMatlab.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Extern\TTGV.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\kazuh\OpenWAM\Source\Extern\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{FC5B56A8-93AA-31DC-87BD-73B32BF9695A}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

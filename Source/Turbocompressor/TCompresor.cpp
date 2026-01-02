@@ -234,10 +234,11 @@ void TCompresor::CalculaInstantaneos() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCompresor::LeeDatosGraficasMedias(const char *FileWAM, fpos_t &filepos) {
+void TCompresor::LeeDatosGraficasMedias(const std::string &FileWAM,
+                                        fpos_t &filepos) {
   int NMagnitudes = 0, Magnitud = 0;
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FMedias.GraficaMedias = true;
@@ -358,11 +359,11 @@ void TCompresor::ImprimeGraficasMedias(stringstream &medoutput) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCompresor::LeeDatosGraficasInstantaneas(const char *FileWAM,
+void TCompresor::LeeDatosGraficasInstantaneas(const std::string &FileWAM,
                                               fpos_t &filepos) {
   int NMagnitudes = 0, Magnitud = 0;
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FInstant.GraficaInstantaneas = true;

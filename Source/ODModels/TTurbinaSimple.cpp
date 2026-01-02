@@ -497,12 +497,12 @@ void TTurbinaSimple::ImprimeResultadosMediosPantalla() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTurbinaSimple::ReadAverageResultsTurb(const char *FileWAM,
+void TTurbinaSimple::ReadAverageResultsTurb(const std::string &FileWAM,
                                             fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -770,12 +770,12 @@ void TTurbinaSimple::CalculaResultadosMediosTurb() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTurbinaSimple::LeeResultadosInstantTurb(const char *FileWAM,
+void TTurbinaSimple::LeeResultadosInstantTurb(const std::string &FileWAM,
                                               fpos_t &filepos) {
   int nvars = 0, var = 0;
 
   try {
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

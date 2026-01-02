@@ -93,13 +93,14 @@ TEjeTurbogrupo::~TEjeTurbogrupo() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TEjeTurbogrupo::ReadTurbochargerAxis(const char *FileWAM, fpos_t &filepos,
+void TEjeTurbogrupo::ReadTurbochargerAxis(const std::string &FileWAM,
+                                          fpos_t &filepos,
                                           TCompresor **Compressor,
                                           TTurbina **Turbine) {
   try {
     int variacion = 0, htm = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     // Lectura del regimen inicial y si se mantiene constante durante el
@@ -404,12 +405,12 @@ void TEjeTurbogrupo::CalculaEjesTurbogrupo(double Theta,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TEjeTurbogrupo::ReadAverageResultsEje(const char *FileWAM,
+void TEjeTurbogrupo::ReadAverageResultsEje(const std::string &FileWAM,
                                            fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -542,12 +543,12 @@ void TEjeTurbogrupo::AcumulaResultadosMediosEje(double Actual) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TEjeTurbogrupo::ReadInstantaneousResultsEje(const char *FileWAM,
+void TEjeTurbogrupo::ReadInstantaneousResultsEje(const std::string &FileWAM,
                                                  fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FResInstantEje.Regimen = false;

@@ -112,11 +112,12 @@ void TCCDescargaExtremoAbierto::AsignAmbientConditions(
 // ---------------------------------------------------------------------------
 
 void TCCDescargaExtremoAbierto::ReadBoundaryData(
-    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
     int i = 0;
+    int numid; // Variable necesaria para WAMer.
     double fracciontotal = 0.;
     double RMezclaDep = 0., CvMezclaDep = 0., CpMezclaDep = 0., GammaDep = 0.;
     int modeladoescape = 0;
@@ -148,7 +149,7 @@ void TCCDescargaExtremoAbierto::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     if (FTipoDescarga == nmDescargaAtmosfera) { // DESCARGA A LA ATMOSFERA
@@ -302,8 +303,9 @@ void TCCDescargaExtremoAbierto::ReadBoundaryData(
 //	}
 //	catch(Exception & N) {
 //		std::cout << "ERROR: TCCDescargaExtremoAbierto::PutPresion en la
-//condicion de contorno: " << 			FNumeroCC << std::endl; 		std::cout << "Tipo de
-//error: " << N.what() << std::endl; 		throw Exception(N.what());
+// condicion de contorno: " << 			FNumeroCC << std::endl;
+// std::cout << "Tipo de error: " << N.what() << std::endl; 		throw
+// Exception(N.what());
 //	}
 // }
 
@@ -313,33 +315,34 @@ void TCCDescargaExtremoAbierto::ReadBoundaryData(
 // void TCCDescargaExtremoAbierto::PutTemperatura(double valor) {
 //	try {
 //		double RMezclaDep = 0., CvMezclaDep = 0., CpMezclaDep = 0.,
-//GammaDep = 0.;
+// GammaDep = 0.;
 //
 //		FTemperaturaDep = valor;
 //		if (FCalculoEspecies == nmCalculoCompleto) {
 //
 //			RMezclaDep = CalculoCompletoRMezcla(FComposicion[0],
-//FComposicion[1], FComposicion[2], 				FCalculoGamma); 			CpMezclaDep =
-//CalculoCompletoCpMezcla(FComposicion[0], FComposicion[1], 				FComposicion[2],
-//FTemperaturaDep, FCalculoGamma, 0); 			GammaDep =
-//CalculoCompletoGamma(RMezclaDep, CpMezclaDep, FCalculoGamma, 0);
+// FComposicion[1], FComposicion[2], 				FCalculoGamma);
+// CpMezclaDep = CalculoCompletoCpMezcla(FComposicion[0], FComposicion[1],
+// FComposicion[2], FTemperaturaDep, FCalculoGamma, 0);
+// GammaDep = CalculoCompletoGamma(RMezclaDep, CpMezclaDep, FCalculoGamma, 0);
 //
 //		}
 //		else if (FCalculoEspecies == nmCalculoSimple) {
 //
 //			RMezclaDep = CalculoSimpleRMezcla(FComposicion[0],
-//FCalculoGamma, 0); 			CvMezclaDep = CalculoSimpleCvMezcla(FTemperaturaDep,
-//FComposicion[0], FCalculoGamma, 0); 			GammaDep = CalculoSimpleGamma(RMezclaDep,
-//CvMezclaDep, FCalculoGamma);
+// FCalculoGamma, 0); 			CvMezclaDep =
+// CalculoSimpleCvMezcla(FTemperaturaDep, FComposicion[0], FCalculoGamma, 0);
+// GammaDep = CalculoSimpleGamma(RMezclaDep, CvMezclaDep, FCalculoGamma);
 //
 //		}
 //		FVelocidadSonidoDep = sqrt(FTemperaturaDep * GammaDep *
-//RMezclaDep) / __cons::ARef;
+// RMezclaDep) / __cons::ARef;
 //	}
 //	catch(Exception & N) {
 //		std::cout << "ERROR: TCCDescargaExtremoAbierto::PutTemperatura
-//en la condicion de contorno: " << 			FNumeroCC << std::endl; 		std::cout << "Tipo
-//de error: " << N.what() << std::endl; 		throw Exception(N.what());
+// en la condicion de contorno: " << 			FNumeroCC << std::endl;
+// std::cout << "Tipo de error: " << N.what() << std::endl; 		throw
+// Exception(N.what());
 //	}
 // }
 

@@ -102,7 +102,7 @@ TCCDeposito::~TCCDeposito() {
 // ---------------------------------------------------------------------------
 
 void TCCDeposito::ReadBoundaryData(
-    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -202,7 +202,7 @@ void TCCDeposito::ReadBoundaryData(
       FUnionDPF = true;
     }
 #endif
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ",

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -42,95 +43,82 @@
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TValvula4T: public TTipoValvula {
-  private:
-//CONSTANTES INICIALES
+class TValvula4T : public TTipoValvula {
+private:
+  // CONSTANTES INICIALES
 
-	dVector FAngle;
-	dVector FLevantamiento;
-	Hermite_interp *fun_FLift;
-	double FIncrAng;
+  dVector FAngle;
+  dVector FLevantamiento;
+  Hermite_interp *fun_FLift;
+  double FIncrAng;
 
-	double FIncrLev;
+  double FIncrLev;
 
-	dVector FLiftCD;
-	dVector FDatosCDEntrada;
-	Hermite_interp *fun_CDin;
-	dVector FDatosCDSalida;
-	Hermite_interp *fun_CDout;
-	dVector FDatosTorbellino;
-	Hermite_interp *fun_Torb;
+  dVector FLiftCD;
+  dVector FDatosCDEntrada;
+  Hermite_interp *fun_CDin;
+  dVector FDatosCDSalida;
+  Hermite_interp *fun_CDout;
+  dVector FDatosTorbellino;
+  Hermite_interp *fun_Torb;
 
-	double FCDEntrada;
-	double FCDSalida;
-	double FDiametro;
-	double FDiametroRef;
-	double FAnguloApertura;
-	double FAnguloApertura0;
-	double FAngle0;
-	double FAnguloCierre;
-	double FCoefTorbMedio;
-// VARIABLES DE CALCULO
-	double FApertura;
+  double FCDEntrada;
+  double FCDSalida;
+  double FDiametro;
+  double FDiametroRef;
+  double FAnguloApertura;
+  double FAnguloApertura0;
+  double FAngle0;
+  double FAnguloCierre;
+  double FCoefTorbMedio;
+  // VARIABLES DE CALCULO
+  double FApertura;
 
-	bool FVVT;
-	bool FVVTLift;
-	bool FVVTTiming;
-	bool FVVTDuration;
+  bool FVVT;
+  bool FVVTLift;
+  bool FVVTTiming;
+  bool FVVTDuration;
 
-	double FVVTLiftMultiplier;
-	double FVVTTimigGap;
-	double FVVTDurationMultiplier;
+  double FVVTLiftMultiplier;
+  double FVVTTimigGap;
+  double FVVTDurationMultiplier;
 
-	int FVVTLiftCtrlID;
-	int FVVTTimingCtrlID;
-	int FVVTDurationCtrlID;
+  int FVVTLiftCtrlID;
+  int FVVTTimingCtrlID;
+  int FVVTDurationCtrlID;
 
-	TController *FVVTLiftCtrl;
-	TController *FVVTTimingCtrl;
-	TController *FVVTDurationCtrl;
+  TController *FVVTLiftCtrl;
+  TController *FVVTTimingCtrl;
+  TController *FVVTDurationCtrl;
 
-	int FValvula;
+  int FValvula;
 
-//double Interpola2(double  x,double  *y,int n);
+  // double Interpola2(double  x,double  *y,int n);
 
-  public:
+public:
+  TValvula4T(TValvula4T *Origen, int valv);
 
-	TValvula4T(TValvula4T *Origen, int valv);
+  TValvula4T();
 
-	TValvula4T();
+  ~TValvula4T();
 
-	~TValvula4T();
+  double getAnguloApertura() { return FAnguloApertura; };
+  double getAnguloCierre() { return FAnguloCierre; };
+  double getDiametro() { return FDiametro; };
+  double getCTorbMed() { return FCoefTorbMedio; };
 
-	double getAnguloApertura() {
-		return FAnguloApertura;
-	}
-	;
-	double getAnguloCierre() {
-		return FAnguloCierre;
-	}
-	;
-	double getDiametro() {
-		return FDiametro;
-	}
-	;
-	double getCTorbMed() {
-		return FCoefTorbMedio;
-	}
-	;
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
+  void CalculaCD(double Angulo);
 
-	void CalculaCD(double Angulo);
+  void VVTControl(double Time);
 
-	void VVTControl(double Time);
+  void AsignaLevController(TController **Controller);
 
-	void AsignaLevController(TController **Controller);
+  void GetCDin(double Time);
 
-	void GetCDin(double Time);
-
-	void GetCDout(double Time);
-
+  void GetCDout(double Time);
 };
 
 //---------------------------------------------------------------------------

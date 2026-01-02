@@ -45,10 +45,10 @@ TSensor::TSensor(int i) {
 
 TSensor::~TSensor() {}
 
-void TSensor::ReadSensor(const char *FileWAM, fpos_t &filepos) {
+void TSensor::ReadSensor(const std::string &FileWAM, fpos_t &filepos) {
   int obj = 0, prm = 0;
 
-  FILE *fich = fopen(FileWAM, "r");
+  FILE *fich = fopen(FileWAM.c_str(), "r");
   fsetpos(fich, &filepos);
 
   fscanf(fich, "%d %d", &obj, &prm);
@@ -237,11 +237,12 @@ void TSensor::ActualizaMedida(double Time) {
   // return out;
 }
 
-void TSensor::LeeResultadosMedSensor(const char *FileWAM, fpos_t &filepos) {
+void TSensor::LeeResultadosMedSensor(const std::string &FileWAM,
+                                     fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -271,11 +272,12 @@ void TSensor::LeeResultadosMedSensor(const char *FileWAM, fpos_t &filepos) {
   }
 }
 
-void TSensor::LeeResultadosInsSensor(const char *FileWAM, fpos_t &filepos) {
+void TSensor::LeeResultadosInsSensor(const std::string &FileWAM,
+                                     fpos_t &filepos) {
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

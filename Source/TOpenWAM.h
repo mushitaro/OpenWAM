@@ -159,8 +159,8 @@ private:
 
   stRun Run;
 
-  stDatosTGV *DatosTGV; // Keep raw for now if shared ownership isn't clear, or
-                        // move to vector if array
+  std::vector<stDatosTGV> DatosTGV;
+  // move to vector if array
   std::string fileinput;
 
   std::ifstream FileInput;
@@ -182,9 +182,9 @@ private:
                    // if unsure, or vector of pointers.
 
   // ! POINTERS ARRAY TO VALVES TYPE TURBINE STATOR
-  TEstatorTurbina ***StatorTurbine; // Triple pointer??
+  std::vector<std::vector<TEstatorTurbina *>> StatorTurbine;
   // ! POINTERS ARRAY TO VALVES TYPE TURBINE ROTOR
-  TRotorTurbina **RotorTurbine;
+  std::vector<TRotorTurbina *> RotorTurbine;
   // ! POINTERS ARRAY TO EXTERNAL CONNECTIONS
   std::vector<TTipoValvula *> CCCalcExtern;
   std::vector<TTipoValvula *> BCButerflyValve;
@@ -262,9 +262,9 @@ private:
   double Theta;
   double Theta0;
 
-  stEspecies *SpeciesName;
+  std::vector<stEspecies> SpeciesName;
   int SpeciesNumber;
-  double *AtmosphericComposition;
+  std::vector<double> AtmosphericComposition;
 
   nmTipoModelado SimulationType;
   nmTipoCalculoEspecies SpeciesModel;

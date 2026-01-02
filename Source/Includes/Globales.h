@@ -365,9 +365,9 @@ struct stCombExtern {
 struct stDatosTGV {
   int Turbine;
   int Entradas;
-  TTipoValvula **Estator;
+  std::vector<TTipoValvula *> Estator;
   TTipoValvula *Rotor;
-  double *Rendimiento;
+  std::vector<double> Rendimiento;
 };
 
 // ---------------------------------------------------------------------------

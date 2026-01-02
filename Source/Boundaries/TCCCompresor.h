@@ -102,12 +102,13 @@ public:
 
   ~TCCCompresor();
 
-  void LeeNumeroCompresor(const char *FileWAM, fpos_t &filepos);
+  void LeeNumeroCompresor(const std::string &FileWAM, fpos_t &filepos);
 
   void
   AsignacionDatos(const std::vector<std::unique_ptr<TCompresor>> &Compressor,
                   const std::vector<std::unique_ptr<TDeposito>> &Plenum,
-                  const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+                  const std::string &FileWAM, fpos_t &filepos,
+                  int NumberOfPipes,
                   const std::vector<std::unique_ptr<TTubo>> &Pipe,
                   const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
                   int numCC, double AmbientTemperature, double AmbientPressure,
@@ -120,7 +121,7 @@ public:
   void TuboCalculandose(int TuboActual);
 
   void ReadCompressorData(
-      const char *FileWAM, fpos_t &filepos,
+      const std::string &FileWAM, fpos_t &filepos,
       const std::vector<std::unique_ptr<TCompresor>> &Compressor);
 
   void AsignData(const std::vector<std::unique_ptr<TDeposito>> &Plenum,

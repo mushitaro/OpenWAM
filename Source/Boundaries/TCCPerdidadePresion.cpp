@@ -87,11 +87,12 @@ TCCPerdidadePresion::~TCCPerdidadePresion() {
 //---------------------------------------------------------------------------
 
 void TCCPerdidadePresion::ReadBoundaryData(
-    const char *FileWAM, fpos_t &filepos, int NumberOfPipes,
+    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
     int i = 0;
+    int numid; // Variable necesaria para WAMer.
     FK = 0;
 
     FTuboExtremo = new stTuboExtremo[2];
@@ -137,7 +138,7 @@ void TCCPerdidadePresion::ReadBoundaryData(
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%lf ", &FK); /* Coeficiente de perdidas con signo positivo */

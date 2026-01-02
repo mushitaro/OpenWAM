@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -34,54 +35,49 @@
 #include <vcl.h>
 #endif
 #include <iostream>
-//#include <cmath>
+// #include <cmath>
 
 #include "TTipoValvula.h"
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TDiscoRotativo: public TTipoValvula {
-  private:
+class TDiscoRotativo : public TTipoValvula {
+private:
+  double FDiametroRef;
+  int FNumeroPuntos;
 
-	double FDiametroRef;
-	int FNumeroPuntos;
+  double FAngle0;
 
-	double FAngle0;
+  dVector FAngulo;
+  dVector FDatosCDEntrada;
+  Hermite_interp *fun_CDin;
+  dVector FDatosCDSalida;
+  Hermite_interp *fun_CDout;
 
-	dVector FAngulo;
-	dVector FDatosCDEntrada;
-	Hermite_interp *fun_CDin;
-	dVector FDatosCDSalida;
-	Hermite_interp *fun_CDout;
+  int FValvula;
 
-	int FValvula;
+  double FDCMultiplier;
+  double FShift;
+  double FDuration;
 
-	double FDCMultiplier;
-	double FShift;
-	double FDuration;
+public:
+  TDiscoRotativo(TDiscoRotativo *Origen, int valv);
 
-  public:
+  TDiscoRotativo();
 
-	TDiscoRotativo(TDiscoRotativo *Origen, int valv);
+  ~TDiscoRotativo();
 
-	TDiscoRotativo();
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	~TDiscoRotativo();
+  void CalculaCD(double AnguloActual);
 
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
+  void GetCDin(double Time);
 
-	void CalculaCD(double AnguloActual);
+  void GetCDout(double Time);
 
-	void GetCDin(double Time);
-
-	void GetCDout(double Time);
-
-	void PutAngle0(double val) {
-		FAngle0 = val * FRelacionVelocidades - FShift;
-	}
-	;
-
+  void PutAngle0(double val) { FAngle0 = val * FRelacionVelocidades - FShift; };
 };
 
 //---------------------------------------------------------------------------

@@ -74,8 +74,9 @@ public:
   );
 
   /*! Read the data of the controller */
-  void LeeController(const char *FileWAM, //!< File name of the input data
-                     fpos_t &filepos      //!< Position within the file to read
+  void
+  LeeController(const std::string &FileWAM, //!< File name of the input data
+                fpos_t &filepos //!< Position within the file to read
   );
 
   /*! Asing the different controller and sensors */
@@ -85,14 +86,14 @@ public:
 
   /*! Read the average results selected */
   void LeeResultadosMedControlador(
-      const char *FileWAM, //!< File name of the input data
-      fpos_t &filepos      //!< Position within the file to read
+      const std::string &FileWAM, //!< File name of the input data
+      fpos_t &filepos             //!< Position within the file to read
   );
 
   /*! Read the instantenous results selected */
   void LeeResultadosInsControlador(
-      const char *FileWAM, //!< File name of the input data
-      fpos_t &filepos      //!< Position within the file to read
+      const std::string &FileWAM, //!< File name of the input data
+      fpos_t &filepos             //!< Position within the file to read
   );
 
   /*! Generate the average results header */

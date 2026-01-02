@@ -67,7 +67,7 @@ TCCPulso::~TCCPulso() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCPulso::ReadBoundaryData(const char *FileWAM, fpos_t &filepos,
+void TCCPulso::ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
                                 int NumberOfPipes,
                                 const std::vector<std::unique_ptr<TTubo>> &Pipe,
                                 int nDPF,
@@ -104,7 +104,7 @@ void TCCPulso::ReadBoundaryData(const char *FileWAM, fpos_t &filepos,
       i++;
     }
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM.c_str(), "r");
     fsetpos(fich, &filepos);
 
     FPulso = new TEntradaPulso();

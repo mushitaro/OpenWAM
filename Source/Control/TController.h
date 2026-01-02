@@ -64,8 +64,8 @@ public:
 
   /*! Read the information of the controller*/
   virtual void
-  LeeController(const char *FileWAM, //!< Input data filename
-                fpos_t &filepos      //!< Position to read within the input file
+  LeeController(const std::string &FileWAM, //!< Input data filename
+                fpos_t &filepos //!< Position to read within the input file
                 ) = 0;
 
   /*! Return the output value of the controller*/
@@ -80,14 +80,14 @@ public:
 
   /*! Read the average results selected*/
   virtual void LeeResultadosMedControlador(
-      const char *FileWAM, //!< Input data filename
-      fpos_t &filepos      //!< Position to read within the input file
+      const std::string &FileWAM, //!< Input data filename
+      fpos_t &filepos             //!< Position to read within the input file
       ) = 0;
 
   /*! Read the instantanous results selected*/
   virtual void LeeResultadosInsControlador(
-      const char *FileWAM, //!< Input data filename
-      fpos_t &filepos      //!< Position to read within the input file
+      const std::string &FileWAM, //!< Input data filename
+      fpos_t &filepos             //!< Position to read within the input file
       ) = 0;
 
   /*! Generate the header of the average results*/

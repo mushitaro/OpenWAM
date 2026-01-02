@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -34,60 +35,54 @@
 
 class TDeposito;
 
-class TCompresorDep: public TCompresor {
-  private:
+class TCompresorDep : public TCompresor {
+private:
+  TDeposito *FDepositoRot;
+  TDeposito *FDepositoEst;
 
-	TDeposito *FDepositoRot;
-	TDeposito *FDepositoEst;
+  double FGamma4;
+  double FGamma5;
 
-	double FGamma4;
-	double FGamma5;
+  double FTempGasto; // Temperature del massflow que ha pasado por el compresor
+                     // (Kelvin)
 
-	double FTempGasto; // Temperature del massflow que ha pasado por el compresor (Kelvin)
+  //---------------------------------------------------------------------------
+  //          FUNCIONES PRIVADAS
+  //---------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------
-//          FUNCIONES PRIVADAS
-//---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
+public:
+  //---------------------------------------------------------------------------
+  //          VARIABLES PUBLICAS
+  //---------------------------------------------------------------------------
 
-  public:
-//---------------------------------------------------------------------------
-//          VARIABLES PUBLICAS
-//---------------------------------------------------------------------------
+  double getTempSal() { return FTempGasto; };
 
-	double getTempSal() {
-		return FTempGasto;
-	}
-	;
+  int getDepRotor() { return FDepRotor; };
 
-	int getDepRotor() {
-		return FDepRotor;
-	}
-	;
+  //---------------------------------------------------------------------------
+  //          FUNCIONES PUBLICAS
+  //---------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------
-//          FUNCIONES PUBLICAS
-//---------------------------------------------------------------------------
+  TCompresorDep(int i, nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
+                nmCalculoGamma GammaCalculation, bool ThereIsEGR);
 
-	TCompresorDep(int i, nmTipoCalculoEspecies SpeciesModel, int numeroespecies, nmCalculoGamma GammaCalculation,
-				  bool ThereIsEGR);
+  ~TCompresorDep();
 
-	~TCompresorDep();
+  void LeeCompresor(const std::string &FileWAM, fpos_t &filepos);
 
-	void LeeCompresor(const char *FileWAM, fpos_t &filepos);
+  void CalculaGasto(double TrabajoInsTurbina, double TiempoActual);
 
-	void CalculaGasto(double TrabajoInsTurbina, double TiempoActual);
+  void RelacionDepositoCompresor(TDeposito *DepositoRot,
+                                 TDeposito *DepositoEst);
 
-	void RelacionDepositoCompresor(TDeposito *DepositoRot, TDeposito *DepositoEst);
+  // NO SE UTILIZA EN ESTE TIPO DE COMPRESORES
+  void CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo,
+                          double AcumulatedTime, int TuboCalculado) {}
 
-	// NO SE UTILIZA EN ESTE TIPO DE COMPRESORES
-	void CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo, double AcumulatedTime, int TuboCalculado) {
-	}
-
-	void Initialize();
-
+  void Initialize();
 };
 
 //---------------------------------------------------------------------------

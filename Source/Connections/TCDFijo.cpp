@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -32,90 +33,84 @@
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
-TCDFijo::TCDFijo() :
-	TTipoValvula(nmCDFijo) {
+TCDFijo::TCDFijo() : TTipoValvula(nmCDFijo) {}
 
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+TCDFijo::~TCDFijo() {}
+
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+TCDFijo::TCDFijo(TCDFijo *Origen, int Valvula) : TTipoValvula(nmCDFijo) {
+
+  FCDEntrada = Origen->FCDEntrada;
+  FCDSalida = Origen->FCDSalida;
+  FActivaDiamRef = Origen->FActivaDiamRef;
+  FDiametroRef = Origen->FDiametroRef;
+  FNumeroOrden = Origen->FNumeroOrden;
+
+  // Se utilizara el diametro del tubo
+  if (FActivaDiamRef) {
+    FDiamRef = FDiametroRef;
+  } else {
+    FDiamRef = -1;
+  }
+
+  FCDTubVol = FCDEntrada;
+  FCDVolTub = FCDSalida;
+
+  FValvula = Valvula;
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TCDFijo::~TCDFijo() {
+void TCDFijo::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                                int norden, bool HayMotor,
+                                TBloqueMotor *Engine) {
+  try {
+    int tmp = 0;
+    FActivaDiamRef = false;
 
-}
+    FILE *fich = fopen(FileWAM.c_str(), "r");
+    fsetpos(fich, &filepos);
 
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
+    FNumeroOrden = norden;
 
-TCDFijo::TCDFijo(TCDFijo *Origen, int Valvula) :
-	TTipoValvula(nmCDFijo) {
+    fscanf(fich, "%lf %lf %d ", &FCDEntrada, &FCDSalida, &tmp);
+    if (tmp == 1) {
+      FActivaDiamRef = true;
+      fscanf(fich, "%lf ", &FDiametroRef);
+    }
 
-	FCDEntrada = Origen->FCDEntrada;
-	FCDSalida = Origen->FCDSalida;
-	FActivaDiamRef = Origen->FActivaDiamRef;
-	FDiametroRef = Origen->FDiametroRef;
-	FNumeroOrden = Origen->FNumeroOrden;
+    fgetpos(fich, &filepos);
+    fclose(fich);
 
-//Se utilizara el diametro del tubo
-	if(FActivaDiamRef) {
-		FDiamRef = FDiametroRef;
-	} else {
-		FDiamRef = -1;
-	}
-
-	FCDTubVol = FCDEntrada;
-	FCDVolTub = FCDSalida;
-
-	FValvula = Valvula;
-}
-
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
-
-void TCDFijo::LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine) {
-	try {
-		int tmp = 0;
-		FActivaDiamRef = false;
-
-		FILE *fich = fopen(FileWAM, "r");
-		fsetpos(fich, &filepos);
-
-		FNumeroOrden = norden;
-
-		fscanf(fich, "%lf %lf %d ", &FCDEntrada, &FCDSalida, &tmp);
-		if(tmp == 1) {
-			FActivaDiamRef = true;
-			fscanf(fich, "%lf ", &FDiametroRef);
-		}
-
-		fgetpos(fich, &filepos);
-		fclose(fich);
-
-	} catch(exception &N) {
-		std::cout << "ERROR: LeeDatosIniciales CDFijo" << std::endl;
-		//std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-		throw Exception(N.what());
-
-	}
+  } catch (exception &N) {
+    std::cout << "ERROR: LeeDatosIniciales CDFijo" << std::endl;
+    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 void TCDFijo::CalculaCD() {
-	try {
-		if(FActivaDiamRef) {
-			FCDTubVol = FCDEntrada * FSectionRatio;
-			FCDVolTub = FCDSalida * FSectionRatio;
-		} else {
-			FCDTubVol = FCDEntrada;
-			FCDVolTub = FCDSalida;
-		}
-	} catch(exception &N) {
-		std::cout << "ERROR: TCDFijo::CalculaCD " << std::endl;
-		//std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-		throw Exception(N.what());
-
-	}
+  try {
+    if (FActivaDiamRef) {
+      FCDTubVol = FCDEntrada * FSectionRatio;
+      FCDVolTub = FCDSalida * FSectionRatio;
+    } else {
+      FCDTubVol = FCDEntrada;
+      FCDVolTub = FCDSalida;
+    }
+  } catch (exception &N) {
+    std::cout << "ERROR: TCDFijo::CalculaCD " << std::endl;
+    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+    throw Exception(N.what());
+  }
 }
 #pragma package(smart_init)

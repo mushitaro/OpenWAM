@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -34,85 +35,60 @@
 #include <vcl.h>
 #endif
 #include <iostream>
-//#include <cmath>
+// #include <cmath>
 
 #include "TTipoValvula.h"
 
-enum nmTipoEstator {
-	nmStFijo = 0, nmStVariable = 1, nmStMapa = 2
-};
+enum nmTipoEstator { nmStFijo = 0, nmStVariable = 1, nmStMapa = 2 };
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TEstatorTurbina: public TTipoValvula {
-  private:
+class TEstatorTurbina : public TTipoValvula {
+private:
+  nmTipoEstator FTipoEstator;
+  double FCDEInicial;
+  double FCDSInicial;
+  double FDiametroRef;
 
-	nmTipoEstator FTipoEstator;
-	double FCDEInicial;
-	double FCDSInicial;
-	double FDiametroRef;
+  double FCDVbl;
 
-	double FCDVbl;
+  double FAreaEff;
 
-	double FAreaEff;
+  int FNumeroTurbina;
+  int FNumeroEntrada;
 
-	int FNumeroTurbina;
-	int FNumeroEntrada;
+  int FValvula;
 
-	int FValvula;
+public:
+  TEstatorTurbina(TEstatorTurbina *Origen, int valv);
 
-  public:
+  TEstatorTurbina();
 
-	TEstatorTurbina(TEstatorTurbina *Origen, int valv);
+  ~TEstatorTurbina();
 
-	TEstatorTurbina();
+  int getNumeroTurbina() { return FNumeroTurbina; };
+  int getNumeroEntrada() { return FNumeroEntrada; };
+  nmTipoEstator getTipoEstator() { return FTipoEstator; };
+  int getValv() { return FValvula; };
+  double getCDescargaTubVol() { return FCDTubVol; };
+  void PutCDVbl(double valor) { FCDVbl = valor; };
+  void PutAreaEff(double valor) { FAreaEff = valor; };
 
-	~TEstatorTurbina();
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	int getNumeroTurbina() {
-		return FNumeroTurbina;
-	}
-	;
-	int getNumeroEntrada() {
-		return FNumeroEntrada;
-	}
-	;
-	nmTipoEstator getTipoEstator() {
-		return FTipoEstator;
-	}
-	;
-	int getValv() {
-		return FValvula;
-	}
-	;
-	double getCDescargaTubVol() {
-		return FCDTubVol;
-	}
-	;
-	void PutCDVbl(double valor) {
-		FCDVbl = valor;
-	}
-	;
-	void PutAreaEff(double valor) {
-		FAreaEff = valor;
-	}
-	;
+  void CalculaCD();
 
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
+  void AsignaTurbina(double NTurb, double NEntr);
 
-	void CalculaCD();
+  void TipodeEstator(nmTipoEstator TipoEstator);
 
-	void AsignaTurbina(double NTurb, double NEntr);
+  void GetCDin(double Time);
 
-	void TipodeEstator(nmTipoEstator TipoEstator);
-
-	void GetCDin(double Time);
-
-	void GetCDout(double Time);
+  void GetCDout(double Time);
 };
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 #endif
-

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -34,78 +35,57 @@
 #include <vcl.h>
 #endif
 #include <iostream>
-//#include <cmath>
+// #include <cmath>
 
 #include "TTipoValvula.h"
 
-enum nmTipoRotor {
-	nmRotFijo = 0, nmRotVariable = 1, nmRotMapa = 2
-};
+enum nmTipoRotor { nmRotFijo = 0, nmRotVariable = 1, nmRotMapa = 2 };
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TRotorTurbina: public TTipoValvula {
-  private:
+class TRotorTurbina : public TTipoValvula {
+private:
+  nmTipoRotor FTipoRotor;
+  double FCDEInicial;
+  double FCDSInicial;
 
-	nmTipoRotor FTipoRotor;
-	double FCDEInicial;
-	double FCDSInicial;
+  double FCDVbl;
 
-	double FCDVbl;
+  double FAreaEff;
 
-	double FAreaEff;
+  double FDiametroRef;
 
-	double FDiametroRef;
+  int FNumeroTurbina;
 
-	int FNumeroTurbina;
+  int FValvula;
 
-	int FValvula;
+public:
+  TRotorTurbina(TRotorTurbina *Origen, int valv);
 
-  public:
+  TRotorTurbina();
 
-	TRotorTurbina(TRotorTurbina *Origen, int valv);
+  ~TRotorTurbina();
 
-	TRotorTurbina();
+  int getNumeroTurbina() { return FNumeroTurbina; };
+  nmTipoRotor getTipoRotor() { return FTipoRotor; };
+  int getValv() { return FValvula; };
+  double getCDescargaTubVol() { return FCDTubVol; };
+  void PutCDVbl(double valor) { FCDVbl = valor; };
+  void PutAreaEff(double valor) { FAreaEff = valor; };
 
-	~TRotorTurbina();
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	int getNumeroTurbina() {
-		return FNumeroTurbina;
-	}
-	;
-	nmTipoRotor getTipoRotor() {
-		return FTipoRotor;
-	}
-	;
-	int getValv() {
-		return FValvula;
-	}
-	;
-	double getCDescargaTubVol() {
-		return FCDTubVol;
-	}
-	;
-	void PutCDVbl(double valor) {
-		FCDVbl = valor;
-	}
-	;
-	void PutAreaEff(double valor) {
-		FAreaEff = valor;
-	}
-	;
+  void CalculaCD();
 
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
+  void AsignaTurbina(int NTurb);
 
-	void CalculaCD();
+  void TipodeRotor(nmTipoRotor TipoRotor);
 
-	void AsignaTurbina(int NTurb);
+  void GetCDin(double Time);
 
-	void TipodeRotor(nmTipoRotor TipoRotor);
-
-	void GetCDin(double Time);
-
-	void GetCDout(double Time);
+  void GetCDout(double Time);
 };
 
 //---------------------------------------------------------------------------

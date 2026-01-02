@@ -20,7 +20,7 @@ TOutputResults::TOutputResults() {
 TOutputResults::~TOutputResults() {}
 
 void TOutputResults::ReadAverageResults(
-    const char *FileWAM, fpos_t &filepos,
+    const std::string &FileWAM, fpos_t &filepos,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, bool EngineBlock,
     const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
     const std::vector<std::unique_ptr<TDeposito>> &Plenum,
@@ -33,10 +33,10 @@ void TOutputResults::ReadAverageResults(
     const std::vector<TVenturi *> &Venturi,
     const std::vector<std::unique_ptr<TSensor>> &Sensor,
     const std::vector<std::unique_ptr<TController>> &Controller,
-    int TotalCycles, const char *ModelName) {
+    int TotalCycles, const std::string &ModelName) {
 
   char buffer[300];
-  GetName(ModelName, buffer, "AVG.DAT");
+  GetName(ModelName.c_str(), buffer, "AVG.DAT");
   FAvgFilename = buffer;
 
   int err = remove(FAvgFilename.c_str());
@@ -77,7 +77,7 @@ void TOutputResults::ReadAverageResults(
     AvgCylinder.push_back(Engine[0]->GetCilindro(CylinderID - 1));
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    AvgCylinder[i]->ReadAverageResultsCilindro(FileWAM, filepos);
+    AvgCylinder[i]->ReadAverageResultsCilindro(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -90,7 +90,7 @@ void TOutputResults::ReadAverageResults(
       AvgEngine = Engine[0].get();
       filepos = (fpos_t)FileInput.tellg();
       FileInput.close();
-      AvgEngine->ReadAverageResultsBloqueMotor(FileWAM, filepos);
+      AvgEngine->ReadAverageResultsBloqueMotor(FileWAM.c_str(), filepos);
       FileInput.open(FileWAM);
       FileInput.seekg((std::streamoff)filepos);
     }
@@ -551,7 +551,7 @@ void TOutputResults::CopyInstananeousResultsToFile(int mode) {
 }
 
 void TOutputResults::ReadInstantaneousResults(
-    const char *FileWAM, fpos_t &filepos,
+    const std::string &FileWAM, fpos_t &filepos,
     const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
     const std::vector<std::unique_ptr<TDeposito>> &Plenum,
     const std::vector<std::unique_ptr<TTubo>> &Pipe,
@@ -567,10 +567,10 @@ void TOutputResults::ReadInstantaneousResults(
     const std::vector<TCondicionContorno *> &BCReedValve,
     int NumberOfReedValves, const std::vector<std::unique_ptr<TSensor>> &Sensor,
     const std::vector<std::unique_ptr<TController>> &Controller,
-    const char *ModelName) {
+    const std::string &ModelName) {
 
   char buffer[300];
-  GetName(ModelName, buffer, "INS.DAT");
+  GetName(ModelName.c_str(), buffer, "INS.DAT");
   FInsFilename = buffer;
 
   int err = remove(FInsFilename.c_str());
@@ -587,7 +587,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsCylinder.push_back(Engine[0]->GetCilindro(CylinderID - 1));
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsCylinder[i]->ReadInstantaneousResultsCilindro(FileWAM, filepos);
+    InsCylinder[i]->ReadInstantaneousResultsCilindro(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -601,7 +601,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsPlenum.push_back(Plenum[PlenumID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsPlenum[i]->ReadInstantaneousResultsDep(FileWAM, filepos);
+    InsPlenum[i]->ReadInstantaneousResultsDep(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -618,7 +618,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsPipe.push_back(Pipe[PipeID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsPipe[i]->ReadInstantaneousResultsTubo(FileWAM, filepos, Engine);
+    InsPipe[i]->ReadInstantaneousResultsTubo(FileWAM.c_str(), filepos, Engine);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -632,7 +632,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsVenturi.push_back(Venturi[VenturiID - 1]);
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsVenturi[i]->LeeResultadosInstantVenturi(FileWAM, filepos);
+    InsVenturi[i]->LeeResultadosInstantVenturi(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -660,7 +660,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsValveNode.push_back(ValveID);
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsValve[i]->LeeDatosGraficasINS(FileWAM, filepos);
+    InsValve[i]->LeeDatosGraficasINS(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -674,7 +674,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsTurbo.push_back(Turbo[TurboID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsTurbo[i]->ReadInstantaneousResultsEje(FileWAM, filepos);
+    InsTurbo[i]->ReadInstantaneousResultsEje(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -687,7 +687,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsCompressor.push_back(Compressor[CompressorID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsCompressor[i]->LeeDatosGraficasInstantaneas(FileWAM, filepos);
+    InsCompressor[i]->LeeDatosGraficasInstantaneas(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -700,7 +700,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsTurbine.push_back(Turbine[TurbineID - 1]);
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsTurbine[i]->LeeResultadosInstantTurb(FileWAM, filepos);
+    InsTurbine[i]->LeeResultadosInstantTurb(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -713,7 +713,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsRoot.push_back(Root[RootID - 1]);
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsRoot[i]->LeeResultadosInstantCV(FileWAM, filepos);
+    InsRoot[i]->LeeResultadosInstantCV(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -733,7 +733,7 @@ void TOutputResults::ReadInstantaneousResults(
     }
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsConnection[i]->LeeResultadosInstantUED(FileWAM, filepos);
+    InsConnection[i]->LeeResultadosInstantUED(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -760,7 +760,7 @@ void TOutputResults::ReadInstantaneousResults(
               dynamic_cast<TCCUnionEntreDepositos *>(BCWasteGate[j])
                   ->getValvula()));
         }
-        InsWasteGate[i]->LeeDatosGraficasINS(FileWAM, filepos);
+        InsWasteGate[i]->LeeDatosGraficasINS(FileWAM.c_str(), filepos);
         FileInput.open(FileWAM);
         FileInput.seekg((std::streamoff)filepos);
       }
@@ -790,7 +790,7 @@ void TOutputResults::ReadInstantaneousResults(
               dynamic_cast<TCCUnionEntreDepositos *>(BCReedValve[j])
                   ->getValvula()));
         }
-        InsReedValve[i]->LeeDatosGraficasINS(FileWAM, filepos);
+        InsReedValve[i]->LeeDatosGraficasINS(FileWAM.c_str(), filepos);
         FileInput.open(FileWAM);
         FileInput.seekg((std::streamoff)filepos);
       }
@@ -811,7 +811,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsDPF.push_back(DPF[DPFID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsDPF[i]->LeeResultadosInstantaneosDPF(FileWAM, filepos);
+    InsDPF[i]->LeeResultadosInstantaneosDPF(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -826,7 +826,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsSensor.push_back(Sensor[SensorID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsSensor[i]->LeeResultadosInsSensor(FileWAM, filepos);
+    InsSensor[i]->LeeResultadosInsSensor(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -842,7 +842,7 @@ void TOutputResults::ReadInstantaneousResults(
     InsController.push_back(Controller[ControllerID - 1].get());
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
-    InsController[i]->LeeResultadosInsControlador(FileWAM, filepos);
+    InsController[i]->LeeResultadosInsControlador(FileWAM.c_str(), filepos);
     FileInput.open(FileWAM);
     FileInput.seekg((std::streamoff)filepos);
   }
@@ -852,7 +852,7 @@ void TOutputResults::ReadInstantaneousResults(
 }
 
 void TOutputResults::ReadSpaceTimeResults(
-    const char *FileWAM, fpos_t &filepos,
+    const std::string &FileWAM, fpos_t &filepos,
     const std::vector<std::unique_ptr<TTubo>> &Pipe,
     const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
     const std::vector<std::unique_ptr<TDeposito>> &Plenum) {

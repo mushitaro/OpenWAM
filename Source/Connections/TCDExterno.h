@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -40,55 +41,40 @@
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-class TCDExterno: public TTipoValvula {
-  private:
+class TCDExterno : public TTipoValvula {
+private:
+  double FCDEInicial;
+  double FCDSInicial;
+  double FCTorbInicial;
 
-	double FCDEInicial;
-	double FCDSInicial;
-	double FCTorbInicial;
+  double FCTorMatlab;
+  double FCDEntMatlab;
+  double FCDSalMatlab;
 
-	double FCTorMatlab;
-	double FCDEntMatlab;
-	double FCDSalMatlab;
+  int FValvula;
 
-	int FValvula;
+public:
+  void PutCTorMatlab(double valor) { FCTorMatlab = valor; };
+  void PutCDEntMatlab(double valor) { FCDEntMatlab = valor; };
+  void PutCDSalMatlab(double valor) { FCDSalMatlab = valor; };
 
-  public:
+  TCDExterno(TCDExterno *Origen, int valv);
 
-	void PutCTorMatlab(double valor) {
-		FCTorMatlab = valor;
-	}
-	;
-	void PutCDEntMatlab(double valor) {
-		FCDEntMatlab = valor;
-	}
-	;
-	void PutCDSalMatlab(double valor) {
-		FCDSalMatlab = valor;
-	}
-	;
+  TCDExterno();
 
-	TCDExterno(TCDExterno *Origen, int valv);
+  ~TCDExterno();
 
-	TCDExterno();
+  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+                         int norden, bool HayMotor, TBloqueMotor *Engine);
 
-	~TCDExterno();
+  void CalculaCD();
 
-	void LeeDatosIniciales(const char *FileWAM, fpos_t &filepos, int norden, bool HayMotor, TBloqueMotor *Engine);
+  void GetCDin(double Time) {
+    FCDTubVol = FCDEntMatlab;
+    FCTorb = FCTorMatlab;
+  };
 
-	void CalculaCD();
-
-	void GetCDin(double Time) {
-		FCDTubVol = FCDEntMatlab;
-		FCTorb = FCTorMatlab;
-	}
-	;
-
-	void GetCDout(double Time) {
-		FCDVolTub = FCDSalMatlab;
-	}
-	;
-
+  void GetCDout(double Time) { FCDVolTub = FCDSalMatlab; };
 };
 
 //---------------------------------------------------------------------------
