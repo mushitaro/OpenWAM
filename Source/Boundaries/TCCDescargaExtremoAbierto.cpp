@@ -149,7 +149,7 @@ void TCCDescargaExtremoAbierto::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     if (FTipoDescarga == nmDescargaAtmosfera) { // DESCARGA A LA ATMOSFERA

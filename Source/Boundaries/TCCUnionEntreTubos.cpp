@@ -30,6 +30,7 @@ Valencia |   \\/   \//    M odel    |
 #pragma hdrstop
 
 #include "TCCUnionEntreTubos.h"
+#include <stdio.h>
 // #include <cmath>
 #include <iostream>
 #include "TTubo.h"
@@ -203,13 +204,14 @@ void TCCUnionEntreTubos::ReadBoundaryData(
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
+    // fsetpos(fich, &filepos);
+    _fseeki64(fich, filepos, SEEK_SET);
 
     fscanf(fich, "%lf %lf", &FEspesor, &FConductividad);
     /* Coeficiente de perdidas con signo positivo */
 
-    fgetpos(fich, &filepos);
+    filepos = _ftelli64(fich);
     fclose(fich);
 
   } catch (exception &N) {

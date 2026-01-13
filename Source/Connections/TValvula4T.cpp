@@ -143,7 +143,7 @@ void TValvula4T::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
 
     FEngine = Engine;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     FNumeroOrden = norden;

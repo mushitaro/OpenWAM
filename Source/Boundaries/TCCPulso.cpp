@@ -30,6 +30,7 @@ Valencia
 #pragma hdrstop
 
 #include "TCCPulso.h"
+#include <stdio.h>
 // #include <cmath>
 #include <iostream>
 
@@ -104,8 +105,9 @@ void TCCPulso::ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
+    // fsetpos(fich, &filepos);
+    _fseeki64(fich, filepos, SEEK_SET);
 
     FPulso = new TEntradaPulso();
     FPulso->LeeEntradaPulso(fich);
@@ -142,7 +144,8 @@ void TCCPulso::ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
       throw Exception(" ");
     }
 
-    fgetpos(fich, &filepos);
+    // fgetpos(fich, &filepos);
+    filepos = _ftelli64(fich);
     fclose(fich);
 
   }

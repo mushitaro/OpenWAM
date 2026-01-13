@@ -55,7 +55,7 @@ void TCFDConnection::ReadBoundaryData(
     i++;
   }
 
-  FILE *fich = fopen(FileWAM.c_str(), "r");
+  FILE *fich = fopen(FileWAM.c_str(), "rb");
   fsetpos(fich, &filepos);
 
   char *TMP;

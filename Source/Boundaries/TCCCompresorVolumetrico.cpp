@@ -104,7 +104,7 @@ void TCCCompresorVolumetrico::LeeCCCompresorVol(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &ControlRegimen);
@@ -322,7 +322,7 @@ void TCCCompresorVolumetrico::ReadAverageResultsCV(const std::string &FileWAM,
   try {
     int nvars = 0, var = 0;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);
@@ -496,7 +496,7 @@ void TCCCompresorVolumetrico::LeeResultadosInstantCV(const std::string &FileWAM,
   int nvars = 0, var = 0;
 
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

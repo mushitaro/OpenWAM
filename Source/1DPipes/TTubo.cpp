@@ -542,7 +542,7 @@ void TTubo::LeeDatosGeneralesTubo(const char *FileWAM, fpos_t &filepos) {
     int metodo[4];
     double fracciontotal = 0.;
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM, "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d %d %d %d", &FNodoIzq, &FNodoDer, &FNTramos,
@@ -698,7 +698,7 @@ void TTubo::LeeDatosGeometricosTubo(
   try {
 #endif
 
-    FILE *fich = fopen(FileWAM, "r");
+    FILE *fich = fopen(FileWAM, "rb");
     fsetpos(fich, &filepos);
 
     switch (tipomallado) {

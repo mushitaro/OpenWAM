@@ -154,7 +154,7 @@ void TDeposito::LeeDatosGeneralesDepositos(const std::string &FileWAM,
   try {
     double fracciontotal = 0.;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];

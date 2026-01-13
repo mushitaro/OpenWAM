@@ -111,15 +111,32 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
 
     FTipoMotor = EngineType;
     FTipoModelado = SimulationType;
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
+    printf("DEBUG: LeeMotor Start\n");
+    fflush(stdout);
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
+    if (fich == NULL) {
+      printf("ERROR: Failed to open file in LeeMotor: %s\n", FileWAM.c_str());
+      fflush(stdout);
+      throw Exception("File Open Error in LeeMotor");
+    }
+    // fsetpos(fich, &filepos);
+    int seek_res = _fseeki64(fich, (long long)filepos, SEEK_SET);
+    if (seek_res != 0) {
+      printf("ERROR: fseek failed in LeeMotor. Res: %d Errno: %d\n", seek_res,
+             errno);
+      fflush(stdout);
+    }
 
     // -------------------------------
     // UTILIZACION COMBUSTION ACT
     // -------------------------------
 
     int aux = 0;
-    fscanf(fich, "%d ", &aux);
+    int scan_res = fscanf(fich, "%d ", &aux);
+    printf(
+        "DEBUG: fscanf ACT Result: %d Val: %d FError: %d Feof: %d Ftell: %ld\n",
+        scan_res, aux, ferror(fich), feof(fich), ftell(fich));
+    fflush(stdout);
     aux == 0 ? FACT = false : FACT = true;
     if (FACT) {
       fscanf(fich, "%lf ", &FMixtureProcessCte);
@@ -297,6 +314,8 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     // --------------------
     // MODELO DE VEHdegCULO
     // --------------------
+    printf("DEBUG: LeeMotor Geometry Read Done\n");
+    fflush(stdout);
 
     if (SimulationType == nmTransitorioRegimen) {
       double mv = 0., mt = 0., mr = 0.;
@@ -512,6 +531,8 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
         FCilindro[0] = new TCilindro4T(this, 1, FHayEGR);
       }
     }
+    printf("DEBUG: LeeMotor Cylinders Created\n");
+    fflush(stdout);
     int controllers = 0;
     int param = 0;
     fscanf(fich, "%d ", &controllers);
@@ -545,6 +566,9 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     }
 
     fgetpos(fich, &filepos);
+    printf("DEBUG: LeeMotor fgetpos: %lld ftell: %ld\n", (long long)filepos,
+           ftell(fich));
+    fflush(stdout);
     fclose(fich);
   } catch (exception &N) {
     std::cout << "ERROR: TBloqueMotor::LeeMotor en el Bloque Engine. "
@@ -604,7 +628,7 @@ void TBloqueMotor::ReadAverageResultsBloqueMotor(const std::string &FileWAM,
   try {
     int nvars = 0, Tipovar = 0;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     FResMediosMotor.ParNeto = false;

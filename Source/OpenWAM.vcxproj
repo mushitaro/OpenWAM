@@ -87,12 +87,12 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>C:\Users\kazuh\OpenWAM\Source\1DPipes;C:\Users\kazuh\OpenWAM\Source\Act;C:\Users\kazuh\OpenWAM\Source\Boundaries;C:\Users\kazuh\OpenWAM\Source\Concentric Pipe;C:\Users\kazuh\OpenWAM\Source\Connections;C:\Users\kazuh\OpenWAM\Source\Control;C:\Users\kazuh\OpenWAM\Source\DPF;C:\Users\kazuh\OpenWAM\Source\Engine;C:\Users\kazuh\OpenWAM\Source\Extern;C:\Users\kazuh\OpenWAM\Source\Includes;C:\Users\kazuh\OpenWAM\Source\Labels;C:\Users\kazuh\OpenWAM\Source\Math_wam;C:\Users\kazuh\OpenWAM\Source\ODModels;C:\Users\kazuh\OpenWAM\Source\Output;C:\Users\kazuh\OpenWAM\Source\Turbocompressor;C:\Users\kazuh\OpenWAM\Source\Wrappers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) -std=c++11</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp14</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
       <OpenMPSupport>true</OpenMPSupport>
       <Optimization>Disabled</Optimization>
@@ -135,11 +135,11 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>C:\Users\kazuh\OpenWAM\Source\1DPipes;C:\Users\kazuh\OpenWAM\Source\Act;C:\Users\kazuh\OpenWAM\Source\Boundaries;C:\Users\kazuh\OpenWAM\Source\Concentric Pipe;C:\Users\kazuh\OpenWAM\Source\Connections;C:\Users\kazuh\OpenWAM\Source\Control;C:\Users\kazuh\OpenWAM\Source\DPF;C:\Users\kazuh\OpenWAM\Source\Engine;C:\Users\kazuh\OpenWAM\Source\Extern;C:\Users\kazuh\OpenWAM\Source\Includes;C:\Users\kazuh\OpenWAM\Source\Labels;C:\Users\kazuh\OpenWAM\Source\Math_wam;C:\Users\kazuh\OpenWAM\Source\ODModels;C:\Users\kazuh\OpenWAM\Source\Output;C:\Users\kazuh\OpenWAM\Source\Turbocompressor;C:\Users\kazuh\OpenWAM\Source\Wrappers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) -std=c++11</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp14</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
       <OpenMPSupport>true</OpenMPSupport>
       <Optimization>MaxSpeed</Optimization>
@@ -184,11 +184,11 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>C:\Users\kazuh\OpenWAM\Source\1DPipes;C:\Users\kazuh\OpenWAM\Source\Act;C:\Users\kazuh\OpenWAM\Source\Boundaries;C:\Users\kazuh\OpenWAM\Source\Concentric Pipe;C:\Users\kazuh\OpenWAM\Source\Connections;C:\Users\kazuh\OpenWAM\Source\Control;C:\Users\kazuh\OpenWAM\Source\DPF;C:\Users\kazuh\OpenWAM\Source\Engine;C:\Users\kazuh\OpenWAM\Source\Extern;C:\Users\kazuh\OpenWAM\Source\Includes;C:\Users\kazuh\OpenWAM\Source\Labels;C:\Users\kazuh\OpenWAM\Source\Math_wam;C:\Users\kazuh\OpenWAM\Source\ODModels;C:\Users\kazuh\OpenWAM\Source\Output;C:\Users\kazuh\OpenWAM\Source\Turbocompressor;C:\Users\kazuh\OpenWAM\Source\Wrappers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) -std=c++11</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp14</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
       <OpenMPSupport>true</OpenMPSupport>
       <Optimization>MinSpace</Optimization>
@@ -233,12 +233,12 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>C:\Users\kazuh\OpenWAM\Source\1DPipes;C:\Users\kazuh\OpenWAM\Source\Act;C:\Users\kazuh\OpenWAM\Source\Boundaries;C:\Users\kazuh\OpenWAM\Source\Concentric Pipe;C:\Users\kazuh\OpenWAM\Source\Connections;C:\Users\kazuh\OpenWAM\Source\Control;C:\Users\kazuh\OpenWAM\Source\DPF;C:\Users\kazuh\OpenWAM\Source\Engine;C:\Users\kazuh\OpenWAM\Source\Extern;C:\Users\kazuh\OpenWAM\Source\Includes;C:\Users\kazuh\OpenWAM\Source\Labels;C:\Users\kazuh\OpenWAM\Source\Math_wam;C:\Users\kazuh\OpenWAM\Source\ODModels;C:\Users\kazuh\OpenWAM\Source\Output;C:\Users\kazuh\OpenWAM\Source\Turbocompressor;C:\Users\kazuh\OpenWAM\Source\Wrappers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) -std=c++11</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp14</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
       <OpenMPSupport>true</OpenMPSupport>
       <Optimization>MaxSpeed</Optimization>

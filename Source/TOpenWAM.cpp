@@ -26,6 +26,9 @@ Valencia |   \\/   \//    M odel    |
 */
 
 // ---------------------------------------------------------------------------
+#include <cmath>
+#include <thread>
+#include <chrono>
 #ifdef __BORLANDC__
 #pragma hdrstop
 #endif
@@ -39,6 +42,7 @@ Valencia |   \\/   \//    M odel    |
 #endif
 #include "Version.h"
 #include "TCGestorWAM.h"
+#include "Concentric Pipe/TConcentrico.h"
 #include "TBloqueMotor.h"
 #include "TEjeTurbogrupo.h"
 #include "TCompresor.h"
@@ -394,7 +398,7 @@ void TOpenWAM::CleanLabelsX() {
   }
   fetmp.close();
   FileInput.close();
-  FileInput.open(fileinput.c_str());
+  FileInput.open(fileinput.c_str(), std::ios::binary);
 }
 
 void TOpenWAM::CleanLabels() {
@@ -407,7 +411,7 @@ void TOpenWAM::CleanLabels() {
   ofstream sFileOutput;
   string strline, strline_out;
 
-  sFileInput.open(fileinput.c_str());
+  sFileInput.open(fileinput.c_str(), std::ios::binary);
   fileinput.append(".tmp");
   sFileOutput.open(fileinput.c_str());
 
@@ -435,7 +439,7 @@ void TOpenWAM::ReadInputData(std::string FileName) {
     }
   }
 #endif
-  FileInput.open(FileName.c_str());
+  FileInput.open(FileName.c_str(), std::ios::binary);
   if (!FileInput) {
     printf("ERROR: File %s not found\n", FileName.c_str());
 #ifdef gestorcom
@@ -451,13 +455,13 @@ void TOpenWAM::ReadInputData(std::string FileName) {
 
   fileinput = FileName;
 
-  CleanLabels();
+  // CleanLabels();
 
 #else
   CleanLabelsX();
 #endif
 
-  FileInput.open(fileinput.c_str());
+  FileInput.open(fileinput.c_str(), std::ios::binary);
   if (!FileInput.is_open()) {
     std::perror("File opening failed: ");
     exit(EXIT_FAILURE);
@@ -479,6 +483,8 @@ void TOpenWAM::ReadInputData(std::string FileName) {
   // -----------------------------------------------------------------------------
   // -----------------------------------------------------------------------------
 
+  printf("DEBUG: Reading Version\n");
+  fflush(stdout);
   FileInput >> OpenWAMVersion;
   if (OpenWAMVersion != vers) {
     printf("ERROR: THE WAM VERSION IS NOT CORRECT FOR THESE INPUT DATA\n\n");
@@ -487,9 +493,13 @@ void TOpenWAM::ReadInputData(std::string FileName) {
     exit(1);
   }
   int ind = 0;
+  printf("DEBUG: Reading Independent Flag\n");
+  fflush(stdout);
   FileInput >> ind;
   ind == 0 ? Independent = false : Independent = true;
 
+  printf("DEBUG: Calling ReadGeneralData\n");
+  fflush(stdout);
   ReadGeneralData();
 
   ReadEngine();
@@ -530,7 +540,7 @@ void TOpenWAM::ReadInputData(std::string FileName) {
     }
   }
 
-  FileInput.open(fileinput.c_str());
+  FileInput.open(fileinput.c_str(), std::ios::binary);
   FileInput.seekg((std::streamoff)fileposition);
 
   int dll = 0;
@@ -548,10 +558,10 @@ void TOpenWAM::ReadInputData(std::string FileName) {
 #endif
 
   FileInput.close();
-  if (remove(fileinput.c_str()) != 0)
-    perror("WARNING: Error deleting file\n");
-  else
-    puts("INFO: File successfully deleted\n");
+  // if (remove(fileinput.c_str()) != 0)
+  //   perror("WARNING: Error deleting file\n");
+  // else
+  //   puts("INFO: File successfully deleted\n");
 }
 
 void TOpenWAM::ReadDataDLL() {
@@ -592,7 +602,7 @@ void TOpenWAM::ReadDataDLL() {
     EXTERN->Lectura_Datos_Adicionales(fileinput.c_str(), filepos);
     EXTERN->IniciaEntradaDLL();
 
-    FileInput.open(fileinput.c_str());
+    FileInput.open(fileinput.c_str(), std::ios::binary);
     FileInput.seekg((std::streamoff)filepos);
 
   } catch (exception &N) {
@@ -605,12 +615,15 @@ void TOpenWAM::ReadDataDLL() {
 }
 
 void TOpenWAM::ReadGeneralData() {
+  printf("DEBUG: ReadGeneralData Start\n");
+  fflush(stdout);
   try {
 
     int hayBQ = 0;
     int tipociclo = 0, tipomod = 0, tipocalculoespecies = 0;
     double fracciontotal = 0.;
-    int haycombustible, tipocombustible, tipogamma, EGR, IntEGR = 1;
+    int haycombustible, tipocombustible, tipogamma, EGR, IntEGR = 1,
+                                                         HayCompAtmosfera = 0;
     stEspecies *DatEsp = nullptr;
     double *CompAtmosfera = nullptr;
 
@@ -633,6 +646,8 @@ void TOpenWAM::ReadGeneralData() {
     FileInput >> hayBQ;
 
     hayBQ == 0 ? EngineBlock = false : EngineBlock = true;
+    printf("DEBUG: hayBQ: %d EngineBlock: %d\n", hayBQ, EngineBlock);
+    fflush(stdout);
 
     if (EngineBlock) {
       FileInput >> tipociclo >> tipomod >> EGR;
@@ -672,10 +687,12 @@ void TOpenWAM::ReadGeneralData() {
     }
 
     if (SpeciesModel == nmCalculoCompleto) {
-      FileInput >> haycombustible;
+      FileInput >> haycombustible >> tipocombustible;
+      printf("DEBUG: haycombustible: %d tipocombustible: %d\n", haycombustible,
+             tipocombustible);
+      fflush(stdout);
       haycombustible == 0 ? ThereIsFuel = false : ThereIsFuel = true;
       if (haycombustible == 1) { // Fuel injection is considered
-        FileInput >> tipocombustible;
         switch (tipocombustible) {
         case 0:
           FuelType = nmDiesel;
@@ -684,72 +701,42 @@ void TOpenWAM::ReadGeneralData() {
           FuelType = nmGasolina;
           break;
         }
-        SpeciesNumber = 10;
+        printf("DEBUG: SpeciesNumber Before Read: %d\n", SpeciesNumber);
+        fflush(stdout);
+        FileInput >> SpeciesNumber;
       } else if (haycombustible == 0) { // Fuel injection is not considered
         SpeciesNumber = 9;
       }
+      printf("DEBUG: SpeciesNumber Read: %d\n", SpeciesNumber);
+      fflush(stdout);
 
       SpeciesName.resize(SpeciesNumber - IntEGR);
       DatEsp = SpeciesName.data();
 
-      // DatEsp[0].Nombre = new char[15];
-      DatEsp[0].Nombre = "O2";
-      DatEsp[0].R = 259.825; // J/kgK
+      // Read Species Names from File to consume tokens!
+      for (int i = 0; i < SpeciesNumber - IntEGR; i++) {
+        FileInput >> DatEsp[i].Nombre;
+        // printf("DEBUG: Read Species[%d]: %s\n", i, DatEsp[i].Nombre.c_str());
+      }
+      fflush(stdout);
 
-      // DatEsp[1].Nombre = new char[15];
-      DatEsp[1].Nombre = "CO2";
-      DatEsp[1].R = 188.9207; // J/kgK
+      // Hardcoded defaults removed to use File Input
+      /*
+         Logic removed: Lines 721-783 contained hardcoded allocations
+         that overwrote the values read from FileInput.
+      */
+      // Hardcoded Assignments Removed
+      /*
+      DatEsp[0].R = 259.825; // J/kgK
+      ...
+      */
 
       // DatEsp[2].Nombre = new char[15];
-      DatEsp[2].Nombre = "H2O";
-      DatEsp[2].R = 461.398; // J/kgK
+      /*
+      ...
+      */
 
-      // DatEsp[3].Nombre = new char[15];
-      DatEsp[3].Nombre = "HC";
-      DatEsp[3].R = 638.58; // J/kgK
-
-      // DatEsp[4].Nombre = new char[15];
-      DatEsp[4].Nombre = "Soot";
-      DatEsp[4].R = 692.866; // J/kgK   Se asimila al carbono.
-
-      // DatEsp[5].Nombre = new char[15];
-      DatEsp[5].Nombre = "NOx";
-      DatEsp[5].R = 277.1466; // J/kgK
-
-      // DatEsp[6].Nombre = new char[15];
-      DatEsp[6].Nombre = "CO";
-      DatEsp[6].R = 296.837; // J/kgK
-
-      if (haycombustible == 1) {
-        if (FuelType == nmDiesel) {
-          // DatEsp[7].Nombre = new char[15];
-          DatEsp[7].Nombre = "Diesel";
-          DatEsp[7].R = 55.95; // J/kgK
-        } else if (FuelType == nmGasolina) {
-          // DatEsp[7].Nombre = new char[15];
-          DatEsp[7].Nombre = "Gasolina";
-          DatEsp[7].R = 72.425; // J/kgK
-        }
-        // DatEsp[8].Nombre = new char[15];
-        DatEsp[8].Nombre = "N2";
-        DatEsp[8].R = 296.837; // J/kgK
-
-        if (ThereIsEGR) {
-          // DatEsp[9].Nombre = new char[15];
-          DatEsp[9].Nombre = "EGR";
-          DatEsp[9].R = 287.; // J/kgK
-        }
-      } else {
-        // DatEsp[7].Nombre = new char[15];
-        DatEsp[7].Nombre = "N2";
-        DatEsp[7].R = 296.837; // J/kgK
-
-        if (ThereIsEGR) {
-          // DatEsp[8].Nombre = new char[15];
-          DatEsp[8].Nombre = "EGR";
-          DatEsp[8].R = 287.; // J/kgK
-        }
-      }
+      // Hardcoded Assignments Removed for HC, Soot, NOx, CO, Fuel, N2, EGR
 
     } else if (SpeciesModel == nmCalculoSimple) {
       FileInput >> haycombustible;
@@ -809,25 +796,31 @@ void TOpenWAM::ReadGeneralData() {
     // SpeciesName = DatEsp;
 
     // A continuacion se lee la composicion del aire atmosferico
+    FileInput >> HayCompAtmosfera;
+    printf("DEBUG: HayCompAtmosfera: %d\n", HayCompAtmosfera);
+    fflush(stdout);
 
     AtmosphericComposition.resize(SpeciesNumber - IntEGR);
     CompAtmosfera = AtmosphericComposition.data();
     for (int i = 0; i < SpeciesNumber - 1; i++) {
       FileInput >> CompAtmosfera[i];
+      printf("DEBUG: CompAtmosfera[%d]: %f\n", i, CompAtmosfera[i]);
+      fflush(stdout);
 
       fracciontotal += CompAtmosfera[i];
     }
     if (ThereIsEGR)
       CompAtmosfera[SpeciesNumber - 1] = 0.;
-    if (fracciontotal != 1.) {
+    if (fabs(fracciontotal - 1.0) > 1e-4) {
       std::cout << "ERROR: The total mass fraction must be equal to 1. Check "
-                   "your input data "
-                << std::endl;
+                   "your input data. Sum: "
+                << fracciontotal << std::endl;
       throw Exception(" ");
     }
 
     // AtmosphericComposition = CompAtmosfera;
-
+    printf("DEBUG: ReadGeneralData Finished. Fraction: %f\n", fracciontotal);
+    fflush(stdout);
   } catch (exception &N) {
     std::cout << "ERROR: ReadGeneralData" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -852,14 +845,30 @@ void TOpenWAM::ReadEngine()
           AmbientPressure, AmbientTemperature, SpeciesModel, SpeciesNumber,
           GammaCalculation, ThereIsEGR));
 
+      std::this_thread::sleep_for(
+          std::chrono::milliseconds(100)); // Wait for lock release
       Engine[0]->LeeMotor(fileinput, filepos, SimulationType,
                           CyclesWithoutThemalInertia, EngineType,
                           AtmosphericComposition.data());
-      FileInput.open(fileinput.c_str());
+      FileInput.open(fileinput.c_str(), std::ios::binary);
+      if (!FileInput.is_open()) {
+        printf("DEBUG: ERROR! Failed to reopen FileInput in ReadEngine!\n");
+      }
+      printf("DEBUG: ReadEngine FilePos after LeeMotor: %lld\n",
+             (long long)filepos);
+      fflush(stdout);
       FileInput.seekg((std::streamoff)filepos);
+      if (FileInput.fail()) {
+        printf("DEBUG: ERROR! seekg failed in ReadEngine!\n");
+        FileInput.clear(); // Try to recover?
+      }
+      printf("DEBUG: FileInput.tellg() after seek: %lld\n",
+             (long long)FileInput.tellg());
+      fflush(stdout);
     }
+  }
 
-  } catch (exception &N) {
+  catch (exception &N) {
     std::cout << "ERROR: ReadEngine " << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -871,7 +880,17 @@ void TOpenWAM::ReadPipes() {
     fpos_t filepos;
     int tipomallado = 0;
 
+    printf("DEBUG: ReadPipes Start Tellg: %lld\n",
+           (long long)FileInput.tellg());
+    fflush(stdout);
     FileInput >> NumberOfPipes;
+    if (FileInput.fail())
+      printf("DEBUG: FileInput FAILBIT Set!\n");
+    if (FileInput.eof())
+      printf("DEBUG: FileInput EOFBIT Set!\n");
+    if (FileInput.bad())
+      printf("DEBUG: FileInput BADBIT Set!\n");
+    fflush(stdout);
     // Pipe = new TTubo *[NumberOfPipes];
     Pipe.reserve(NumberOfPipes);
     printf("Number of pipes: %d\n", NumberOfPipes);
@@ -886,6 +905,7 @@ void TOpenWAM::ReadPipes() {
       Pipe.push_back(
           std::make_unique<TTubo>(SpeciesNumber, i, SimulationDuration, Engine,
                                   SpeciesModel, GammaCalculation, ThereIsEGR));
+      std::cout << "DEBUG: Start Pipe Loop " << i + 1 << std::endl;
 
       Pipe[i]->LeeDatosGeneralesTubo(fileinput.c_str(), filepos);
       if (EngineBlock) {
@@ -903,8 +923,12 @@ void TOpenWAM::ReadPipes() {
       // Pipe[i]->getMallado());
     }
 
-    FileInput.open(fileinput.c_str());
+    std::cout << "DEBUG: ReadPipes Loop Done. Reopening Stream." << std::endl;
+    FileInput.open(fileinput.c_str(), std::ios::binary);
+    std::cout << "DEBUG: ReadPipes Opened Stream. Seeking to "
+              << (long long)filepos << std::endl;
     FileInput.seekg((std::streamoff)filepos);
+    std::cout << "DEBUG: ReadPipes Finished. Reopened Stream." << std::endl;
   } catch (exception &N) {
     std::cout << "ERROR: ReadPipes" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -940,7 +964,7 @@ void TOpenWAM::ReadDPF() {
                               GammaCalculation, ThereIsEGR, EnginePtrs.data());
     }
 
-    FileInput.open(fileinput.c_str());
+    FileInput.open(fileinput.c_str(), std::ios::binary);
     FileInput.seekg((std::streamoff)filepos);
 #endif
   } catch (exception &N) {
@@ -1001,7 +1025,7 @@ void TOpenWAM::ReadConcentric() {
                                                    PipePtrs.data(), NULL);
 #endif
       }
-      FileInput.open(fileinput.c_str());
+      FileInput.open(fileinput.c_str(), std::ios::binary);
       FileInput.seekg((std::streamoff)filepos);
     }
 #endif
@@ -1014,7 +1038,16 @@ void TOpenWAM::ReadConcentric() {
 
 void TOpenWAM::ReadValves() {
   try {
+    printf("DEBUG: ReadValves Start. Tellg: %lld\n",
+           (long long)FileInput.tellg());
+    if (FileInput.fail())
+      printf("DEBUG: ReadValves FileInput FAILBIT!\n");
+    if (FileInput.eof())
+      printf("DEBUG: ReadValves FileInput EOFBIT!\n");
+    fflush(stdout);
     FileInput >> NumberOfValves;
+    printf("DEBUG: Read NumberOfValves: %d\n", NumberOfValves);
+    fflush(stdout);
     // TypeOfValve = new TTipoValvula *[NumberOfValves];
     TypeOfValve.reserve(NumberOfValves);
     int val = 0;
@@ -1034,6 +1067,8 @@ void TOpenWAM::ReadValves() {
 
     for (int i = 0; i < NumberOfValves; ++i) {
       FileInput >> tipval;
+      printf("DEBUG: Reading Valve %d Type %d\n", i + 1, tipval);
+      fflush(stdout);
       switch (tipval) {
       case 0:
         // TypeOfValve[i] = new TCDFijo();
@@ -1119,9 +1154,11 @@ void TOpenWAM::ReadValves() {
         // Old code: Engine[0] (which was TBloqueMotor*).
         // New code: Engine[0] is unique_ptr<TBloqueMotor>. So pass .get().
       }
-      FileInput.open(fileinput.c_str());
+      std::cout << "DEBUG: ReadValves Loop End " << i + 1 << std::endl;
+      FileInput.open(fileinput.c_str(), std::ios::binary);
       FileInput.seekg((std::streamoff)filepos);
     }
+    std::cout << "DEBUG: ReadValves Finished. Reopened Stream." << std::endl;
 
   } catch (exception &N) {
     stringstream err;
@@ -1143,6 +1180,8 @@ void TOpenWAM::ReadPlenums() {
     int numeroturbinas = 0, numeroventuris = 0, numerounionesdireccionales = 0;
 
     FileInput >> NumberOfPlenums;
+    std::cout << "DEBUG: ReadPlenums NumberOfPlenums: " << NumberOfPlenums
+              << std::endl;
     /* PARAMETERS USED BY WAMMER */
     FileInput >> numeroturbinas >> numeroventuris >> numerounionesdireccionales;
 
@@ -1158,9 +1197,11 @@ void TOpenWAM::ReadPlenums() {
     }
     if (NumberOfPlenums != 0) {
       for (int i = 0; i < NumberOfPlenums; ++i) {
-        FileInput.open(fileinput.c_str());
+        FileInput.open(fileinput.c_str(), std::ios::binary);
         FileInput.seekg((std::streamoff)filepos);
         FileInput >> tipoDep;
+        std::cout << "DEBUG: ReadPlenum " << i + 1 << " Type " << tipoDep
+                  << std::endl;
         filepos = (fpos_t)FileInput.tellg();
         FileInput.close();
         switch (tipoDep) {
@@ -1186,7 +1227,7 @@ void TOpenWAM::ReadPlenums() {
           ncv++;
           break;
         case 2:
-          FileInput.open(fileinput.c_str());
+          FileInput.open(fileinput.c_str(), std::ios::binary);
           FileInput.seekg((std::streamoff)filepos);
           FileInput >> numeroturbina;
           // Plenum[i] = new TTurbinaSimple(i, SpeciesModel, SpeciesNumber,
@@ -1205,7 +1246,7 @@ void TOpenWAM::ReadPlenums() {
           NumberOfTurbines = NumberOfTurbines + 1;
           break;
         case 3:
-          FileInput.open(fileinput.c_str());
+          FileInput.open(fileinput.c_str(), std::ios::binary);
           FileInput.seekg((std::streamoff)filepos);
           FileInput >> numeroturbina;
           // Plenum[i] = new TTurbinaTwin(i, SpeciesModel, SpeciesNumber,
@@ -1224,7 +1265,7 @@ void TOpenWAM::ReadPlenums() {
           NumberOfTurbines = NumberOfTurbines + 1;
           break;
         case 4:
-          FileInput.open(fileinput.c_str());
+          FileInput.open(fileinput.c_str(), std::ios::binary);
           FileInput.seekg((std::streamoff)filepos);
           FileInput >> numeroventuri;
           // Plenum[i] = new TVenturi(i, SpeciesModel, SpeciesNumber,
@@ -1257,7 +1298,7 @@ void TOpenWAM::ReadPlenums() {
         }
       }
     }
-    FileInput.open(fileinput.c_str());
+    FileInput.open(fileinput.c_str(), std::ios::binary);
     FileInput.seekg((std::streamoff)filepos);
 
     // if (NumberOfTurbines > 0)
@@ -1302,13 +1343,16 @@ void TOpenWAM::ReadCompressors() {
     int haydeposito = 0, numid = 0, numid1 = 0, numid2 = 0;
 
     FileInput >> NumberOfCompressors;
+    std::cout << "DEBUG: ReadCompressors Number: " << NumberOfCompressors
+              << std::endl;
+
     // Compressor = new TCompresor *[NumberOfCompressors];
     Compressor.reserve(NumberOfCompressors);
     filepos = (fpos_t)FileInput.tellg();
     FileInput.close();
 
     for (int j = 0; j < NumberOfCompressors; j++) {
-      FileInput.open(fileinput.c_str());
+      FileInput.open(fileinput.c_str(), std::ios::binary);
       FileInput.seekg((std::streamoff)filepos);
       FileInput >> TipoCompresor;
       if (TipoCompresor == 0) {
@@ -1350,7 +1394,7 @@ void TOpenWAM::ReadCompressors() {
         break;
       }
     }
-    FileInput.open(fileinput.c_str());
+    FileInput.open(fileinput.c_str(), std::ios::binary);
     FileInput.seekg((std::streamoff)filepos);
   } catch (exception &N) {
     std::cout << "ERROR: ReadCompressors " << std::endl;
@@ -1361,6 +1405,7 @@ void TOpenWAM::ReadCompressors() {
 
 void TOpenWAM::ReadConnections() {
   try {
+    std::cout << "DEBUG: ReadConnections Start" << std::endl;
     fpos_t filepos;
     int numerocv = 0, contador = 0;
     int NumTCCDescargaExtremoAbierto = 0, NumTCCExtremoCerrado = 0,
@@ -1378,6 +1423,9 @@ void TOpenWAM::ReadConnections() {
         numentradapresionestatica;
 
     FileInput >> NumberOfConnections;
+    std::cout << "DEBUG: ReadConnections Number: " << NumberOfConnections
+              << std::endl;
+
     // ! PARAMETERS USED BY WAMer
     FileInput >> numnodosimples >> numpulsos >> numnododep >> numperdpresion >>
         numcomprtornillo >> numextremosinyeccion >> numnodoentredepositos >>
@@ -1390,302 +1438,336 @@ void TOpenWAM::ReadConnections() {
     FileInput.close();
     if (NumberOfConnections != 0) {
       for (int i = 0; i <= NumberOfConnections - 1; ++i) {
-        FileInput.open(fileinput.c_str());
-        FileInput.seekg((std::streamoff)filepos);
-        FileInput >> TipoCC;
-        filepos = (fpos_t)FileInput.tellg();
-        FileInput.close();
-        switch (TipoCC) {
-        case 0:
-          // BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndAtmosphere, i,
-          //                                       SpeciesModel, SpeciesNumber,
-          //                                       GammaCalculation,
-          //                                       ThereIsEGR);
-          BC.push_back(std::make_unique<TCCDescargaExtremoAbierto>(
-              nmOpenEndAtmosphere, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCDescargaExtremoAbierto++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          dynamic_cast<TCCDescargaExtremoAbierto *>(BC.back().get())
-              ->AsignAmbientConditions(AmbientTemperature, AmbientPressure,
-                                       AtmosphericComposition.data());
-          break;
-        case 1:
-          // BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndReservoir, i,
-          //                                       SpeciesModel, SpeciesNumber,
-          //                                       GammaCalculation,
-          //                                       ThereIsEGR);
-          BC.push_back(std::make_unique<TCCDescargaExtremoAbierto>(
-              nmOpenEndReservoir, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCDescargaExtremoAbierto++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 2:
-          // BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndCalcExtern, i,
-          //                                       SpeciesModel, SpeciesNumber,
-          //                                       GammaCalculation,
-          //                                       ThereIsEGR);
-          BC.push_back(std::make_unique<TCCDescargaExtremoAbierto>(
-              nmOpenEndCalcExtern, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCDescargaExtremoAbierto++;
-          nematlab++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 3:
-          // BC[i] =
-          //     new TCCExtremoCerrado(nmClosedEnd, i, SpeciesModel,
-          //     SpeciesNumber,
-          //                           GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCExtremoCerrado>(
-              nmClosedEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumTCCExtremoCerrado++;
-          BC.back()->AsignaTubos(NumberOfPipes, Pipe);
-          break;
-        case 4:
-          // BC[i] = new TCCExtremoAnecoico(nmAnechoicEnd, i, SpeciesModel,
-          //                                SpeciesNumber, GammaCalculation,
-          //                                ThereIsEGR);
-          BC.push_back(std::make_unique<TCCExtremoAnecoico>(
-              nmAnechoicEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumTCCExtremoAnecoico++;
-          BC.back()->AsignaTubos(NumberOfPipes, Pipe);
-          break;
-        case 5:
-          // BC[i] = new TCCPulso(nmIncidentPressurWave, i, SpeciesModel,
-          //                      SpeciesNumber, GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCPulso>(
-              nmIncidentPressurWave, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCPulso++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 6:
-          // BC[i] = new TCCUnionEntreTubos(nmPipesConnection, i, SpeciesModel,
-          //                                SpeciesNumber, GammaCalculation,
-          //                                ThereIsEGR);
-          BC.push_back(std::make_unique<TCCUnionEntreTubos>(
-              nmPipesConnection, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCUnionEntreTubos++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 7:
-          // BC[i] = new TCCCilindro(nmIntakeValve, i, SpeciesModel,
-          // SpeciesNumber,
-          //                         GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCCilindro>(
-              nmIntakeValve, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumTCCCilindro++;
-          NumberOfIntakeValves++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 8:
-          // BC[i] = new TCCCilindro(nmExhaustValve, i, SpeciesModel,
-          //                         SpeciesNumber, GammaCalculation,
-          //                         ThereIsEGR);
-          BC.push_back(std::make_unique<TCCCilindro>(
-              nmExhaustValve, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumTCCCilindro++;
-          NumberOfExhaustValves++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 9:
-          // BC[i] = new TCCPerdidadePresion(nmLinearPressureLoss, i,
-          // SpeciesModel,
-          //                                 SpeciesNumber, GammaCalculation,
-          //                                 ThereIsEGR);
-          BC.push_back(std::make_unique<TCCPerdidadePresion>(
-              nmLinearPressureLoss, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCPerdidaPresion++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 10:
-          // BC[i] = new TCCPerdidadePresion(nmQuadraticPressureLoss, i,
-          //                                 SpeciesModel, SpeciesNumber,
-          //                                 GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCPerdidadePresion>(
-              nmQuadraticPressureLoss, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCPerdidaPresion++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 11:
-          // BC[i] = new TCCDeposito(nmPipeToPlenumConnection, i, SpeciesModel,
-          //                         SpeciesNumber, GammaCalculation,
-          //                         ThereIsEGR);
-          BC.push_back(std::make_unique<TCCDeposito>(
-              nmPipeToPlenumConnection, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCDeposito++;
-          BC.back()->ReadBoundaryData(fileinput.c_str(), filepos, NumberOfPipes,
-                                      Pipe, NumberOfDPF, this->DPF);
-          break;
-        case 12:
-          // BC[i] = new TCCRamificacion(nmBranch, i, SpeciesModel,
-          // SpeciesNumber,
-          //                             GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCRamificacion>(
-              nmBranch, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumTCCRamificacion++;
-          BC.back()->AsignaTubos(NumberOfPipes, Pipe);
-          break;
-        case 13:
-          FileInput.open(fileinput.c_str());
+        try {
+          FileInput.open(fileinput.c_str(), std::ios::binary);
           FileInput.seekg((std::streamoff)filepos);
-          FileInput >> numerocv;
+          std::cout << "DEBUG: Seek Done. Pos: " << FileInput.tellg()
+                    << " Peek: " << (char)FileInput.peek()
+                    << " State: " << FileInput.rdstate() << std::endl;
+          FileInput >> TipoCC;
+          filepos = (fpos_t)FileInput.tellg();
+          std::cout << "DEBUG: Connection " << i + 1 << " Type " << TipoCC
+                    << " Pos: " << filepos << std::endl;
           filepos = (fpos_t)FileInput.tellg();
           FileInput.close();
-          // BC[i] = new TCCCompresorVolumetrico(nmVolumetricCompressor, i,
-          //                                     SpeciesModel, SpeciesNumber,
-          //                                     GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCCompresorVolumetrico>(
-              nmVolumetricCompressor, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          dynamic_cast<TCCCompresorVolumetrico *>(BC.back().get())
-              ->PutNumeroCV(numerocv);
-          NumberOfVolumetricCompressors++;
-          dynamic_cast<TCCCompresorVolumetrico *>(BC.back().get())
-              ->LeeCCCompresorVol(fileinput, filepos, NumberOfPipes, Pipe,
-                                  EngineBlock);
-          dynamic_cast<TCCCompresorVolumetrico *>(BC.back().get())
-              ->IniciaMedias();
-          break;
-        case 14:
-          // BC[i] = new TCCExtremoInyeccion(nmInjectionEnd, i, SpeciesModel,
-          //                                 SpeciesNumber, GammaCalculation,
-          //                                 ThereIsEGR);
-          BC.push_back(std::make_unique<TCCExtremoInyeccion>(
-              nmInjectionEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumberOfInjectionEnds++;
-          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
-                                      NumberOfDPF, this->DPF);
-          break;
-        case 15:
-          // BC[i] = new TCCEntradaCompresor(nmEntradaCompre, i, SpeciesModel,
-          //                                 SpeciesNumber, GammaCalculation,
-          //                                 ThereIsEGR);
-          BC.push_back(std::make_unique<TCCEntradaCompresor>(
-              nmEntradaCompre, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumTCCEntradaCompresor++;
-          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
-                                      NumberOfDPF, this->DPF);
-          break;
-        case 16:
-          // BC[i] = new TCCUnionEntreDepositos(nmUnionEntreDepositos, i,
-          //                                    SpeciesModel, SpeciesNumber,
-          //                                    GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCUnionEntreDepositos>(
-              nmUnionEntreDepositos, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumberOfConectionsBetweenPlenums++;
-          dynamic_cast<TCCUnionEntreDepositos *>(BC.back().get())
-              ->LeeUEDepositos(fileinput, filepos, Independent);
-          break;
-        case 17:
-          // BC[i] = new TCCCompresor(nmCompresor, i, SpeciesModel,
-          // SpeciesNumber,
-          //                          GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCCompresor>(
-              nmCompresor, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumberOfCompressorsConnections++;
-          dynamic_cast<TCCCompresor *>(BC.back().get())
-              ->LeeNumeroCompresor(fileinput, filepos);
-          break;
-        case 18:
-          // BC[i] = new TCCPreVble(nmPresionVble, i, SpeciesModel,
-          // SpeciesNumber,
-          //                        GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCPreVble>(
-              nmPresionVble, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          NumTCCPreVble++;
-          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
-                                      NumberOfDPF, this->DPF);
-          break;
-        case 19:
-          // BC[i] =
-          //     new TCFDConnection(nmCFDConnection, i, SpeciesModel,
-          //                        SpeciesNumber, GammaCalculation,
-          //                        ThereIsEGR);
-          BC.push_back(std::make_unique<TCFDConnection>(
-              nmCFDConnection, i, SpeciesModel, SpeciesNumber, GammaCalculation,
-              ThereIsEGR));
-          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
-                                      NumberOfDPF, this->DPF);
-          break;
-        case 20:
-          // BC[i] = new TCCExternalConnectionVol(nmExternalConnection, i,
-          //                                      SpeciesModel, SpeciesNumber,
-          //                                      GammaCalculation, ThereIsEGR);
-          BC.push_back(std::make_unique<TCCExternalConnectionVol>(
-              nmExternalConnection, i, SpeciesModel, SpeciesNumber,
-              GammaCalculation, ThereIsEGR));
-          NumTCCExternalConnection++;
-          BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
-                                      NumberOfDPF, this->DPF);
-          break;
-        }
-        if (BC.back()->getTipoCC() == nmIntakeValve ||
-            BC.back()->getTipoCC() == nmExhaustValve ||
-            BC.back()->getTipoCC() == nmPipeToPlenumConnection ||
-            BC.back()->getTipoCC() == nmUnionEntreDepositos) {
-          FileInput.open(fileinput.c_str());
-          FileInput.seekg((std::streamoff)filepos);
-          FileInput >> quevalv;
-          filepos = (fpos_t)FileInput.tellg();
-          FileInput.close();
-          if (BC.back()->getTipoCC() == nmIntakeValve ||
-              BC.back()->getTipoCC() == nmExhaustValve) {
-            dynamic_cast<TCCCilindro *>(BC.back().get())
-                ->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
-          } else if (BC.back()->getTipoCC() == nmPipeToPlenumConnection) {
-            dynamic_cast<TCCDeposito *>(BC.back().get())
-                ->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
-            if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmLamina)
-              NumberOfReedValves++;
-            if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmWasteGate)
-              NumberOfWasteGates++;
-            if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmCalcExtern)
-              NumberOfExternalCalculatedValves++;
-            if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmMariposa)
-              NumberOfButerflyValves++;
-          } else if (BC.back()->getTipoCC() == nmUnionEntreDepositos) {
+          switch (TipoCC) {
+          case 999:
+            std::cout << "DEBUG: Skipping Ghost Token 999" << std::endl;
+            break;
+          case 0:
+            // BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndAtmosphere, i,
+            //                                       SpeciesModel,
+            //                                       SpeciesNumber,
+            //                                       GammaCalculation,
+            //                                       ThereIsEGR);
+            BC.push_back(std::make_unique<TCCDescargaExtremoAbierto>(
+                nmOpenEndAtmosphere, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCDescargaExtremoAbierto++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            dynamic_cast<TCCDescargaExtremoAbierto *>(BC.back().get())
+                ->AsignAmbientConditions(AmbientTemperature, AmbientPressure,
+                                         AtmosphericComposition.data());
+            break;
+          case 1:
+            // BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndReservoir, i,
+            //                                       SpeciesModel,
+            //                                       SpeciesNumber,
+            //                                       GammaCalculation,
+            //                                       ThereIsEGR);
+            BC.push_back(std::make_unique<TCCDescargaExtremoAbierto>(
+                nmOpenEndReservoir, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCDescargaExtremoAbierto++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 2:
+            // BC[i] = new TCCDescargaExtremoAbierto(nmOpenEndCalcExtern, i,
+            //                                       SpeciesModel,
+            //                                       SpeciesNumber,
+            //                                       GammaCalculation,
+            //                                       ThereIsEGR);
+            BC.push_back(std::make_unique<TCCDescargaExtremoAbierto>(
+                nmOpenEndCalcExtern, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCDescargaExtremoAbierto++;
+            nematlab++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 3:
+            // BC[i] =
+            //     new TCCExtremoCerrado(nmClosedEnd, i, SpeciesModel,
+            //     SpeciesNumber,
+            //                           GammaCalculation, ThereIsEGR);
+            BC.push_back(std::make_unique<TCCExtremoCerrado>(
+                nmClosedEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+                ThereIsEGR));
+            NumTCCExtremoCerrado++;
+            BC.back()->AsignaTubos(NumberOfPipes, Pipe);
+            break;
+          case 4:
+            // BC[i] = new TCCExtremoAnecoico(nmAnechoicEnd, i, SpeciesModel,
+            //                                SpeciesNumber, GammaCalculation,
+            //                                ThereIsEGR);
+            BC.push_back(std::make_unique<TCCExtremoAnecoico>(
+                nmAnechoicEnd, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+                ThereIsEGR));
+            NumTCCExtremoAnecoico++;
+            BC.back()->AsignaTubos(NumberOfPipes, Pipe);
+            break;
+          case 5:
+            // BC[i] = new TCCPulso(nmIncidentPressurWave, i, SpeciesModel,
+            //                      SpeciesNumber, GammaCalculation,
+            //                      ThereIsEGR);
+            BC.push_back(std::make_unique<TCCPulso>(
+                nmIncidentPressurWave, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCPulso++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 6:
+            // BC[i] = new TCCUnionEntreTubos(nmPipesConnection, i,
+            // SpeciesModel,
+            //                                SpeciesNumber, GammaCalculation,
+            //                                ThereIsEGR);
+            BC.push_back(std::make_unique<TCCUnionEntreTubos>(
+                nmPipesConnection, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCUnionEntreTubos++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 7:
+            // BC[i] = new TCCCilindro(nmIntakeValve, i, SpeciesModel,
+            // SpeciesNumber,
+            //                         GammaCalculation, ThereIsEGR);
+            BC.push_back(std::make_unique<TCCCilindro>(
+                nmIntakeValve, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+                ThereIsEGR));
+            NumTCCCilindro++;
+            NumberOfIntakeValves++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 8:
+            // BC[i] = new TCCCilindro(nmExhaustValve, i, SpeciesModel,
+            //                         SpeciesNumber, GammaCalculation,
+            //                         ThereIsEGR);
+            BC.push_back(std::make_unique<TCCCilindro>(
+                nmExhaustValve, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCCilindro++;
+            NumberOfExhaustValves++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 9:
+            // BC[i] = new TCCPerdidadePresion(nmLinearPressureLoss, i,
+            // SpeciesModel,
+            //                                 SpeciesNumber, GammaCalculation,
+            //                                 ThereIsEGR);
+            BC.push_back(std::make_unique<TCCPerdidadePresion>(
+                nmLinearPressureLoss, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCPerdidaPresion++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 10:
+            // BC[i] = new TCCPerdidadePresion(nmQuadraticPressureLoss, i,
+            //                                 SpeciesModel, SpeciesNumber,
+            //                                 GammaCalculation, ThereIsEGR);
+            BC.push_back(std::make_unique<TCCPerdidadePresion>(
+                nmQuadraticPressureLoss, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCPerdidaPresion++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 11:
+            // BC[i] = new TCCDeposito(nmPipeToPlenumConnection, i,
+            // SpeciesModel,
+            //                         SpeciesNumber, GammaCalculation,
+            //                         ThereIsEGR);
+            BC.push_back(std::make_unique<TCCDeposito>(
+                nmPipeToPlenumConnection, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCDeposito++;
+            BC.back()->ReadBoundaryData(fileinput.c_str(), filepos,
+                                        NumberOfPipes, Pipe, NumberOfDPF,
+                                        this->DPF);
+            break;
+          case 12:
+            // BC[i] = new TCCRamificacion(nmBranch, i, SpeciesModel,
+            // SpeciesNumber,
+            //                             GammaCalculation, ThereIsEGR);
+            BC.push_back(std::make_unique<TCCRamificacion>(
+                nmBranch, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+                ThereIsEGR));
+            NumTCCRamificacion++;
+            BC.back()->AsignaTubos(NumberOfPipes, Pipe);
+            break;
+          case 13:
+            FileInput.open(fileinput.c_str(), std::ios::binary);
+            FileInput.seekg((std::streamoff)filepos);
+            FileInput >> numerocv;
+            filepos = (fpos_t)FileInput.tellg();
+            FileInput.close();
+            // BC[i] = new TCCCompresorVolumetrico(nmVolumetricCompressor, i,
+            //                                     SpeciesModel, SpeciesNumber,
+            //                                     GammaCalculation,
+            //                                     ThereIsEGR);
+            BC.push_back(std::make_unique<TCCCompresorVolumetrico>(
+                nmVolumetricCompressor, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            dynamic_cast<TCCCompresorVolumetrico *>(BC.back().get())
+                ->PutNumeroCV(numerocv);
+            NumberOfVolumetricCompressors++;
+            dynamic_cast<TCCCompresorVolumetrico *>(BC.back().get())
+                ->LeeCCCompresorVol(fileinput, filepos, NumberOfPipes, Pipe,
+                                    EngineBlock);
+            dynamic_cast<TCCCompresorVolumetrico *>(BC.back().get())
+                ->IniciaMedias();
+            break;
+          case 14:
+            // BC[i] = new TCCExtremoInyeccion(nmInjectionEnd, i, SpeciesModel,
+            //                                 SpeciesNumber, GammaCalculation,
+            //                                 ThereIsEGR);
+            BC.push_back(std::make_unique<TCCExtremoInyeccion>(
+                nmInjectionEnd, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumberOfInjectionEnds++;
+            BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                        NumberOfDPF, this->DPF);
+            break;
+          case 15:
+            // BC[i] = new TCCEntradaCompresor(nmEntradaCompre, i, SpeciesModel,
+            //                                 SpeciesNumber, GammaCalculation,
+            //                                 ThereIsEGR);
+            BC.push_back(std::make_unique<TCCEntradaCompresor>(
+                nmEntradaCompre, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCEntradaCompresor++;
+            BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                        NumberOfDPF, this->DPF);
+            break;
+          case 16:
+            // BC[i] = new TCCUnionEntreDepositos(nmUnionEntreDepositos, i,
+            //                                    SpeciesModel, SpeciesNumber,
+            //                                    GammaCalculation, ThereIsEGR);
+            BC.push_back(std::make_unique<TCCUnionEntreDepositos>(
+                nmUnionEntreDepositos, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumberOfConectionsBetweenPlenums++;
             dynamic_cast<TCCUnionEntreDepositos *>(BC.back().get())
-                ->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
-            if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmLamina)
-              NumberOfReedValves++;
-            if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmWasteGate)
-              NumberOfWasteGates++;
-            if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmCalcExtern)
-              NumberOfExternalCalculatedValves++;
-            if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmMariposa)
-              NumberOfButerflyValves++;
+                ->LeeUEDepositos(fileinput, filepos, Independent);
+            break;
+          case 17:
+            // BC[i] = new TCCCompresor(nmCompresor, i, SpeciesModel,
+            // SpeciesNumber,
+            //                          GammaCalculation, ThereIsEGR);
+            BC.push_back(std::make_unique<TCCCompresor>(
+                nmCompresor, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+                ThereIsEGR));
+            NumberOfCompressorsConnections++;
+            dynamic_cast<TCCCompresor *>(BC.back().get())
+                ->LeeNumeroCompresor(fileinput, filepos);
+            break;
+          case 18:
+            // BC[i] = new TCCPreVble(nmPresionVble, i, SpeciesModel,
+            // SpeciesNumber,
+            //                        GammaCalculation, ThereIsEGR);
+            BC.push_back(std::make_unique<TCCPreVble>(
+                nmPresionVble, i, SpeciesModel, SpeciesNumber, GammaCalculation,
+                ThereIsEGR));
+            NumTCCPreVble++;
+            BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                        NumberOfDPF, this->DPF);
+            break;
+          case 19:
+            // BC[i] =
+            //     new TCFDConnection(nmCFDConnection, i, SpeciesModel,
+            //                        SpeciesNumber, GammaCalculation,
+            //                        ThereIsEGR);
+            BC.push_back(std::make_unique<TCFDConnection>(
+                nmCFDConnection, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                        NumberOfDPF, this->DPF);
+            break;
+          case 20:
+            // BC[i] = new TCCExternalConnectionVol(nmExternalConnection, i,
+            //                                      SpeciesModel, SpeciesNumber,
+            //                                      GammaCalculation,
+            //                                      ThereIsEGR);
+            BC.push_back(std::make_unique<TCCExternalConnectionVol>(
+                nmExternalConnection, i, SpeciesModel, SpeciesNumber,
+                GammaCalculation, ThereIsEGR));
+            NumTCCExternalConnection++;
+            BC.back()->ReadBoundaryData(fileinput, filepos, NumberOfPipes, Pipe,
+                                        NumberOfDPF, this->DPF);
+            break;
           }
-          numerovalvula++;
+          if (BC.back()->getTipoCC() == nmIntakeValve ||
+              BC.back()->getTipoCC() == nmExhaustValve ||
+              BC.back()->getTipoCC() == nmPipeToPlenumConnection ||
+              BC.back()->getTipoCC() == nmUnionEntreDepositos) {
+            FileInput.open(fileinput.c_str(), std::ios::binary);
+            FileInput.seekg((std::streamoff)filepos);
+            FileInput >> quevalv;
+            filepos = (fpos_t)FileInput.tellg();
+            FileInput.close();
+            if (BC.back()->getTipoCC() == nmIntakeValve ||
+                BC.back()->getTipoCC() == nmExhaustValve) {
+              dynamic_cast<TCCCilindro *>(BC.back().get())
+                  ->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
+            } else if (BC.back()->getTipoCC() == nmPipeToPlenumConnection) {
+              dynamic_cast<TCCDeposito *>(BC.back().get())
+                  ->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
+              if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmLamina)
+                NumberOfReedValves++;
+              if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmWasteGate)
+                NumberOfWasteGates++;
+              if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmCalcExtern)
+                NumberOfExternalCalculatedValves++;
+              if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmMariposa)
+                NumberOfButerflyValves++;
+            } else if (BC.back()->getTipoCC() == nmUnionEntreDepositos) {
+              dynamic_cast<TCCUnionEntreDepositos *>(BC.back().get())
+                  ->AsignaTipoValvula(TypeOfValve, quevalv, numerovalvula);
+              if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmLamina)
+                NumberOfReedValves++;
+              if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmWasteGate)
+                NumberOfWasteGates++;
+              if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmCalcExtern)
+                NumberOfExternalCalculatedValves++;
+              if (TypeOfValve[quevalv - 1]->getTypeOfValve() == nmMariposa)
+                NumberOfButerflyValves++;
+            }
+            numerovalvula++;
+          }
+        } catch (std::exception &e) {
+          std::cout << "CRITICAL ERROR IN LOOP " << i << ": " << e.what()
+                    << std::endl;
+        } catch (...) {
+          std::cout << "CRITICAL UNKNOWN ERROR IN LOOP " << i << std::endl;
         }
       }
     }
-    FileInput.open(fileinput.c_str());
+    FileInput.open(fileinput.c_str(), std::ios::binary);
     FileInput.seekg((std::streamoff)filepos);
 
     if (NumberOfIntakeValves > 0) {
@@ -1878,9 +1960,9 @@ void TOpenWAM::ReadConnections() {
               1;
           if (ID >= 0 && ID < NumTCCExternalConnection) {
             if (Asigned[ID] == true) {
-              std::cout
-                  << "ERROR: There are two external connection with the same ID"
-                  << std::endl;
+              std::cout << "ERROR: There are two external connection with "
+                           "the same ID"
+                        << std::endl;
             }
             Asigned[ID] = true;
             BCExtConnectionVol[ID] =
@@ -1892,7 +1974,6 @@ void TOpenWAM::ReadConnections() {
         }
       }
     }
-
   } catch (exception &N) {
     std::cout << " ERROR : ReadConnections " << std::endl;
     std::cout << " Tipo de error : " << N.what() << std::endl;
@@ -1935,7 +2016,7 @@ void TOpenWAM::ReadOutput(std::string FileName) {
 
   Output->ReadSpaceTimeResults(fileinput, filepos, Pipe, Engine, Plenum);
 
-  FileInput.open(FileName.c_str());
+  FileInput.open(FileName.c_str(), std::ios::binary);
   FileInput.seekg((std::streamoff)filepos);
 }
 void TOpenWAM::ReadTurbochargerAxis() {
@@ -1958,7 +2039,8 @@ void TOpenWAM::ReadTurbochargerAxis() {
     if (NumberOfAxis != 0) {
       for (int i = 0; i < NumberOfAxis; ++i) {
         if (EngineBlock) {
-          // Axis[i] = new TEjeTurbogrupo(i, Engine[0]->getGeometria().NCilin);
+          // Axis[i] = new TEjeTurbogrupo(i,
+          // Engine[0]->getGeometria().NCilin);
           Axis.push_back(std::make_unique<TEjeTurbogrupo>(
               i, Engine[0]->getGeometria().NCilin));
         } else
@@ -1971,7 +2053,7 @@ void TOpenWAM::ReadTurbochargerAxis() {
       }
     }
 
-    FileInput.open(fileinput.c_str());
+    FileInput.open(fileinput.c_str(), std::ios::binary);
     FileInput.seekg((std::streamoff)filepos);
   } catch (exception &N) {
     std::cout << " ERROR : ReadTurbochargerAxis " << std::endl;
@@ -1998,7 +2080,7 @@ void TOpenWAM::ReadSensors() {
       Sensor.back()->IniciaMedias();
     }
   }
-  FileInput.open(fileinput.c_str());
+  FileInput.open(fileinput.c_str(), std::ios::binary);
   FileInput.seekg((std::streamoff)filepos);
 }
 
@@ -2034,7 +2116,7 @@ void TOpenWAM::ReadControllers() {
       FileInput.close();
       Controller.back()->LeeController(fileinput.c_str(), filepos);
       Controller.back()->IniciaMedias();
-      FileInput.open(fileinput.c_str());
+      FileInput.open(fileinput.c_str(), std::ios::binary);
       FileInput.seekg((std::streamoff)filepos);
     }
   }
@@ -2177,8 +2259,8 @@ void TOpenWAM::RunningControl() {
     double regimenficticio = 0.;
 
     if (!EngineBlock) {
-      /* No hay motor pero Theta controla el funcionamiento del WAM. DE MOMENTO
-       * (pedro,paco) */
+      /* No hay motor pero Theta controla el funcionamiento del WAM. DE
+       * MOMENTO (pedro,paco) */
       Run.CycleDuration = 720;
       regimenficticio = 720. / 6 / SimulationDuration;
       thmax = 720.;
@@ -3828,8 +3910,8 @@ void TOpenWAM::SolveAdjacentElements(int OneDEnd, double TiempoActual) {
           Engine[0]->GetCilindro(NumeroCilindro - 1)->PutCalculadoPaso(true);
       }
 
-      /* Si se trata de un deposito de volumen constante o variable se inicia la
-       busqueda de condiciones de contorno de tipo union entre depositos o
+      /* Si se trata de un deposito de volumen constante o variable se inicia
+       la busqueda de condiciones de contorno de tipo union entre depositos o
        compresores entre depositos que posea, para realizar su calculo. Esta
        busqueda  se realiza de forma recursiva hasta que se llega a otro tubo.
      */
@@ -3879,7 +3961,8 @@ void TOpenWAM::SolveAdjacentElements(int OneDEnd, double TiempoActual) {
                       Plenum[NumDepInicial - 1]->GetCCUnionEntreDep(i))
                       ->PutInstanteCalculo(TiempoActual);
                 }
-                /* Comienzo de la busqueda recursiva en el siguiente deposito */
+                /* Comienzo de la busqueda recursiva en el siguiente deposito
+                 */
                 if (Plenum[NumDepSiguiente - 1]->getCalculadoPaso()) {
                   SolveBranch(NumDepSiguiente, TiempoActual);
                 }
@@ -3979,7 +4062,8 @@ void TOpenWAM::SolveAdjacentElements(int OneDEnd, double TiempoActual) {
                     ->getValvula()
                     ->AcumulaCDMedio(TiempoActual);
 
-                /* Comienzo de la busqueda recursiva en el siguiente deposito */
+                /* Comienzo de la busqueda recursiva en el siguiente deposito
+                 */
                 if (Plenum[NumDepSiguiente - 1]->getCalculadoPaso()) {
                   SolveBranch(NumDepSiguiente, TiempoActual);
                 }
@@ -4035,8 +4119,8 @@ void TOpenWAM::SolveBranch(int NumDeposito, double TiempoActual) {
                 Plenum[NumDeposito - 1]->GetCCUnionEntreDep(i))
                     ->getInstanteCalculo() != TiempoActual) {
 
-          /* Aqui se determina el siguiente deposito en el que se continuara la
-           * busqueda */
+          /* Aqui se determina el siguiente deposito en el que se continuara
+           * la busqueda */
           if (dynamic_cast<TCCCompresor *>(
                   Plenum[NumDeposito - 1]->GetCCUnionEntreDep(i))
                   ->getNumeroDepositoRot() == NumDeposito) {
@@ -4731,8 +4815,8 @@ void TOpenWAM::Actuadores()
           Engine[0]->GetCilindro(i)->getAnguloAnterior() <=
               Engine[0]->GetCilindro(i)->getDistribucion().AE) {
         for (int j = 0; j < Engine[0]->getSpeciesNumber() - 1;
-             j++) { // Se pone -1 porque la ultima especie es siempre el EGR, y
-                    // este no debe modificarlo el usuario.
+             j++) { // Se pone -1 porque la ultima especie es siempre el EGR,
+                    // y este no debe modificarlo el usuario.
           Engine[0]->GetCilindro(i)->PutFraccionMasicaEspecie(
               j, EXTERN->GetOutput_dll(compo));
         }

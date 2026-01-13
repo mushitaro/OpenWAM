@@ -104,7 +104,7 @@ void TCCPreVble::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     FPulso = new TEntradaPulso();

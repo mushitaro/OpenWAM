@@ -97,7 +97,7 @@ void TCCUnionEntreDepositos::LeeUEDepositos(const std::string &FileWAM,
 
     FIndependiente = Independent;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ",
@@ -746,7 +746,7 @@ void TCCUnionEntreDepositos::LeeResultadosInstantUED(const std::string &FileWAM,
                                                      fpos_t &filepos) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &nvars);

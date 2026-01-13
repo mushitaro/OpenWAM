@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project (OpenWAM)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -27,7 +28,7 @@ if(BUILD_DOCUMENTATION)
   # IF you do NOT want the documentation to be generated EVERY time you build the project
   # then leave out the 'ALL' keyword from the above command.
 endif()
-option(BUILD_PARALLEL "Build using OpenMP for parallel simulations." OFF)
+option(BUILD_PARALLEL "Build using OpenMP for parallel simulations." ON)
 if(BUILD_PARALLEL)
     find_package(OpenMP)
     if (NOT OPENMP_FOUND)

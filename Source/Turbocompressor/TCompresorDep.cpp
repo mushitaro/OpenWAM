@@ -61,7 +61,7 @@ TCompresorDep::~TCompresorDep() {}
 void TCompresorDep::LeeCompresor(const std::string &FileWAM, fpos_t &filepos) {
   int modelo = 0;
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     Mapa->LeeMapa(fich);

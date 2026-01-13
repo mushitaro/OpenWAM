@@ -202,23 +202,47 @@ void TCCDeposito::ReadBoundaryData(
       FUnionDPF = true;
     }
 #endif
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
+    std::cout << "DEBUG: TCCDeposito::ReadBoundaryData Start" << std::endl;
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
+    if (fich == NULL) {
+      std::cout << "ERROR: Failed to open file: " << FileWAM << std::endl;
+      throw Exception("Failed to open file");
+    }
+    // fsetpos(fich, &filepos);
+    _fseeki64(fich, filepos, SEEK_SET);
 
-    fscanf(fich, "%d ",
-           &numid); // Esto es un dato que necesita el WAMer. Los usuarios de
-                    // WAM hacemos la vista gorda hasta que se arregle.
-    fscanf(fich, "%d ", &FNumeroDeposito);
+    std::cout << "DEBUG: TCCDeposito Seek Done. Pos: " << filepos << std::endl;
 
-    fgetpos(fich, &filepos);
+    int n_read1 = fscanf(fich, "%d ", &numid);
+    std::cout << "DEBUG: TCCDeposito Read NumID: " << n_read1
+              << " Val: " << numid << std::endl;
+
+    int n_read2 = fscanf(fich, "%d ", &FNumeroDeposito);
+    std::cout << "DEBUG: TCCDeposito Read NumDep: " << n_read2
+              << " Val: " << FNumeroDeposito << std::endl;
+
+    // fgetpos(fich, &filepos);
+    filepos = _ftelli64(fich);
+    std::cout << "DEBUG: TCCDeposito Tell Done. Pos: " << filepos << std::endl;
     fclose(fich);
 
     // Inicializacion del transporte de especies quimicas
+    std::cout << "DEBUG: TCCDeposito FNumeroTubosCC: " << FNumeroTubosCC
+              << std::endl;
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
     if (!FUnionDPF) {
+      std::cout << "DEBUG: FUnionDPF is false. Checking Pipe Ptr." << std::endl;
+      if (FTuboExtremo[0].Pipe == NULL) {
+        std::cout << "ERROR: FTuboExtremo[0].Pipe is NULL!" << std::endl;
+        throw Exception("Pipe is NULL");
+      }
+      std::cout << "DEBUG: Pipe Ptr: " << FTuboExtremo[0].Pipe << std::endl;
       for (int i = 0; i < FNumeroEspecies - FIntEGR; i++) {
+        std::cout << "DEBUG: Species Loop i=" << i << std::endl;
         FFraccionMasicaEspecie[i] =
             FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
+        std::cout << "DEBUG: Species Loop Val=" << FFraccionMasicaEspecie[i]
+                  << std::endl;
       }
     } else {
 #ifdef ParticulateFilter

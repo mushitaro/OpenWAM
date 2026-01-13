@@ -72,7 +72,7 @@ void TCompTubDep::LeeCompresor(const std::string &FileWAM, fpos_t &filepos) {
     int format = 0, ac = 0;
     int InID = 0, OutID = 0, VolID = 0, StaID = 0, RotID = 0;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
 #ifdef tchtm

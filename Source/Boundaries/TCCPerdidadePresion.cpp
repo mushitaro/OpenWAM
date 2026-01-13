@@ -30,6 +30,7 @@ Valencia
 #pragma hdrstop
 
 #include "TCCPerdidadePresion.h"
+#include <stdio.h>
 
 // #include <cmath>
 #ifdef __BORLANDC__
@@ -138,12 +139,16 @@ void TCCPerdidadePresion::ReadBoundaryData(
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
+    // fsetpos(fich, &filepos);
+    _fseeki64(fich, filepos, SEEK_SET);
 
     fscanf(fich, "%lf ", &FK); /* Coeficiente de perdidas con signo positivo */
+    printf("DEBUG: TCCPerdidadePresion Read K: %f\n", FK);
+    fflush(stdout);
 
-    fgetpos(fich, &filepos);
+    // fgetpos(fich, &filepos);
+    filepos = _ftelli64(fich);
     fclose(fich);
 
   } catch (exception &N) {

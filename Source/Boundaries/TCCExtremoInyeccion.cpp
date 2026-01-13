@@ -101,7 +101,7 @@ void TCCExtremoInyeccion::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%lf %lf %lf ", &FGastoIny, &FTemperaturaIny, &FInicioIny);

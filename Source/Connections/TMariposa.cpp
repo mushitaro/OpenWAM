@@ -73,7 +73,7 @@ void TMariposa::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
                                   TBloqueMotor *Engine) {
   int ctrl = 0, prm = 0;
 
-  FILE *fich = fopen(FileWAM.c_str(), "r");
+  FILE *fich = fopen(FileWAM.c_str(), "rb");
   fsetpos(fich, &filepos);
 
   FNumeroOrden = norden;

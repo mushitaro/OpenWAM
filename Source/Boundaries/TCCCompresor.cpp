@@ -76,7 +76,7 @@ void TCCCompresor::LeeNumeroCompresor(const std::string &FileWAM,
                                       fpos_t &filepos) {
   try {
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &FNumeroCompresor);
@@ -133,7 +133,7 @@ void TCCCompresor::AsignacionDatos(
         }
         i++;
       }
-      FILE *fich = fopen(FileWAM.c_str(), "r");
+      FILE *fich = fopen(FileWAM.c_str(), "rb");
       fsetpos(fich, &filepos);
 
       fscanf(fich, "%d ", &tipoentrada);
@@ -155,7 +155,7 @@ void TCCCompresor::AsignacionDatos(
 
       if (FEntradaCompresor == nmPlenum) {
 
-        FILE *fich = fopen(FileWAM.c_str(), "r");
+        FILE *fich = fopen(FileWAM.c_str(), "rb");
         fsetpos(fich, &filepos);
 
         fscanf(fich, "%d ", &FNumeroDeposito);
@@ -223,7 +223,7 @@ void TCCCompresor::AsignacionDatos(
     } else if (FCompresor->getModeloCompresor() == nmCompPlenums) {
       // Posee dos depositos. Hay que asignarselos a la BC.
 
-      FILE *fich = fopen(FileWAM.c_str(), "r");
+      FILE *fich = fopen(FileWAM.c_str(), "rb");
       fsetpos(fich, &filepos);
 
       fscanf(fich, "%d ", &FNumeroDepositoRot);
@@ -273,7 +273,7 @@ void TCCCompresor::ReadCompressorData(
 
   if (Compressor[FNumeroCompresor - 1]->getModeloCompresor() ==
       nmCompOriginal) {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &tipoentrada);
@@ -296,7 +296,7 @@ void TCCCompresor::ReadCompressorData(
              nmCompPlenums) {
     // Posee dos depositos. Hay que asignarselos a la BC.
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
+    FILE *fich = fopen(FileWAM.c_str(), "rb");
     fsetpos(fich, &filepos);
 
     fscanf(fich, "%d ", &FNumeroDepositoRot);
