@@ -102,7 +102,7 @@ TCCDeposito::~TCCDeposito() {
 // ---------------------------------------------------------------------------
 
 void TCCDeposito::ReadBoundaryData(
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+    std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -203,28 +203,19 @@ void TCCDeposito::ReadBoundaryData(
     }
 #endif
     std::cout << "DEBUG: TCCDeposito::ReadBoundaryData Start" << std::endl;
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    if (fich == NULL) {
-      std::cout << "ERROR: Failed to open file: " << FileWAM << std::endl;
-      throw Exception("Failed to open file");
-    }
-    // fsetpos(fich, &filepos);
-    _fseeki64(fich, filepos, SEEK_SET);
+    std::cout << "DEBUG: TCCDeposito::ReadBoundaryData Start" << std::endl;
 
-    std::cout << "DEBUG: TCCDeposito Seek Done. Pos: " << filepos << std::endl;
+    // Stream is already positioned by caller (ReadConnections)
+    // No need to fopen/seek.
 
-    int n_read1 = fscanf(fich, "%d ", &numid);
-    std::cout << "DEBUG: TCCDeposito Read NumID: " << n_read1
-              << " Val: " << numid << std::endl;
+    FileInput >> numid;
+    std::cout << "DEBUG: TCCDeposito Read NumID: " << numid << std::endl;
 
-    int n_read2 = fscanf(fich, "%d ", &FNumeroDeposito);
-    std::cout << "DEBUG: TCCDeposito Read NumDep: " << n_read2
-              << " Val: " << FNumeroDeposito << std::endl;
+    FileInput >> FNumeroDeposito;
+    std::cout << "DEBUG: TCCDeposito Read NumDep: " << FNumeroDeposito
+              << std::endl;
 
-    // fgetpos(fich, &filepos);
-    filepos = _ftelli64(fich);
-    std::cout << "DEBUG: TCCDeposito Tell Done. Pos: " << filepos << std::endl;
-    fclose(fich);
+    // filepos is not needed as stream tracks position automatically
 
     // Inicializacion del transporte de especies quimicas
     std::cout << "DEBUG: TCCDeposito FNumeroTubosCC: " << FNumeroTubosCC

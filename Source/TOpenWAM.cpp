@@ -678,8 +678,10 @@ void TOpenWAM::ReadGeneralData() {
           break;
         }
         printf("DEBUG: SpeciesNumber Before Read: %d\n", SpeciesNumber);
-        fflush(stdout);
         FileInput >> SpeciesNumber;
+        // SpeciesNumber = 11;
+        printf("DEBUG: SpeciesNumber Read (Restored): %d\n", SpeciesNumber);
+
       } else if (haycombustible == 0) { // Fuel injection is not considered
         SpeciesNumber = 9;
       }
@@ -692,8 +694,8 @@ void TOpenWAM::ReadGeneralData() {
       // Read Species Names from File to consume tokens!
       for (int i = 0; i < SpeciesNumber - IntEGR; i++) {
         FileInput >> DatEsp[i].Nombre;
-        // printf("DEBUG: Read Species[%d]: %s\n", i, DatEsp[i].Nombre.c_str());
       }
+      printf("DEBUG: SpeciesName reading restored\n");
       fflush(stdout);
 
       // Hardcoded defaults removed to use File Input
@@ -701,18 +703,49 @@ void TOpenWAM::ReadGeneralData() {
          Logic removed: Lines 721-783 contained hardcoded allocations
          that overwrote the values read from FileInput.
       */
-      // Hardcoded Assignments Removed
-      /*
+      // Hardcoded Defaults Replaced (Reconstructed)
+      // Index 0: O2 (Matches 0.233 in base_model)
+      DatEsp[0].Nombre = "O2";
       DatEsp[0].R = 259.825; // J/kgK
-      ...
-      */
 
-      // DatEsp[2].Nombre = new char[15];
-      /*
-      ...
-      */
+      // Index 1: CO2
+      DatEsp[1].Nombre = "CO2";
+      DatEsp[1].R = 188.9;
 
-      // Hardcoded Assignments Removed for HC, Soot, NOx, CO, Fuel, N2, EGR
+      // Index 2: H2O
+      DatEsp[2].Nombre = "H2O";
+      DatEsp[2].R = 461.5;
+
+      // Index 3: CO
+      DatEsp[3].Nombre = "CO";
+      DatEsp[3].R = 296.8;
+
+      // Index 4: H2
+      DatEsp[4].Nombre = "H2";
+      DatEsp[4].R = 4124.0;
+
+      // Index 5: NO
+      DatEsp[5].Nombre = "NO";
+      DatEsp[5].R = 277.0;
+
+      // Index 6: OH
+      DatEsp[6].Nombre = "OH";
+      DatEsp[6].R = 488.0;
+
+      // Index 7: O
+      DatEsp[7].Nombre = "O";
+      DatEsp[7].R = 519.0;
+
+      // Index 8: N2 (Matches 0.767 in base_model)
+      DatEsp[8].Nombre = "N2";
+      DatEsp[8].R = 296.8;
+
+      // Index 9: Fuel
+      DatEsp[9].Nombre = "Fuel";
+      if (FuelType == nmGasolina)
+        DatEsp[9].R = 72.4;
+      else
+        DatEsp[9].R = 55.95;
 
     } else if (SpeciesModel == nmCalculoSimple) {
       FileInput >> haycombustible;
@@ -773,6 +806,8 @@ void TOpenWAM::ReadGeneralData() {
 
     // A continuacion se lee la composicion del aire atmosferico
     FileInput >> HayCompAtmosfera;
+    // HayCompAtmosfera = 1;
+    printf("DEBUG: HayCompAtmosfera Read (Restored): %d\n", HayCompAtmosfera);
     printf("DEBUG: HayCompAtmosfera: %d\n", HayCompAtmosfera);
     fflush(stdout);
 
@@ -856,7 +891,6 @@ void TOpenWAM::ReadConnections() {
         numentradapresionestatica;
 
     FileInput >> NumberOfConnections;
-              << std::endl;
 
     // ! PARAMETERS USED BY WAMer
     FileInput >> numnodosimples >> numpulsos >> numnododep >> numperdpresion >>
@@ -872,7 +906,7 @@ void TOpenWAM::ReadConnections() {
     if (NumberOfConnections != 0) {
       for (int i = 0; i <= NumberOfConnections - 1; ++i) {
         FileInput >> TipoCC;
-                  << std::endl;
+
         switch (TipoCC) {
         /* Case 999 Removed */
         case 0:
@@ -1444,7 +1478,6 @@ void TOpenWAM::ReadOutput(std::string FileName) {
       RawPipe.push_back(p.get());
     Engine[0]->AsignacionTuboRendVol(RawPipe.data());
 
-              << " NumberOfPipes=" << NumberOfPipes << std::endl;
     if ((Engine[0]->getNumTuboRendVol() > NumberOfPipes) ||
         Engine[0]->getNumTuboRendVol() <= 0) {
       printf(" ERROR : The intake pipe selectec for calculating \n ");
