@@ -3966,18 +3966,12 @@ void ACT(double *engine_parameters, double *engine_model_constants, double *test
 
 	} // for counter
 
-	if(RadCalc == 1 && Ang_Grab > -179.) {
-		fclose(foculto);
-		fclose(foculto2);
-	}
+	if(RadCalc == 1 && Ang_Grab > -179.) {}
 
 	/** **************************************************************************** */
 
 	// Cierro fichero interno
-	if(RadCalc == 1 && Ang_Grab > -179.)
-		fclose(finterno);
-
-	mSOOT_bowl_A_i_burned = mSOOT_bowl_A[size - 1];
+	if(RadCalc == 1 && Ang_Grab > -179.)mSOOT_bowl_A_i_burned = mSOOT_bowl_A[size - 1];
 	mSOOT_bowl_B_i_burned = mSOOT_bowl_B[size - 1];
 	mSOOT_bowl_C_i_burned = mSOOT_bowl_C[size - 1];
 
@@ -4116,171 +4110,133 @@ void ACT(double *engine_parameters, double *engine_model_constants, double *test
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],mtotal,mfuel,mfuel_real,mO2,mO2_real,TSD,Tadib");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",CAD[counter],time_vector[counter],elementcontrol[7][counter].mtotal,elementcontrol[7][counter].mfuel,elementcontrol[7][counter].mfuel_real,elementcontrol[7][counter].mO2,elementcontrol[7][counter].mO2_real,elementcontrol[7][counter].TSD,elementcontrol[7][counter].Tadib);
-	 }
-
-	 fclose(fich);
-
-
-	 if((fich=fopen("c:\\ACT_model\\output\\Instantaneous_law.dat","w"))==NULL){
+	 fprintf(FileInput, "\n%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",CAD[counter],time_vector[counter],elementcontrol[7][counter].mtotal,elementcontrol[7][counter].mfuel,elementcontrol[7][counter].mfuel_real,elementcontrol[7][counter].mO2,elementcontrol[7][counter].mO2_real,elementcontrol[7][counter].TSD,elementcontrol[7][counter].Tadib);
+	 }if((fich=fopen("c:\\ACT_model\\output\\Instantaneous_law.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],Pcyl[bar],dpdacyl[bar/deg],HR[J],ROHR[J/s],Tcyl[K],Vcyl[m3],ro_air[kg/m3],uo*[m/s],mtotal_cyl[g],injection[kg/s],accu_mfuel[kg],mO2bowl[g],mO2Vd[g],YO2[-],Tsq[K],Tadib_cyl[K],mNOx[g],XLO[m]");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
 
-	 fprintf(fich, "\n%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",CAD[counter],time_vector[counter],(p_cyl[counter]*1e-5),dp_da_cyl[counter],(HRF[counter]*mfuel*42.92),ROHR[counter],\
+	 fprintf(FileInput, "\n%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",CAD[counter],time_vector[counter],(p_cyl[counter]*1e-5),dp_da_cyl[counter],(HRF[counter]*mfuel*42.92),ROHR[counter],\
 	T_cyl[counter],V_cyl[counter],roair[counter],virtual_velocity[counter],(mtotal_bowl[counter]+mtotal_Vc[counter]),dmf[counter],(acu_dmf[counter]*mfuel*42.92),mO2_bowl[counter],mO2_Vc[counter],((mO2_bowl[counter]+mO2_Vc[counter])/(mtotal_bowl[counter]+mtotal_Vc[counter])),Tsq_cyl[counter],Tadib_cyl[counter],\
 	(mNOx_bowl[counter]+mNOx_Vc[counter]),XLO[counter]);
-	 }
-	 fclose(fich);
-
-
-	 if((fich=fopen("c:\\ACT_model\\output\\mtotal.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\mtotal.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
-	 fprintf(fich, "%lf,",elementcontrol[i_aux][counter].mtotal);
+	 fprintf(FileInput, "%lf,",elementcontrol[i_aux][counter].mtotal);
 	 }
-	 }
-	 fclose(fich);
-
-	 if((fich=fopen("c:\\ACT_model\\output\\mO2.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\mO2.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
-	 fprintf(fich, "%lf,",elementcontrol[i_aux][counter].mO2);
+	 fprintf(FileInput, "%lf,",elementcontrol[i_aux][counter].mO2);
 	 }
-	 }
-	 fclose(fich);
-
-	 if((fich=fopen("c:\\ACT_model\\output\\mO2_real.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\mO2_real.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
-	 fprintf(fich, "%lf,",elementcontrol[i_aux][counter].mO2_real);
+	 fprintf(FileInput, "%lf,",elementcontrol[i_aux][counter].mO2_real);
 	 }
-	 }
-	 fclose(fich);
-
-
-
-	 if((fich=fopen("c:\\ACT_model\\output\\mfuel.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\mfuel.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
-	 fprintf(fich, "%lf,",elementcontrol[i_aux][counter].mfuel);
+	 fprintf(FileInput, "%lf,",elementcontrol[i_aux][counter].mfuel);
 	 }
-	 }
-	 fclose(fich);
-
-	 if((fich=fopen("c:\\ACT_model\\output\\mfuel_real.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\mfuel_real.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
-	 fprintf(fich, "%lf,",elementcontrol[i_aux][counter].mfuel_real);
+	 fprintf(FileInput, "%lf,",elementcontrol[i_aux][counter].mfuel_real);
 	 }
-	 }
-	 fclose(fich);
-
-	 if((fich=fopen("c:\\ACT_model\\output\\FI.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\FI.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
 
-	 fprintf(fich, "%lf,",(elementcontrol[i_aux][counter].FI));
+	 fprintf(FileInput, "%lf,",(elementcontrol[i_aux][counter].FI));
 
 	 }
-	 }
-	 fclose(fich);
-
-
-	 if((fich=fopen("c:\\ACT_model\\output\\temperature_SD.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\temperature_SD.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
-	 fprintf(fich, "%lf,",(elementcontrol[i_aux][counter].TSD));
+	 fprintf(FileInput, "%lf,",(elementcontrol[i_aux][counter].TSD));
 	 }
-	 }
-	 fclose(fich);
-	 if((fich=fopen("c:\\ACT_model\\output\\temperature_adib.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\temperature_adib.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
-	 fprintf(fich, "%lf,",(elementcontrol[i_aux][counter].Tadib));
+	 fprintf(FileInput, "%lf,",(elementcontrol[i_aux][counter].Tadib));
 	 }
-	 }
-	 fclose(fich);
-
-
-	 if((fich=fopen("c:\\ACT_model\\output\\penetration.dat","w"))==NULL){
+	 }if((fich=fopen("c:\\ACT_model\\output\\penetration.dat","w"))==NULL){
 	 printf("The element file results could not be opened");
 	 exit(1);
 	 }
 	 strcpy(title,"CAD[deg],time[s],paq_10_1,paq_10_3,paq_10_5,paq_30_1,paq_30_3,paq_30_5,paq_50_1,paq_50_3,paq_50_5,paq_70_1,paq_70_3,paq_70_5,paq_90_1,paq_90_3,paq_90_5");
-	 fprintf(fich, "%s", title);
+	 fprintf(FileInput, "%s", title);
 
 	 for(counter=0;counter<size;counter++){
-	 fprintf(fich, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
+	 fprintf(FileInput, "\n%lf,%lf,",CAD[counter],time_vector[counter]);
 	 for(i_aux=0;i_aux<15;i_aux++){
-	 fprintf(fich, "%lf,",(elementcontrol[i_aux][counter].X));
+	 fprintf(FileInput, "%lf,",(elementcontrol[i_aux][counter].X));
 	 }
-	 }
-	 fclose(fich);
-	 */
+	 }*/
 
 	// exit vectors construction with constant crank angle degree increment
 	time_vector_exit = (double*) malloc(CAI * sizeof(double));

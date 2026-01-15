@@ -176,7 +176,7 @@ class TMapaComp: public TCompressorMap {
 
 	~TMapaComp();
 
-	void LeeMapa(FILE *fich);
+	void LeeMapa(std::istream &FileInput);
 
 	void InterpolaMapa(double rtc, double AmbientTemperature);
 

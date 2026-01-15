@@ -55,7 +55,7 @@ class TEntradaPulso {
 
 	~TEntradaPulso();
 
-	void LeeEntradaPulso(FILE *fich);
+	void LeeEntradaPulso(std::istream &FileInput);
 
 	void BusquedaInstante(double Tiempo);
 

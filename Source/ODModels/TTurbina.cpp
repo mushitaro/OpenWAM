@@ -280,7 +280,7 @@ void TTurbina::ActualizaPropiedades(double TimeCalculo) {
           __units::KTodegC(pow2(FAsonido * __cons::ARef) / FGamma / FRMezcla);
     }
     FTime = TimeCalculo;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbina::ActualizaPropiedades en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -304,7 +304,7 @@ void TTurbina::CalculoPotenciaPaso() {
       FDeltaPaso = 0.;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbina::CalculoPotenciaPaso en el compresor: "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -328,7 +328,7 @@ void TTurbina::TransformaContorno(double *L, double *B, double *E, double *a,
       *v = (*L - *B) / __Gamma::G1(Gamma);
       *p = pow(*a / *E, __Gamma::G4(Gamma));
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbina::TransformaContorno en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -339,15 +339,10 @@ void TTurbina::TransformaContorno(double *L, double *B, double *E, double *a,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTurbina::LeeTurbina(const char *FileWAM, fpos_t &filepos) {
+void TTurbina::LeeTurbina(std::istream &FileInput) {
   try {
     int rdturb = 0, tipoturb = 0, ctrl = 0, numctrl = 0, ac = 0;
-    double AngCritico = 0., Beta = 0.;
-
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &tipoturb);
+    double AngCritico = 0., Beta = 0.;FileInput >> tipoturb;
     switch (tipoturb) {
     case 0:
       FTipoTurbina = nmFixedTurbine;
@@ -361,19 +356,18 @@ void TTurbina::LeeTurbina(const char *FileWAM, fpos_t &filepos) {
     default:
       std::cout << "ERROR: Unknown turbine type " << std::endl;
     }
-    fscanf(fich, "%lf ", &FDiametroRodete);
+    FileInput >> FDiametroRodete;
     if (FTipoTurbina == nmTurbineMap) {
 
-      fscanf(fich, "%lf %lf %lf ", &FDiametroRodeteOut, &FDiametroTuerca,
-             &FDiametroTurbinaIn);
-      fscanf(fich, "%lf ", &AngCritico);
+      FileInput >> FDiametroRodeteOut >> FDiametroTuerca >> FDiametroTurbinaIn;
+      FileInput >> AngCritico;
       FMapa = new TTurbineMap();
-      FMapa->LoadTurbineMap(fich, FDiametroRodete, FDiametroRodeteOut,
+      FMapa->LoadTurbineMap(FileInput, FDiametroRodete, FDiametroRodeteOut,
                             FDiametroTuerca, FDiametroTurbinaIn, AngCritico);
 
-      fscanf(fich, "%d ", &numctrl);
+      FileInput >> numctrl;
       for (int i = 0; i < numctrl; ++i) {
-        fscanf(fich, "%d ", &ctrl);
+        FileInput >> ctrl;
         switch (ctrl) {
         case 0:
           FRackIsControlled = true;
@@ -383,16 +377,16 @@ void TTurbina::LeeTurbina(const char *FileWAM, fpos_t &filepos) {
           std::cout << "ERROR: Unknown controller for the turbine "
                     << std::endl;
         }
-        fscanf(fich, "%d ", &FNumControlObject);
+        FileInput >> FNumControlObject;
       }
 
       if (!FRackIsControlled)
-        fscanf(fich, "%lf ", &FRack);
+        FileInput >> FRack;
       FCalRendTurbina = nmRendMapa;
 
 #ifdef tchtm
 
-      fscanf(fich, "%d ", &ac);
+      FileInput >> ac;
       if (ac == 1) {
         iVector InID;
         iVector VolID;
@@ -401,20 +395,20 @@ void TTurbina::LeeTurbina(const char *FileWAM, fpos_t &filepos) {
         if (FTipoDeposito == nmTurbinaSimple) {
           InID.resize(1);
           InID.resize(1);
-          fscanf(fich, "%d %d %d", &InID[0], &VolID[0], &OutID);
+          FileInput >> InID[0] >> VolID[0] >> OutID;
           FAcTurb = new TAcousticTurbine(InID, VolID, OutID);
         }
       }
 #endif
     } else {
-      fscanf(fich, "%d ", &rdturb);
+      FileInput >> rdturb;
       switch (rdturb) {
       case 0:
         FCalRendTurbina = nmWatson;
         break;
       case 1:
         FCalRendTurbina = nmPolinomio;
-        fscanf(fich, "%lf %lf %lf ", &FRcoptima, &FRcmaxima, &FRendmaximo);
+        FileInput >> FRcoptima >> FRcmaxima >> FRendmaximo;
         break;
       case 2:
         FCalRendTurbina = nmCalcExtRD;
@@ -425,11 +419,7 @@ void TTurbina::LeeTurbina(const char *FileWAM, fpos_t &filepos) {
       }
     }
 
-    fscanf(fich, "%lf ", &FAjustRendTurb);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    FileInput >> FAjustRendTurb;} catch (std::exception &N) {
     std::cout << "ERROR: TTurbina::LeeRendimientoTurbina en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -484,7 +474,7 @@ void TTurbina::AsignaDatosSalida(int nodsaltur, int tubsaltur, int extremo,
     FTuboSalida = tubsaltur;
     FExtremoSalida = extremo;
     FSentidoSalida = sentido;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbina::AsignaDatosSalida en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -506,7 +496,7 @@ double TTurbina::GetRelacionCinematica(int i) {
                 << std::endl;
       return 0.;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbina::GetRelacionCinematica en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -524,7 +514,7 @@ void TTurbina::AsignaDatosEntrada(int nodentur, int tubsaltur, int extremo,
     FTuboEntrada[n] = tubsaltur;
     FExtremoEntrada[n] = extremo;
     FSentidoEntrada[n] = sentido;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbina::AsignaDatosEntrada en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;

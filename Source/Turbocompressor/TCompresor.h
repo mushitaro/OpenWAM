@@ -218,14 +218,13 @@ public:
 
   void CalculaInstantaneos();
 
-  void LeeDatosGraficasMedias(const std::string &FileWAM, fpos_t &filepos);
+  void LeeDatosGraficasMedias(std::istream &FileInput);
 
   void CabeceraGraficasMedias(stringstream &medoutput);
 
   void ImprimeGraficasMedias(stringstream &medoutput);
 
-  void LeeDatosGraficasInstantaneas(const std::string &FileWAM,
-                                    fpos_t &filepos);
+  void LeeDatosGraficasInstantaneas(std::istream &FileInput);
 
   void CabeceraGraficasInstantaneas(stringstream &insoutput);
 

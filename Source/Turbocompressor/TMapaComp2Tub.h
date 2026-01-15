@@ -217,7 +217,7 @@ class TMapaComp2Tub: public TCompressorMap {
 
 	~TMapaComp2Tub();
 
-	void LeeMapa(FILE *fich);
+	void LeeMapa(std::istream &FileInput);
 
 	void InterpolaMapa(double rtc, double AmbientTemperature);
 
@@ -231,7 +231,7 @@ class TMapaComp2Tub: public TCompressorMap {
 
 	double BuscaRegimen(double RC, double Massflow, double AmbientTemperature);
 
-	void ReadGTPowerMap(FILE *fich, int correct);
+	void ReadGTPowerMap(std::istream &FileInput, int correct);
 
 	void RearrangeGTPowerMap(double rtip, double rhub, double rwheel);
 

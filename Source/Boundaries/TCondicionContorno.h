@@ -30,6 +30,7 @@
 #include "Globales.h"
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <memory>
 #include "BoundaryFunctions.h"
@@ -66,9 +67,9 @@ public:
   virtual void TuboCalculandose(int i) {};
 
   // Updated signature for vectors
+  // Updated signature for vectors
   virtual void
-  ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
-                   int NumberOfPipes,
+  ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
                    const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
                    const std::vector<std::unique_ptr<TDPF>> &DPF) {};
 

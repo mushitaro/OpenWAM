@@ -68,8 +68,7 @@ TCCPulso::~TCCPulso() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCPulso::ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
-                                int NumberOfPipes,
+void TCCPulso::ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
                                 const std::vector<std::unique_ptr<TTubo>> &Pipe,
                                 int nDPF,
                                 const std::vector<std::unique_ptr<TDPF>> &DPF) {
@@ -105,18 +104,16 @@ void TCCPulso::ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    // fsetpos(fich, &filepos);
-    _fseeki64(fich, filepos, SEEK_SET);
+    //
 
     FPulso = new TEntradaPulso();
-    FPulso->LeeEntradaPulso(fich);
+    FPulso->LeeEntradaPulso(FileInput);
 
     // Inicializacion del transporte de especies quimicas.
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
     FComposicion = new double[FNumeroEspecies - FIntEGR];
     for (int i = 0; i < FNumeroEspecies - 1; i++) {
-      fscanf(fich, "%lf ", &FComposicion[i]);
+      FileInput >> FComposicion[i];
       FFraccionMasicaEspecie[i] =
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
       fracciontotal += FComposicion[i];
@@ -144,13 +141,7 @@ void TCCPulso::ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
       throw Exception(" ");
     }
 
-    // fgetpos(fich, &filepos);
-    filepos = _ftelli64(fich);
-    fclose(fich);
-
-  }
-
-  catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout << "ERROR: TCCPulso::LecturaPulso en la condicion de contorno: "
               << FNumeroCC << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -198,7 +189,7 @@ void TCCPulso::CalculaCondicionContorno(double Time) {
     /* La ultima opcion es que *FCC=*FCD. En este caso el flujo esta parado y la
      fraccion masica de las especies permanece constante en dicho instante */
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCPulso::CalculaCondicionesContorno en la condicion "
                  "de contorno: "
               << FNumeroCC << std::endl;

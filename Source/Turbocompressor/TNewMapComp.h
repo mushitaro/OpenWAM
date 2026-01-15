@@ -55,7 +55,7 @@ class TNewMapComp {
 
 	~TNewMapComp();
 
-	void ReadMap(FILE *fich, int correct);
+	void ReadMap(std::istream &FileInput, int correct);
 };
 // ---------------------------------------------------------------------------
 #endif

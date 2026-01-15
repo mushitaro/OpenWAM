@@ -72,19 +72,18 @@ TCCCompresor::~TCCCompresor() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCCCompresor::LeeNumeroCompresor(const std::string &FileWAM,
-                                      fpos_t &filepos) {
+void TCCCompresor::LeeNumeroCompresor(std::istream &FileInput) {
   try {
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
+    
+    
 
-    fscanf(fich, "%d ", &FNumeroCompresor);
+    FileInput >> FNumeroCompresor;
 
-    fgetpos(fich, &filepos);
-    fclose(fich);
+    
+    
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCCompresor::LeeCompresor en la condicion de contorno: "
         << FNumeroCC << std::endl;
@@ -99,7 +98,7 @@ void TCCCompresor::LeeNumeroCompresor(const std::string &FileWAM,
 void TCCCompresor::AsignacionDatos(
     const std::vector<std::unique_ptr<TCompresor>> &Compressor,
     const std::vector<std::unique_ptr<TDeposito>> &Plenum,
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+    std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe,
     const std::vector<std::unique_ptr<TCondicionContorno>> &BC, int numCC,
     double AmbientTemperature, double AmbientPressure,
@@ -133,13 +132,13 @@ void TCCCompresor::AsignacionDatos(
         }
         i++;
       }
-      FILE *fich = fopen(FileWAM.c_str(), "rb");
-      fsetpos(fich, &filepos);
+      
+      
 
-      fscanf(fich, "%d ", &tipoentrada);
+      FileInput >> tipoentrada;
 
-      fgetpos(fich, &filepos);
-      fclose(fich);
+      
+      
 
       switch (tipoentrada) {
       case 0:
@@ -155,13 +154,13 @@ void TCCCompresor::AsignacionDatos(
 
       if (FEntradaCompresor == nmPlenum) {
 
-        FILE *fich = fopen(FileWAM.c_str(), "rb");
-        fsetpos(fich, &filepos);
+        
+        
 
-        fscanf(fich, "%d ", &FNumeroDeposito);
+        FileInput >> FNumeroDeposito;
 
-        fgetpos(fich, &filepos);
-        fclose(fich);
+        
+        
 
         FDeposito = Plenum[FNumeroDeposito - 1].get();
         dynamic_cast<TCompTubDep *>(FCompresor)
@@ -223,14 +222,14 @@ void TCCCompresor::AsignacionDatos(
     } else if (FCompresor->getModeloCompresor() == nmCompPlenums) {
       // Posee dos depositos. Hay que asignarselos a la BC.
 
-      FILE *fich = fopen(FileWAM.c_str(), "rb");
-      fsetpos(fich, &filepos);
+      
+      
 
-      fscanf(fich, "%d ", &FNumeroDepositoRot);
-      fscanf(fich, "%d ", &FNumeroDepositoEst);
+      FileInput >> FNumeroDepositoRot;
+      FileInput >> FNumeroDepositoEst;
 
-      fgetpos(fich, &filepos);
-      fclose(fich);
+      
+      
 
       FDepositoRot = Plenum[FNumeroDepositoRot - 1].get();
       FDepositoEst = Plenum[FNumeroDepositoEst - 1].get();
@@ -239,7 +238,7 @@ void TCCCompresor::AsignacionDatos(
           ->RelacionDepositoCompresor(FDepositoRot, FDepositoEst);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCCompresor::AsignaCompresor en la condicion de contorno: "
         << FNumeroCC << std::endl;
@@ -265,18 +264,17 @@ void TCCCompresor::TuboCalculandose(int TuboActual) {
   FTuboActual = TuboActual;
 }
 
-void TCCCompresor::ReadCompressorData(
-    const std::string &FileWAM, fpos_t &filepos,
+void TCCCompresor::ReadCompressorData(std::istream &FileInput,
     const std::vector<std::unique_ptr<TCompresor>> &Compressor) {
 
   int tipoentrada = 0;
 
   if (Compressor[FNumeroCompresor - 1]->getModeloCompresor() ==
       nmCompOriginal) {
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
+    
+    
 
-    fscanf(fich, "%d ", &tipoentrada);
+    FileInput >> tipoentrada;
 
     switch (tipoentrada) {
     case 0:
@@ -287,23 +285,23 @@ void TCCCompresor::ReadCompressorData(
       break;
     case 2:
       FEntradaCompresor = nmPlenum;
-      fscanf(fich, "%d ", &FNumeroDeposito);
+      FileInput >> FNumeroDeposito;
       break;
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
+    
+    
   } else if (Compressor[FNumeroCompresor - 1]->getModeloCompresor() ==
              nmCompPlenums) {
     // Posee dos depositos. Hay que asignarselos a la BC.
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
+    
+    
 
-    fscanf(fich, "%d ", &FNumeroDepositoRot);
-    fscanf(fich, "%d ", &FNumeroDepositoEst);
+    FileInput >> FNumeroDepositoRot;
+    FileInput >> FNumeroDepositoEst;
 
-    fgetpos(fich, &filepos);
-    fclose(fich);
+    
+    
   }
 }
 
@@ -412,7 +410,7 @@ void TCCCompresor::AsignData(
           ->RelacionDepositoCompresor(FDepositoRot, FDepositoEst);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCCompresor::AsignaCompresor en la condicion de contorno: "
         << FNumeroCC << std::endl;

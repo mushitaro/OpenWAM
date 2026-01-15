@@ -73,7 +73,7 @@ public:
 
   ~TCCUnionEntreTubos();
 
-  void ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
+  void ReadBoundaryData(std::istream &FileInput,
                         int NumberOfPipes,
                         const std::vector<std::unique_ptr<TTubo>> &Pipe,
                         int nDPF,

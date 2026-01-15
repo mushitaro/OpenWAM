@@ -66,29 +66,25 @@ TCompTubDep::~TCompTubDep() {}
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCompTubDep::LeeCompresor(const std::string &FileWAM, fpos_t &filepos) {
+void TCompTubDep::LeeCompresor(std::istream &FileInput) {
   try {
 
     int format = 0, ac = 0;
     int InID = 0, OutID = 0, VolID = 0, StaID = 0, RotID = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
-
 #ifdef tchtm
 
-    fscanf(fich, "%d ", &ac);
+    FileInput >> ac;
     if (ac == 1) {
       FIsAcoustic = true;
-      fscanf(fich, "%d %d %d %d %d", &InID, &OutID, &VolID, &RotID, &StaID);
+      FileInput >> InID >> OutID >> VolID >> RotID >> StaID;
       FAcComp = new TAcousticCompressor(InID, VolID, OutID, RotID, StaID);
     }
 
 #endif
 
-    fscanf(fich, "%lf", &FDelay);
+    FileInput >> FDelay;
 
-    fscanf(fich, "%d ", &format);
+    FileInput >> format;
     if (format == 0) {
       FCompressorMapFormat = nmOldWAMmap;
       Mapa = new TMapaComp(FNumeroCompresor);
@@ -98,11 +94,7 @@ void TCompTubDep::LeeCompresor(const std::string &FileWAM, fpos_t &filepos) {
       Mapa = new TSAEMap(FNumeroCompresor);
     }
 
-    Mapa->LeeMapa(fich);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    Mapa->LeeMapa(FileInput);} catch (std::exception &N) {
     std::cout << "ERROR: TCompTubDep::LeeCompresor en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -122,13 +114,11 @@ double TCompTubDep::CalGastoNuevo(double MasaAire) {
     FRendimiento = Mapa->EvaluaRendSplines(MasaAire);
     if (FRendimiento < 0.01)
       FRendimiento = 0.01;
-
 #ifdef tchtm
 
     double Kef = FAcComp->EFCorrector(FCorrector, FRelacionCompresion);
     FRelacionCompresion = FRelacionCompresion * FCorrector;
     FRendimiento = FRendimiento * Kef;
-
 #endif
 
     if (FDeltaTiempo > 0) {
@@ -166,7 +156,7 @@ double TCompTubDep::CalGastoNuevo(double MasaAire) {
               Mapa->getPresionRef() / __units::BarToPa(FPresion10);
 
     return ret_val;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalGastoNuevo en el compresor: " << FNumeroCompresor
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -185,7 +175,6 @@ double TCompTubDep::RegulaFalsi() {
   try {
     valido = false;
     FCambiaReg = false;
-
 #ifdef tchtm
     FCorrector = FAcComp->CRCorrector() * 0.0001 + FCorrector * 0.9999;
 #endif
@@ -292,7 +281,7 @@ double TCompTubDep::RegulaFalsi() {
       return GastoNuevo;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: RegulaFalsi en el compresor: " << FNumeroCompresor
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -311,7 +300,6 @@ void TCompTubDep::CalculaCompresor(double Theta) {
     temp = __units::BarToPa(pow(*FLanda / *FEntro, FGamma4));
     // double P20Surge = Mapa->getRelCompBombeo() * FPresion10 * 1e5;
     double P20Max = Mapa->getMaxCompRatio() * __units::BarToPa(FPresion10);
-
 #ifdef tchtm
     P20Max = P20Max * FCorrector;
 #endif
@@ -358,7 +346,7 @@ void TCompTubDep::CalculaCompresor(double Theta) {
     FDeltaTPaso += FDeltaTiempo;
     // }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCompTubDep::CalculaCompresor en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -426,7 +414,7 @@ void TCompTubDep::CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo,
 
     FRegimenCorregido = Mapa->getRegimenCorregido();
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CondicionCompresor en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -484,7 +472,7 @@ void TCompTubDep::BusquedaEntradaSalida(
       FDeposito->AsignaCompresor(this, -1); /* Entrada */
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: BusquedaEntradaSalida en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -647,7 +635,7 @@ void TCompTubDep::DatosEntradaCompresor(double AmbientTemperature,
       break;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: DatosEntradaCompresor en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;

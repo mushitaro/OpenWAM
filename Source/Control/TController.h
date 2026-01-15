@@ -63,10 +63,8 @@ public:
   ~TController();
 
   /*! Read the information of the controller*/
-  virtual void
-  LeeController(const std::string &FileWAM, //!< Input data filename
-                fpos_t &filepos //!< Position to read within the input file
-                ) = 0;
+  virtual void LeeController(std::istream &FileInput //!< Stream to read from
+                             ) = 0;
 
   /*! Return the output value of the controller*/
   virtual double Output(double Time //!< Current time
@@ -80,14 +78,12 @@ public:
 
   /*! Read the average results selected*/
   virtual void LeeResultadosMedControlador(
-      const std::string &FileWAM, //!< Input data filename
-      fpos_t &filepos             //!< Position to read within the input file
+      std::istream &FileInput //!< Position to read within the input file
       ) = 0;
 
   /*! Read the instantanous results selected*/
   virtual void LeeResultadosInsControlador(
-      const std::string &FileWAM, //!< Input data filename
-      fpos_t &filepos             //!< Position to read within the input file
+      std::istream &FileInput //!< Position to read within the input file
       ) = 0;
 
   /*! Generate the header of the average results*/

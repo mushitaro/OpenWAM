@@ -149,14 +149,14 @@ public:
   double getCRecuperacion() { return FCRecuperacion; }
   void AsignaCRecuperacion(double Valor);
 
-  virtual void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+  virtual void LeeDatosIniciales(std::istream &FileInput,
                                  int norden, bool HayMotor,
                                  TBloqueMotor *Engine) = 0;
 
   void AsignaParametros(int Pipe, int Nodo, int Tipo, int valvula, double dTubo,
                         int sentido);
 
-  void LeeDatosGraficasINS(const char *FileWAM, fpos_t &filepos);
+  void LeeDatosGraficasINS(std::istream &FileInput);
 
   void CabeceraGraficaINS(stringstream &insoutput, int nodo);
 
@@ -164,7 +164,7 @@ public:
 
   void AcumulaCDMedio(double TiempoActual);
 
-  void LeeDatosGraficasMED(const std::string &FileWAM, fpos_t &filepos);
+  void LeeDatosGraficasMED(std::istream &FileInput);
 
   void CabeceraGraficaMED(stringstream &medoutput, int nodo);
 

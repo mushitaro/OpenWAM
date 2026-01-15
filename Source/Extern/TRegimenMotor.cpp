@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -31,117 +32,114 @@
 #include "TRegimenMotor.h"
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
-TRegimenMotor::TRegimenMotor() {
-
-}
+TRegimenMotor::TRegimenMotor() {}
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 TRegimenMotor::~TRegimenMotor() {
-	if(FTiempo != NULL)
-		delete[] FTiempo;
+  if (FTiempo != NULL)
+    delete[] FTiempo;
 
-	if(FRegimen != NULL)
-		delete[] FRegimen;
+  if (FRegimen != NULL)
+    delete[] FRegimen;
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TRegimenMotor::LeeDatosEntrada(char *Ruta, FILE *fich) {
-	char *FileRegimen;
-	char *DatosRegimen;
+void TRegimenMotor::LeeDatosEntrada(const std::string &Ruta,
+                                    std::istream &FileInput) {
+  std::string FileRegimen;
 
-	try {
+  try {
+    FileInput >> FileRegimen;
+    std::string FullPath = Ruta + FileRegimen;
 
-		for(int i = 0; i <= (int) strlen(Ruta); i++) {
-			DatosRegimen[i] = Ruta[i];
-		}
+    std::ifstream FichRegimen(FullPath.c_str());
+    if (!FichRegimen.is_open()) {
+      std::cout << "ERROR: Fichero de regimen de giro no cargado: " << FullPath
+                << std::endl;
+    } else {
+      FNumeroDatos = 0;
+      double temp1 = 0.;
+      double temp2 = 0.;
+      // Count lines using a dummy read loop or safer logic
+      // Using std::vector would be better, but sticking to array for now.
+      // Pre-read to count
+      std::string line;
+      while (std::getline(FichRegimen, line)) {
+        if (!line.empty())
+          FNumeroDatos++;
+      }
+      // Reset stream
+      FichRegimen.clear();
+      FichRegimen.seekg(0, std::ios::beg);
 
-		fscanf(fich, "%s ", &FileRegimen);
-		strcat(DatosRegimen, FileRegimen);
-
-		FichRegimen = fopen(DatosRegimen, "r");
-		if((FichRegimen = fopen(DatosRegimen, "r")) == NULL) {
-			std::cout << "ERROR: Fichero de regimen de giro no cargado";
-		} else {
-			FNumeroDatos = 0;
-			double temp1 = 0.;
-			double temp2 = 0.;
-			while(!feof(FichRegimen)) {
-				fscanf(FichRegimen, "%lf %lf ", &temp1, &temp2);
-				FNumeroDatos++;
-			}
-			fclose(FichRegimen);
-			FTiempo = new double[FNumeroDatos];
-			FRegimen = new double[FNumeroDatos];
-			FichRegimen = fopen(DatosRegimen, "r");
-			int i = 0;
-			while(!feof(FichRegimen)) {
-				fscanf(FichRegimen, "%lf %lf ", &FTiempo[i], &FRegimen[i]);
-				i++;
-			}
-			fclose(FichRegimen);
-
-		}
-	} catch(exception &N) {
-		std::cout << "ERROR: LeeDatosEntrada de RegimenMotor (DLL)" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
+      FTiempo = new double[FNumeroDatos];
+      FRegimen = new double[FNumeroDatos];
+      int i = 0;
+      while (i < FNumeroDatos && FichRegimen >> FTiempo[i] >> FRegimen[i]) {
+        i++;
+      }
+    }
+  } catch (std::exception &N) {
+    std::cout << "ERROR: LeeDatosEntrada de RegimenMotor (DLL)" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 void TRegimenMotor::CalculaRegimen(double TiempoActual) {
-	try {
-// AQUI SE CALCULAN LOS COEFICIENTES DE DESCARGA Y TURBULENCIA
+  try {
+    // AQUI SE CALCULAN LOS COEFICIENTES DE DESCARGA Y TURBULENCIA
 
-		int j = 0, jmax = FNumeroDatos - 1;
-		double RegimenAct = 0., deltaT = 0., t = 0.;
-		while(TiempoActual > FTiempo[j] && j < jmax) {
-			j++;
-		}
-		if(j == jmax) {
-			RegimenAct = FRegimen[jmax];
-		} else {
-			deltaT = FTiempo[j] - FTiempo[j - 1];
-			t = TiempoActual - FTiempo[j - 1];
-			RegimenAct = xit_(FRegimen[j - 1], FRegimen[j], deltaT, t);
-		}
+    int j = 0, jmax = FNumeroDatos - 1;
+    double RegimenAct = 0., deltaT = 0., t = 0.;
+    while (TiempoActual > FTiempo[j] && j < jmax) {
+      j++;
+    }
+    if (j == jmax) {
+      RegimenAct = FRegimen[jmax];
+    } else {
+      deltaT = FTiempo[j] - FTiempo[j - 1];
+      t = TiempoActual - FTiempo[j - 1];
+      RegimenAct = xit_(FRegimen[j - 1], FRegimen[j], deltaT, t);
+    }
 
-		FRegimenMotor = RegimenAct;
+    FRegimenMotor = RegimenAct;
 
-	} catch(exception &N) {
-		std::cout << "ERROR: Calculo del Regimen del Engine(DLL)" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
+  } catch (std::exception &N) {
+    std::cout << "ERROR: Calculo del Regimen del Engine(DLL)" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 
 double TRegimenMotor::xit_(double vizq, double vder, double axid, double xif) {
-	try {
-		double xx = 0., yy = 0.;
-		double ret_val = 0.;
+  try {
+    double xx = 0., yy = 0.;
+    double ret_val = 0.;
 
-		xx = vder - vizq;
-		if(axid != 0.) {
-			yy = xx / axid * xif;
-			ret_val = vizq + yy;
-		} else {
-			printf("ERROR: valores entrada xit\n");
-			throw Exception("");
-		}
-		return ret_val;
-	} catch(exception &N) {
-		std::cout << "ERROR: xit_" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
+    xx = vder - vizq;
+    if (axid != 0.) {
+      yy = xx / axid * xif;
+      ret_val = vizq + yy;
+    } else {
+      printf("ERROR: valores entrada xit\n");
+      throw Exception("");
+    }
+    return ret_val;
+  } catch (std::exception &N) {
+    std::cout << "ERROR: xit_" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------

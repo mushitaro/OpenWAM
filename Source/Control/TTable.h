@@ -49,13 +49,13 @@ public:
 
   double Output(double Time);
 
-  void LeeController(const std::string &FileWAM, fpos_t &filepos);
+  void LeeController(std::istream &FileInput);
 
   void AsignaObjetos(TSensor **Sensor, TController **Controller);
 
-  void LeeResultadosMedControlador(const std::string &FileWAM, fpos_t &filepos);
+  void LeeResultadosMedControlador(std::istream &FileInput);
 
-  void LeeResultadosInsControlador(const std::string &FileWAM, fpos_t &filepos);
+  void LeeResultadosInsControlador(std::istream &FileInput);
 
   void CabeceraResultadosMedControlador(std::ostream &medoutput);
 

@@ -67,28 +67,18 @@ TCDFijo::TCDFijo(TCDFijo *Origen, int Valvula) : TTipoValvula(nmCDFijo) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCDFijo::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+void TCDFijo::LeeDatosIniciales(std::istream &FileInput,
                                 int norden, bool HayMotor,
                                 TBloqueMotor *Engine) {
   try {
     int tmp = 0;
-    FActivaDiamRef = false;
+    FActivaDiamRef = false;FNumeroOrden = norden;
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
-
-    FNumeroOrden = norden;
-
-    fscanf(fich, "%lf %lf %d ", &FCDEntrada, &FCDSalida, &tmp);
+    FileInput >> FCDEntrada >> FCDSalida >> tmp;
     if (tmp == 1) {
       FActivaDiamRef = true;
-      fscanf(fich, "%lf ", &FDiametroRef);
-    }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+      FileInput >> FDiametroRef;
+    }} catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales CDFijo" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -107,7 +97,7 @@ void TCDFijo::CalculaCD() {
       FCDTubVol = FCDEntrada;
       FCDVolTub = FCDSalida;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCDFijo::CalculaCD " << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

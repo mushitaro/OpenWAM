@@ -111,12 +111,12 @@ public:
 
   double getLevantamiento() { return FLev; };
 
-  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
-                         int norden, bool HayMotor, TBloqueMotor *Engine);
+  void LeeDatosIniciales(std::istream &FileInput, int norden, bool HayMotor,
+                         TBloqueMotor *Engine);
 
   void CalculaCD(double deltaP, double deltaT);
 
-  void LeeDatosGraficas(const std::string &FileWAM, fpos_t &filepos);
+  void LeeDatosGraficas(std::istream &FileInput);
 
   void CabeceraGraficaINS(stringstream &insoutput, int lam);
 

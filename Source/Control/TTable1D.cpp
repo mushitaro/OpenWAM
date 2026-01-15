@@ -56,44 +56,40 @@ double TTable1D::Output(double Time) {
   return fOutput;
 }
 
-void TTable1D::LeeController(const std::string &FileWAM, fpos_t &filepos) {
+void TTable1D::LeeController(std::istream &FileInput) {
 
   int xnum = 0, tip = 0, fromfile = 0;
-
-  FILE *fich = fopen(FileWAM.c_str(), "r");
-  fsetpos(fich, &filepos);
-
-  fscanf(fich, "%d ", &fromfile);
+  FileInput >> fromfile;
 
   if (fromfile == 1) {
-    char *InputFile;
-    fscanf(fich, "%s ", &InputFile);
-
-    FILE *fichdata = fopen(InputFile, "r");
-
+    std::string InputFile;
+    FileInput >> InputFile;
+    std::ifstream MapFile(InputFile.c_str());
+    if (!MapFile.is_open()) {
+      throw std::runtime_error("Could not open table map file: " + InputFile);
+    }
     double X_tmp = 0., Y_tmp = 0.;
     dVector X_vec, Y_vec;
-    while (!feof(fichdata)) {
-      fscanf(fichdata, "%lf %lf ", &X_tmp, &Y_tmp);
+    while (MapFile >> X_tmp >> Y_tmp) {
       X_vec.push_back(X_tmp);
       Y_vec.push_back(Y_tmp);
     }
     fX_map = X_vec;
     fY_map = Y_vec;
   } else if (fromfile == 0) {
-    // fscanf(fich,"%d ",&fDimensiones);
-    fscanf(fich, "%d ", &xnum);
+    // FileInput >> fDimensiones;
+    FileInput >> xnum;
     fX_map.resize(xnum);
     fY_map.resize(xnum);
     for (int i = 0; i < xnum; i++) {
-      fscanf(fich, "%lf %lf ", &fX_map[i], &fY_map[i]);
+      FileInput >> fX_map[i] >> fY_map[i];
     }
   } else {
   }
 
-  fscanf(fich, "%lf ", &fPeriod);
+  FileInput >> fPeriod;
 
-  fscanf(fich, "%d ", &tip);
+  FileInput >> tip;
   switch (tip) {
   case 0:
     fTipo = nmLineal;
@@ -110,10 +106,7 @@ void TTable1D::LeeController(const std::string &FileWAM, fpos_t &filepos) {
   }
 
   FSensorID.resize(1);
-  fscanf(fich, "%d ", &FSensorID[0]);
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
+  FileInput >> FSensorID[0];
 }
 
 void TTable1D::AsignaObjetos(TSensor **Sensor, TController **Controller) {
@@ -123,17 +116,12 @@ void TTable1D::AsignaObjetos(TSensor **Sensor, TController **Controller) {
   // fSetPointController=Controller[fSetPointControllerID-1];
 }
 
-void TTable1D::LeeResultadosMedControlador(const std::string &FileWAM,
-                                           fpos_t &filepos) {
+void TTable1D::LeeResultadosMedControlador(std::istream &FileInput) {
   try {
     int nvars = 0, var = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResMediosCtrl.Output = true;
@@ -143,10 +131,7 @@ void TTable1D::LeeResultadosMedControlador(const std::string &FileWAM,
                   << " no implementados " << std::endl;
       }
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTable::LeeResultadosControlador en el controlador "
               << fID << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -154,17 +139,12 @@ void TTable1D::LeeResultadosMedControlador(const std::string &FileWAM,
   }
 }
 
-void TTable1D::LeeResultadosInsControlador(const std::string &FileWAM,
-                                           fpos_t &filepos) {
+void TTable1D::LeeResultadosInsControlador(std::istream &FileInput) {
   try {
     int nvars = 0, var = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResInstantCtrl.Output = true;
@@ -174,10 +154,7 @@ void TTable1D::LeeResultadosInsControlador(const std::string &FileWAM,
                   << " no implementados " << std::endl;
       }
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTable::LeeResultadosInsControlador en el controlador "
               << fID << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -194,7 +171,7 @@ void TTable1D::CabeceraResultadosMedControlador(std::ostream &medoutput) {
       medoutput << Label.c_str();
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TTable::CabeceraResultadosMedControlador en el controlador "
         << fID << std::endl;
@@ -212,7 +189,7 @@ void TTable1D::CabeceraResultadosInsControlador(std::ostream &insoutput) {
       insoutput << Label.c_str();
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TTable::CabeceraResultadosInsControlador en el controlador "
         << fID << std::endl;
@@ -229,7 +206,7 @@ void TTable1D::ImprimeResultadosMedControlador(std::ostream &medoutput) {
       medoutput << "\t" << FResMediosCtrl.OutputMED;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TTable::ImprimeResultadosMedControlador en el controlador "
         << fID << std::endl;
@@ -246,7 +223,7 @@ void TTable1D::ImprimeResultadosInsControlador(std::ostream &insoutput) {
       insoutput << "\t" << FResInstantCtrl.OutputINS;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TTable::CabeceraResultadosInsControlador en el controlador "
         << fID << std::endl;
@@ -262,7 +239,7 @@ void TTable1D::IniciaMedias() {
     FResMediosCtrl.TiempoSUM = 0.;
     FResMediosCtrl.Tiempo0 = 0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTable::IniciaMedias en el controlador: " << fID
               << std::endl;
     // std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -283,7 +260,7 @@ void TTable1D::ResultadosMediosController() {
 
     FResMediosCtrl.TiempoSUM = 0;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTable::ResultadosMediosController en el eje: " << fID
               << std::endl;
     // std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -305,7 +282,7 @@ void TTable1D::AcumulaResultadosMediosController(double Actual) {
     FResMediosCtrl.TiempoSUM += Delta;
     FResMediosCtrl.Tiempo0 = Actual;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTable::AcumulaResultadosMediosController en el eje: "
               << fID << std::endl;
     // std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -318,7 +295,7 @@ void TTable1D::ResultadosInstantController() {
     if (FResInstantCtrl.Output)
       FResInstantCtrl.OutputINS = fOutput;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTable::ResultadosInstantController en el eje " << fID
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;

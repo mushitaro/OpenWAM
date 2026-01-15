@@ -63,7 +63,7 @@ public:
 
   ~TValvulaContr();
 
-  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+  void LeeDatosIniciales(std::istream &FileInput,
                          int norden, bool HayMotor, TBloqueMotor *Engine);
 
   void CalculaCD(double AnguloActual, double Mf);

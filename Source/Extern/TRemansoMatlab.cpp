@@ -60,7 +60,7 @@ void TRemansoMatlab::CalculaRemanso(double TiempoActual) {
 			FPressure = 1. - 0.045 * (TiempoActual - 1.92) + 1.74 * pow2(TiempoActual - 1.92) - 0.705 * pow3(TiempoActual - 1.92);
 			FTemperature = 45.;
 		}
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: TRemansoMatlab::CalculaRemanso (DLL)" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());

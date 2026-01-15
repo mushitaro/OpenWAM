@@ -65,23 +65,12 @@ TEstatorTurbina::TEstatorTurbina(TEstatorTurbina *Origen, int Valvula)
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TEstatorTurbina::LeeDatosIniciales(const std::string &FileWAM,
-                                        fpos_t &filepos, int norden,
+void TEstatorTurbina::LeeDatosIniciales(std::istream &FileInput, int norden,
                                         bool HayMotor, TBloqueMotor *Engine) {
   try {
-    int tpstator = 0;
+    int tpstator = 0;FNumeroOrden = norden;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    FNumeroOrden = norden;
-
-    fscanf(fich, "%lf %lf %lf ", &FCDEInicial, &FCDSInicial, &FDiametroRef);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+    FileInput >> FCDEInicial >> FCDSInicial >> FDiametroRef;} catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales StatorTurbine" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -96,7 +85,7 @@ void TEstatorTurbina::TipodeEstator(nmTipoEstator TipoEstator) {
 
     FTipoEstator = TipoEstator;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TEstatorTurbina::TipodeEstator " << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -132,7 +121,7 @@ void TEstatorTurbina::CalculaCD() {
     } else if (FCDVolTub <= 0) {
       FCDVolTub = 0.001;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaCD StatorTurbine" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

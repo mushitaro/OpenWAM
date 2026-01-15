@@ -67,23 +67,12 @@ TRotorTurbina::TRotorTurbina(TRotorTurbina *Origen, int Valvula)
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TRotorTurbina::LeeDatosIniciales(const std::string &FileWAM,
-                                      fpos_t &filepos, int norden,
+void TRotorTurbina::LeeDatosIniciales(std::istream &FileInput, int norden,
                                       bool HayMotor, TBloqueMotor *Engine) {
   try {
-    int tprotor = 0;
+    int tprotor = 0;FNumeroOrden = norden;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    FNumeroOrden = norden;
-
-    fscanf(fich, "%lf %lf %lf ", &FCDEInicial, &FCDSInicial, &FDiametroRef);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+    FileInput >> FCDEInicial >> FCDSInicial >> FDiametroRef;} catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales CDFijo" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -98,7 +87,7 @@ void TRotorTurbina::TipodeRotor(nmTipoRotor TipoRotor) {
 
     FTipoRotor = TipoRotor;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TRotorTurbina::TipodeRotor " << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -134,7 +123,7 @@ void TRotorTurbina::CalculaCD() {
     } else if (FCDVolTub < 0) {
       FCDVolTub = 0.001;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaCD RotorTurbine" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

@@ -1033,14 +1033,12 @@ public:
   ~TTubo();
 
   /*!Comment  */
-  void LeeDatosGeneralesTubo(const char *FileWAM, //!< Comment
-                             fpos_t &filepos      //!< Comment
+  void LeeDatosGeneralesTubo(std::istream &FileInput//!< Comment
   );
 
   /*!Comment  */
   void LeeDatosGeometricosTubo(
-      const char *FileWAM,                                     //!< Comment
-      fpos_t &filepos,                                         //!< Comment
+      std::istream &FileInput,                                         //!< Comment
       double ene,                                              //!< Comment
       int tipomallado,                                         //!< Comment
       const std::vector<std::unique_ptr<TBloqueMotor>> &Engine //!< Comment
@@ -1074,8 +1072,7 @@ public:
   void ReduccionFlujoSubsonicoFCT();
 
   /*!Comment  */
-  void ReadAverageResultsTubo(const std::string &FileWAM, //!< Comment
-                              fpos_t &filepos,            //!< Comment
+  void ReadAverageResultsTubo(std::istream &FileInput,            //!< Comment
                               bool HayMotor               //!< Comment
   );
 
@@ -1090,8 +1087,7 @@ public:
 
   /*!Comment  */
   void ReadInstantaneousResultsTubo(
-      const char *FileWAM,                                     //!< Comment
-      fpos_t &filepos,                                         //!< Comment
+      std::istream &FileInput,                                         //!< Comment
       const std::vector<std::unique_ptr<TBloqueMotor>> &Engine //!< Comment
   );
 

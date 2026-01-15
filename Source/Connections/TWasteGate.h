@@ -90,14 +90,14 @@ public:
   TTubo *getTuboAdm() { return FTuboAdm; };
   double getDist() { return FDist; };
 
-  void LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
-                         int norden, bool HayMotor, TBloqueMotor *Engine);
+  void LeeDatosIniciales(std::istream &FileInput, int norden, bool HayMotor,
+                         TBloqueMotor *Engine);
 
   void CalculoNodoAdm(TTubo **Pipe);
 
   void CalculaCD(double Padm, double PTubo, double PDeposito, double deltaT);
 
-  void LeeDatosGraficas(const std::string &FileWAM, fpos_t &filepos);
+  void LeeDatosGraficas(std::istream &FileInput);
 
   void CabeceraGraficaINS(stringstream &insoutput, int lam);
 

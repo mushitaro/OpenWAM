@@ -65,8 +65,7 @@ TCCExtremoInyeccion::~TCCExtremoInyeccion() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCExtremoInyeccion::ReadBoundaryData(
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+void TCCExtremoInyeccion::ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -101,17 +100,17 @@ void TCCExtremoInyeccion::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
+    
+    
 
-    fscanf(fich, "%lf %lf %lf ", &FGastoIny, &FTemperaturaIny, &FInicioIny);
-    fscanf(fich, "%lf ", &FDuracionIny);
+    FileInput >> FGastoIny >> FTemperaturaIny >> FInicioIny;
+    FileInput >> FDuracionIny;
 
     // Inicializacion del transporte de especies quimicas.
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
     FComposicion = new double[FNumeroEspecies - FIntEGR];
     for (int i = 0; i < FNumeroEspecies - 1; i++) {
-      fscanf(fich, "%lf ", &FComposicion[i]);
+      FileInput >> FComposicion[i];
       FFraccionMasicaEspecie[i] =
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
       fracciontotal += FComposicion[i];
@@ -138,12 +137,8 @@ void TCCExtremoInyeccion::ReadBoundaryData(
       throw Exception(" ");
     }
 
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
   }
-
-  catch (exception &N) {
+catch (std::exception &N) {
     std::cout << "ERROR: TCCExtremoInyeccion::LeeExtremoInyeccion en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -164,7 +159,7 @@ void TCCExtremoInyeccion::ObtencionValoresInstantaneos(double Theta) {
     ang0 = FTheta - FInicioIny;
     FAngap = ang0 - floor(ang0 / 360.) * 360.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCExtremoInyeccion::ObtencionValoresInstantaneos en "
                  "la condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -229,7 +224,7 @@ void TCCExtremoInyeccion::CalculaCondicionContorno(double Time) {
                                                       FNumeroEspecies - 1);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCExtremoInyeccion::CalculaCondicionContorno en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;

@@ -111,8 +111,7 @@ void TCCDescargaExtremoAbierto::AsignAmbientConditions(
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCCDescargaExtremoAbierto::ReadBoundaryData(
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+void TCCDescargaExtremoAbierto::ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -149,26 +148,25 @@ void TCCDescargaExtremoAbierto::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
+    
+    
 
     if (FTipoDescarga == nmDescargaAtmosfera) { // DESCARGA A LA ATMOSFERA
-      fscanf(fich, "%lf ", &FPerdidaExtremo);
+      FileInput >> FPerdidaExtremo;
 
     } else if (FTipoDescarga ==
                nmDescargaRemanso) { // DESCARGA A UN DEPOSITO DE REMANSO
-      fscanf(fich, "%lf %lf %lf ", &FPressure, &FTemperaturaDep,
-             &FPerdidaExtremo);
+      FileInput >> FPressure >> FTemperaturaDep >> FPerdidaExtremo;
 
       // Se determina si este remanso modela el escape del motor.
-      fscanf(fich, "%d ", &modeladoescape);
+      FileInput >> modeladoescape;
       modeladoescape == 0 ? FModeladoEscape = false : FModeladoEscape = true;
 
       // Inicializacion del transporte de especies quimicas.
       FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
       FComposicion = new double[FNumeroEspecies - FIntEGR];
       for (int i = 0; i < FNumeroEspecies - 1; i++) {
-        fscanf(fich, "%lf ", &FComposicion[i]);
+        FileInput >> FComposicion[i];
         FFraccionMasicaEspecie[i] =
             FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
         fracciontotal += FComposicion[i];
@@ -218,18 +216,17 @@ void TCCDescargaExtremoAbierto::ReadBoundaryData(
           __cons::ARef;
 
     } else if (FTipoDescarga == nmDescargaRemansoMatlab) {
-      fscanf(fich, "%lf %lf %lf ", &FPressure, &FTemperaturaDep,
-             &FPerdidaExtremo);
+      FileInput >> FPressure >> FTemperaturaDep >> FPerdidaExtremo;
 
       // Se determina si este remanso modela el escape del motor.
-      fscanf(fich, "%d ", &modeladoescape);
+      FileInput >> modeladoescape;
       modeladoescape == 0 ? FModeladoEscape = false : FModeladoEscape = true;
 
       // Inicializacion del transporte de especies quimicas.
       FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
       FComposicion = new double[FNumeroEspecies - FIntEGR];
       for (int i = 0; i < FNumeroEspecies - 1; i++) {
-        fscanf(fich, "%lf ", &FComposicion[i]);
+        FileInput >> FComposicion[i];
         FFraccionMasicaEspecie[i] =
             FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
         fracciontotal += FComposicion[i];
@@ -282,10 +279,10 @@ void TCCDescargaExtremoAbierto::ReadBoundaryData(
       printf("ERROR:TCCDescargaExtremoAbierto::LeeDescargaExtremoAbierto."
              "Asignacion Tipo BC\n");
 
-    fgetpos(fich, &filepos);
-    fclose(fich);
+    
+    
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCDescargaExtremoAbierto::LeeDescargaExtremoAbierto "
                  "en la condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -422,7 +419,7 @@ void TCCDescargaExtremoAbierto::CalculaCondicionContorno(double Time) {
       // La composicion se mantiene, al estar el flujo parado.
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCDescargaExtremoAbierto::CalculaCondicionesContorno "
                  "en la condicion de contorno: "
               << FNumeroCC << std::endl;

@@ -215,7 +215,7 @@ public:
 
       FRegimen = valor;
 
-    } catch (exception &N) {
+    } catch (std::exception &N) {
       std::cout << "ERROR: TBloqueMotor::PutRegimen en el EngineBlock. "
                 << std::endl;
       std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -242,7 +242,7 @@ public:
   void PutTheta(double valor) {
     try {
       FTheta = valor;
-    } catch (exception &N) {
+    } catch (std::exception &N) {
       std::cout << "ERROR: TBloqueMotor::PutTheta en el EngineBlock. "
                 << std::endl;
       std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -259,7 +259,7 @@ public:
 
       FCiclo = valor;
 
-    } catch (exception &N) {
+    } catch (std::exception &N) {
       std::cout << "ERROR: TBloqueMotor::PutCiclo en el EngineBlock. "
                 << std::endl;
       std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -387,14 +387,13 @@ public:
 
   ~TBloqueMotor();
 
-  void LeeMotor(const std::string &FileWAM, fpos_t &filepos,
+  void LeeMotor(std::istream &FileInput,
                 nmTipoModelado &SimulationType, int CiclosSinInerciaTermica,
                 nmTipoMotor EngineType, double *AtmosphericComposition);
 
   void IniciaAnguloCalculo();
 
-  void ReadAverageResultsBloqueMotor(const std::string &FileWAM,
-                                     fpos_t &filepos);
+  void ReadAverageResultsBloqueMotor(std::istream &FileInput);
 
   void HeaderAverageResultsBloqueMotor(std::ostream &medoutput);
 

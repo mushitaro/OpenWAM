@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -34,106 +35,85 @@
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
-//#include <cmath>
+// #include <cmath>
 #include "Globales.h"
 
 class TTGV {
-  private:
+private:
+  // Variables para la determinacion de la correlacion utilizada en la turbina.
+  FILE *FichTGV;
+  int FNumeroDatos_Regimen;
+  int FNumeroDatos_Mf;
 
-//Variables para la determinacion de la correlacion utilizada en la turbina.
-	FILE *FichTGV;
-	int FNumeroDatos_Regimen;
-	int FNumeroDatos_Mf;
+  double *FVector_Mf_mapa;
+  double *FVector_Regimen_mapa;
+  double **FMapa_PosicionTurbina;
+  double **FMapa_Padmision;
 
-	double *FVector_Mf_mapa;
-	double *FVector_Regimen_mapa;
-	double **FMapa_PosicionTurbina;
-	double **FMapa_Padmision;
+  double FPresionAdmisionConsigna;
+  // double FPosicionTurbina;
+  double FDistanciaVastago;
+  double *FDistanciasVastago;
 
-	double FPresionAdmisionConsigna;
-//double FPosicionTurbina;
-	double FDistanciaVastago;
-	double *FDistanciasVastago;
+  double FError;     // Error en la presion de admision en el instante current
+  double FError_ant; // Error en la presion de admision en el instante anterior
+  double FErrorI;    // Integral del error para el control con el PID
+  double FErrorIAnt;
+  double FP;
+  double FI;
+  double FD;
+  double FKc1;
+  double FKi1;
+  double FKd1;
+  double FKc2;
+  double FKi2;
+  double FKd2;
 
-	double FError;     // Error en la presion de admision en el instante current
-	double FError_ant; // Error en la presion de admision en el instante anterior
-	double FErrorI;    // Integral del error para el control con el PID
-	double FErrorIAnt;
-	double FP;
-	double FI;
-	double FD;
-	double FKc1;
-	double FKi1;
-	double FKd1;
-	double FKc2;
-	double FKi2;
-	double FKd2;
+  double FCorr0;
+  double FCorr1;
+  double FCorr2;
+  double FCorr4;
+  double FCorr6;
+  double FCorr8;
+  double FCorr10;
+  double FCorr12;
 
-	double FCorr0;
-	double FCorr1;
-	double FCorr2;
-	double FCorr4;
-	double FCorr6;
-	double FCorr8;
-	double FCorr10;
-	double FCorr12;
+  double FAEstator; // area de referencia del estator en cm2
+  double FARotor;   //  area de referencia del rotor en cm2
+  double FCDStator;
+  double FCDRotor;
+  double FRendimiento;
 
-	double FAEstator; // area de referencia del estator en cm2
-	double FARotor;  //  area de referencia del rotor en cm2
-	double FCDStator;
-	double FCDRotor;
-	double FRendimiento;
+  // double FCierreMaximo;
 
-//double FCierreMaximo;
+  bool FPrimeraVez;
 
-	bool FPrimeraVez;
+public:
+  double getCDStator() { return FCDStator; };
 
-  public:
+  double getCDRotor() { return FCDRotor; };
 
-	double getCDStator() {
-		return FCDStator;
-	}
-	;
+  double getRendimiento() { return FRendimiento; };
 
-	double getCDRotor() {
-		return FCDRotor;
-	}
-	;
+  double FPosicionTurbina;
+  double getPosicionTurbina() { return FPosicionTurbina; }
+  void PutPosicionTurbina(double valor) { FPosicionTurbina = valor; };
 
-	double getRendimiento() {
-		return FRendimiento;
-	}
-	;
+  double FCierreMaximo;
+  double getCierreMaximo() { return FCierreMaximo; }
+  void PutCierreMaximo(double valor) { FCierreMaximo = valor; };
 
-	double FPosicionTurbina;
-	double getPosicionTurbina() {
-		return FPosicionTurbina;
-	}
-	void PutPosicionTurbina(double valor) {
-		FPosicionTurbina = valor;
-	}
-	;
+  TTGV();
 
-	double FCierreMaximo;
-	double getCierreMaximo() {
-		return FCierreMaximo;
-	}
-	void PutCierreMaximo(double valor) {
-		FCierreMaximo = valor;
-	}
-	;
+  ~TTGV();
 
-	TTGV();
+  void LeeDatosEntrada(const std::string &Ruta, std::istream &fich);
 
-	~TTGV();
-
-	void LeeDatosEntrada(char *Ruta, FILE *fich);
-
-	void CalculaTurbina(nmTipoControl TipoControl, double MasaFuel, double Regimen, double PresionAdmision,
-						double RelacionCinematica, double RelExp, double RegTurboCorr, double GastoCorr, double Tiempo);
-
+  void CalculaTurbina(nmTipoControl TipoControl, double MasaFuel,
+                      double Regimen, double PresionAdmision,
+                      double RelacionCinematica, double RelExp,
+                      double RegTurboCorr, double GastoCorr, double Tiempo);
 };
 
 //---------------------------------------------------------------------------
 #endif
-

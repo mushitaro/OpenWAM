@@ -71,7 +71,7 @@ public:
 
   ~TCompresorDep();
 
-  void LeeCompresor(const std::string &FileWAM, fpos_t &filepos);
+  void LeeCompresor(std::istream &FileInput);
 
   void CalculaGasto(double TrabajoInsTurbina, double TiempoActual);
 

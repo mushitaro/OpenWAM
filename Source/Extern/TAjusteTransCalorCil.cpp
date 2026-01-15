@@ -84,7 +84,7 @@ void TAjusteTransCalorCil::CalculaTCC(double TiempoActual, double Regimen) {
 		 }else if(TiempoActual>FCicloCambioTC2*120/Regimen){
 		 FCaqAdm=FCaqAdm3;
 		 } */
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: TTransCalorCil::CalculaTCC (DLL)" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -109,7 +109,7 @@ void TAjusteTransCalorCil::IniciaTCC(int NumeroTramos, int *Ciclo, double *CoefT
 		FCaqAdm = FCadmision[0];
 		FCaqEsc = FCescape[0];
 
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: TTransCalorCil::CalculaCD (DLL)" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -133,7 +133,7 @@ double TAjusteTransCalorCil::xit_(double vizq, double vder, double axid, double 
 			throw Exception("");
 		}
 		return ret_val;
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: TAjusteTransCalorCil::xit_" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());

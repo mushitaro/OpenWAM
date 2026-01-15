@@ -87,8 +87,7 @@ TCCPerdidadePresion::~TCCPerdidadePresion() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCPerdidadePresion::ReadBoundaryData(
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+void TCCPerdidadePresion::ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -139,19 +138,15 @@ void TCCPerdidadePresion::ReadBoundaryData(
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    // fsetpos(fich, &filepos);
-    _fseeki64(fich, filepos, SEEK_SET);
+    
+    // 
+    
 
-    fscanf(fich, "%lf ", &FK); /* Coeficiente de perdidas con signo positivo */
+    FileInput >> FK; /* Coeficiente de perdidas con signo positivo */
     printf("DEBUG: TCCPerdidadePresion Read K: %f\n", FK);
     fflush(stdout);
 
-    // fgetpos(fich, &filepos);
-    filepos = _ftelli64(fich);
-    fclose(fich);
-
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout << "ERROR: TCCPerdidadePresion::LecturaPerdidaPresion en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -166,7 +161,7 @@ void TCCPerdidadePresion::ReadBoundaryData(
 void TCCPerdidadePresion::TuboCalculandose(int TuboActual) {
   try {
     FTuboActual = TuboActual;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCPerdidadePresion::TuboCalculandose en la condicion "
                  "de contorno: "
               << FNumeroCC << std::endl;
@@ -367,9 +362,9 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
 
       // La composicion se mantiene, al estar el flujo parado.
     }
-  }
 
-  catch (exception &N) {
+  }
+catch (std::exception &N) {
     std::cout << "ERROR: TCCPerdidadePresion::CalculaCondicionContorno en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;

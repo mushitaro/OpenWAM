@@ -68,38 +68,28 @@ TMariposa::TMariposa(TMariposa *Origen, int valv) : TTipoValvula(nmMariposa) {
   FLevControlled = Origen->FLevControlled;
 }
 
-void TMariposa::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+void TMariposa::LeeDatosIniciales(std::istream &FileInput,
                                   int norden, bool HayMotor,
                                   TBloqueMotor *Engine) {
-  int ctrl = 0, prm = 0;
+  int ctrl = 0, prm = 0;FNumeroOrden = norden;
 
-  FILE *fich = fopen(FileWAM.c_str(), "rb");
-  fsetpos(fich, &filepos);
-
-  FNumeroOrden = norden;
-
-  fscanf(fich, "%d %lf ", &FNumLev, &FDiametroRef);
+  FileInput >> FNumLev >> FDiametroRef;
 
   FLevantamiento.resize(FNumLev);
   FDatosCDEntrada.resize(FNumLev);
   FDatosCDSalida.resize(FNumLev);
 
   for (int i = 0; i < FNumLev; i++) {
-    fscanf(fich, " %lf %lf %lf", &FLevantamiento[i], &FDatosCDEntrada[i],
-           &FDatosCDSalida[i]);
+    FileInput >> FLevantamiento[i] >> FDatosCDEntrada[i] >> FDatosCDSalida[i];
   }
 
-  fscanf(fich, " %lf", &FLevActual);
+  FileInput >> FLevActual;
 
-  fscanf(fich, " %d", &ctrl);
+  FileInput >> ctrl;
   if (ctrl != 0) {
     FLevControlled = true;
-    fscanf(fich, " %d %d", &prm, &FControllerID);
-  }
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
-}
+    FileInput >> prm >> FControllerID;
+  }}
 
 void TMariposa::AsignaLevController(TController **Controller) {
   if (FLevControlled)

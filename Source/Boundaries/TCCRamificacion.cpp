@@ -154,7 +154,7 @@ void TCCRamificacion::AsignaTubos(int NumberOfPipes, TTubo **Pipe) {
 			// Se inicializa con el Pipe 0 de modo arbitrario.
 		}
 
-	} catch(exception & N) {
+	} catch (std::exception & N) {
 		std::cout << "ERROR: TCCRamificacion::AsignaTubos en la condicion de contorno: " << FNumeroCC << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -176,7 +176,7 @@ void TCCRamificacion::TuboCalculandose(int TuboActual) {
 				}
 			}
 		}
-	} catch(exception & N) {
+	} catch (std::exception & N) {
 		std::cout << "ERROR: TCCRamificacion::TuboCalculandose en la condicion de contorno: " << FNumeroCC << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -340,7 +340,7 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
 				FFraccionMasicaEspecie[FNumeroEspecies - 1] = FMasaEspecie[FNumeroEspecies - 1] / MasaTotal;
 		}
 
-	} catch(exception & N) {
+	} catch (std::exception & N) {
 		std::cout << "ERROR: TCCRamificacion::CalculaCondicionContorno en la condicion de contorno: " << FNumeroCC << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());

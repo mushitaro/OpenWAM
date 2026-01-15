@@ -98,10 +98,9 @@ extern "C" void CALCULUS_OF_INJECTION_RATE(int INITIAL, double*SOP, double*MFI, 
 // printf("The file of average variables could not be open.\n");
 // }
 //
-// fscanf(fich, "%s",title);
-// fscanf(fich, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",&A[0],&A[1],&B[0],&B[1],&C[0],&C[1],&D[0],&D[1]);
-// fclose(fich);
-//
+// FileInput >> title;
+// FileInput >> A[0] >> A[1] >> B[0] >> B[1] >> C[0] >> C[1] >> D[0] >> D[1];
+////
 //
 //
 // INITIAL[0]=0;
@@ -110,30 +109,28 @@ extern "C" void CALCULUS_OF_INJECTION_RATE(int INITIAL, double*SOP, double*MFI, 
 // printf("The file of average variables could not be open.\n");
 // }
 //
-// fscanf(fich, "%s",title);
+// FileInput >> title;
 // for (p=0;p<8;p++){
-// fscanf(fich, "%d,%lf,%lf,%lf",aux,&SOP[0][p],&MFI[0][p],&PMI_hp);
+// FileInput >> aux >> SOP[0][p] >> MFI[0][p] >> PMI_hp;
 //
 // if(MFI[0][p]>0){
 // INITIAL[0]=INITIAL[0]+1;
 // }
 //
 // }
-// fclose(fich);
-//
+////
 //
 // if((fich=fopen("test_variables.dat","r"))==NULL){
 // printf("The file of average variables could not be open.\n");
 // return 0;
 // }
-// fscanf(fich, "%s",title);
+// FileInput >> title;
 //
 // for(p=0;p<18;p++){
-// fscanf(fich, "%lf,",&test_variables[0][p]);
+// FileInput >> test_variables[0][p];
 // }
 //
-// fclose(fich);
-//
+////
 // speed[0]=test_variables[0][0];
 // PCR[0]=test_variables[0][5];
 //
@@ -171,30 +168,28 @@ extern "C" void CALCULUS_OF_INJECTION_RATE(int INITIAL, double*SOP, double*MFI, 
 // }
 // strcpy(title,"CAD,IR");
 //
-// fprintf(fich, "%s", title);
+// fprintf(FileInput, "%s", title);
 // for(p=0;p<CAI;p++){
-// fprintf(fich, "\n%lf,",CAD_injection_rate[0][p]);
+// fprintf(FileInput, "\n%lf,",CAD_injection_rate[0][p]);
 // for(z=0;z<test_number;z++){
-// fprintf(fich, "%lf",injection_rate[z][p]);
+// fprintf(FileInput, "%lf",injection_rate[z][p]);
 // }
 // }
-// fclose(fich);
-//
+////
 // if((fich=fopen("injection_rate_parameters.dat","w"))==NULL){
 // printf("The element file results could not be opened");
 // exit(1);
 // }
 // strcpy(title,"INITIAL,SOI1,EOI1,SOI2,EOI2,SOI3,EOI3,SOI4,EOI4,SOI5,EOI5,SOI6,EOI6,SOI7,EOI7,SOI8,EOI8");
 //
-// fprintf(fich, "%s", title);
+// fprintf(FileInput, "%s", title);
 //
-// fprintf(fich, "\n%d",INITIAL[0]);
+// fprintf(FileInput, "\n%d",INITIAL[0]);
 // for(p=0;p<8;p++){
-// fprintf(fich, ",%lf,%lf",SOI[0][p],EOI[0][p]);
+// fprintf(FileInput, ",%lf,%lf",SOI[0][p],EOI[0][p]);
 // }
 //
-// fclose(fich);
-//
+////
 ////memory liberation
 // free(PCR);
 // free(INITIAL);

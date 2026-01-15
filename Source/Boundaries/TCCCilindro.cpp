@@ -130,7 +130,7 @@ void TCCCilindro::AsignaTipoValvula(
     FSeccionTubo =
         __geom::Circle_area(FTuboExtremo[0].Pipe->GetDiametro(FNodoFin));
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCCilindro::AsignaTipoValvula en la condicion de contorno: "
         << FNumeroCC << std::endl;
@@ -143,7 +143,7 @@ void TCCCilindro::AsignaTipoValvula(
 // ---------------------------------------------------------------------------
 
 void TCCCilindro::ReadBoundaryData(
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+    std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -176,16 +176,10 @@ void TCCCilindro::ReadBoundaryData(
       }
       i++;
     }
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
 
-    fscanf(fich, "%d ",
-           &numid); // Esto es un dato que necesita el WAMer. Los usuarios de
-                    // WAM hacemos la vista gorda hasta que se arregle.
-    fscanf(fich, "%d ", &FNumeroCilindro);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
+    FileInput >> numid; // Esto es un dato que necesita el WAMer. Los usuarios
+                        // de WAM hacemos la vista gorda hasta que se arregle.
+    FileInput >> FNumeroCilindro;
 
     // Inicializacion del transporte de especies quimicas
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
@@ -193,10 +187,7 @@ void TCCCilindro::ReadBoundaryData(
       FFraccionMasicaEspecie[i] =
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
-
-  }
-
-  catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCCilindro::LeeCCCilindro en la condicion de contorno: "
         << FNumeroCC << std::endl;
@@ -216,7 +207,7 @@ void TCCCilindro::AsignaCilindro(TBloqueMotor *EngineBlock) {
     FAnguloActual = FCilindro->getAnguloActual();
     FValvula->PutCylider(FCilindro);
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCCilindro::AsignaCilindro en la condicion de contorno: "
         << FNumeroCC << std::endl;
@@ -343,7 +334,7 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
       // La composicion se mantiene, al estar el flujo parado.
     }
     FValvula->AcumulaCDMedio(Time);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCCilindro::CalculaCondicionContorno en la condicion "
                  "de contorno: "
               << FNumeroCC << std::endl;
@@ -410,7 +401,7 @@ void TCCCilindro::FlujoEntranteCilindro() {
     FVelocidadGarganta = velocidad_garganta;
   }
 
-  catch (exception &N) {
+  catch (std::exception &N) {
     std::cout << "ERROR: TCCCilindro::FlujoEntranteCilindro en la condicion de "
                  "contorno: "
               << FNumeroCC << std::endl;
@@ -560,7 +551,7 @@ void TCCCilindro::FlujoSalienteCilindro() {
     FGastoGarganta = FGasto / (FCDSalida * FSeccionValvula);
   }
 
-  catch (exception &N) {
+  catch (std::exception &N) {
     std::cout << "ERROR: TCCCilindro::FlujoSalienteCilindro en la condicion de "
                  "contorno: "
               << FNumeroCC << std::endl;
@@ -599,160 +590,166 @@ void TCCCilindro::Resolucion(double ext1, double ext2, nmCaso Caso, double *u2t,
              FNumeroCC);
       throw Exception("");
     }
-  }
 
-  catch (exception &N) {
-    std::cout << "ERROR: TCCCilindro::Resolucion en la condicion de contorno: "
-              << FNumeroCC << std::endl;
-    std::cout << "Tipo de error: " << N.what() << std::endl;
-    throw Exception(N.what());
-  }
-}
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
-// void TCCCilindro::FESubcritico(double vel_son_supuesta,double *u2_1,double
-// *u2_2)
-// {
-// try
-// {
-//
-// double xx,yy,u2;
-//
-///* Resolucion de la ecuacion (20) del articulo "Solucion a la condicion de
-// contorno de la union cilindro-conducto de los MCIA". Ecuacion 4.30 en la
-// tesis de Corberan */
-//
-// xx=vel_son_supuesta/(FTuboExtremo[0].Entropia*FAd);
-// yy=pow(xx,4.*FGamma6);
-// yy=pow(Fk,2.)*yy-1.;
-// *u2_2=FTuboExtremo[0].Entropia*FAd*sqrt(2.*FGamma6*(pow(xx,2.)-1.)/yy); //
-// Valor absoluto
-//
-///* Resolucion de la ecuacion de la caracteristica incidente. */
-//
-// *u2_1=(*FCC-vel_son_supuesta)/FGamma3;  // En valor absoluto
-//
-// }
-// catch(Exception &N)
-// {
-// std::cout << "ERROR: TCCCilindro::FESubcritico en la condicion de contorno: "
-// << FNumeroCC << std::endl; std::cout << "Tipo de error: " << N.what() <<
-// std::endl; throw Exception(N.what());
-// }
-// }
-//
-////---------------------------------------------------------------------------
-////---------------------------------------------------------------------------
-//
-// void TCCCilindro::FESupercritico(double mach_supuesto,double *miembro1,
-// double *miembro2)
-// {
-// try
-// {
-//
-// double xx,yy;
-//
-///* Resolucion de la ecuacion (21) del articulo "Solucion a la condicion de
-// contorno de la union cilindro-conducto de los MCIA". Ecuacion (4.31) de
-// la tesis de Corberan */
-//
-// yy=(FGamma2/2.)*pow(Fk*mach_supuesto,2.*FGamma1/FGamma2);
-// xx=FGamma3*pow(mach_supuesto,2);
-// *miembro1=xx-yy+1.;     // Miembro 1 de la ecuacion (21)
-// *miembro2=0;            // Miembro 2 de la ecuacion (21)
-//
-// }
-// catch(Exception &N)
-// {
-// std::cout << "ERROR: TCCCilindro::FESupercritico en la condicion de contorno:
-// " << FNumeroCC << std::endl; std::cout << "Tipo de error: " << N.what() <<
-// std::endl; throw Exception(N.what());
-// }
-// }
-//
-////---------------------------------------------------------------------------
-////---------------------------------------------------------------------------
-//
-// void TCCCilindro::FSSubcritico(double vel_son_supuesta,double *error,double
-// *miembro2)
-// {
-// try
-// {
-// double a1,u1,u2;
-//
-// *miembro2=0;
-//
-///* Resolucion del algoritmo de calculo propuesto en la pagina 113 de la tesis
-// de Corberan. */
-//
-// u2 =
-// sqrt((pow(FCilindro->getSpeedsound()/__cons::ARef,2)-pow(vel_son_supuesta,2))/FGamma3);
-// a1 =
-// FCilindro->getSpeedsound()/__cons::ARef*(*FCC+FGamma3*u2)/(FTuboExtremo[0].Entropia*FAd);
-// u1 = Fk*u2*pow(a1,2)/pow(vel_son_supuesta,2);
-// *error=pow(a1,2)+FGamma3*pow(u1,2)-pow(FCilindro->getSpeedsound()/__cons::ARef,2);
-//
-// }
-// catch(Exception &N)
-// {
-// std::cout << "ERROR: TCCCilindro::FSSubcritico en la condicion de contorno: "
-// << FNumeroCC << std::endl; std::cout << "Tipo de error: " << N.what() <<
-// std::endl; throw Exception(N.what());
-// }
-// }
-//
-////---------------------------------------------------------------------------
-////---------------------------------------------------------------------------
-//
-// void TCCCilindro::FSSupercritico(double vel_supuesta,double *a2_1,double
-// *a2_2)
-// {
-// try
-// {
-//
-//// Resolucion de la ecuacion de la energia entre el cilindro y el extremo del
-/// tubo.
-// *a2_1 =
-// sqrt(pow(FCilindro->getSpeedsound()/__cons::ARef,2)-FGamma3*pow(vel_supuesta,2));
-//
-//// Resolucion de la ecuacion 4.20 de la tesis de Corberan.
-// *a2_2 = sqrt(vel_supuesta*pow((*FCC+FGamma3*vel_supuesta)/
-// FTuboExtremo[0].Entropia,FGamma4)/Fcc);
-//
-// }
-// catch(Exception &N)
-// {
-// std::cout << "ERROR: TCCCilindro::FSSupercritico en la condicion de contorno:
-// " << FNumeroCC << std::endl; std::cout << "Tipo de error: " << N.what() <<
-// std::endl; throw Exception(N.what());
-// }
-// }
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
-void TCCCilindro::ActualizaAnguloValvula(double TiempoActual, double Regimen) {
-  try {
-
-    FTime0 = FTime1;
-    FTime1 = TiempoActual;
-    FDeltaT = FTime1 - FTime0;
-    FDeltaAngulo = 360. * Regimen / 60. * FDeltaT;
-    FAnguloAnterior = FAnguloActual;
-    FAnguloActual = FAnguloAnterior + FDeltaAngulo;
-    if (FAnguloActual > 720.) {
-      FAnguloActual -= 720.;
     }
-
-  } catch (exception &N) {
-    std::cout << "ERROR: TCCCilindro::ActualizaAnguloValvula en la condicion "
-                 "de contorno: "
-              << FNumeroCC << std::endl;
-    std::cout << "Tipo de error: " << N.what() << std::endl;
-    throw Exception(N.what());
+catch (std::exception &N) {
+      std::cout
+          << "ERROR: TCCCilindro::Resolucion en la condicion de contorno: "
+          << FNumeroCC << std::endl;
+      std::cout << "Tipo de error: " << N.what() << std::endl;
+      throw Exception(N.what());
+    }
   }
-}
+
+  // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+
+  // void TCCCilindro::FESubcritico(double vel_son_supuesta,double *u2_1,double
+  // *u2_2)
+  // {
+  // try
+  // {
+  //
+  // double xx,yy,u2;
+  //
+  ///* Resolucion de la ecuacion (20) del articulo "Solucion a la condicion de
+  // contorno de la union cilindro-conducto de los MCIA". Ecuacion 4.30 en la
+  // tesis de Corberan */
+  //
+  // xx=vel_son_supuesta/(FTuboExtremo[0].Entropia*FAd);
+  // yy=pow(xx,4.*FGamma6);
+  // yy=pow(Fk,2.)*yy-1.;
+  // *u2_2=FTuboExtremo[0].Entropia*FAd*sqrt(2.*FGamma6*(pow(xx,2.)-1.)/yy); //
+  // Valor absoluto
+  //
+  ///* Resolucion de la ecuacion de la caracteristica incidente. */
+  //
+  // *u2_1=(*FCC-vel_son_supuesta)/FGamma3;  // En valor absoluto
+  //
+  // }
+  // catch(Exception &N)
+  // {
+  // std::cout << "ERROR: TCCCilindro::FESubcritico en la condicion de contorno:
+  // "
+  // << FNumeroCC << std::endl; std::cout << "Tipo de error: " << N.what() <<
+  // std::endl; throw Exception(N.what());
+  // }
+  // }
+  //
+  ////---------------------------------------------------------------------------
+  ////---------------------------------------------------------------------------
+  //
+  // void TCCCilindro::FESupercritico(double mach_supuesto,double *miembro1,
+  // double *miembro2)
+  // {
+  // try
+  // {
+  //
+  // double xx,yy;
+  //
+  ///* Resolucion de la ecuacion (21) del articulo "Solucion a la condicion de
+  // contorno de la union cilindro-conducto de los MCIA". Ecuacion (4.31) de
+  // la tesis de Corberan */
+  //
+  // yy=(FGamma2/2.)*pow(Fk*mach_supuesto,2.*FGamma1/FGamma2);
+  // xx=FGamma3*pow(mach_supuesto,2);
+  // *miembro1=xx-yy+1.;     // Miembro 1 de la ecuacion (21)
+  // *miembro2=0;            // Miembro 2 de la ecuacion (21)
+  //
+  // }
+  // catch(Exception &N)
+  // {
+  // std::cout << "ERROR: TCCCilindro::FESupercritico en la condicion de
+  // contorno: " << FNumeroCC << std::endl; std::cout << "Tipo de error: " <<
+  // N.what() << std::endl; throw Exception(N.what());
+  // }
+  // }
+  //
+  ////---------------------------------------------------------------------------
+  ////---------------------------------------------------------------------------
+  //
+  // void TCCCilindro::FSSubcritico(double vel_son_supuesta,double *error,double
+  // *miembro2)
+  // {
+  // try
+  // {
+  // double a1,u1,u2;
+  //
+  // *miembro2=0;
+  //
+  ///* Resolucion del algoritmo de calculo propuesto en la pagina 113 de la
+  ///tesis
+  // de Corberan. */
+  //
+  // u2 =
+  // sqrt((pow(FCilindro->getSpeedsound()/__cons::ARef,2)-pow(vel_son_supuesta,2))/FGamma3);
+  // a1 =
+  // FCilindro->getSpeedsound()/__cons::ARef*(*FCC+FGamma3*u2)/(FTuboExtremo[0].Entropia*FAd);
+  // u1 = Fk*u2*pow(a1,2)/pow(vel_son_supuesta,2);
+  // *error=pow(a1,2)+FGamma3*pow(u1,2)-pow(FCilindro->getSpeedsound()/__cons::ARef,2);
+  //
+  // }
+  // catch(Exception &N)
+  // {
+  // std::cout << "ERROR: TCCCilindro::FSSubcritico en la condicion de contorno:
+  // "
+  // << FNumeroCC << std::endl; std::cout << "Tipo de error: " << N.what() <<
+  // std::endl; throw Exception(N.what());
+  // }
+  // }
+  //
+  ////---------------------------------------------------------------------------
+  ////---------------------------------------------------------------------------
+  //
+  // void TCCCilindro::FSSupercritico(double vel_supuesta,double *a2_1,double
+  // *a2_2)
+  // {
+  // try
+  // {
+  //
+  //// Resolucion de la ecuacion de la energia entre el cilindro y el extremo
+  ///del
+  /// tubo.
+  // *a2_1 =
+  // sqrt(pow(FCilindro->getSpeedsound()/__cons::ARef,2)-FGamma3*pow(vel_supuesta,2));
+  //
+  //// Resolucion de la ecuacion 4.20 de la tesis de Corberan.
+  // *a2_2 = sqrt(vel_supuesta*pow((*FCC+FGamma3*vel_supuesta)/
+  // FTuboExtremo[0].Entropia,FGamma4)/Fcc);
+  //
+  // }
+  // catch(Exception &N)
+  // {
+  // std::cout << "ERROR: TCCCilindro::FSSupercritico en la condicion de
+  // contorno: " << FNumeroCC << std::endl; std::cout << "Tipo de error: " <<
+  // N.what() << std::endl; throw Exception(N.what());
+  // }
+  // }
+
+  // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+
+  void TCCCilindro::ActualizaAnguloValvula(double TiempoActual,
+                                           double Regimen) {
+    try {
+
+      FTime0 = FTime1;
+      FTime1 = TiempoActual;
+      FDeltaT = FTime1 - FTime0;
+      FDeltaAngulo = 360. * Regimen / 60. * FDeltaT;
+      FAnguloAnterior = FAnguloActual;
+      FAnguloActual = FAnguloAnterior + FDeltaAngulo;
+      if (FAnguloActual > 720.) {
+        FAnguloActual -= 720.;
+      }
+
+    } catch (std::exception &N) {
+      std::cout << "ERROR: TCCCilindro::ActualizaAnguloValvula en la condicion "
+                   "de contorno: "
+                << FNumeroCC << std::endl;
+      std::cout << "Tipo de error: " << N.what() << std::endl;
+      throw Exception(N.what());
+    }
+  }
 
 #pragma package(smart_init)

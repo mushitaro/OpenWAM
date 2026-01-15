@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -35,38 +36,37 @@
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
-//#include <cmath>
+// #include <cmath>
 #include "Globales.h"
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 class TControlK {
-  private:
+private:
+  // Variables
+  FILE *FichK_Re;
 
-// Variables
-	FILE *FichK_Re;
+  int FNumeroDatos;
+  double *FVector_Re;
+  double *FVector_K;
+  double FK;
+  double FDiametro;
+  double FRe;
 
-	int FNumeroDatos;
-	double *FVector_Re;
-	double *FVector_K;
-	double FK;
-	double FDiametro;
-	double FRe;
+public:
+  TControlK();
 
-  public:
-	TControlK();
+  ~TControlK();
 
-	~TControlK();
+  //   __property double K={read=FK};
+  //   __property double Re={read=FRe};
 
-//   __property double K={read=FK};
-//   __property double Re={read=FRe};
+  void CalculaK(double velocidad, double temperatura, double presion,
+                double R_mezcla);
 
-	void CalculaK(double velocidad, double temperatura, double presion, double R_mezcla);
-
-	void LeeDatosEntrada(char *Dir, FILE *fich, double FDiametro);
-
+  void LeeDatosEntrada(const std::string &Ruta, std::istream &FileInput,
+                       double FDiametro);
 };
 
 #endif
-

@@ -336,7 +336,7 @@ void TCompTubos::CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo,
     }
 
     FRegimenCorregido = Mapa2T->getRegimenCorregido();
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaCondicionContorno en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -422,7 +422,7 @@ void TCompTubos::Biseccion(double *VelIn, double *VelOut, double *AIn,
       ++FCuentaVelIn;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: BuscaErrorCaracteristica en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -434,19 +434,13 @@ void TCompTubos::Biseccion(double *VelIn, double *VelOut, double *AIn,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCompTubos::LeeCompresor(const std::string &FileWAM, fpos_t &filepos) {
+void TCompTubos::LeeCompresor(std::istream &FileInput) {
   int tipo = 0;
-  try {
-
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d %d ", &FTuboRotor, &FTuboStator);
-    fscanf(fich, "%lf %lf %lf %lf", &FRadioTip, &FRadioHub, &FRadioRodete,
-           &FLongitudCaract);
+  try {FileInput >> FTuboRotor >> FTuboStator;
+    FileInput >> FRadioTip >> FRadioHub >> FRadioRodete >> FLongitudCaract;
 
     int format = 0;
-    fscanf(fich, "%d ", &format);
+    FileInput >> format;
     if (format == 1) {
       std::cout << "SAE Compressor map format is not compatible with two pipes "
                    "compressor model"
@@ -461,11 +455,7 @@ void TCompTubos::LeeCompresor(const std::string &FileWAM, fpos_t &filepos) {
     Mapa2T->PutRadioRadioTip(FRadioTip);
     Mapa2T->PutRadioRodete(FRadioRodete);
 
-    Mapa2T->LeeMapa(fich);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    Mapa2T->LeeMapa(FileInput);} catch (std::exception &N) {
     std::cout << "ERROR: LeeCompresor en el compresor: " << FNumeroCompresor
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -550,7 +540,7 @@ void TCompTubos::RelacionTubos(
       FFraccionMasicaEspecie[i] = FTuboRot->GetFraccionMasicaInicial(i);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCompTubos::RelacionTubos en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -666,7 +656,7 @@ void TCompTubos::MetodoNewton2D(double *a1, double *a2, double *u1, double *u2,
       *a2 = a2_local;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: MetodoNewton2D en el compresor: " << FNumeroCompresor
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -697,7 +687,7 @@ void TCompTubos::Solver(double *a1, double *a2, double *u1, double *u2,
       *u2 = FunA1.V2;
       FCoefPresiones = FunA1.CPfin;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: MetodoNewton2D en el compresor: " << FNumeroCompresor
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -718,7 +708,7 @@ void TCompTubos::ExtremoCerrado() {
     *FCarDIn = *FCarCIn;
     *FCarDOut = *FCarCOut;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCompTubos::ExtremoCerrado en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;

@@ -109,8 +109,7 @@ void TCCExternalConnectionVol::CalculaCondicionContorno(double Time) {
   FTime0 = Time;
 }
 
-void TCCExternalConnectionVol::ReadBoundaryData(
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+void TCCExternalConnectionVol::ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
 
@@ -145,13 +144,13 @@ void TCCExternalConnectionVol::ReadBoundaryData(
         FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
   }
 
-  FILE *fich = fopen(FileWAM.c_str(), "rb");
-  fsetpos(fich, &filepos);
+  
+  
 
-  fscanf(fich, "%d ", &FID);
+  FileInput >> FID;
 
-  fgetpos(fich, &filepos);
-  fclose(fich);
+  
+  
 }
 
 void TCCExternalConnectionVol::LoadNewData(double *p, double *T, double *u) {

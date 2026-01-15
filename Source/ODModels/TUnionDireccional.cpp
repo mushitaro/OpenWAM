@@ -89,8 +89,7 @@ TUnionDireccional::~TUnionDireccional() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TUnionDireccional::LeeDatosUnionDireccional(const std::string &FileWAM,
-                                                 fpos_t &filepos) {
+void TUnionDireccional::LeeDatosUnionDireccional(std::istream &FileInput) {
   try {
     int numid = 0; // Dato para Wamer
 
@@ -103,31 +102,19 @@ void TUnionDireccional::LeeDatosUnionDireccional(const std::string &FileWAM,
     FCoefA = new double[2];
     FCoefB = new double[2];
 
-    FCCEntrada = new TCondicionContorno *[2];
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &numid); /* DATO PARA WAMER */
-    fscanf(fich, "%d %d %d ", &FNodoEntrada[0], &FNodoEntrada[1], &FNodoSalida);
+    FCCEntrada = new TCondicionContorno *[2];FileInput >> numid; /* DATO PARA WAMER */
+    FileInput >> FNodoEntrada[0] >> FNodoEntrada[1] >> FNodoSalida;
     /* Lectura de informacion para el calculo del coeficiente de descarga de
      salida para las uniones de entrada al deposito de union direccional */
-    fscanf(fich, "%lf %lf %lf ", &FCDSalidaInicial[0], &FVelocidadCorte[0],
-           &FVelocidadFin[0]);
-    fscanf(fich, "%lf %lf %lf ", &FCDSalidaInicial[1], &FVelocidadCorte[1],
-           &FVelocidadFin[1]);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-    FCoefA[0] = -FCDSalidaInicial[0] * FVelocidadFin[0] /
+    FileInput >> FCDSalidaInicial[0] >> FVelocidadCorte[0] >> FVelocidadFin[0];
+    FileInput >> FCDSalidaInicial[1] >> FVelocidadCorte[1] >> FVelocidadFin[1];FCoefA[0] = -FCDSalidaInicial[0] * FVelocidadFin[0] /
                 (FVelocidadCorte[0] - FVelocidadFin[0]);
     FCoefB[0] = FCDSalidaInicial[0] / (FVelocidadCorte[0] - FVelocidadFin[0]);
     FCoefA[1] = -FCDSalidaInicial[1] * FVelocidadFin[1] /
                 (FVelocidadCorte[1] - FVelocidadFin[1]);
     FCoefB[1] = FCDSalidaInicial[1] / (FVelocidadCorte[1] - FVelocidadFin[1]);
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TUnionDireccional::LeeDatosUnionDireccional en el deposito: "
         << FNumeroDeposito << std::endl;
@@ -154,7 +141,7 @@ void TUnionDireccional::AsignaCCUnionDireccional() {
       }
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TUnionDireccional::AsignaCCUnionDireccional en la "
                  "union direccional "
               << FNumUnionDireccional << std::endl;
@@ -267,7 +254,7 @@ void TUnionDireccional::ActualizaPropiedades(double TimeCalculo) {
                                  FVolumen * FMasa);
     FPresionIsen = pow(FPressure / FPresRef, __Gamma::G5(FGamma));
     FTime = TimeCalculo;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TUnionDireccional::ActualizaPropiedades en la union "
                  "direccional: "
               << FNumUnionDireccional << std::endl;
@@ -322,7 +309,7 @@ void TUnionDireccional::CalculoUnionDireccional() {
           ->PutCDSalida(FCoefA[1] + FCoefB[1] * FVelocity[0]);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TUnionDireccional::CalculoUnionDireccional en la "
                  "union direccional: "
               << FNumUnionDireccional << std::endl;

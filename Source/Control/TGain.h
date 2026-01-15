@@ -56,20 +56,18 @@ public:
 
   double Output(double Time);
 
-  void LeeController(const std::string &FileWAM, fpos_t &filepos);
+  void LeeController(std::istream &FileInput);
 
   void AsignaObjetos(TSensor **Sensor, TController **Controller);
 
   /*! Read the average results selected*/
   void LeeResultadosMedControlador(
-      const std::string &FileWAM, //!< Input data filename
-      fpos_t &filepos             //!< Position within the input file
+      std::istream &FileInput //!< Position within the input file
   );
 
   /*! Read the instantaneous results selected*/
   void LeeResultadosInsControlador(
-      const std::string &FileWAM, //!< Input data filename
-      fpos_t &filepos             //!< Position within the input file
+      std::istream &FileInput //!< Position within the input file
   );
 
   /*! Generate average results header */

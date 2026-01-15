@@ -101,7 +101,7 @@ public:
       }
       FVelocidadSonidoDep =
           sqrt(FTemperaturaDep * GammaDep * RMezclaDep) / __cons::ARef;
-    } catch (exception &N) {
+    } catch (std::exception &N) {
       std::cout << "ERROR: TCCDescargaExtremoAbierto::PutTemperatura en la "
                    "condicion de contorno: "
                 << FNumeroCC << std::endl;
@@ -119,7 +119,7 @@ public:
 
   void CalculaCondicionContorno(double Time);
 
-  void ReadBoundaryData(const std::string &FileWAM, fpos_t &filepos,
+  void ReadBoundaryData(std::istream &FileInput,
                         int NumberOfPipes,
                         const std::vector<std::unique_ptr<TTubo>> &Pipe,
                         int nDPF,

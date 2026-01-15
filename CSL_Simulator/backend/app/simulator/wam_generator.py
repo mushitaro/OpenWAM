@@ -436,6 +436,10 @@ class WAMGenerator:
         # --- FOOTER ---
         self._generate_footer(c, schedule)
         
+        # --- SENSORS & CONTROLLERS ---
+        self.generate_sensors()
+        self.generate_controllers(schedule)
+
         # --- OUTPUT ---
         self._generate_output_block()
         
@@ -486,8 +490,8 @@ class WAMGenerator:
             runner_id = self.pipe_counter; self.pipe_counter += 1
             self.ids['runners'].append(runner_id)
             
-            # Valve ID for Throttle (ITB)
-            vid_throttle = 30 + i
+            # Valve ID for Throttle (ITB) - starts from 26 (after fixed CD valve 25)
+            vid_throttle = 26 + i
             self.throttle_valves.append(vid_throttle)
             
             # Connect Plenum -> [ThrottleValve] -> Runner Start
@@ -542,7 +546,7 @@ class WAMGenerator:
         
         # Create one Ambient Exhaust Plenum
         amb_ex_id = self.plenum_counter; self.plenum_counter += 1
-        self._add_plenum(amb_ex_id, "Ambient_Exhaust", 1000.0, 300, ptype=1) # Type 1 = Constant
+        self._add_plenum(amb_ex_id, "Ambient_Exhaust", 1000.0, 300, ptype=0) # Type 0 = Constant Volume
         
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
@@ -799,23 +803,26 @@ class WAMGenerator:
         for vid in self.throttle_valves:
             dia = c.intake.bellmouth.diameter/1000.0
             self._add_valve_throttle_mariposa(vid, dia, 2)
-            # DEBUG: Use Fixed CD (Type 10) to stabilize
-            # self._add_valve_fixed_cd(vid, 0.65, 0.65)
             
         # Plenums
-        plenum_count = self.plenum_counter - 1
-        self.wam_lines.append(f"{plenum_count}")
-        self.wam_lines.append("0 0 0") 
+        # After NumberOfPlenums, C++ expects 3 WAMer params: numeroturbinas, numeroventuris, numerounionesdireccionales
+        self.wam_lines.append(f"{len(self.plenum_ids)}")
+        self.wam_lines.append("0 0 0")  # No turbines, venturis, or directional junctions
         self.wam_lines.extend(self.wam_lines_plenums)
-
+        
+        # Compressors (Not implemented yet)
+        self.wam_lines.append("0")
+        
         # Connections
-        self.wam_lines.append("0") 
-        con_count = self.connection_counter - 1
-        self.wam_lines.append(f"{con_count}")
-        self.wam_lines.append("0 0 0 0 0 0 0 0 0")
+        # After NumberOfConnections, C++ expects 9 WAMer params:
+        # numnodosimples, numpulsos, numnododep, numperdpresion,
+        # numcomprtornillo, numextremosinyeccion, numnodoentredepositos,
+        # numentradacompresor, numentradapresionestatica
+        self.wam_lines.append(f"{self.connection_counter}")
+        self.wam_lines.append("0 0 0 0 0 0 0 0 0")  # WAMer params
         self.wam_lines.extend(self.wam_lines_cons)
         
-        # Turbo & Controls
+        # TurboAxis (Not implemented yet)
         self.wam_lines.append("0")
         # Sensors: Num=1. Type=0(Time) Param=0. Delay=0.0 Gain=1.0
         self.wam_lines.append("1") 
@@ -920,12 +927,10 @@ class WAMGenerator:
         self.wam_lines.append("0")
 
     def _add_valve_fixed_cd(self, vid, cd_in, cd_out):
-        self.wam_lines.append("10") 
-        self.wam_lines.append("2 1.0")
-        self.wam_lines.append("0.0 0.0 0.0")
-        self.wam_lines.append(f"90.0 {cd_in} {cd_out}")
-        self.wam_lines.append("90.0")
+        # Type 0: TCDFijo (Fixed Discharge Coefficient)
+        # Format: CDEntrada CDSalida ActivaDiamRef(0/1) [DiamRef if 1]
         self.wam_lines.append("0")
+        self.wam_lines.append(f"{cd_in} {cd_out} 0")  # CD_in, CD_out, no ref diameter
 
     def _add_valve_throttle_mariposa(self, vid, dia, ctrl_id):
         # Type 10: TMariposa
@@ -955,31 +960,26 @@ class WAMGenerator:
         self.plenum_ids.add(plid)
 
     def _add_con_plenum_valve_pipe_v2(self, plenum_id, pipe_id, pipe_end, valve_id):
-        # Type 11 (TCCDeposito) reads only 2 ints: numid, plenum_id.
+        # Type 11 (TCCDeposito) reads: numid, plenum_id, then quevalv (valve index)
         self.wam_lines_cons.append("11")
-        self.wam_lines_cons.append(f"0 {plenum_id}") 
-        self.connection_counter += 1
-        # Pad with Ghost 999 to consume stream glitch
-        self.wam_lines_cons.append("999")
+        self.wam_lines_cons.append(f"0 {plenum_id}")
+        self.wam_lines_cons.append(f"{valve_id}")  # Valve index (1-based)
         self.connection_counter += 1
 
     def _add_con_valve_v2(self, pid, end_idx, cyl_id, is_intake, vid_global):
         ctype = "7" if is_intake else "8"
         self.wam_lines_cons.append(ctype)
-        # Type 7/8 (TCCCilindro) reads only 2 ints: numid, cyl_id.
+        # Type 7/8 (TCCCilindro) reads: numid, cyl_id, then quevalv (valve index)
         self.wam_lines_cons.append(f"0 {cyl_id}")
-        self.connection_counter += 1
-        # Pad with Ghost 999
-        self.wam_lines_cons.append("999")
+        self.wam_lines_cons.append(f"{vid_global}")  # Valve index (1-based)
         self.connection_counter += 1
 
     def _add_con_plenum_pipe_v2(self, plid, pid, end_idx):
-        # Type 11 (TCCDeposito) reads only 2 ints.
+        # Type 11 (TCCDeposito) reads: numid, plenum_id, then quevalv (valve index)
+        # For connections without explicit valve, use valve 25 (first fixed CD valve)
         self.wam_lines_cons.append("11")
-        self.wam_lines_cons.append(f"0 {plid}") 
-        self.connection_counter += 1
-        # Pad with Ghost 999
-        self.wam_lines_cons.append("999")
+        self.wam_lines_cons.append(f"0 {plid}")
+        self.wam_lines_cons.append("25")  # Fixed CD valve index (valve #25)
         self.connection_counter += 1
 
     def _add_catalyst_section(self, node_left, node_right, cat_conf, label_prefix):

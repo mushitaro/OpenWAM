@@ -119,7 +119,7 @@ void TCondicionContorno::PutEntropia(int i, double valor) {
 double TCondicionContorno::GetFraccionMasicaEspecie(int i) {
 	try {
 		return FFraccionMasicaEspecie[i];
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: TCondicionContorno::GetConcentracionEspecie en la condicion de contorno: " << FNumeroCC <<
 				  std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;

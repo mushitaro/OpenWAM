@@ -118,6 +118,7 @@ Valencia |   \\/   \//    M odel    |
 #include "TSensor.h"
 #include "TPIDController.h"
 #include "TTable1D.h"
+#include "TTable.h"
 #include "TDecisor.h"
 #include "TGain.h"
 
@@ -351,7 +352,7 @@ private:
 
   void ReadOutput(std::string FileName);
 
-  void ReadDataDLL();
+  void ReadDataDLL(fpos_t &filepos);
 
   void RunningControl();
 

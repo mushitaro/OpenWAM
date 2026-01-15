@@ -118,18 +118,18 @@ public:
 
   void CalculaCondicionContorno(double Time);
 
-  void LeeUEDepositos(const std::string &FileWAM, fpos_t &filepos,
+  void LeeUEDepositos(std::istream &FileInput,
                       bool Independent);
   void AsignaDepositos(const std::vector<std::unique_ptr<TDeposito>> &Plenum);
   void CalculaCoeficientesDescarga(double Angulo, double mfcomb = 0.,
                                    double RegimenMotor = 0.);
 
-  void LeeResultadosInstantUED(const std::string &FileWAM, fpos_t &filepos);
+  void LeeResultadosInstantUED(std::istream &FileInput);
   void CabeceraResultadosInstantUED(std::ostream &insoutput);
   void ImprimeResultadosInstantUED(std::ostream &insoutput);
   void ResultadosInstantUED();
 
-  void ReadAverageResultsUED(const std::string &FileWAM, fpos_t &filepos);
+  void ReadAverageResultsUED(std::istream &FileInput);
 
   void HeaderAverageResultsUED(std::ostream &medoutput);
 

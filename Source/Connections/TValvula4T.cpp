@@ -135,21 +135,16 @@ TValvula4T::TValvula4T(TValvula4T *Origen, int Valvula)
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TValvula4T::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
-                                   int norden, bool HayMotor,
-                                   TBloqueMotor *Engine) {
+void TValvula4T::LeeDatosIniciales(std::istream &FileInput, int norden,
+                                   bool HayMotor, TBloqueMotor *Engine) {
   try {
     int ControlRegimen, NumLev = 0, NumCD = 0;
 
     FEngine = Engine;
-
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
-
     FNumeroOrden = norden;
 
-    fscanf(fich, "%lf %d %lf %lf %lf %lf ", &FDiametro, &NumLev, &FIncrAng,
-           &FAnguloApertura, &FDiametroRef, &FCoefTorbMedio);
+    FileInput >> FDiametro >> NumLev >> FIncrAng >> FAnguloApertura >>
+        FDiametroRef >> FCoefTorbMedio;
 
     FAnguloApertura0 = FAnguloApertura;
 
@@ -161,10 +156,10 @@ void TValvula4T::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
 
     for (int i = 0; i < NumLev; i++) {
       FAngle[i] = (double)i * FIncrAng;
-      fscanf(fich, " %lf", &FLevantamiento[i]);
+      FileInput >> FLevantamiento[i];
     }
 
-    fscanf(fich, "%d %lf ", &NumCD, &FIncrLev);
+    FileInput >> NumCD >> FIncrLev;
 
     FLiftCD.resize(NumCD);
     FDatosCDEntrada.resize(NumCD);
@@ -173,16 +168,16 @@ void TValvula4T::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
 
     for (int i = 0; i < NumCD; i++) {
       FLiftCD[i] = (double)i * FIncrLev;
-      fscanf(fich, " %lf", &FDatosCDEntrada[i]);
+      FileInput >> FDatosCDEntrada[i];
     }
     for (int i = 0; i < NumCD; i++) {
-      fscanf(fich, " %lf", &FDatosCDSalida[i]);
+      FileInput >> FDatosCDSalida[i];
     }
     for (int i = 0; i < NumCD; i++) {
-      fscanf(fich, " %lf", &FDatosTorbellino[i]);
+      FileInput >> FDatosTorbellino[i];
     }
 
-    fscanf(fich, "%d ", &ControlRegimen);
+    FileInput >> ControlRegimen;
 
     switch (ControlRegimen) {
     case 0:
@@ -193,10 +188,10 @@ void TValvula4T::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
       break;
     }
     if (FControlRegimen == nmPropio) {
-      fscanf(fich, "%lf ", &FRegimen);
+      FileInput >> FRegimen;
       FRelacionVelocidades = 1.;
     } else if (FControlRegimen == nmMotor && HayMotor) {
-      fscanf(fich, "%lf ", &FRelacionVelocidades);
+      FileInput >> FRelacionVelocidades;
     } else {
       std::cout << "ERROR: TValvula4T::LeeDatosIniciales Lectura del Control "
                    "del Regimen erronea "
@@ -205,31 +200,27 @@ void TValvula4T::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
     }
     int controllers = 0;
     int param = 0;
-    fscanf(fich, "%d ", &controllers);
+    FileInput >> controllers;
     for (int i = 0; i < controllers; i++) {
-      fscanf(fich, "%d ", &param);
+      FileInput >> param;
       switch (param) {
       case 0:
-        fscanf(fich, "%d ", &FVVTTimingCtrlID);
+        FileInput >> FVVTTimingCtrlID;
         FVVTLift = true;
         break;
       case 1:
-        fscanf(fich, "%d ", &FVVTLiftCtrlID);
+        FileInput >> FVVTLiftCtrlID;
         FVVTTiming = true;
         break;
       case 2:
-        fscanf(fich, "%d", &FVVTDurationCtrlID);
+        FileInput >> FVVTDurationCtrlID;
         FVVTDuration = true;
         break;
       }
       if (FVVTLift || FVVTTiming || FVVTDuration)
         FVVT = true;
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales Valvula4T" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -259,7 +250,7 @@ void TValvula4T::CalculaCD(double Angulo) {
       FCDVolTub = fun_CDout->interp(FApertura) * FSectionRatio;
       FCTorb = fun_Torb->interp(FApertura);
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales Valvula4T" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

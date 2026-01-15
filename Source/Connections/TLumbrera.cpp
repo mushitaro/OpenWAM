@@ -89,40 +89,31 @@ TLumbrera::TLumbrera(TLumbrera *Origen, int Valvula)
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TLumbrera::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
-                                  int norden, bool HayMotor,
-                                  TBloqueMotor *Engine) {
+void TLumbrera::LeeDatosIniciales(std::istream &FileInput, int norden,
+                                  bool HayMotor, TBloqueMotor *Engine) {
   try {
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
     FNumeroOrden = norden;
 
-    fscanf(fich, "%lf %lf %lf %lf %lf %lf ", &FAltura, &FAnchura, &FRadioSup,
-           &FRadioInf, &FPosicionPMI, &FDiametroRef);
-    fscanf(fich, "%d ", &FNumCD);
+    FileInput >> FAltura >> FAnchura >> FRadioSup >> FRadioInf >>
+        FPosicionPMI >> FDiametroRef;
+    FileInput >> FNumCD;
 
     FApertura.resize(FNumCD);
     FDatosCDEntrada.resize(FNumCD);
     FDatosCDSalida.resize(FNumCD);
 
     for (int j = 0; j < FNumCD; ++j) {
-      fscanf(fich, "%lf ", &FApertura[j]);
+      FileInput >> FApertura[j];
     }
     for (int j = 0; j < FNumCD; ++j) {
-      fscanf(fich, "%lf ", &FDatosCDEntrada[j]);
+      FileInput >> FDatosCDEntrada[j];
     }
     for (int j = 0; j < FNumCD; ++j) {
-      fscanf(fich, "%lf ", &FDatosCDSalida[j]);
+      FileInput >> FDatosCDSalida[j];
     }
 
     CalculateOpeningANDClose();
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales Lumbrera" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

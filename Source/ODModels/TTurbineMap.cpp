@@ -42,7 +42,7 @@ TTurbineMap::~TTurbineMap() {
 	FTurbPosition.clear();
 }
 
-void TTurbineMap::LoadTurbineMap(FILE *Input, double Diam1, double Diam2, double Diam3, double Diam4,
+void TTurbineMap::LoadTurbineMap(std::istream &Input, double Diam1, double Diam2, double Diam3, double Diam4,
 								 double CriticalAngle) {
 
 	int rows = 0, Adiab = 0;
@@ -52,17 +52,17 @@ void TTurbineMap::LoadTurbineMap(FILE *Input, double Diam1, double Diam2, double
 	bool CalculaGR = false;
 
 #ifdef tchtm
-	fscanf(Input, "%d ", &Adiab);
+	FileInput >> Adiab;
 	if(Adiab == 0) {
 		FIsAdiabatic = false;
-		fscanf(Input, "%lf ", &FTempMeasure);
+		FileInput >> FTempMeasure;
 	}
 #endif
 
-	fscanf(Input, "%d ", &FNumPositions);
+	FileInput >> FNumPositions;
 	FTurbPosition.resize(FNumPositions);
 	for(int i = 0; i < FNumPositions; i++) {
-		fscanf(Input, "%d %lf %lf", &rows, &pos, &ang);
+		FileInput >> rows >> pos >> ang;
 		FTurbPosition[i].ReadTurbinPosition(Input, rows, pos, ang);
 		if(ang > CriticalAngle)
 			CalculaGR = false;
@@ -109,10 +109,10 @@ void TTurbineMap::CurrentEffectiveSection(double n, double er, double rack, doub
 }
 // ---------------------------------------------------------------------------
 
-void TTurbineMap::PrintFinalMap(FILE *fich) {
+void TTurbineMap::PrintFinalMap(std::ostream &Output) {
 	for(int i = 0; i < FNumPositions; ++i) {
-		fprintf(fich, "%lf\n", FTurbPosition[i].Rack());
-		FTurbPosition[i].PrintTurbinePosition(fich);
+		Output << FTurbPosition[i].Rack() << "\n";
+		FTurbPosition[i].PrintTurbinePosition(Output);
 	}
 }
 

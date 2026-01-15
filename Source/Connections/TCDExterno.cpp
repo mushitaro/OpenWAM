@@ -59,19 +59,10 @@ TCDExterno::TCDExterno(TCDExterno *Origen, int Valvula)
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCDExterno::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
+void TCDExterno::LeeDatosIniciales(std::istream &FileInput,
                                    int norden, bool HayMotor,
                                    TBloqueMotor *Engine) {
-  try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%lf %lf %lf ", &FCDEInicial, &FCDSInicial, &FCTorbInicial);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+  try {FileInput >> FCDEInicial >> FCDSInicial >> FCTorbInicial;} catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales CDExterno" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -86,7 +77,7 @@ void TCDExterno::CalculaCD() {
     FCDTubVol = FCDEntMatlab;
     FCDVolTub = FCDSalMatlab;
     FCTorb = FCTorMatlab;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaCD CDExterno" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

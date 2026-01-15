@@ -82,7 +82,7 @@ public:
 
   void IniciaVolumen(double Theta);
 
-  void LeeDatosDepVolVariable(const std::string &FileWAM, fpos_t &filepos,
+  void LeeDatosDepVolVariable(std::istream &FileInput,
                               bool HayMotor);
 
   void UpdateProperties0DModel(double TimeCalculo);

@@ -63,9 +63,7 @@ public:
   );
 
   /*! Read data information of the controller*/
-  void
-  LeeController(const std::string &FileWAM, //!< Filename of the input data file
-                fpos_t &filepos //!< Position within the input data file to read
+  void LeeController(std::istream &FileInput //!< Stream to read from
   );
 
   /*! Asign the controllers and the sensors*/
@@ -75,14 +73,12 @@ public:
 
   /*! Read the average results selected for the controller*/
   void LeeResultadosMedControlador(
-      const std::string &FileWAM, //!< Filename of the input data file
-      fpos_t &filepos //!< Position within the input data file to read
+      std::istream &FileInput //!< Position within the input data file to read
   );
 
   /*! Read the instantaneous results selected for the controller*/
   void LeeResultadosInsControlador(
-      const std::string &FileWAM, //!< Filename of the input data file
-      fpos_t &filepos //!< Positon within the input data file to read
+      std::istream &FileInput //!< Positon within the input data file to read
   );
 
   /*! Generate the header of the average results for the controller*/

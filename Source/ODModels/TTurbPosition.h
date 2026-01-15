@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -33,64 +34,63 @@
 //---------------------------------------------------------------------------
 
 class TTurbPosition {
-  private:
+private:
+  double FPosition;
+  double FAngle;
 
-	double FPosition;
-	double FAngle;
+  double FStatorSec;
+  double FRotorSec;
 
-	double FStatorSec;
-	double FRotorSec;
+  double FEfficiency;
 
-	double FEfficiency;
+  double FSpeedMin;
+  double FSpeedMax;
 
-	double FSpeedMin;
-	double FSpeedMax;
+  double FPowerMin;
+  double FPowerMax;
 
-	double FPowerMin;
-	double FPowerMax;
+  int FLines;
 
-	int FLines;
+  std::vector<TIsoSpeedLine> FSpeedLine;
+  std::vector<double> FERMax;
+  std::vector<double> h_FERMax;
+  std::vector<double> FERMin;
+  std::vector<double> h_FERMin;
+  std::vector<double> FSpeed;
 
-	std::vector<TIsoSpeedLine> FSpeedLine;
-	std::vector<double> FERMax;
-	std::vector<double> h_FERMax;
-	std::vector<double> FERMin;
-	std::vector<double> h_FERMin;
-	std::vector<double> FSpeed;
+public:
+  TTurbPosition();
+  ~TTurbPosition();
 
-  public:
+  void ReadTurbinPosition(std::istream &Input, int rows, double pos,
+                          double ang);
 
-	TTurbPosition();
-	~TTurbPosition();
+  void EffectiveArea(double Area, bool CalculaGR, double Diam1, double Diam2,
+                     double Diam3, double n_limit);
 
-	void ReadTurbinPosition(FILE *Input, int rows, double pos, double ang);
+  void CalculatePower(double Tin);
 
-	void EffectiveArea(double Area, bool CalculaGR, double Diam1, double Diam2, double Diam3, double n_limit);
+  void PutPosition(double Pos);
 
-	void CalculatePower(double Tin);
+  void InterpolaPosicion(double n, double er);
 
-	void PutPosition(double Pos);
+  void SearchMapLimits();
 
-	void InterpolaPosicion(double n, double er);
+  double StatorSec() /*{return FStatorSec;}*/;
 
-	void SearchMapLimits();
+  double RotorSec() /*{return FRotorSec;}*/;
 
-	double StatorSec() /*{return FStatorSec;}*/;
+  double Rack() /*{return FPosition;}*/;
 
-	double RotorSec() /*{return FRotorSec;}*/;
+  double Efficiency() /*{return FEfficiency;}*/;
 
-	double Rack() /*{return FPosition;}*/;
+  void PrintTurbinePosition(std::ostream &Fich);
 
-	double Efficiency() /*{return FEfficiency;}*/;
+  double MinPowerLimit(double rtc);
 
-	void PrintTurbinePosition(FILE *Fich);
+  double MaxPowerLimit(double rtc);
 
-	double MinPowerLimit(double rtc);
-
-	double MaxPowerLimit(double rtc);
-
-	void AdiabaticEfficiency(TTC_HTM *HTM, double TinT, double TinC);
-
+  void AdiabaticEfficiency(TTC_HTM *HTM, double TinT, double TinC);
 };
 
 #endif

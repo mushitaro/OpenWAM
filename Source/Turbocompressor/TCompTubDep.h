@@ -128,7 +128,7 @@ public:
 
   ~TCompTubDep();
 
-  void LeeCompresor(const std::string &FileWAM, fpos_t &filepos);
+  void LeeCompresor(std::istream &FileInput);
 
   void CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo,
                           double AcumulatedTime, int TuboCalculado);

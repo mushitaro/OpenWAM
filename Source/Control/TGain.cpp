@@ -45,23 +45,16 @@ double TGain::Output(double Time) {
   return fOutput;
 }
 
-void TGain::LeeController(const std::string &FileWAM, fpos_t &filepos) {
+void TGain::LeeController(std::istream &FileInput) {
 
   int Type = 0;
-
-  FILE *fich = fopen(FileWAM.c_str(), "r");
-  fsetpos(fich, &filepos);
-
-  fscanf(fich, "%lf ", &FGain);
-  fscanf(fich, "%d %d", &Type, &FObjectID);
+  FileInput >> FGain;
+  FileInput >> Type >> FObjectID;
   if (Type == 0) {
     FInObject = nmInController;
   } else {
     FInObject = nmInSensor;
   }
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
 }
 
 void TGain::AsignaObjetos(TSensor **Sensor, TController **Controller) {
@@ -73,17 +66,12 @@ void TGain::AsignaObjetos(TSensor **Sensor, TController **Controller) {
   }
 }
 
-void TGain::LeeResultadosMedControlador(const std::string &FileWAM,
-                                        fpos_t &filepos) {
+void TGain::LeeResultadosMedControlador(std::istream &FileInput) {
 
   int nvars = 0, var = 0;
-
-  FILE *fich = fopen(FileWAM.c_str(), "r");
-  fsetpos(fich, &filepos);
-
-  fscanf(fich, "%d ", &nvars);
+  FileInput >> nvars;
   for (int i = 0; i < nvars; i++) {
-    fscanf(fich, "%d ", &var);
+    FileInput >> var;
     switch (var) {
     case 0:
       FResMediosCtrl.Output = true;
@@ -94,22 +82,14 @@ void TGain::LeeResultadosMedControlador(const std::string &FileWAM,
                 << " no implementados " << std::endl;
     }
   }
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
 }
 
-void TGain::LeeResultadosInsControlador(const std::string &FileWAM,
-                                        fpos_t &filepos) {
+void TGain::LeeResultadosInsControlador(std::istream &FileInput) {
 
   int nvars = 0, var = 0;
-
-  FILE *fich = fopen(FileWAM.c_str(), "r");
-  fsetpos(fich, &filepos);
-
-  fscanf(fich, "%d ", &nvars);
+  FileInput >> nvars;
   for (int i = 0; i < nvars; i++) {
-    fscanf(fich, "%d ", &var);
+    FileInput >> var;
     switch (var) {
     case 0:
       FResInstantCtrl.Output = true;
@@ -119,9 +99,6 @@ void TGain::LeeResultadosInsControlador(const std::string &FileWAM,
                 << " no implementados " << std::endl;
     }
   }
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
 }
 
 void TGain::CabeceraResultadosMedControlador(std::ostream &medoutput) {

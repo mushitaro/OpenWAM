@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -33,83 +34,75 @@
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TControlK::TControlK() {
+TControlK::TControlK() {}
 
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+TControlK::~TControlK() {}
+
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+void TControlK::LeeDatosEntrada(const std::string &Ruta,
+                                std::istream &FileInput, double DiametroTubo) {
+  std::string FileK_Re;
+
+  try {
+    FDiametro = DiametroTubo;
+    FileInput >> FileK_Re;
+    std::string FullPath = Ruta + FileK_Re;
+
+    std::ifstream KStream(FullPath.c_str());
+    if (!KStream.is_open()) {
+      std::cout << "ERROR: Fichero de K vs Re no cargado: " << FullPath
+                << std::endl;
+    } else {
+      KStream >> FNumeroDatos;
+      FVector_Re = new double[FNumeroDatos];
+      FVector_K = new double[FNumeroDatos];
+
+      for (int i = 0; i < FNumeroDatos; i++) {
+        KStream >> FVector_Re[i];
+      }
+
+      for (int i = 0; i < FNumeroDatos; i++) {
+        KStream >> FVector_K[i];
+      }
+    }
+
+  } catch (std::exception &N) {
+    std::cout << "ERROR: TControlK::LeeDatosEntrada (DLL)" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-TControlK::~TControlK() {
+void TControlK::CalculaK(double velocidad, double temperatura, double presion,
+                         double R_mezcla) {
+  try {
+    double viscgas = 0., rho = 0., deltaRe = 0., VariacionRe = 0.,
+           K_Actual = 0.;
+    int i = 0;
 
-}
+    viscgas = 1.4615e-6 * pow150(__units::degCToK(temperatura)) /
+              (__units::degCToK(temperatura) + 110.4);
+    rho = __units::BarToPa(presion) / __units::degCToK(temperatura) / R_mezcla;
+    FRe = rho * velocidad * FDiametro / viscgas;
 
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
+    FK = Interp1(FRe, FVector_Re, FVector_K, FNumeroDatos);
 
-void TControlK::LeeDatosEntrada(char *Ruta, FILE *fich, double DiametroTubo) {
-	char *FileK_Re;
-	char *DatosK_Re;
-
-	try {
-
-		FDiametro = DiametroTubo;
-		for(int i = 0; i <= (int) strlen(Ruta); i++) {
-			DatosK_Re[i] = Ruta[i];
-		}
-
-		fscanf(fich, "%s ", &FileK_Re);
-		strcat(DatosK_Re, FileK_Re);
-
-		FichK_Re = fopen(DatosK_Re, "r");
-		if((FichK_Re = fopen(DatosK_Re, "r")) == NULL) {
-			std::cout << "ERROR: Fichero de K vs Re no cargado";
-		} else {
-			fscanf(FichK_Re, "%d ", &FNumeroDatos);
-			FVector_Re = new double[FNumeroDatos];
-			FVector_K = new double[FNumeroDatos];
-
-			for(int i = 0; i < FNumeroDatos; i++) {
-				fscanf(FichK_Re, "%lf ", &FVector_Re[i]);
-			}
-
-			for(int i = 0; i < FNumeroDatos; i++) {
-				fscanf(FichK_Re, "%lf ", &FVector_K[i]);
-			}
-
-			fclose(FichK_Re);
-		}
-
-	} catch(exception &N) {
-		std::cout << "ERROR: TControlK::LeeDatosEntrada (DLL)" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
-}
-
-//---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
-
-void TControlK::CalculaK(double velocidad, double temperatura, double presion, double R_mezcla) {
-	try {
-		double viscgas = 0., rho = 0., deltaRe = 0., VariacionRe = 0., K_Actual = 0.;
-		int i = 0;
-
-		viscgas = 1.4615e-6 * pow150(__units::degCToK(temperatura)) / (__units::degCToK(temperatura) + 110.4);
-		rho = __units::BarToPa(presion) / __units::degCToK(temperatura) / R_mezcla;
-		FRe = rho * velocidad * FDiametro / viscgas;
-
-		FK = Interp1(FRe, FVector_Re, FVector_K, FNumeroDatos);
-
-	} catch(exception &N) {
-		std::cout << "ERROR: TControlK::CalculaK (DLL)" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
+  } catch (std::exception &N) {
+    std::cout << "ERROR: TControlK::CalculaK (DLL)" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 #pragma package(smart_init)
-

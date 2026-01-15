@@ -47,11 +47,11 @@ TIsoSpeedLine::~TIsoSpeedLine() {
 }
 ;
 
-void TIsoSpeedLine::ReadIsoSpeed(int points, FILE *Input) {
+void TIsoSpeedLine::ReadIsoSpeed(int points, std::istream &Input) {
 	double ER = 0., MF = 0., EF = 0.;
 	FNumDatos = points;
 	for(int i = 0; i < points; i++) {
-		fscanf(Input, "%lf %lf %lf", &MF, &ER, &EF);
+		FileInput >> MF >> ER >> EF;
 		FReducedAirMassFlow.push_back(MF);
 		FExpansionRatio.push_back(ER);
 		FEfficiency.push_back(EF);
@@ -213,11 +213,9 @@ double TIsoSpeedLine::Efficiency(double ERAdim) {
 	return ret_val;
 }
 
-void TIsoSpeedLine::PrintEffectiveSection(FILE * fich) {
+void TIsoSpeedLine::PrintEffectiveSection(std::ostream &Output) {
 	for(dVector::size_type i = 0; i < FExpansionRatio.size(); i++) {
-		fprintf(fich, "%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", FSpeed, FExpansionRatio[i], FReducedAirMassFlow[i], FEfficiency[i],
-				FExpansionRatioAdim[i], StatorEffectiveSection[i],
-				RotorEffectiveSection[i]);
+		Output << FSpeed << "\t" << FExpansionRatio[i] << "\t" << FReducedAirMassFlow[i] << "\t" << FEfficiency[i] << "\t" << FExpansionRatioAdim[i] << "\t" << StatorEffectiveSection[i] << "\t" << RotorEffectiveSection[i] << "\n";
 	}
 }
 

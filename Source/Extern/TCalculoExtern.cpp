@@ -307,7 +307,7 @@ void TCalculoExtern::LlamadaECU(
       FOutputs[0] = 1;
     if (FOutputs[1] > 1)
       FOutputs[1] = 1;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LlamadaECU" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -323,7 +323,7 @@ void TCalculoExtern::FinECU() {
     //	 ECU->FinalizaECU();
     // }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: PutInputdll" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -343,7 +343,7 @@ double TCalculoExtern::GetOutput_dll(int i) {
       std::cout << "         Revisa el acceso a la dll" << std::endl;
       return 0.;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: GetOutputdll" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -362,7 +362,7 @@ TRemansoMatlab *TCalculoExtern::GetTRemansoMatlab(int i) {
     //       rango" << std::endl; std::cout << "         Revisa el acceso a la
     //       dll" << std::endl; return 0.;
     //   }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: GetTRemansoMatlab" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -381,7 +381,7 @@ TCoefDescarga *TCalculoExtern::GetTCoefDescarga(int i) {
     //       rango" << std::endl; std::cout << "         Revisa el acceso a la
     //       dll" << std::endl; return 0.;
     //   }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: GetTCoefDescarga" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -400,7 +400,7 @@ TControlFuel *TCalculoExtern::GetFuel() {
     //       rango" << std::endl; std::cout << "         Revisa el acceso a la
     //       dll" << std::endl; return 0.;
     //   }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: GetFuel" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -415,9 +415,6 @@ void TCalculoExtern::LeeFicherosDLL(const char *FileWAM, fpos_t &filepos,
                                     int nunmat, int CountVGT, int numespecies,
                                     int NumeroPerdidasPresion) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
     ObtenerRutaTrabajo(FileWAM);
 
     int ecu = 0, iny = 0, mfcomb = 0, comb = 0, baraba = 0, Yespecies = 0,
@@ -431,23 +428,21 @@ void TCalculoExtern::LeeFicherosDLL(const char *FileWAM, fpos_t &filepos,
     FCalculoK = false;
     Fngrafmat = 0;
     Ftmuestreoecu = 0.02;
-    fscanf(fich, " %d ", &ecu);
+    FileInput >> ecu;
     ecu == 0 ? Fhayecu = false : Fhayecu = true;
-    fscanf(fich, "%d %d %d %d %d %d ", &iny, &mfcomb, &comb, &baraba,
-           &Yespecies, &CalculoK);
+    FileInput >> iny >> mfcomb >> comb >> baraba >> Yespecies >> CalculoK;
     iny == 0 ? Fcontroliny = false : Fcontroliny = true;
     mfcomb == 0 ? Fcontrolmfcomb = false : Fcontrolmfcomb = true;
     comb == 0 ? Fmodcomb = false : Fmodcomb = true;
     baraba == 0 ? Fajustbaraba = false : Fajustbaraba = true;
     Yespecies == 0 ? FFraccionMasicaEspeciesCil = false
                    : FFraccionMasicaEspeciesCil = true;
-    fscanf(
-        fich, "%d ",
-        &Fngrafmat); /* numero de magnitudes de la ECU que queremos graficar */
+    FileInput >>
+        Fngrafmat; /* numero de magnitudes de la ECU que queremos graficar */
     if (Fhayecu) {
       // ECU=new TMatlab(FNumeroInMat,FNumeroOutMat);
-      // fscanf(fich,"%lf ",&Ftmuestreoecu);
-      // ECU->LeeFicherosECU(fich);
+      // FileInput >> Ftmuestreoecu;
+      // ECU->LeeFicherosECU(FileInput);
       // ECU->IniciaECU();
       std::cout
           << "WARNING: Matlab link must be adapted with your Matlab version"
@@ -519,10 +514,7 @@ void TCalculoExtern::LeeFicherosDLL(const char *FileWAM, fpos_t &filepos,
     for (int i = 0; i < FNOutputsdll; i++) {
       FOutputs[i] = 0.;
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeFicherosDLL" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -537,25 +529,22 @@ void TCalculoExtern::Lee_Sens_Tubos(
     const std::vector<std::unique_ptr<TTubo>> &Pipe,
     nmTipoCalculoEspecies SpeciesModel, bool ThereIsEGR, bool HayCombustible) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
     double T = 0., temp = 0., v1 = 0., den = 0.;
     int n1 = 0, t = 0;
     int tipo = 0, tubo = 0, nsensortubo = 0, ndistancias = 0;
     double dist = 0.;
     ndistancias = 0;
-    fscanf(fich, "%d ", &FNSensTubos); /*numero de sensores en tubos*/
-    fscanf(fich, "%d ", &ndistancias); /*numero total de distancias*/
+    FileInput >> FNSensTubos; /*numero de sensores en tubos*/
+    FileInput >> ndistancias; /*numero total de distancias*/
     int cont = 0;
     FSensorTubo = new stSensorTubos[FNSensTubos];
     if (FNSensTubos != 0) {
       for (int i = 0; i <= ndistancias - 1; ++i) {
-        fscanf(fich, "%d %lf %d ", &tubo, &dist, &nsensortubo);
+        FileInput >> tubo >> dist >> nsensortubo;
         for (int j = 0; j <= nsensortubo - 1; ++j) {
           FSensorTubo[cont].tubo = tubo;
           FSensorTubo[cont].distancia = dist;
-          fscanf(fich, "%d ", &tipo);
+          FileInput >> tipo;
           switch (tipo) {
           case 0:
             FSensorTubo[cont].tipo = nmPrTubo;
@@ -609,8 +598,8 @@ void TCalculoExtern::Lee_Sens_Tubos(
             printf("Error en el tipo de sensor\n");
             throw Exception("");
           } /*fin del switch*/
-          fscanf(fich, "%lf ", &FSensorTubo[cont].ganancia);
-          fscanf(fich, "%lf ", &FSensorTubo[cont].ctetiempo);
+          FileInput >> FSensorTubo[cont].ganancia;
+          FileInput >> FSensorTubo[cont].ctetiempo;
 
           FSensorTubo[cont].nodos = Pipe[FSensorTubo[cont].tubo - 1]->getNin();
           FSensorTubo[cont].deltax =
@@ -876,10 +865,7 @@ void TCalculoExtern::Lee_Sens_Tubos(
         } /*Fin for sensores para cada tubo*/
       } /*Fin for numero de distancias*/
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Lee_Sens_Tubos" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -894,21 +880,18 @@ void TCalculoExtern::Lee_Sens_Dep(
     const std::vector<std::unique_ptr<TDeposito>> &Plenum,
     nmTipoCalculoEspecies SpeciesModel, bool ThereIsEGR, bool HayCombustible) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
     int tipo = 0, ndep = 0, deposito = 0, nsensdeposito = 0;
     ndep = 0;
-    fscanf(fich, "%d ", &FNSensDepositos); /*numero de sensores en depositos*/
-    fscanf(fich, "%d ", &ndep);            /*numero de depositos con sensores*/
+    FileInput >> FNSensDepositos; /*numero de sensores en depositos*/
+    FileInput >> ndep;            /*numero de depositos con sensores*/
     int cont = 0;
     FSensorDep = new stSensorDep[FNSensDepositos];
     if (FNSensDepositos != 0) {
       for (int i = 0; i <= ndep - 1; ++i) {
-        fscanf(fich, "%d %d ", &deposito, &nsensdeposito);
+        FileInput >> deposito >> nsensdeposito;
         for (int j = 0; j <= nsensdeposito - 1; ++j) {
           FSensorDep[cont].deposito = deposito;
-          fscanf(fich, "%d ", &tipo);
+          FileInput >> tipo;
           switch (tipo) {
           case 0:
             FSensorDep[cont].tipo = nmPrDep;
@@ -956,8 +939,8 @@ void TCalculoExtern::Lee_Sens_Dep(
             printf("Error en el tipo de sensor\n");
             throw Exception("");
           } /*fin del switch*/
-          fscanf(fich, "%lf ", &FSensorDep[cont].ganancia);
-          fscanf(fich, "%lf ", &FSensorDep[cont].ctetiempo);
+          FileInput >> FSensorDep[cont].ganancia;
+          FileInput >> FSensorDep[cont].ctetiempo;
 
           switch (FSensorDep[cont].tipo) {
           case nmPrDep:
@@ -1206,9 +1189,7 @@ void TCalculoExtern::Lee_Sens_Dep(
         } /*Fin numero de sensores en deposito*/
       } /*Fin numero de depositos con sensor*/
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Lee_Sens_Dep" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -1222,21 +1203,18 @@ void TCalculoExtern::Lee_Sens_TG(
     const char *FileWAM, fpos_t &filepos,
     const std::vector<std::unique_ptr<TEjeTurbogrupo>> &Axis) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
     int tipo = 0, ntg = 0, turbogrupo = 0, nsensturbogrupo = 0;
     ntg = 0;
-    fscanf(fich, "%d ", &FNSensTurbogrupo); /*numero de sensores en TG*/
-    fscanf(fich, "%d ", &ntg);              /*numero de turbogrupos con sensor*/
+    FileInput >> FNSensTurbogrupo; /*numero de sensores en TG*/
+    FileInput >> ntg;              /*numero de turbogrupos con sensor*/
     int cont = 0;
     FSensorTG = new stSensorTG[FNSensTurbogrupo];
     if (FNSensTurbogrupo != 0) {
       for (int i = 0; i <= ntg - 1; ++i) {
-        fscanf(fich, "%d %d ", &turbogrupo, &nsensturbogrupo);
+        FileInput >> turbogrupo >> nsensturbogrupo;
         for (int j = 0; j <= nsensturbogrupo - 1; ++j) {
           FSensorTG[cont].turbogrupo = turbogrupo;
-          fscanf(fich, "%d ", &tipo);
+          FileInput >> tipo;
           switch (tipo) {
           case 0:
             FSensorTG[cont].tipo = nmRTCTG;
@@ -1245,8 +1223,8 @@ void TCalculoExtern::Lee_Sens_TG(
             printf("Error en el tipo de sensor\n");
             throw Exception("");
           } /*fin del switch*/
-          fscanf(fich, "%lf ", &FSensorTG[cont].ganancia);
-          fscanf(fich, "%lf ", &FSensorTG[cont].ctetiempo);
+          FileInput >> FSensorTG[cont].ganancia;
+          FileInput >> FSensorTG[cont].ctetiempo;
 
           switch (FSensorTG[cont].tipo) {
           case nmRTCTG:
@@ -1262,9 +1240,7 @@ void TCalculoExtern::Lee_Sens_TG(
         } /*Fin numero de sensores en turbogrupo*/
       } /*Fin numero de turbogrupos con sensores*/
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Lee_Sens_TG" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -1277,21 +1253,18 @@ void TCalculoExtern::Lee_Sens_TG(
 void TCalculoExtern::Lee_Sens_Turbina(const char *FileWAM, fpos_t &filepos,
                                       const std::vector<TTurbina *> &Turbine) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
     int tipo = 0, nturbinas = 0, turbina = 0, nsensturbina = 0;
     nturbinas = 0;
-    fscanf(fich, "%d ", &FNSensTurbina); /* numero de sensores en turbina */
-    fscanf(fich, "%d ", &nturbinas);     /* numero de turbinas con sensor */
+    FileInput >> FNSensTurbina; /* numero de sensores en turbina */
+    FileInput >> nturbinas;     /* numero de turbinas con sensor */
     int cont = 0;
     FSensorTurbina = new stSensorTurbina[FNSensTurbina];
     if (FNSensTurbina != 0) {
       for (int i = 0; i <= nturbinas - 1; ++i) {
-        fscanf(fich, "%d %d ", &turbina, &nsensturbina);
+        FileInput >> turbina >> nsensturbina;
         for (int j = 0; j <= nsensturbina - 1; ++j) {
           FSensorTurbina[cont].turbina = turbina;
-          fscanf(fich, "%d ", &tipo);
+          FileInput >> tipo;
           switch (tipo) {
           case 0:
             FSensorTurbina[cont].tipo = nmRelaci1;
@@ -1303,8 +1276,8 @@ void TCalculoExtern::Lee_Sens_Turbina(const char *FileWAM, fpos_t &filepos,
             printf("Error en el tipo de sensor\n");
             throw Exception("");
           } /*fin del switch*/
-          fscanf(fich, "%lf ", &FSensorTurbina[cont].ganancia);
-          fscanf(fich, "%lf ", &FSensorTurbina[cont].ctetiempo);
+          FileInput >> FSensorTurbina[cont].ganancia;
+          FileInput >> FSensorTurbina[cont].ctetiempo;
 
           switch (FSensorTurbina[cont].tipo) {
           case nmRelaci1:
@@ -1329,9 +1302,7 @@ void TCalculoExtern::Lee_Sens_Turbina(const char *FileWAM, fpos_t &filepos,
         } /*Fin numero de sensores en turbina*/
       } /*Fin numero de turbinas con sensores*/
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCalculoExtern::Lee_Sens_Turbina" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -1345,21 +1316,18 @@ void TCalculoExtern::Lee_Sens_Cil(
     const char *FileWAM, fpos_t &filepos,
     const std::vector<std::unique_ptr<TBloqueMotor>> &Engine) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
     int tipo = 0, ncil = 0, cilindro = 0, nsenscilindro = 0;
     ncil = 0;
-    fscanf(fich, "%d ", &FNSensCilindros); /*numero de sensores en cilindros*/
-    fscanf(fich, "%d ", &ncil);            /*numero de cilindros con sensores*/
+    FileInput >> FNSensCilindros; /*numero de sensores en cilindros*/
+    FileInput >> ncil;            /*numero de cilindros con sensores*/
     int cont = 0;
     FSensorCil = new stSensorCil[FNSensCilindros];
     if (FNSensCilindros != 0) {
       for (int i = 0; i <= ncil - 1; ++i) {
-        fscanf(fich, "%d %d ", &cilindro, &nsenscilindro);
+        FileInput >> cilindro >> nsenscilindro;
         for (int j = 0; j <= nsenscilindro - 1; ++j) {
           FSensorCil[cont].cilindro = cilindro;
-          fscanf(fich, "%d ", &tipo);
+          FileInput >> tipo;
           switch (tipo) {
           case 0:
             FSensorCil[cont].tipo = nmPrCil;
@@ -1377,8 +1345,8 @@ void TCalculoExtern::Lee_Sens_Cil(
             printf("Error en el tipo de sensor\n");
             throw Exception("");
           } /*fin del switch*/
-          fscanf(fich, "%lf ", &FSensorCil[cont].ganancia);
-          fscanf(fich, "%lf ", &FSensorCil[cont].ctetiempo);
+          FileInput >> FSensorCil[cont].ganancia;
+          FileInput >> FSensorCil[cont].ctetiempo;
 
           switch (FSensorCil[cont].tipo) {
           case nmTempCil:
@@ -1421,9 +1389,7 @@ void TCalculoExtern::Lee_Sens_Cil(
         } /*Fin numero de sensores en cilindro*/
       } /*Fin numero de cilindros con sensor*/
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Lee_Sens_Cil" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -1436,24 +1402,21 @@ void TCalculoExtern::Lee_Sens_Cil(
 void TCalculoExtern::Lee_Sens_Vent(const char *FileWAM, fpos_t &filepos,
                                    const std::vector<TVenturi *> &Venturi) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
     int signo = 0;
     double prent = 0., prgar = 0., velent = 0., vellat = 0., gasent = 0.,
            gaslat = 0.;
     int tipo = 0, nventuris = 0, venturi = 0, nsensventuri = 0, v = 0;
     nventuris = 0;
-    fscanf(fich, "%d ", &FNSensVenturis); /*numero de sensores en venturis*/
-    fscanf(fich, "%d ", &nventuris);
+    FileInput >> FNSensVenturis; /*numero de sensores en venturis*/
+    FileInput >> nventuris;
     int cont = 0;
     FSensorVent = new stSensorVent[FNSensVenturis];
     if (FNSensVenturis != 0) {
       for (int i = 0; i <= nventuris - 1; ++i) {
-        fscanf(fich, "%d %d ", &venturi, &nsensventuri);
+        FileInput >> venturi >> nsensventuri;
         for (int j = 0; j <= nsensventuri - 1; ++j) {
           FSensorVent[cont].venturi = venturi;
-          fscanf(fich, "%d ", &tipo);
+          FileInput >> tipo;
           switch (tipo) {
           case 0:
             FSensorVent[cont].tipo = nmPrEntVent;
@@ -1477,8 +1440,8 @@ void TCalculoExtern::Lee_Sens_Vent(const char *FileWAM, fpos_t &filepos,
             printf("Error en el tipo de sensor\n");
             throw Exception("");
           } /*fin del switch*/
-          fscanf(fich, "%lf ", &FSensorVent[cont].ganancia);
-          fscanf(fich, "%lf ", &FSensorVent[cont].ctetiempo);
+          FileInput >> FSensorVent[cont].ganancia;
+          FileInput >> FSensorVent[cont].ctetiempo;
 
           v = FSensorVent[cont].venturi - 1;
           switch (FSensorVent[FNSensVenturis].tipo) {
@@ -1558,9 +1521,7 @@ void TCalculoExtern::Lee_Sens_Vent(const char *FileWAM, fpos_t &filepos,
         } /*Fin numero de sensores en venturi*/
       } /*Fin numero de venturis con sensor*/
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Lee_Sens_Vent" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -1575,11 +1536,8 @@ void TCalculoExtern::Lee_Sens_Motor(
     const std::vector<std::unique_ptr<TBloqueMotor>> &Engine, double CrankAngle,
     double ene, double AcumulatedTime) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
-
     int tipo = 0;
-    fscanf(fich, "%d ", &FNSensMotor); /*numero de sensores en motor*/
+    FileInput >> FNSensMotor; /*numero de sensores en motor*/
     if (ene < 0. && FNSensMotor != 0) {
       std::cout << "ERROR: No puede haber sensores en el motor,pues no hay "
                    "motor.Comprobad la lectura "
@@ -1589,7 +1547,7 @@ void TCalculoExtern::Lee_Sens_Motor(
     FSensorMotor = new stSensorMotor[FNSensMotor];
     if (FNSensMotor != 0) {
       for (int i = 0; i <= FNSensMotor - 1; ++i) {
-        fscanf(fich, "%d ", &tipo);
+        FileInput >> tipo;
         FSensorMotor[i].motor = 1;
         switch (tipo) {
         case 0:
@@ -1606,8 +1564,8 @@ void TCalculoExtern::Lee_Sens_Motor(
           throw Exception("");
         } /*fin del switch*/
 
-        fscanf(fich, "%lf ", &FSensorMotor[i].ganancia);
-        fscanf(fich, "%lf ", &FSensorMotor[i].ctetiempo);
+        FileInput >> FSensorMotor[i].ganancia;
+        FileInput >> FSensorMotor[i].ctetiempo;
 
         switch (FSensorMotor[i].tipo) {
         case nmAngulo:
@@ -1632,9 +1590,7 @@ void TCalculoExtern::Lee_Sens_Motor(
         } /*fin del switch*/
       }
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Lee_Sens_Motor" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -1648,19 +1604,17 @@ void TCalculoExtern::Lee_Sens_UED(
     const char *FileWAM, fpos_t &filepos,
     const std::vector<std::unique_ptr<TCondicionContorno>> &BC) {
   try {
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
     int nUED = 0, CCued = 0, nsensUED = 0;
     int tipo, cont = 0;
-    fscanf(fich, "%d ", &FNSensUED); /*numero de sensores en UED*/
-    fscanf(fich, "%d ", &nUED); /*numero de uniones entre tubos con sensores*/
+    FileInput >> FNSensUED; /*numero de sensores en UED*/
+    FileInput >> nUED;      /*numero de uniones entre tubos con sensores*/
     FSensorUED = new stSensorUED[FNSensUED];
     if (FNSensUED != 0) {
       for (int i = 0; i <= nUED - 1; ++i) {
-        fscanf(fich, "%d %d ", &CCued, &nsensUED);
+        FileInput >> CCued >> nsensUED;
         for (int j = 0; j <= nsensUED - 1; ++j) {
           FSensorUED[cont].CCUED = CCued;
-          fscanf(fich, "%d ", &tipo);
+          FileInput >> tipo;
           switch (tipo) {
           case 0:
             FSensorUED[cont].tipo = nmGasto;
@@ -1670,8 +1624,8 @@ void TCalculoExtern::Lee_Sens_UED(
             throw Exception("");
           } /*fin del switch*/
 
-          fscanf(fich, "%lf ", &FSensorUED[cont].ganancia);
-          fscanf(fich, "%lf ", &FSensorUED[cont].ctetiempo);
+          FileInput >> FSensorUED[cont].ganancia;
+          FileInput >> FSensorUED[cont].ctetiempo;
 
           switch (FSensorUED[cont].tipo) {
           case nmGasto:
@@ -1687,9 +1641,7 @@ void TCalculoExtern::Lee_Sens_UED(
         } /*Fin numero de sensores en UED*/
       } /*Fin numero de UED con sensor*/
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Lee_Sens_UED" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -1703,7 +1655,7 @@ void TCalculoExtern::Lectura_Datos_Adicionales(const char *FileWAM,
                                                fpos_t &filepos) {
   try {
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Lectura_Datos_Adicionales" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -1719,7 +1671,7 @@ void TCalculoExtern::IniciaEntradaDLL() {
                   FNSensTurbina + FNSensMotor + FNSensVenturis +
                   FNSensCilindros + FNSensUED;
     FInputs = new double[FNInputsdll];
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: IniciaEntradaDLL" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2139,7 +2091,7 @@ void TCalculoExtern::Calculo_Sensores_Tubos(
       } /*fin del else*/
 
     } /*fin del for*/
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Calculo_Sensores_Tubos" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2322,7 +2274,7 @@ void TCalculoExtern::Calculo_Sensores_Deposito(
         break;
       } /*fin del switch*/
     } /*fin del for*/
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Calculo_Sensores_Deposito" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2349,7 +2301,7 @@ void TCalculoExtern::Calculo_Sensores_TG(
         break;
       } /*fin del switch*/
     } /*fin del for*/
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Calculo_Sensores_TG" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2390,7 +2342,7 @@ void TCalculoExtern::Calculo_Sensores_Turbina(
         break;
       } /*fin del switch*/
     } /*fin del for*/
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCalculoExtern::Calculo_Sensores_Turbina "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -2454,7 +2406,7 @@ void TCalculoExtern::Calculo_Sensores_Cilindro(
 
       } /*fin del switch*/
     } /*fin del for*/
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Calculo_Sensores_Cilindro" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2577,7 +2529,7 @@ void TCalculoExtern::Calculo_Sensores_Venturi(
 
       } /*fin del switch*/
     } /*fin del for*/
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Calculo_Sensores_Venturi" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2626,7 +2578,7 @@ void TCalculoExtern::Calculo_Sensores_Motor(
 
       } /*fin del switch*/
     } /*fin del for*/
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Calculo_Sensores_Cilindro" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2655,7 +2607,7 @@ void TCalculoExtern::Calculo_Sensores_UED(
         break;
       } /*fin del switch*/
     } /*fin del for*/
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: Calculo_Sensores_UED" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2679,7 +2631,7 @@ double TCalculoExtern::xit_(double vizq, double vder, double axid, double xif) {
       throw Exception("");
     }
     return ret_val;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: xit_" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2702,7 +2654,7 @@ void TCalculoExtern::InicializaMedias() {
     SensorP3SUM = 0.;
     SensorP4SUM = 0.;
     SensorRegimenTurboSUM = 0.;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: InicializaMedias" << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2714,7 +2666,7 @@ void TCalculoExtern::InicializaMedias() {
 void TCalculoExtern::AcumulaMedias(double DeltaT) {
   try {
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: AcumulaMedias: " << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2744,7 +2696,7 @@ void TCalculoExtern::CalculaMedias() {
     //	 FTiempoSum=0.;
     // VariableSUM=0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaMedias: " << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2771,7 +2723,7 @@ void TCalculoExtern::ImprimeCabeceraMedias(stringstream &medoutput) {
     //	 fich << '\t' << "Regimen_Turbo_[rpm]";
     //	 fich << '\t' << "Sensor_Rel_Cin";
     //	 fich.close();
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: ImprimeCabeceraMedias: " << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2796,7 +2748,7 @@ void TCalculoExtern::ImprimeGraficosMedias(stringstream &medoutput) {
     //	 fich << '\t' << SensorRelCinematica;
     //	 fich.close();
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: ImprimeGraficosMedias: " << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2814,7 +2766,7 @@ void TCalculoExtern::ImprimeCabeceraInstantaneas(stringstream &insoutput) {
     //      fich << '\t' << "Salida_Instantanea_EXTERN_" << i;
     // }
     // fich.close();
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: ImprimeCabeceraInstantaneas: " << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2832,7 +2784,7 @@ void TCalculoExtern::ImprimeGraficosInstantaneas(stringstream &insoutput) {
     // fich << '\t' << Variable;
 
     // fich.close();
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: ImprimeGraficosInstantaneas: " << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
@@ -2857,7 +2809,7 @@ void TCalculoExtern::ObtenerRutaTrabajo(const char *origin) {
     }
     FRutaTrabajo[contpunto] = '\0';
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: ObtenerRutaTrabajo: " << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());

@@ -39,7 +39,7 @@ TNewMapComp::~TNewMapComp() {
 
 }
 
-void TNewMapComp::ReadMap(FILE *fich, int correct) {
+void TNewMapComp::ReadMap(std::istream &FileInput, int correct) {
 
 	double speed = 0., mass = 0., pres = 0., eff = 0.;
 	int filas = 0;
@@ -49,8 +49,8 @@ void TNewMapComp::ReadMap(FILE *fich, int correct) {
 		FCorrect = true;
 	else
 		FCorrect = false;
-	fscanf(fich, "%lf %lf", &FPresionRef, &FTempRef);
-	fscanf(fich, "%d ", &filas);
+	FileInput >> FPresionRef >> FTempRef;
+	FileInput >> filas;
 	FPresionRef = __units::BarToPa(FPresionRef);
 
 	dMatrix locSpeed;
@@ -64,7 +64,7 @@ void TNewMapComp::ReadMap(FILE *fich, int correct) {
 	locEff.resize(i + 1);
 
 	for(int k = 0; k < filas; k++) {
-		fscanf(fich, "%lf %lf %lf %lf", &speed, &mass, &pres, &eff);
+		FileInput >> speed >> mass >> pres >> eff;
 		if(j > 0) {
 			if(speed != locSpeed[i][j - 1]) {
 				i++;

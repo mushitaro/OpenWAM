@@ -25,7 +25,7 @@ TCFDConnection::TCFDConnection(nmTypeBC TipoCC, int numCC,
 TCFDConnection::~TCFDConnection() {}
 
 void TCFDConnection::ReadBoundaryData(
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+    std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
 
@@ -55,11 +55,8 @@ void TCFDConnection::ReadBoundaryData(
     i++;
   }
 
-  FILE *fich = fopen(FileWAM.c_str(), "rb");
-  fsetpos(fich, &filepos);
-
   char *TMP;
-  fscanf(fich, "%s ", &TMP);
+  FileInput >> TMP;
   FCFDModel = TMP;
   FCFDout = new char[(int)strlen(FCFDModel)];
   GetName(FCFDModel, FCFDout, ".1d");
@@ -68,10 +65,7 @@ void TCFDConnection::ReadBoundaryData(
   GetName(FCFDModel, FCFDin, ".cfd");
   // GetName(FCFDModel, FCFDin, ".1d"); //< CFD
 
-  // fscanf(fich, "%d ", &FCFDTiemStep);
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
+  // FileInput >> FCFDTiemStep;
 
   FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
   for (int i = 0; i < FNumeroEspecies - 1; i++) {
@@ -89,14 +83,13 @@ void TCFDConnection::CalculaCondicionContorno(double Time) {
   struct stat buf;
 
   FILE *fileout;
-  FILE *filein;
+  // FILE *filein;
 
   double FraccionMasicaAcum = 0.;
 
   if (FirstTime) {
     fileout = fopen(FCFDout, "r");
     if (fileout != NULL) {
-      fclose(fileout);
       remove(FCFDout);
     }
     FirstTime = false;
@@ -123,18 +116,15 @@ void TCFDConnection::CalculaCondicionContorno(double Time) {
   if (FHayEGR)
     fprintf(fileout, " %g", FFraccionMasicaEspecie[FNumeroEspecies - 1]);
   fprintf(fileout, "\n");
-
-  fclose(fileout);
-
   if (!FExistFile) {
-    filein = fopen(FCFDin, "r");
+    std::ifstream FileInput(FCFDin);
 
-    while (filein == NULL) {
+    while (!FileInput.is_open()) {
       std::cout << "INFO: Waiting for the file creation" << std::endl;
       // 			sleep(30);
-      filein = fopen(FCFDin, "r");
+      FileInput.open(FCFDin);
     }
-    fclose(filein);
+    FileInput.close();
     FExistFile = true;
   }
 
@@ -153,51 +143,54 @@ void TCFDConnection::CalculaCondicionContorno(double Time) {
   double AA1 = FTuboExtremo[0].Entropia;
 
   while (t1 < Time - 1e-16) {
-    filein = fopen(FCFDin, "r");
+    while (t1 < Time - 1e-16) {
+      std::ifstream FileInput(FCFDin);
 
-    while (!feof(filein)) {
-      t0 = t1;
-      b0 = b1;
-      AA0 = AA1;
-      fscanf(filein, "%lf %lf %lf", &t1, &b1, &AA1);
-      for (int j = 0; j < FNumeroEspecies - 1; j++) {
-        fscanf(filein, "%lf", &FSpecieCFD[j]);
+      while (!FileInput.eof()) {
+        t0 = t1;
+        b0 = b1;
+        AA0 = AA1;
+        FileInput >> t1 >> b1 >> AA1;
+        for (int j = 0; j < FNumeroEspecies - 1; j++) {
+          FileInput >> FSpecieCFD[j];
+        }
+        if (FHayEGR)
+          FileInput >> FSpecieCFD[FNumeroEspecies - 1];
+        // fscanf(filein, "\n"); // Removed undefined C-style I/O
+        // FileInput handles newlines automatically usually.
       }
-      if (FHayEGR)
-        fscanf(filein, "%lf", &FSpecieCFD[FNumeroEspecies - 1]);
-      fscanf(filein, "\n");
-    }
-    fclose(filein);
+      FileInput.close();
 
-    if (t1 < Time - 1e-16) {
-      stat(FCFDin, &buf);
-
-      while (difftime(buf.st_mtime, FUpdateTime) == 0) {
-        std::cout << "INFO: Waiting for an update" << std::endl;
-        // 				sleep(3);
+      if (t1 < Time - 1e-16) {
         stat(FCFDin, &buf);
+
+        while (difftime(buf.st_mtime, FUpdateTime) == 0) {
+          std::cout << "INFO: Waiting for an update" << std::endl;
+          // 				sleep(3);
+          stat(FCFDin, &buf);
+        }
+        FUpdateTime = buf.st_mtime;
       }
-      FUpdateTime = buf.st_mtime;
     }
-  }
 
-  double TimeStep = t1 - t0;
-  double DeltaTime = Time - t0;
+    double TimeStep = t1 - t0;
+    double DeltaTime = Time - t0;
 
-  double Beta = Interpola(b0, b1, TimeStep, DeltaTime);
-  double AA = Interpola(AA0, AA1, TimeStep, DeltaTime);
+    double Beta = Interpola(b0, b1, TimeStep, DeltaTime);
+    double AA = Interpola(AA0, AA1, TimeStep, DeltaTime);
 
-  double flow = (Beta / AA) / (*FCC / FTuboExtremo[0].Entropia);
+    double flow = (Beta / AA) / (*FCC / FTuboExtremo[0].Entropia);
 
-  // ! Flow from de pipe to the cfd model
-  if (flow < 0.99999) {
-    *FCD = Beta / __cons::ARef;
-  } else if (flow > 1.00001) {
-    *FCD = Beta / __cons::ARef;
-    *FCC = *FCC * AA / __cons::ARef / FTuboExtremo[0].Entropia;
-    FTuboExtremo[0].Entropia = AA / __cons::ARef;
-  } else {
-    *FCD = *FCC;
+    // ! Flow from de pipe to the cfd model
+    if (flow < 0.99999) {
+      *FCD = Beta / __cons::ARef;
+    } else if (flow > 1.00001) {
+      *FCD = Beta / __cons::ARef;
+      *FCC = *FCC * AA / __cons::ARef / FTuboExtremo[0].Entropia;
+      FTuboExtremo[0].Entropia = AA / __cons::ARef;
+    } else {
+      *FCD = *FCC;
+    }
   }
 }
 

@@ -55,16 +55,13 @@ double TDecisor::Output(double Time) {
   return fOutput;
 }
 
-void TDecisor::LeeController(const std::string &FileWAM, fpos_t &filepos) {
-  FILE *fich = fopen(FileWAM.c_str(), "r");
-  fsetpos(fich, &filepos);
-
-  fscanf(fich, "%lf ", &fTarget);
-  fscanf(fich, "%d ", &fControllerLowID);
-  fscanf(fich, "%d ", &fControllerHighID);
+void TDecisor::LeeController(std::istream &FileInput) {
+  FileInput >> fTarget;
+  FileInput >> fControllerLowID;
+  FileInput >> fControllerHighID;
 
   int ctrl = 0;
-  fscanf(fich, "%d ", &ctrl);
+  FileInput >> ctrl;
   if (ctrl == 0) {
     fTargedControlled = false;
   } else {
@@ -74,10 +71,7 @@ void TDecisor::LeeController(const std::string &FileWAM, fpos_t &filepos) {
 
   int tmp = 0;
   FSensorID.resize(1);
-  fscanf(fich, "%d ", &FSensorID[0]);
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
+  FileInput >> FSensorID[0];
 }
 
 void TDecisor::AsignaObjetos(TSensor **Sensor, TController **Controller) {
@@ -89,16 +83,11 @@ void TDecisor::AsignaObjetos(TSensor **Sensor, TController **Controller) {
     fControllerTarget = Controller[fControllerTargetID - 1];
 }
 
-void TDecisor::LeeResultadosMedControlador(const std::string &FileWAM,
-                                           fpos_t &filepos) {
+void TDecisor::LeeResultadosMedControlador(std::istream &FileInput) {
   int nvars = 0, var = 0;
-
-  FILE *fich = fopen(FileWAM.c_str(), "r");
-  fsetpos(fich, &filepos);
-
-  fscanf(fich, "%d ", &nvars);
+  FileInput >> nvars;
   for (int i = 0; i < nvars; i++) {
-    fscanf(fich, "%d ", &var);
+    FileInput >> var;
     switch (var) {
     case 0:
       FResMediosCtrl.Output = true;
@@ -108,21 +97,13 @@ void TDecisor::LeeResultadosMedControlador(const std::string &FileWAM,
                 << " no implementados " << std::endl;
     }
   }
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
 }
 
-void TDecisor::LeeResultadosInsControlador(const std::string &FileWAM,
-                                           fpos_t &filepos) {
+void TDecisor::LeeResultadosInsControlador(std::istream &FileInput) {
   int nvars = 0, var = 0;
-
-  FILE *fich = fopen(FileWAM.c_str(), "r");
-  fsetpos(fich, &filepos);
-
-  fscanf(fich, "%d ", &nvars);
+  FileInput >> nvars;
   for (int i = 0; i < nvars; i++) {
-    fscanf(fich, "%d ", &var);
+    FileInput >> var;
     switch (var) {
     case 0:
       FResInstantCtrl.Output = true;
@@ -132,9 +113,6 @@ void TDecisor::LeeResultadosInsControlador(const std::string &FileWAM,
                 << " no implementados " << std::endl;
     }
   }
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
 }
 
 void TDecisor::CabeceraResultadosMedControlador(std::ostream &medoutput) {

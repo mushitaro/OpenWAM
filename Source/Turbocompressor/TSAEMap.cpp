@@ -21,7 +21,7 @@ TSAEMap::TSAEMap(int i) :
 TSAEMap::~TSAEMap() {
 }
 
-void TSAEMap::ReadSAECompressorMap(FILE *fich) {
+void TSAEMap::ReadSAECompressorMap(std::istream &FileInput) {
 
 	double speed = 0., mass = 0., pres = 0., eff = 0.;
 	int i = 0; // Curva de isoregimen
@@ -31,19 +31,19 @@ void TSAEMap::ReadSAECompressorMap(FILE *fich) {
 	double speedmax = 0, massmax = 0, presmax = 1, effmax = 0;
 	int points = 0;
 
-	fscanf(fich, "%d", &points);
+	FileInput >> points;
 	FSpeed.resize(i + 1);
 	FMass.resize(i + 1);
 	FPres.resize(i + 1);
 	FEff.resize(i + 1);
 
 	while(k < points) {
-		fscanf(fich, "%lf %lf %lf %lf", &speed, &mass, &pres, &eff);
+		FileInput >> speed >> mass >> pres >> eff;
 		mass *= FMassMultiplier;
 		pres = (pres - 1.) * FCRMultiplier + 1.;
 		eff *= FEffMultiplier;
 		k += 1;
-		if(!feof(fich)) {
+		if(!FileInput.eof()) {
 			if(j > 0) {
 				if(speed != FSpeed[i][j - 1]) {
 					i++;
@@ -216,24 +216,24 @@ double TSAEMap::GetCurrentEff(double Mass) {
 
 }
 
-void TSAEMap::LeeMapa(FILE *fich) {
+void TSAEMap::LeeMapa(std::istream &FileInput) {
 
 	int Adiab = 0;
 
-	fscanf(fich, "%lf %lf ", &FPresionRef, &FTempRef);
+	FileInput >> FPresionRef >> FTempRef;
 	FTempRef = __units::degCToK(FTempRef);
 	FPresionRef = __units::BarToPa(FPresionRef);
 
-	fscanf(fich, "%lf %lf %lf ", &FMassMultiplier, &FCRMultiplier, &FEffMultiplier);
+	FileInput >> FMassMultiplier >> FCRMultiplier >> FEffMultiplier;
 #ifdef tchtm
-	fscanf(fich, "%d ", &Adiab);
+	FileInput >> Adiab;
 	if(Adiab == 0) {
 		FIsAdiabatic = false;
-		fscanf(fich, "%lf ", &FTempMeasure);
+		FileInput >> FTempMeasure;
 	}
 #endif
 
-	ReadSAECompressorMap(fich);
+	ReadSAECompressorMap(FileInput);
 }
 
 double TSAEMap::EvaluaRCHermite(double mass) {

@@ -66,21 +66,14 @@ TValvulaContr::TValvulaContr(TValvulaContr *Origen, int Valvula)
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TValvulaContr::LeeDatosIniciales(const std::string &FileWAM,
-                                      fpos_t &filepos, int norden,
+void TValvulaContr::LeeDatosIniciales(std::istream &FileInput, int norden,
                                       bool HayMotor, TBloqueMotor *Engine) {
   try {
-    int Ctrl = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    FNumeroOrden = norden;
+    int Ctrl = 0;FNumeroOrden = norden;
 
     FEngine = Engine;
 
-    fscanf(fich, "%d %lf %lf %lf %lf %lf %lf ", &Ctrl, &FLimiteInf1,
-           &FLimiteInf2, &FLimiteSup1, &FLimiteSup2, &FCDInicial, &FCDFinal);
+    FileInput >> Ctrl >> FLimiteInf1 >> FLimiteInf2 >> FLimiteSup1 >> FLimiteSup2 >> FCDInicial >> FCDFinal;
 
     switch (Ctrl) {
     case 0:
@@ -89,12 +82,7 @@ void TValvulaContr::LeeDatosIniciales(const std::string &FileWAM,
     case 1:
       FTipoContr = nmContrFuel;
       break;
-    }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+    }} catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales ValvulaContr" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -157,7 +145,7 @@ void TValvulaContr::CalculaCD(double AnguloActual, double Mf) {
       printf("ERROR: in hysteresis valve (EGR,Swirl...");
       throw Exception("ERROR: in hysteresis valve (EGR,Swirl...)");
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaCD ValvulaContr" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

@@ -42,7 +42,7 @@ public:
 
   ~TConcentricoDPF();
 
-  void LeeDatosTuboConcentrico(const char *FileWAM, fpos_t &filepos,
+  void LeeDatosTuboConcentrico(std::istream &FileInput,
                                TTubo **Tubo, TDPF **DPF);
 
   void CalculaTemperaturaPared(

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -35,45 +36,39 @@
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
-//#include <cmath>
+// #include <cmath>
 #include "Globales.h"
 //---------------------------------------------------------------------------
 
 class TControlFuel {
-  private:
+private:
+  FILE *FichFuel;
+  double FuelAct;
+  double FFuelDeseado;
+  int FNumeroDatos_Regimen;
+  int FNumeroDatos_Ma;
+  double *FVector_Ma_mapa;
+  double *FVector_Regimen_mapa;
+  double **FMapa_Limitador_Humos;
 
-	FILE *FichFuel;
-	double FuelAct;
-	double FFuelDeseado;
-	int FNumeroDatos_Regimen;
-	int FNumeroDatos_Ma;
-	double *FVector_Ma_mapa;
-	double *FVector_Regimen_mapa;
-	double **FMapa_Limitador_Humos;
+  // Funcion de interpolacion
+  double xit_(double vizq, double vder, double axid, double xif);
 
-//Funcion de interpolacion
-	double xit_(double vizq, double vder, double axid, double xif);
+public:
+  TControlFuel();
 
-  public:
-	TControlFuel();
+  ~TControlFuel();
 
-	~TControlFuel();
+  double getFuel() { return FuelAct; };
 
-	double getFuel() {
-		return FuelAct;
-	}
-	;
+  double getFuelDeseado() { return FFuelDeseado; };
 
-	double getFuelDeseado() {
-		return FFuelDeseado;
-	}
-	;
+  double CalculaFuel(double MasaPorAdmision, double Regimen,
+                     double TiempoActual);
 
-	double CalculaFuel(double MasaPorAdmision, double Regimen, double TiempoActual);
+  void IniciaFuel(double mfuel);
 
-	void IniciaFuel(double mfuel);
-
-	void LeeDatosEntrada(char *Dir, FILE *fich);
+  void LeeDatosEntrada(const std::string &Ruta, std::istream &FileInput);
 };
 
 #endif

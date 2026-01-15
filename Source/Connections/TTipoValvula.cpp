@@ -73,7 +73,7 @@ void TTipoValvula::AsignaParametros(int Pipe, int Nodo, int Tipo, int Valvula,
     FValvula = Valvula;
     FDiamTubo = dTubo;
     FSentido = sentido;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: AsignaParametros TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -89,8 +89,8 @@ double TTipoValvula::LeeDiametro() {
       return FDiamRef;
     } else {
       return FDiamTubo;
-    }
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: LeeDiametro TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -118,16 +118,14 @@ void TTipoValvula::AsignaCDVolTub(double Valor) { FCDVolTub = Valor; }
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TTipoValvula::LeeDatosGraficasINS(const char *FileWAM, fpos_t &filepos) {
+void TTipoValvula::LeeDatosGraficasINS(std::istream &FileInput) {
   try {
     int ndv = 0, var = 0;
-    FILE *fich = fopen(FileWAM, "r");
-    fsetpos(fich, &filepos);
     FGraficasINS = true;
 
-    fscanf(fich, " %d", &ndv);
+    FileInput >> ndv;
     for (int i = 0; i < ndv; i++) {
-      fscanf(fich, " %d", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FGraficaCDEINS = true;
@@ -136,10 +134,8 @@ void TTipoValvula::LeeDatosGraficasINS(const char *FileWAM, fpos_t &filepos) {
         FGraficaCDSINS = true;
         break;
       }
-    }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosGraficas TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -151,7 +147,6 @@ void TTipoValvula::LeeDatosGraficasINS(const char *FileWAM, fpos_t &filepos) {
 
 void TTipoValvula::CabeceraGraficaINS(stringstream &insoutput, int nodo) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FGraficasINS) {
@@ -163,9 +158,8 @@ void TTipoValvula::CabeceraGraficaINS(stringstream &insoutput, int nodo) {
         Label = "\t" + PutLabel(12) + std::to_string(nodo) + PutLabel(901);
         insoutput << Label.c_str();
       }
-    }
-    // fclose(fich);
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: CabeceraGrafica TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -177,19 +171,16 @@ void TTipoValvula::CabeceraGraficaINS(stringstream &insoutput, int nodo) {
 
 void TTipoValvula::ImprimeGraficaINS(stringstream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-    if (FGraficasINS) {
-      if (FGraficaCDEINS)
-        insoutput << "\t" << FCDTubVol;
-      if (FGraficaCDSINS)
-        insoutput << "\t" << FCDVolTub;
-    }
-    // fclose(fich);
-  } catch (exception &N) {
-    std::cout << "ERROR: ImprimeGrafica TypeOfValve" << std::endl;
-    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-    throw Exception(N.what());
-  }
+    // if (FGraficasINS) {
+    if (FGraficaCDEINS)
+      insoutput << "\t" << FCDTubVol;
+    if (FGraficaCDSINS)
+      insoutput << "\t" << FCDVolTub;
+  } catch (std::exception &N) {
+  std::cout << "ERROR: ImprimeGrafica TypeOfValve" << std::endl;
+  // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+  throw Exception(N.what());
+}
 }
 
 //---------------------------------------------------------------------------
@@ -207,8 +198,8 @@ void TTipoValvula::AcumulaCDMedio(double TiempoActual) {
       if (FGraficaCDSMED)
         FSumCDS += FCDVolTub * DeltaT;
       FSumTime += DeltaT;
-    }
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: AcumulaCDMedio TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -218,18 +209,14 @@ void TTipoValvula::AcumulaCDMedio(double TiempoActual) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TTipoValvula::LeeDatosGraficasMED(const std::string &FileWAM,
-                                       fpos_t &filepos) {
+void TTipoValvula::LeeDatosGraficasMED(std::istream &FileInput) {
   try {
     int ndv = 0, var = 0;
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
     FGraficasMED = true;
 
-    fscanf(fich, " %d", &ndv);
+    FileInput >> ndv;
     for (int i = 0; i < ndv; i++) {
-      fscanf(fich, " %d", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FGraficaCDEMED = true;
@@ -238,10 +225,8 @@ void TTipoValvula::LeeDatosGraficasMED(const std::string &FileWAM,
         FGraficaCDSMED = true;
         break;
       }
-    }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosGraficas TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -253,7 +238,6 @@ void TTipoValvula::LeeDatosGraficasMED(const std::string &FileWAM,
 
 void TTipoValvula::CabeceraGraficaMED(stringstream &medoutput, int nodo) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FGraficasMED) {
@@ -265,9 +249,8 @@ void TTipoValvula::CabeceraGraficaMED(stringstream &medoutput, int nodo) {
         Label = "\t" + PutLabel(12) + std::to_string(nodo) + PutLabel(901);
         medoutput << Label.c_str();
       }
-    }
-    // fclose(fich);
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: CabeceraGrafica TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -279,26 +262,23 @@ void TTipoValvula::CabeceraGraficaMED(stringstream &medoutput, int nodo) {
 
 void TTipoValvula::ImprimeGraficaMED(stringstream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-    if (FGraficasMED) {
-      if (FGraficaCDEMED) {
-        FCDEMedio = FSumCDE / FSumTime;
-        medoutput << "\t" << FCDEMedio;
-        FSumCDE = 0.;
-      }
-      if (FGraficaCDSMED) {
-        FCDSMedio = FSumCDS / FSumTime;
-        medoutput << "\t" << FCDSMedio;
-        FSumCDS = 0.;
-      }
-      FSumTime = 0;
+    // if (FGraficasMED) {
+    if (FGraficaCDEMED) {
+      FCDEMedio = FSumCDE / FSumTime;
+      medoutput << "\t" << FCDEMedio;
+      FSumCDE = 0.;
     }
-    // fclose(fich);
-  } catch (exception &N) {
-    std::cout << "ERROR: ImprimeGrafica TypeOfValve" << std::endl;
-    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-    throw Exception(N.what());
-  }
+    if (FGraficaCDSMED) {
+      FCDSMedio = FSumCDS / FSumTime;
+      medoutput << "\t" << FCDSMedio;
+      FSumCDS = 0.;
+    }
+    FSumTime = 0;
+  } catch (std::exception &N) {
+  std::cout << "ERROR: ImprimeGrafica TypeOfValve" << std::endl;
+  // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+  throw Exception(N.what());
+}
 }
 
 //---------------------------------------------------------------------------

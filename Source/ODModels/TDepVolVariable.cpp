@@ -57,19 +57,13 @@ TDepVolVariable::~TDepVolVariable() {}
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TDepVolVariable::LeeDatosDepVolVariable(const std::string &FileWAM,
-                                             fpos_t &filepos, bool HayMotor) {
+void TDepVolVariable::LeeDatosDepVolVariable(std::istream &FileInput, bool HayMotor) {
   try {
 
-    int ControlRegimen = 0;
+    int ControlRegimen = 0;FileInput >> FLBiela >> FCarrera >> FDiametro;
+    FileInput >> FRelCompre >> FDesfase >> FDescentramiento;
 
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%lf %lf %lf ", &FLBiela, &FCarrera, &FDiametro);
-    fscanf(fich, "%lf %lf %lf ", &FRelCompre, &FDesfase, &FDescentramiento);
-
-    fscanf(fich, "%d ", &ControlRegimen);
+    FileInput >> ControlRegimen;
 
     switch (ControlRegimen) {
     case 0:
@@ -80,24 +74,19 @@ void TDepVolVariable::LeeDatosDepVolVariable(const std::string &FileWAM,
       break;
     }
     if (FControlRegimen == nmPropio) {
-      fscanf(fich, "%lf ", &FRegimen);
+      FileInput >> FRegimen;
       FRelacionVelocidades = 1.;
     } else if (FControlRegimen == nmMotor && HayMotor) {
-      fscanf(fich, "%lf ", &FRelacionVelocidades);
+      FileInput >> FRelacionVelocidades;
     } else {
       std::cout << "ERROR: TDepVolVariable::LeeDatosIniciales Lectura del "
                    "Control del Regimen erronea "
                 << std::endl;
       throw Exception(" ");
-    }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-    FVolumenMuerto =
+    }FVolumenMuerto =
         __geom::Circle_area(FDiametro) * FCarrera / (FRelCompre - 1.);
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDepVolVariable::LeeDatosDepVolVariable en el "
                  "compresor volumetrico: "
               << FNumeroCompresor << std::endl;
@@ -231,7 +220,7 @@ void TDepVolVariable::ActualizaPropiedades(double TimeCalculo) {
       FAngulo -= 360.;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDepVolVariable::ActualizaPropiedades en el compresor "
                  "volumetrico: "
               << FNumeroCompresorVol << std::endl;
@@ -260,7 +249,7 @@ double TDepVolVariable::CalculaVolumen(double CrankAngle, double carrera,
     ret_val += vol_muerto;
     return ret_val;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDepVolVariable::CalculaVolumen en el compresor "
                  "volumetrico: "
               << FNumeroCompresorVol << std::endl;
@@ -280,7 +269,7 @@ void TDepVolVariable::IniciaVolumen(double Theta) {
     FMasa = FVolumen * FGamma * __units::BarToPa(FPressure) /
             pow2(FAsonido * __cons::ARef);
     FVolumen0 = FVolumen;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TDepVolVariable::IniciaVolumen en el compresor volumetrico: "
         << FNumeroCompresorVol << std::endl;

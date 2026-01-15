@@ -24,7 +24,7 @@ class TCompressorMap {
 
 	virtual ~TCompressorMap() = 0;
 
-	virtual void LeeMapa(FILE *fich) = 0;
+	virtual void LeeMapa(std::istream &FileInput) = 0;
 
 	virtual void InterpolaMapa(double rtc, double AmbientTemperature) = 0;
 

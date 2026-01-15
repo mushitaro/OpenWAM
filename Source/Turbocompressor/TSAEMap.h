@@ -70,7 +70,7 @@ class TSAEMap: public TCompressorMap {
 
 	~TSAEMap();
 
-	void ReadSAECompressorMap(FILE *fich);
+	void ReadSAECompressorMap(std::istream &FileInput);
 
 	void AdimensionalizeMap();
 
@@ -85,7 +85,7 @@ class TSAEMap: public TCompressorMap {
 
 	void InterpolateMAP(double RTC);
 
-	void LeeMapa(FILE *fich);
+	void LeeMapa(std::istream &FileInput);
 
 	double EvaluaRCHermite(double mass);
 

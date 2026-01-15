@@ -225,7 +225,7 @@ public:
   void CondicionCompresor(double Theta, stTuboExtremo *TuboExtremo,
                           double TiempoActual, int TuboCalculado);
 
-  void LeeCompresor(const std::string &FileWAM, fpos_t &filepos);
+  void LeeCompresor(std::istream &FileInput);
 
   void RelacionTubos(const std::vector<std::unique_ptr<TCondicionContorno>> &BC,
                      int NumeroCC);

@@ -65,7 +65,7 @@ class TIsoSpeedLine {
 	TIsoSpeedLine();
 	~TIsoSpeedLine();
 
-	void ReadIsoSpeed(int point, FILE *Input);
+	void ReadIsoSpeed(int point, std::istream &Input);
 
 	void AsignaValores(double ER, double MF, double EF);
 
@@ -100,7 +100,7 @@ class TIsoSpeedLine {
 
 	void GetAdiabaticEfficiency(TTC_HTM *HTM, double TinT, double TinC);
 
-	void PrintEffectiveSection(FILE *fich);
+	void PrintEffectiveSection(std::ostream &Output);
 
 };
 

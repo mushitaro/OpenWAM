@@ -88,7 +88,7 @@ void TCCExtremoAnecoico::AsignaTubos(int NumberOfPipes, TTubo **Pipe) {
 			FFraccionMasicaEspecie[i] = FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
 		}
 
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: TCCExtremoAnecoico::AsignaTubos en la condicion de contorno: " << FNumeroCC << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -113,7 +113,7 @@ void TCCExtremoAnecoico::CalculaCondicionContorno(double Time) {
 		if(FHayEGR)
 			FFraccionMasicaEspecie[FNumeroEspecies - 1] = FTuboExtremo[0].Pipe->GetFraccionMasicaCC(FIndiceCC, FNumeroEspecies - 1);
 
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: TCCExtremoAnecoico::CalculaCondicionesContorno en la condicion de contorno: " << FNumeroCC <<
 				  std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;

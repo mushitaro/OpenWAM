@@ -84,21 +84,12 @@ TVenturi::~TVenturi() {}
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TVenturi::LeeDatosVenturi(const std::string &FileWAM, fpos_t &filepos) {
+void TVenturi::LeeDatosVenturi(std::istream &FileInput) {
   try {
-    int numid = 0; // dato para Wamer
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &numid); /* DATO PARA WAMER */
-    fscanf(fich, "%d %d %d ", &FNodoEntrada, &FNodoSalida, &FNodoLateral);
-    fscanf(fich, "%lf %lf %lf ", &FRelacionSecciones, &FRendimientoVenturi,
-           &FPerdidasCalor);
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+    int numid = 0; // dato para WamerFileInput >> numid; /* DATO PARA WAMER */
+    FileInput >> FNodoEntrada >> FNodoSalida >> FNodoLateral;
+    FileInput >> FRelacionSecciones >> FRendimientoVenturi >> FPerdidasCalor;
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::LeeDatosVenturi en el deposito: "
               << FNumeroDeposito << std::endl;
     // std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -217,7 +208,7 @@ void TVenturi::ActualizaPropiedades(double TimeCalculo) {
                                  FVolumen * FMasa);
     FPresionIsen = pow(FPressure / FPresRef, FGamma5);
     FTime = TimeCalculo;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::ActualizaPropiedades en el venturi: "
               << FNumeroVenturi << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -243,7 +234,7 @@ void TVenturi::AsignaEntradaSalidaLateralCC() {
       }
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::AsignaEntradaSalidaLateralCC en el venturi "
               << FNumeroVenturi << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -365,7 +356,7 @@ void TVenturi::CalculaVenturi() {
       dynamic_cast<TCCDeposito *>(FCCLateral)->putMachVenturi(0.);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::CalculaVenturi en el venturi: "
               << FNumeroVenturi << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -397,18 +388,14 @@ void TVenturi::CalculaVenturi() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TVenturi::LeeResultadosInstantVenturi(const std::string &FileWAM,
-                                           fpos_t &filepos) {
+void TVenturi::LeeResultadosInstantVenturi(std::istream &FileInput) {
 
   int nvars = 0, var = 0;
 
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; ++i) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResInstantVenturi.PresionEntrada = true;
@@ -439,10 +426,7 @@ void TVenturi::LeeResultadosInstantVenturi(const std::string &FileWAM,
                   << " no implementados " << std::endl;
       }
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::LeeResultadosInstantVenturi en el venturi: "
               << FNumeroVenturi << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -455,9 +439,9 @@ void TVenturi::LeeResultadosInstantVenturi(const std::string &FileWAM,
 
 void TVenturi::CabeceraResultadosInstantVenturi(std::ostream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-    std::string Label;
+    // std::string Label;
 
+    std::string Label;
     if (FResInstantVenturi.PresionEntrada) {
       Label =
           "\t" + PutLabel(521) + std::to_string(FNumeroVenturi) + PutLabel(908);
@@ -499,8 +483,7 @@ void TVenturi::CabeceraResultadosInstantVenturi(std::ostream &insoutput) {
       insoutput << Label.c_str();
     }
 
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TVenturi::CabeceraResultadosInstantVenturi en el venturi: "
         << FNumeroVenturi << std::endl;
@@ -514,10 +497,8 @@ void TVenturi::CabeceraResultadosInstantVenturi(std::ostream &insoutput) {
 
 void TVenturi::ImprimeResultadosInstantVenturi(std::ostream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-
-    if (FResInstantVenturi.PresionEntrada)
-      insoutput << "\t" << FResInstantVenturi.PresionEntradaINS;
+    // if (FResInstantVenturi.PresionEntrada)
+    insoutput << "\t" << FResInstantVenturi.PresionEntradaINS;
     if (FResInstantVenturi.PresionGarganta)
       insoutput << "\t" << FResInstantVenturi.PresionGargantaINS;
     if (FResInstantVenturi.MachEntrada)
@@ -533,8 +514,7 @@ void TVenturi::ImprimeResultadosInstantVenturi(std::ostream &insoutput) {
     if (FResInstantVenturi.GastoLateral)
       insoutput << "\t" << FResInstantVenturi.GastoLateralINS;
 
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TVenturi::ImprimeResultadosInstantVenturi en el venturi: "
         << FNumeroVenturi << std::endl;
@@ -624,7 +604,7 @@ void TVenturi::CalculaResultadosVenturi() {
           -dynamic_cast<TCCDeposito *>(FCCLateral)->getMassflow();
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::CalculaResultadosVenturi en el venturi: "
               << FNumeroVenturi << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -635,17 +615,13 @@ void TVenturi::CalculaResultadosVenturi() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TVenturi::ReadAverageResultsVenturi(const std::string &FileWAM,
-                                         fpos_t &filepos) {
+void TVenturi::ReadAverageResultsVenturi(std::istream &FileInput) {
   int nvars = 0, var = 0;
 
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; ++i) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResMediosVenturi.PresionEntrada = true;
@@ -676,9 +652,7 @@ void TVenturi::ReadAverageResultsVenturi(const std::string &FileWAM,
                   << " no implementados " << std::endl;
       }
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::ReadAverageResultsVenturi en el venturi: "
               << FNumeroVenturi << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -691,7 +665,6 @@ void TVenturi::ReadAverageResultsVenturi(const std::string &FileWAM,
 
 void TVenturi::HeaderAverageResultsVenturi(std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FResMediosVenturi.PresionEntrada) {
@@ -735,8 +708,7 @@ void TVenturi::HeaderAverageResultsVenturi(std::ostream &medoutput) {
       medoutput << Label.c_str();
     }
 
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::HeaderAverageResultsVenturi en el venturi: "
               << FNumeroVenturi << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -809,7 +781,7 @@ void TVenturi::AcumulaResultadosMediosVenturi(double Actual) {
 
     FResMediosVenturi.TiempoSUM += Delta;
     FResMediosVenturi.Tiempo0 = Actual;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TVenturi::AcumulaResultadosMediosVenturi en el venturi: "
         << FNumeroVenturi << std::endl;
@@ -864,7 +836,7 @@ void TVenturi::ResultadosMediosVenturi() {
       FResMediosVenturi.GastoLateralSUM = 0.;
     }
     FResMediosVenturi.TiempoSUM = 0;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TVenturi::ResultadosMediosVenturi en el venturi: "
               << FNumeroVenturi << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -877,10 +849,8 @@ void TVenturi::ResultadosMediosVenturi() {
 
 void TVenturi::ImprimeResultadosMediosVenturi(std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-
-    if (FResMediosVenturi.PresionEntrada)
-      medoutput << "\t" << FResMediosVenturi.PresionEntradaMED;
+    // if (FResMediosVenturi.PresionEntrada)
+    medoutput << "\t" << FResMediosVenturi.PresionEntradaMED;
     if (FResMediosVenturi.PresionGarganta)
       medoutput << "\t" << FResMediosVenturi.PresionGargantaMED;
     if (FResMediosVenturi.MachEntrada)
@@ -896,8 +866,7 @@ void TVenturi::ImprimeResultadosMediosVenturi(std::ostream &medoutput) {
     if (FResMediosVenturi.GastoLateral)
       medoutput << "\t" << FResMediosVenturi.GastoLateralMED;
 
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TVenturi::ImprimeResultadosMediosVenturi en el venturi: "
         << FNumeroVenturi << std::endl;

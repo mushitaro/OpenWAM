@@ -47,7 +47,12 @@ Valencia
 #endif
 #ifdef WITH_OPENMP
 #include <omp.h>
+#include <omp.h>
 #endif
+#include <fstream>
+#include <exception>
+
+extern std::ifstream FileInput;
 
 // #include "StringDataBase.h"
 // ---------------------------------------------------------------------------

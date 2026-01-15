@@ -133,7 +133,7 @@ public:
 
   ~TConcentrico();
 
-  virtual void LeeDatosTuboConcentrico(const char *FileWAM, fpos_t &filepos,
+  virtual void LeeDatosTuboConcentrico(std::istream &FileInput,
                                        TTubo **Tubo, TDPF **DPF) = 0;
 
   virtual void CalculaTemperaturaPared(

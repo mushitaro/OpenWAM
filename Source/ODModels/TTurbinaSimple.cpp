@@ -149,7 +149,7 @@ void TTurbinaSimple::AsignaEntradaSalidaCC() {
           ->TipodeRotor(nmRotVariable);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbinaSimple::AsignaEntradaSalidaCC en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -455,7 +455,7 @@ void TTurbinaSimple::CalculaCondicionTurbina(double TimeCalculo) {
       FPonderacionRelacionCinematica[0] += TurbWork;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TTurbinaSimple::CalculaCondicionTurbina en la turbina: "
         << FNumeroTurbina << std::endl;
@@ -485,7 +485,7 @@ void TTurbinaSimple::ImprimeResultadosMediosPantalla() {
       printf("BLADE SPEED RATIO TURB %d= %6.3lf \n", FNumeroTurbina, 0.);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbinaSimple::ImprimeResultadosMediosPantalla en la "
                  "turbina: "
               << FNumeroTurbina << std::endl;
@@ -497,17 +497,11 @@ void TTurbinaSimple::ImprimeResultadosMediosPantalla() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTurbinaSimple::ReadAverageResultsTurb(const std::string &FileWAM,
-                                            fpos_t &filepos) {
+void TTurbinaSimple::ReadAverageResultsTurb(std::istream &FileInput) {
   try {
-    int nvars = 0, var = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+    int nvars = 0, var = 0;FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResMediosTurbina.Trabajo = true;
@@ -531,11 +525,7 @@ void TTurbinaSimple::ReadAverageResultsTurb(const std::string &FileWAM,
         std::cout << "Resultados medios en turbina " << FNumeroTurbina
                   << " no implementados " << std::endl;
       }
-    }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    }} catch (std::exception &N) {
     std::cout << "ERROR: TTurbinaSimple::ReadAverageResultsTurb en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -548,7 +538,6 @@ void TTurbinaSimple::ReadAverageResultsTurb(const std::string &FileWAM,
 
 void TTurbinaSimple::CabeceraResultadosMedTurb(std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FResMediosTurbina.Trabajo) {
@@ -567,7 +556,7 @@ void TTurbinaSimple::CabeceraResultadosMedTurb(std::ostream &medoutput) {
                 std::to_string(FNumeroTurbina) + PutLabel(901);
         medoutput << Label.c_str();
       }
-      // fprintf(fich,"\tRelacion_cinematica_global_turb_%d(-)",std::to_string(FNumeroTurbina));
+      // fprintf(FileInput,"\tRelacion_cinematica_global_turb_%d(-)",std::to_string(FNumeroTurbina));
     }
     if (FResMediosTurbina.GastoCorregido) {
       for (int i = 0; i < FNumeroEntradas; i++) {
@@ -591,8 +580,7 @@ void TTurbinaSimple::CabeceraResultadosMedTurb(std::ostream &medoutput) {
       }
     }
 
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout
         << "ERROR: TTurbinaSimple::CabeceraResultadosMedTurb en la turbina "
         << FNumeroTurbina << std::endl;
@@ -611,7 +599,7 @@ void TTurbinaSimple::IniciaMedias() {
     FResMediosTurbina.TrabajoSUM = 0.;
     FResMediosTurbina.Tiempo0 = 0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbinaSimple::IniciaMedias en el turbina: "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -644,7 +632,7 @@ void TTurbinaSimple::AcumulaMedias(double Tiempo) {
             FRelacionExpansion[i] * DeltaT;
       }
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbinaSimple::AcumulaMedias en la turbina: "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -658,9 +646,7 @@ void TTurbinaSimple::AcumulaMedias(double Tiempo) {
 
 void TTurbinaSimple::ImprimeResultadosMedTurb(std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-
-    if (FResMediosTurbina.Trabajo)
+    //if (FResMediosTurbina.Trabajo)
       medoutput << "\t" << FResMediosTurbina.TrabajoMED;
     if (FResMediosTurbina.Rendimiento)
       medoutput << "\t" << FResMediosTurbina.RendimientoMED;
@@ -668,7 +654,7 @@ void TTurbinaSimple::ImprimeResultadosMedTurb(std::ostream &medoutput) {
       for (int i = 0; i < FNumeroEntradas; i++) {
         medoutput << "\t" << FResMediosTurbina.RelaCinematicaMED[i];
       }
-      // fprintf(fich,"\t%g",FResMediosTurbina.RelaCinematicaGlobalMED);
+      // fprintf(FileInput,"\t%g",FResMediosTurbina.RelaCinematicaGlobalMED);
     }
     if (FResMediosTurbina.GastoCorregido) {
       for (int i = 0; i < FNumeroEntradas; i++) {
@@ -686,8 +672,7 @@ void TTurbinaSimple::ImprimeResultadosMedTurb(std::ostream &medoutput) {
       }
     }
 
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout
         << "ERROR: TTurbinaSimple::ImprimerResultadosMedTurb en la turbina "
         << FNumeroTurbina << std::endl;
@@ -758,7 +743,7 @@ void TTurbinaSimple::CalculaResultadosMediosTurb() {
     FResMediosTurbina.TrabajoSUM = 0.;
     FResMediosTurbina.TiempoSUM = 0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TTurbinaSimple::CalculaResultadosMediosTurb en la turbina "
         << FNumeroTurbina << std::endl;
@@ -770,17 +755,12 @@ void TTurbinaSimple::CalculaResultadosMediosTurb() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TTurbinaSimple::LeeResultadosInstantTurb(const std::string &FileWAM,
-                                              fpos_t &filepos) {
+void TTurbinaSimple::LeeResultadosInstantTurb(std::istream &FileInput) {
   int nvars = 0, var = 0;
 
-  try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+  try {FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResInstantTurbina.Potencia = true;
@@ -804,10 +784,7 @@ void TTurbinaSimple::LeeResultadosInstantTurb(const std::string &FileWAM,
         std::cout << "Instantaneous results in turbine " << FNumeroTurbina
                   << " are not implemented " << std::endl;
       }
-    }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    }} catch (std::exception &N) {
     std::cout
         << "ERROR: TTurbinaSimple::LeeResultadosInstantTurb en la turbina "
         << FNumeroTurbina << std::endl;
@@ -821,7 +798,6 @@ void TTurbinaSimple::LeeResultadosInstantTurb(const std::string &FileWAM,
 
 void TTurbinaSimple::CabeceraResultadosInstantTurb(std::ostream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FResInstantTurbina.Potencia) {
@@ -862,8 +838,7 @@ void TTurbinaSimple::CabeceraResultadosInstantTurb(std::ostream &insoutput) {
         insoutput << Label.c_str();
       }
     }
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout
         << "ERROR: TTurbinaSimple::CabeceraResultadosInstantTurb en la turbina "
         << FNumeroTurbina << std::endl;
@@ -902,7 +877,7 @@ void TTurbinaSimple::ResultadosInstantTurb() {
       }
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TTurbinaSimple::ResultadosInstantTurb en la turbina "
               << FNumeroTurbina << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -915,9 +890,7 @@ void TTurbinaSimple::ResultadosInstantTurb() {
 
 void TTurbinaSimple::ImprimeResultadosInstantTurb(std::ostream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-
-    if (FResInstantTurbina.Potencia)
+    //if (FResInstantTurbina.Potencia)
       insoutput << "\t" << FResInstantTurbina.PotenciaINS;
     if (FResInstantTurbina.Rendimiento)
       insoutput << "\t" << FResInstantTurbina.RendimientoINS;
@@ -942,8 +915,7 @@ void TTurbinaSimple::ImprimeResultadosInstantTurb(std::ostream &insoutput) {
       }
     }
 
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout
         << "ERROR: TTurbinaSimple::CabeceraResultadosInstantTurb en la turbina "
         << FNumeroTurbina << std::endl;

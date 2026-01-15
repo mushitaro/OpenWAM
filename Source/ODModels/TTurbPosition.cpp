@@ -42,14 +42,14 @@ TTurbPosition::~TTurbPosition() {
 
 }
 
-void TTurbPosition::ReadTurbinPosition(FILE *Input, int rows, double pos, double ang) {
+void TTurbPosition::ReadTurbinPosition(std::istream &Input, int rows, double pos, double ang) {
 	double SP = 0., ER = 0., MF = 0., EF = 0., SP0 = 0., ER0 = 0.;
 
 	FPosition = pos;
 	FAngle = ang;
 
 	for(int i = 0; i < rows; i++) {
-		fscanf(Input, "%lf %lf %lf %lf", &SP, &ER, &MF, &EF);
+		FileInput >> SP >> ER >> MF >> EF;
 		if(i == 0) {
 			FLines = 1;
 			FSpeedLine.resize(1);
@@ -158,9 +158,9 @@ void TTurbPosition::InterpolaPosicion(double n, double er) {
 	}
 }
 
-void TTurbPosition::PrintTurbinePosition(FILE *fich) {
+void TTurbPosition::PrintTurbinePosition(std::ostream &Output) {
 	for(int i = 0; i < FLines; i++) {
-		FSpeedLine[i].PrintEffectiveSection(fich);
+		FSpeedLine[i].PrintEffectiveSection(Output);
 	}
 }
 

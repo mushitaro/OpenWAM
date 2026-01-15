@@ -90,26 +90,24 @@ TCCUnionEntreDepositos::~TCCUnionEntreDepositos() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCUnionEntreDepositos::LeeUEDepositos(const std::string &FileWAM,
-                                            fpos_t &filepos, bool Independent) {
+void TCCUnionEntreDepositos::LeeUEDepositos(std::istream &FileInput, bool Independent) {
   try {
     int numid = 0; // Variable necesaria para WAMer.
 
     FIndependiente = Independent;
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
+    
+    
 
-    fscanf(fich, "%d ",
-           &numid); // Esto es un dato que necesita el WAMer. Los usuarios de
+    FileInput >> numid; // Esto es un dato que necesita el WAMer. Los usuarios de
                     // WAM hacemos la vista gorda hasta que se arregle.
-    fscanf(fich, "%d ", &FNumeroDeposito1);
-    fscanf(fich, "%d ", &FNumeroDeposito2);
+    FileInput >> FNumeroDeposito1;
+    FileInput >> FNumeroDeposito2;
 
-    fgetpos(fich, &filepos);
-    fclose(fich);
+    
+    
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::LeeNumDepositos en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -135,7 +133,7 @@ void TCCUnionEntreDepositos::AsignaDepositos(
           i); // Se inicializa con el Deposito1 de modo arbitrario.
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::AsignaDepositos en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -210,7 +208,7 @@ void TCCUnionEntreDepositos::AsignaTipoValvula(
         FValvula->AsignaCRecuperacion(0.);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::AsignaTipoValvula en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -378,7 +376,7 @@ void TCCUnionEntreDepositos::CalculaCoeficientesDescarga(double TiempoActual,
           std::to_string(FCDSalida) + ", en " + std::to_string(FAnguloActual) +
           " grados ");
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::CalculaCoeficientesDescarga "
                  "en la condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -406,7 +404,7 @@ double TCCUnionEntreDepositos::InterpolaDeposito(double vizq, double vder,
       throw Exception(" ");
     }
     return ret_val;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::InterpolaDeposito en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -614,7 +612,7 @@ void TCCUnionEntreDepositos::CalculaCondicionContorno(double Time) {
       }
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::CalculaCondicionContorno en "
                  "la condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -730,7 +728,7 @@ void TCCUnionEntreDepositos::CalculaUED() {
     FRDep2SUM = 0.;
     FTiempoDep2SUM = 0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::CalculaUED en la condicion de "
                  "contorno: "
               << FNumeroCC << std::endl;
@@ -742,16 +740,15 @@ void TCCUnionEntreDepositos::CalculaUED() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCUnionEntreDepositos::LeeResultadosInstantUED(const std::string &FileWAM,
-                                                     fpos_t &filepos) {
+void TCCUnionEntreDepositos::LeeResultadosInstantUED(std::istream &FileInput) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
+    
+    
 
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResInstantUED.Massflow = true;
@@ -761,9 +758,9 @@ void TCCUnionEntreDepositos::LeeResultadosInstantUED(const std::string &FileWAM,
                   << " no implementados " << std::endl;
       }
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    
+    
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCUnionEntreDepositos::LeeResultadosInstantUED en la BC "
         << FNumeroCC << std::endl;
@@ -778,7 +775,7 @@ void TCCUnionEntreDepositos::LeeResultadosInstantUED(const std::string &FileWAM,
 void TCCUnionEntreDepositos::CabeceraResultadosInstantUED(
     std::ostream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
+    // 
     std::string Label;
 
     if (FResInstantUED.Massflow) {
@@ -786,8 +783,7 @@ void TCCUnionEntreDepositos::CabeceraResultadosInstantUED(
       insoutput << Label.c_str();
     }
 
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::CabeceraResultadosInstantUED "
                  "en la BC "
               << FNumeroCC << std::endl;
@@ -804,7 +800,7 @@ void TCCUnionEntreDepositos::ResultadosInstantUED() {
     if (FResInstantUED.Massflow)
       FResInstantUED.GastoINS = FGastoImpreso;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::ResultadosInstantUED en la BC "
               << FNumeroCC << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -818,13 +814,12 @@ void TCCUnionEntreDepositos::ResultadosInstantUED() {
 void TCCUnionEntreDepositos::ImprimeResultadosInstantUED(
     std::ostream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
+    // 
 
     if (FResInstantUED.Massflow)
       insoutput << "\t" << FResInstantUED.GastoINS;
 
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::ImprimeResultadosInstantUED "
                  "en la BC "
               << FNumeroCC << std::endl;
@@ -836,16 +831,15 @@ void TCCUnionEntreDepositos::ImprimeResultadosInstantUED(
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 
-void TCCUnionEntreDepositos::ReadAverageResultsUED(const std::string &FileWAM,
-                                                   fpos_t &filepos) {
+void TCCUnionEntreDepositos::ReadAverageResultsUED(std::istream &FileInput) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
+    
+    
 
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResMediosUED.Massflow = true;
@@ -855,9 +849,9 @@ void TCCUnionEntreDepositos::ReadAverageResultsUED(const std::string &FileWAM,
                   << " no implementados " << std::endl;
       }
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    
+    
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCUnionEntreDepositos::ReadAverageResultsUED en la BC "
         << FNumeroCC << std::endl;
@@ -871,7 +865,7 @@ void TCCUnionEntreDepositos::ReadAverageResultsUED(const std::string &FileWAM,
 
 void TCCUnionEntreDepositos::HeaderAverageResultsUED(std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
+    // 
     std::string Label;
 
     if (FResMediosUED.Massflow) {
@@ -879,8 +873,7 @@ void TCCUnionEntreDepositos::HeaderAverageResultsUED(std::ostream &medoutput) {
       medoutput << Label.c_str();
     }
 
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCUnionEntreDepositos::HeaderAverageResultsUED en la BC "
         << FNumeroCC << std::endl;
@@ -902,7 +895,7 @@ void TCCUnionEntreDepositos::AcumulaResultadosMediosUED(double Actual) {
     }
     FResMediosUED.TiempoSUM += Delta;
     FResMediosUED.Tiempo0 = Actual;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCUnionEntreDepositos::AcumulaResultadosMediosUED en la BC "
         << FNumeroCC << std::endl;
@@ -922,7 +915,7 @@ void TCCUnionEntreDepositos::ResultadosMediosUED() {
     }
 
     FResMediosUED.TiempoSUM = 0;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreDepositos::ResultadosMediosUED en la BC "
               << FNumeroCC << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -935,13 +928,12 @@ void TCCUnionEntreDepositos::ResultadosMediosUED() {
 void TCCUnionEntreDepositos::ImprimeResultadosMediosUED(
     std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
+    // 
 
     if (FResMediosUED.Massflow)
       medoutput << "\t" << FResMediosUED.GastoMED;
 
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout
         << "ERROR: TCCUnionEntreDepositos::ImprimeResultadosMediosUED en la BC "
         << FNumeroCC << std::endl;

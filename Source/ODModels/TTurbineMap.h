@@ -57,7 +57,7 @@ class TTurbineMap {
 
 	~TTurbineMap();
 
-	void LoadTurbineMap(FILE *Input, double Diam1, double Diam2, double Diam3, double Diam4, double CriticalAngle);
+	void LoadTurbineMap(std::istream &Input, double Diam1, double Diam2, double Diam3, double Diam4, double CriticalAngle);
 
 	void CurrentEffectiveSection(double n, double er, double rack, double T10T00);
 
@@ -81,7 +81,7 @@ class TTurbineMap {
 	}
 	;
 
-	void PrintFinalMap(FILE *fich);
+	void PrintFinalMap(std::ostream &Output);
 
 	void CalculateAdiabaticEfficiency(TTC_HTM *HTM, double TinC);
 

@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -34,9 +35,9 @@
 //---------------------------------------------------------------------------
 
 TControlFuel::TControlFuel() {
-	FVector_Ma_mapa = NULL;
-	FVector_Regimen_mapa = NULL;
-	FMapa_Limitador_Humos = NULL;
+  FVector_Ma_mapa = NULL;
+  FVector_Regimen_mapa = NULL;
+  FMapa_Limitador_Humos = NULL;
 }
 
 //---------------------------------------------------------------------------
@@ -44,70 +45,64 @@ TControlFuel::TControlFuel() {
 
 TControlFuel::~TControlFuel() {
 
-	if(FVector_Ma_mapa != NULL)
-		delete FVector_Ma_mapa;
-	if(FVector_Regimen_mapa != NULL)
-		delete FVector_Regimen_mapa;
+  if (FVector_Ma_mapa != NULL)
+    delete FVector_Ma_mapa;
+  if (FVector_Regimen_mapa != NULL)
+    delete FVector_Regimen_mapa;
 
-	if(FMapa_Limitador_Humos != NULL) {
-		for(int i = 0; i < FNumeroDatos_Ma; i++) {
-			delete FMapa_Limitador_Humos[i];
-		}
-		delete[] FMapa_Limitador_Humos;
-	}
-
+  if (FMapa_Limitador_Humos != NULL) {
+    for (int i = 0; i < FNumeroDatos_Ma; i++) {
+      delete FMapa_Limitador_Humos[i];
+    }
+    delete[] FMapa_Limitador_Humos;
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TControlFuel::LeeDatosEntrada(char *Ruta, FILE *fich) {
-	char *FileFuel;
-	char *DatosFuel;
+void TControlFuel::LeeDatosEntrada(const std::string &Ruta,
+                                   std::istream &FileInput) {
+  std::string FileFuel;
 
-	try {
+  try {
+    FileInput >> FileFuel;
+    std::string FullPath = Ruta + FileFuel;
 
-		for(int i = 0; i <= (int) strlen(Ruta); i++) {
-			DatosFuel[i] = Ruta[i];
-		}
+    std::ifstream FuelStream(FullPath.c_str());
+    if (!FuelStream.is_open()) {
+      std::cout << "ERROR: Fichero de fuel no cargado: " << FullPath
+                << std::endl;
+      throw std::runtime_error("Fuel file load failed");
+    } else {
+      FuelStream >> FNumeroDatos_Regimen >> FNumeroDatos_Ma;
+      FVector_Ma_mapa = new double[FNumeroDatos_Ma];
+      FVector_Regimen_mapa = new double[FNumeroDatos_Regimen];
+      FMapa_Limitador_Humos = new double *[FNumeroDatos_Ma];
+      for (int i = 0; i < FNumeroDatos_Ma; i++) {
+        FMapa_Limitador_Humos[i] = new double[FNumeroDatos_Regimen];
+      }
 
-		fscanf(fich, "%s ", &FileFuel);
-		strcat(DatosFuel, FileFuel);
+      for (int i = 0; i < FNumeroDatos_Regimen; i++) {
+        FuelStream >> FVector_Regimen_mapa[i];
+      }
 
-		FichFuel = fopen(DatosFuel, "r");
-		if((FichFuel = fopen(DatosFuel, "r")) == NULL) {
-			std::cout << "ERROR: Fichero de fuel no cargado";
-		} else {
-			fscanf(FichFuel, "%d %d ", &FNumeroDatos_Regimen, &FNumeroDatos_Ma);
-			FVector_Ma_mapa = new double[FNumeroDatos_Ma];
-			FVector_Regimen_mapa = new double[FNumeroDatos_Regimen];
-			FMapa_Limitador_Humos = new double*[FNumeroDatos_Ma];
-			for(int i = 0; i < FNumeroDatos_Ma; i++) {
-				FMapa_Limitador_Humos[i] = new double[FNumeroDatos_Regimen];
-			}
+      for (int i = 0; i < FNumeroDatos_Ma; i++) {
+        FuelStream >> FVector_Ma_mapa[i];
+      }
 
-			for(int i = 0; i < FNumeroDatos_Regimen; i++) {
-				fscanf(FichFuel, "%lf ", &FVector_Regimen_mapa[i]);
-			}
+      for (int i = 0; i < FNumeroDatos_Ma; i++) {
+        for (int j = 0; j < FNumeroDatos_Regimen; j++) {
+          FuelStream >> FMapa_Limitador_Humos[i][j];
+        }
+      }
+    }
 
-			for(int i = 0; i < FNumeroDatos_Ma; i++) {
-				fscanf(FichFuel, "%lf ", &FVector_Ma_mapa[i]);
-			}
-
-			for(int i = 0; i < FNumeroDatos_Ma; i++) {
-				for(int j = 0; j < FNumeroDatos_Regimen; j++) {
-					fscanf(FichFuel, "%lf ", &FMapa_Limitador_Humos[i][j]);
-				}
-			}
-
-			fclose(FichFuel);
-		}
-
-	} catch(exception &N) {
-		std::cout << "ERROR: LeeDatosEntrada Fuel (DLL)" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
+  } catch (std::exception &N) {
+    std::cout << "ERROR: LeeDatosEntrada Fuel (DLL)" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
@@ -144,102 +139,106 @@ void TControlFuel::LeeDatosEntrada(char *Ruta, FILE *fich) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 double TControlFuel::xit_(double vizq, double vder, double axid, double xif) {
-	try {
-		double xx = 0., yy = 0.;
-		double ret_val = 0.;
+  try {
+    double xx = 0., yy = 0.;
+    double ret_val = 0.;
 
-		xx = vder - vizq;
-		if(axid != 0.) {
-			yy = xx / axid * xif;
-			ret_val = vizq + yy;
-		} else {
-			printf("ERROR: valores entrada xit\n");
-			throw Exception("");
-		}
-		return ret_val;
-	} catch(exception &N) {
-		std::cout << "ERROR: xit_" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
+    xx = vder - vizq;
+    if (axid != 0.) {
+      yy = xx / axid * xif;
+      ret_val = vizq + yy;
+    } else {
+      printf("ERROR: valores entrada xit\n");
+      throw Exception("");
+    }
+    return ret_val;
+  } catch (std::exception &N) {
+    std::cout << "ERROR: xit_" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-double TControlFuel::CalculaFuel(double MasaPorAdmision, double Regimen, double TiempoActual) {
-	try {
-		/* Estrategia de inyeccion de combustible en transitorio de carga. */
-		double MasaAire = 0., FuelMin = 0., FuelMax = 0., FuelLimitador = 0.;
+double TControlFuel::CalculaFuel(double MasaPorAdmision, double Regimen,
+                                 double TiempoActual) {
+  try {
+    /* Estrategia de inyeccion de combustible en transitorio de carga. */
+    double MasaAire = 0., FuelMin = 0., FuelMax = 0., FuelLimitador = 0.;
 
-		FuelMin = 4.32E-06; // en (kg/cc)
-		FuelMax = 5.86E-05; // en (kg/cc)
+    FuelMin = 4.32E-06; // en (kg/cc)
+    FuelMax = 5.86E-05; // en (kg/cc)
 
-// MasaPorAdmision ha de expresarse en mg
+    // MasaPorAdmision ha de expresarse en mg
 
-		if(TiempoActual < 10. * 120. / Regimen) {
-			FuelAct = FuelMin;
-			FFuelDeseado = FuelMin;
-		}
+    if (TiempoActual < 10. * 120. / Regimen) {
+      FuelAct = FuelMin;
+      FFuelDeseado = FuelMin;
+    }
 
-		if(TiempoActual > 10. * 120. / Regimen) {
-			FuelAct = FuelMax;
-			FFuelDeseado = FuelMax;
-			/* Calculo de combustible dado por el limitador de humos (kg/cc para WAM)*/
-			FuelLimitador = Interpolacion_bidimensional(Regimen, MasaPorAdmision, FVector_Ma_mapa, FVector_Regimen_mapa,
-							FMapa_Limitador_Humos, FNumeroDatos_Regimen, FNumeroDatos_Ma) / 1e6;
+    if (TiempoActual > 10. * 120. / Regimen) {
+      FuelAct = FuelMax;
+      FFuelDeseado = FuelMax;
+      /* Calculo de combustible dado por el limitador de humos (kg/cc para
+       * WAM)*/
+      FuelLimitador =
+          Interpolacion_bidimensional(
+              Regimen, MasaPorAdmision, FVector_Ma_mapa, FVector_Regimen_mapa,
+              FMapa_Limitador_Humos, FNumeroDatos_Regimen, FNumeroDatos_Ma) /
+          1e6;
 
-			if(FuelLimitador < FuelAct) {
-				FuelAct = FuelLimitador;
-			}
-		}
+      if (FuelLimitador < FuelAct) {
+        FuelAct = FuelLimitador;
+      }
+    }
 
-		return FuelAct;
+    return FuelAct;
 
-	} catch(exception &N) {
-		std::cout << "ERROR: TControlFuel::CalculaFuel" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
+  } catch (std::exception &N) {
+    std::cout << "ERROR: TControlFuel::CalculaFuel" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 //
-//double TControlFuel::CalculaFuel()
+// double TControlFuel::CalculaFuel()
 //{
-//try
+// try
 //{
 //
 ///* Provisional para dW10b */
-//return FuelAct;
+// return FuelAct;
 //
-//}
-//catch(Exception &N)
+// }
+// catch(Exception &N)
 //{
-//std::cout << "ERROR: TControlFuel::CalculaFuel" << std::endl;
-//std::cout << "Tipo de error: " << N.what() << std::endl;
-//throw Exception(N.what());
-//}
-//}
+// std::cout << "ERROR: TControlFuel::CalculaFuel" << std::endl;
+// std::cout << "Tipo de error: " << N.what() << std::endl;
+// throw Exception(N.what());
+// }
+// }
 //
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 void TControlFuel::IniciaFuel(double mfuel) {
-	try {
+  try {
 
-		FuelAct = mfuel;
+    FuelAct = mfuel;
 
-	} catch(exception &N) {
-		std::cout << "ERROR: TControlFuel::IniciaFuel" << std::endl;
-		std::cout << "Tipo de error: " << N.what() << std::endl;
-		throw Exception(N.what());
-	}
+  } catch (std::exception &N) {
+    std::cout << "ERROR: TControlFuel::IniciaFuel" << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
 #pragma package(smart_init)
-

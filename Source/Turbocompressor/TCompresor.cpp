@@ -1,40 +1,8 @@
-/*--------------------------------------------------------------------------------*\
-==========================|
- \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
- \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
-Valencia
- \\/   \//    M odel    |
- ----------------------------------------------------------------------------------
- License
-
- This file is part of OpenWAM.
-
- OpenWAM is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
-
- OpenWAM is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with OpenWAM.  If not, see <http://www.gnu.org/licenses/>.
-
-
- \*--------------------------------------------------------------------------------*/
-
-//---------------------------------------------------------------------------
+// TCompresor.cpp - Sanitized Header
+#include "Globales.h"
 #pragma hdrstop
-#include <iostream>
-#ifdef __BORLANDC__
-#include <vcl.h>
-#endif
-// #include <cmath>
-
 #include "TCompresor.h"
+#include <iostream>
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
@@ -104,7 +72,7 @@ void TCompresor::InterpolaValoresMapa(double rtc) {
       Mapa->InterpolaMapa(FRegimen, FTemperatura10);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: InterpolaValoresMapa en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -128,7 +96,7 @@ void TCompresor::AcumulaMedias(double Tiempo) {
     FMedias.RegimenCorregidoSUM += FRegimenCorregido * DeltaT;
     FMedias.TrabajoSUM += FPotencia * DeltaT;
     FMedias.Tiempo0 = Tiempo;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: AcumulaMedias en el compresor: " << FNumeroCompresor
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -152,7 +120,7 @@ void TCompresor::IniciaMedias() {
     FMedias.TrabajoSUM = 0.;
     FMedias.Tiempo0 = 0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: IniciaMedias en el compresor: " << FNumeroCompresor
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -171,7 +139,7 @@ void TCompresor::CalculoPotenciaPaso() {
     FTrabajoPaso = 0.;
     FDeltaTPaso = 0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCompresor::CalculoPotenciaPaso en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -201,7 +169,7 @@ void TCompresor::CalculaMedias() {
     FMedias.GastoCorregidoSUM = 0.;
     FMedias.RegimenCorregidoSUM = 0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaMedias en el compresor: " << FNumeroCompresor
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -222,7 +190,7 @@ void TCompresor::CalculaInstantaneos() {
     FInstant.GastoCorregido = FGastoCorregido;
     FInstant.RegimenCorregido = FRegimenCorregido;
     FInstant.Gamma = FGamma;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaInstantaneos en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -234,17 +202,13 @@ void TCompresor::CalculaInstantaneos() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCompresor::LeeDatosGraficasMedias(const std::string &FileWAM,
-                                        fpos_t &filepos) {
+void TCompresor::LeeDatosGraficasMedias(std::istream &FileInput) {
   int NMagnitudes = 0, Magnitud = 0;
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
     FMedias.GraficaMedias = true;
-    fscanf(fich, "%d", &NMagnitudes);
+    FileInput >> NMagnitudes;
     for (int i = 0; i < NMagnitudes; i++) {
-      fscanf(fich, "%d", &Magnitud);
+      FileInput >> Magnitud;
       switch (Magnitud) {
       case 0:
         FMedias.GraficaTrabajo = true;
@@ -266,9 +230,7 @@ void TCompresor::LeeDatosGraficasMedias(const std::string &FileWAM,
         break;
       }
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosGraficasMedias en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -282,7 +244,6 @@ void TCompresor::LeeDatosGraficasMedias(const std::string &FileWAM,
 
 void TCompresor::CabeceraGraficasMedias(stringstream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
     if (FMedias.GraficaMedias) {
       if (FMedias.GraficaTrabajo) {
@@ -316,8 +277,7 @@ void TCompresor::CabeceraGraficasMedias(stringstream &medoutput) {
         medoutput << Label.c_str();
       }
     }
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CabeceraGraficasMedias en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -331,23 +291,20 @@ void TCompresor::CabeceraGraficasMedias(stringstream &medoutput) {
 
 void TCompresor::ImprimeGraficasMedias(stringstream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-    if (FMedias.GraficaMedias) {
-      if (FMedias.GraficaTrabajo)
-        medoutput << "\t" << FMedias.Trabajo;
-      if (FMedias.GraficaRendimiento)
-        medoutput << "\t" << FMedias.Rendimiento;
-      if (FMedias.GraficaRelacionCompresion)
-        medoutput << "\t" << FMedias.RelacionCompresion;
-      if (FMedias.GraficaGasto)
-        medoutput << "\t" << FMedias.Massflow;
-      if (FMedias.GraficaGastoCorregido)
-        medoutput << "\t" << FMedias.GastoCorregido;
-      if (FMedias.GraficaRegimenCorregido)
-        medoutput << "\t" << FMedias.RegimenCorregido;
-    }
-    // fclose(fich);
-  } catch (exception &N) {
+    // if (FMedias.GraficaMedias) {
+    if (FMedias.GraficaTrabajo)
+      medoutput << "\t" << FMedias.Trabajo;
+    if (FMedias.GraficaRendimiento)
+      medoutput << "\t" << FMedias.Rendimiento;
+    if (FMedias.GraficaRelacionCompresion)
+      medoutput << "\t" << FMedias.RelacionCompresion;
+    if (FMedias.GraficaGasto)
+      medoutput << "\t" << FMedias.Massflow;
+    if (FMedias.GraficaGastoCorregido)
+      medoutput << "\t" << FMedias.GastoCorregido;
+    if (FMedias.GraficaRegimenCorregido)
+      medoutput << "\t" << FMedias.RegimenCorregido;
+  } catch (std::exception &N) {
     std::cout << "ERROR: ImprimeGraficasMedias en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -359,17 +316,13 @@ void TCompresor::ImprimeGraficasMedias(stringstream &medoutput) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCompresor::LeeDatosGraficasInstantaneas(const std::string &FileWAM,
-                                              fpos_t &filepos) {
+void TCompresor::LeeDatosGraficasInstantaneas(std::istream &FileInput) {
   int NMagnitudes = 0, Magnitud = 0;
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
     FInstant.GraficaInstantaneas = true;
-    fscanf(fich, "%d", &NMagnitudes);
+    FileInput >> NMagnitudes;
     for (int i = 0; i < NMagnitudes; i++) {
-      fscanf(fich, "%d", &Magnitud);
+      FileInput >> Magnitud;
       switch (Magnitud) {
       case 0:
         FInstant.GraficaRelacionCompresion = true;
@@ -394,9 +347,7 @@ void TCompresor::LeeDatosGraficasInstantaneas(const std::string &FileWAM,
         break;
       }
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosGraficasMedias en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -410,7 +361,6 @@ void TCompresor::LeeDatosGraficasInstantaneas(const std::string &FileWAM,
 
 void TCompresor::CabeceraGraficasInstantaneas(stringstream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FInstant.GraficaInstantaneas) {
@@ -450,8 +400,7 @@ void TCompresor::CabeceraGraficasInstantaneas(stringstream &insoutput) {
         insoutput << Label.c_str();
       }
     }
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CabeceraGraficasInstantaneas en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -465,25 +414,22 @@ void TCompresor::CabeceraGraficasInstantaneas(stringstream &insoutput) {
 
 void TCompresor::ImprimeGraficasInstantaneas(stringstream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-    if (FInstant.GraficaInstantaneas) {
-      if (FInstant.GraficaPotencia)
-        insoutput << "\t" << FInstant.Potencia;
-      if (FInstant.GraficaRendimiento)
-        insoutput << "\t" << FInstant.Rendimiento;
-      if (FInstant.GraficaRelacionCompresion)
-        insoutput << "\t" << FInstant.RelacionCompresion;
-      if (FInstant.GraficaGasto)
-        insoutput << "\t" << FInstant.Massflow;
-      if (FInstant.GraficaGastoCorregido)
-        insoutput << "\t" << FInstant.GastoCorregido;
-      if (FInstant.GraficaRegimenCorregido)
-        insoutput << "\t" << FInstant.RegimenCorregido;
-      if (FInstant.GraficaGamma)
-        insoutput << "\t" << FInstant.Gamma;
-    }
-    // fclose(fich);
-  } catch (exception &N) {
+    // if (FInstant.GraficaInstantaneas) {
+    if (FInstant.GraficaPotencia)
+      insoutput << "\t" << FInstant.Potencia;
+    if (FInstant.GraficaRendimiento)
+      insoutput << "\t" << FInstant.Rendimiento;
+    if (FInstant.GraficaRelacionCompresion)
+      insoutput << "\t" << FInstant.RelacionCompresion;
+    if (FInstant.GraficaGasto)
+      insoutput << "\t" << FInstant.Massflow;
+    if (FInstant.GraficaGastoCorregido)
+      insoutput << "\t" << FInstant.GastoCorregido;
+    if (FInstant.GraficaRegimenCorregido)
+      insoutput << "\t" << FInstant.RegimenCorregido;
+    if (FInstant.GraficaGamma)
+      insoutput << "\t" << FInstant.Gamma;
+  } catch (std::exception &N) {
     std::cout << "ERROR: ImprimeGraficasInstantaneas en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -503,7 +449,7 @@ double TCompresor::GetASonidoComp() {
       return 0;
     } else
       return FASonidoSalida;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCompresor::GetASonidoComp en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -518,7 +464,7 @@ double TCompresor::GetASonidoComp() {
 double TCompresor::GetFraccionMasicaEspecie(int i) {
   try {
     return FFraccionMasicaEspecie[i];
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCompresor::GetFraccionMasicaEspecie en el compresor: "
               << FNumeroCompresor << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;

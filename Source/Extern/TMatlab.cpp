@@ -114,7 +114,7 @@ void TMatlab::IniciaECU() {
 
 		/* Fin de la inicializacion del acceso a MATLAB*/
 
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: IniciaECU" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -129,7 +129,7 @@ void TMatlab::FinalizaECU()
 {
 	try {
 		engClose(ep);
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: FinalizaECU" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -150,7 +150,7 @@ void TMatlab::CalculaECU() {
 		memcpy(FOutput, mxGetPr(FOutputMatlab), 3 * sizeof(double));
 		mxDestroyArray(FOutputMatlab);
 
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: CalculaECU" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -168,7 +168,7 @@ void TMatlab::PutInput(int i, double valor) {
 			std::cout << "WARNING: El valor de la entrada a matlab se sale de rango" << std::endl;
 			std::cout << "         Revisa el acceso a matlab" << std::endl;
 		}
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: PutInput" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -187,7 +187,7 @@ double TMatlab::GetOutput(int i) {
 			std::cout << "         Revisa el acceso a matlab" << std::endl;
 			return 0.;
 		}
-	} catch(exception &N) {
+	} catch (std::exception &N) {
 		std::cout << "ERROR: GetOutput" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());
@@ -199,10 +199,10 @@ double TMatlab::GetOutput(int i) {
 
 void TMatlab::LeeFicherosECU(FILE *fich) {
 	try {
-		fgets(Fdirtrab, 256, fich); //Lee la ruta, maximo 256 Characters
-		fscanf(fich, "%s", &Fworkspace);
-		fscanf(fich, "%s", &Fficheme);
-	} catch(exception &N) {
+		fgets(Fdirtrab, 256, FileInput); //Lee la ruta, maximo 256 Characters
+		FileInput >> Fworkspace;
+		FileInput >> Fficheme;
+	} catch (std::exception &N) {
 		std::cout << "ERROR: LeeFicherosECU" << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;
 		throw Exception(N.what());

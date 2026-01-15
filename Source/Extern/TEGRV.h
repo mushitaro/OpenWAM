@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -44,76 +45,63 @@
 #include "Globales.h"
 
 class TEGRV {
-  private:
+private:
+  FILE *FichEGRV;
+  // double FCDEntrante;
+  double FCDSaliente;
+  double FCTorbellino;
 
-	FILE *FichEGRV;
-//double FCDEntrante;
-	double FCDSaliente;
-	double FCTorbellino;
+  double FMasaAireAdmitidaConsigna;
 
-	double FMasaAireAdmitidaConsigna;
+  int FNumeroDatos_TipoControl_Regimen;
+  int FNumeroDatos_Mf;
+  int FNumeroDatos_Regimen;
 
-	int FNumeroDatos_TipoControl_Regimen;
-	int FNumeroDatos_Mf;
-	int FNumeroDatos_Regimen;
+  double FError;     // Error en la masa de aire en el instante current
+  double FError_ant; // Error en la masa de aire en el instante anterior
+  double FErrorI;    // Integral del error para el control con el PID
+  double FP;
+  double FI;
+  double FD;
+  double FKc;
+  double FKi;
+  double FKd;
 
-	double FError;     // Error en la masa de aire en el instante current
-	double FError_ant; // Error en la masa de aire en el instante anterior
-	double FErrorI;    // Integral del error para el control con el PID
-	double FP;
-	double FI;
-	double FD;
-	double FKc;
-	double FKi;
-	double FKd;
+  double *FVector_Mf_mapa;
+  double *FVector_TipoControl_Regimen_mapa;
+  double *FVector_Regimen_mapa;
 
-	double *FVector_Mf_mapa;
-	double *FVector_TipoControl_Regimen_mapa;
-	double *FVector_Regimen_mapa;
+  double *FMapa_TipoControl;
+  double **FMapa_MasaAire;
 
-	double *FMapa_TipoControl;
-	double **FMapa_MasaAire;
+  nmTipoControl FTipoControl;
 
-	nmTipoControl FTipoControl;
+  int FCicloCerrado;
 
-	int FCicloCerrado;
+  // Funcion de interpolacion
+  double xit_(double vizq, double vder, double axid, double xif);
 
-//Funcion de interpolacion
-	double xit_(double vizq, double vder, double axid, double xif);
+public:
+  double FCDEntrante;
+  double getCDEntrante() { return FCDEntrante; }
+  void PutCDEntrante(double valor) { FCDEntrante = valor; };
 
-  public:
+  double getCDSaliente() { return FCDSaliente; };
 
-	double FCDEntrante;
-	double getCDEntrante() {
-		return FCDEntrante;
-	}
-	void PutCDEntrante(double valor) {
-		FCDEntrante = valor;
-	}
-	;
+  double getCTorbellino() { return FCTorbellino; };
 
-	double getCDSaliente() {
-		return FCDSaliente;
-	}
-	;
+  TEGRV();
 
-	double getCTorbellino() {
-		return FCTorbellino;
-	}
-	;
+  ~TEGRV();
 
-	TEGRV();
+  void CalculaEGRV(double MasaFuel, double Regimen, double MasaAireAdmitida,
+                   double TiempoActual);
 
-	~TEGRV();
+  void LeeDatosEntrada(const std::string &Dir, std::istream &fich);
 
-	void CalculaEGRV(double MasaFuel, double Regimen, double MasaAireAdmitida, double TiempoActual);
+  void IniciaEGRV(double cdEGR, int CicloCerrado);
 
-	void LeeDatosEntrada(char *Dir, FILE *fich);
-
-	void IniciaEGRV(double cdEGR, int CicloCerrado);
-
-	nmTipoControl DeterminacionTipoControl(double Regimen, double MasaFuel);
-
+  nmTipoControl DeterminacionTipoControl(double Regimen, double MasaFuel);
 };
 //---------------------------------------------------------------------------
 #endif

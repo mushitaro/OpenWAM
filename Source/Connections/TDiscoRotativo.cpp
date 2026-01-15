@@ -96,42 +96,36 @@ TDiscoRotativo::TDiscoRotativo(TDiscoRotativo *Origen, int Valvula)
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TDiscoRotativo::LeeDatosIniciales(const std::string &FileWAM,
-                                       fpos_t &filepos, int norden,
+void TDiscoRotativo::LeeDatosIniciales(std::istream &FileInput, int norden,
                                        bool HayMotor, TBloqueMotor *Engine) {
   try {
-    int ControlRegimen = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    FNumeroOrden = norden;
+    int ControlRegimen = 0;FNumeroOrden = norden;
 
     FEngine = Engine;
 
-    fscanf(fich, "%lf ", &FDiametroRef);
-    fscanf(fich, "%lf %lf %lf ", &FDCMultiplier, &FShift, &FDuration);
+    FileInput >> FDiametroRef;
+    FileInput >> FDCMultiplier >> FShift >> FDuration;
 
-    fscanf(fich, "%d ", &FNumeroPuntos);
+    FileInput >> FNumeroPuntos;
 
     FAngulo.resize(FNumeroPuntos);
     FDatosCDEntrada.resize(FNumeroPuntos);
     FDatosCDSalida.resize(FNumeroPuntos);
 
     for (int j = 0; j < FNumeroPuntos; ++j) {
-      fscanf(fich, "%lf ", &FAngulo[j]);
+      FileInput >> FAngulo[j];
       FAngulo[j] *= FDuration;
     }
     for (int j = 0; j < FNumeroPuntos; ++j) {
-      fscanf(fich, "%lf ", &FDatosCDEntrada[j]);
+      FileInput >> FDatosCDEntrada[j];
       FDatosCDEntrada[j] *= FDCMultiplier;
     }
     for (int j = 0; j < FNumeroPuntos; ++j) {
-      fscanf(fich, "%lf ", &FDatosCDSalida[j]);
+      FileInput >> FDatosCDSalida[j];
       FDatosCDEntrada[j] *= FDCMultiplier;
     }
 
-    fscanf(fich, "%d ", &ControlRegimen);
+    FileInput >> ControlRegimen;
 
     switch (ControlRegimen) {
     case 0:
@@ -142,20 +136,16 @@ void TDiscoRotativo::LeeDatosIniciales(const std::string &FileWAM,
       break;
     }
     if (FControlRegimen == nmPropio) {
-      fscanf(fich, "%lf ", &FRegimen);
+      FileInput >> FRegimen;
       FRelacionVelocidades = 1.;
     } else if (FControlRegimen == nmMotor && HayMotor) {
-      fscanf(fich, "%lf ", &FRelacionVelocidades);
+      FileInput >> FRelacionVelocidades;
     } else {
       std::cout << "ERROR: TDiscoRotativo::LeeDatosIniciales Lectura del "
                    "Control del Regimen erronea "
                 << std::endl;
       throw Exception(" ");
-    }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+    }} catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales DiscoRotativo" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

@@ -98,7 +98,7 @@ TBloqueMotor::~TBloqueMotor() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
+void TBloqueMotor::LeeMotor(std::istream &FileInput,
                             nmTipoModelado &SimulationType,
                             int CiclosSinInerciaTermica, nmTipoMotor EngineType,
                             double *AtmosphericComposition) {
@@ -111,20 +111,10 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
 
     FTipoMotor = EngineType;
     FTipoModelado = SimulationType;
-    printf("DEBUG: LeeMotor Start\n");
-    fflush(stdout);
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    if (fich == NULL) {
-      printf("ERROR: Failed to open file in LeeMotor: %s\n", FileWAM.c_str());
+    if (FileInput.fail()) {
+      printf("ERROR: Failed to read from stream in LeeMotor\n");
       fflush(stdout);
-      throw Exception("File Open Error in LeeMotor");
-    }
-    // fsetpos(fich, &filepos);
-    int seek_res = _fseeki64(fich, (long long)filepos, SEEK_SET);
-    if (seek_res != 0) {
-      printf("ERROR: fseek failed in LeeMotor. Res: %d Errno: %d\n", seek_res,
-             errno);
-      fflush(stdout);
+      throw Exception("File Read Error in LeeMotor");
     }
 
     // -------------------------------
@@ -132,14 +122,13 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     // -------------------------------
 
     int aux = 0;
-    int scan_res = fscanf(fich, "%d ", &aux);
-    printf(
-        "DEBUG: fscanf ACT Result: %d Val: %d FError: %d Feof: %d Ftell: %ld\n",
-        scan_res, aux, ferror(fich), feof(fich), ftell(fich));
+    FileInput >> aux;
+    printf("DEBUG: ACT Result: %d Val: %d Fail: %d Eof: %d Tell: %ld\n", aux,
+           aux, FileInput.fail(), FileInput.eof(), (long)FileInput.tellg());
     fflush(stdout);
     aux == 0 ? FACT = false : FACT = true;
     if (FACT) {
-      fscanf(fich, "%lf ", &FMixtureProcessCte);
+      FileInput >> FMixtureProcessCte;
       cout << FMixtureProcessCte << endl;
       if (!FHayEGR) {
         std::cout
@@ -158,7 +147,7 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     // CILINDROS Y ORDEN DE ENCENDIDO
     // -------------------------------
 
-    fscanf(fich, "%d ", &FGeom.NCilin);
+    FileInput >> FGeom.NCilin;
     FDesfase = new double[FGeom.NCilin];
 
     FCilindro = new TCilindro *[FGeom.NCilin];
@@ -172,18 +161,17 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     // CONDICIONES INICIALES
     // ----------------------
 
-    fscanf(fich, "%lf ",
-           &FRegimen); // Regimen de giro motor (inicial para transitorios)
-    fscanf(fich, "%lf ",
-           &FPresionInicialRCA); // Pressure inicial al cierre de la admision
-    fscanf(fich, "%lf ", &FMasaInicial); // Masa inicial en los cilindros
+    FileInput >> FRegimen; // Regimen de giro motor (inicial para transitorios)
+    FileInput >>
+        FPresionInicialRCA;    // Pressure inicial al cierre de la admision
+    FileInput >> FMasaInicial; // Masa inicial en los cilindros
     FComposicionInicial = new double[FNumeroEspecies - FIntEGR];
     FComposicionAtmosfera = new double[FNumeroEspecies - FIntEGR];
-    fscanf(fich, "%d ", &ImponerComposicionAE);
+    FileInput >> ImponerComposicionAE;
     ImponerComposicionAE == 0 ? FImponerComposicionAE = false
                               : FImponerComposicionAE = true;
     for (int i = 0; i < FNumeroEspecies - 1; i++) {
-      fscanf(fich, "%lf ", &FComposicionInicial[i]);
+      FileInput >> FComposicionInicial[i];
       FComposicionAtmosfera[i] = AtmosphericComposition[i];
     }
 
@@ -203,17 +191,17 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
       }
     }
 
-    fscanf(fich, "%d ",
-           &TipoPresionAAE); // Pressure impuesta en el AAE, si es 0 se calcula
+    FileInput >>
+        TipoPresionAAE; // Pressure impuesta en el AAE, si es 0 se calcula
     if (TipoPresionAAE == 0) {
       FCalculoDePAAE = nmPAAECalculada;
       FPresionAAE = 0;
     } else if (TipoPresionAAE == 1) {
       FCalculoDePAAE = nmPAAEImpuesta;
-      fscanf(fich, "%lf ", &FPresionAAE);
+      FileInput >> FPresionAAE;
     }
 
-    fscanf(fich, "%d ", &tipocombustion);
+    FileInput >> tipocombustion;
     if (tipocombustion == 0) {
       FCombustible = nmMEC;
     } else if (tipocombustion == 1) {
@@ -222,42 +210,39 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
       std::cout << "ERROR: Tipo de combustible mal definido " << std::endl;
     }
     if (FCombustible == nmMEC) {
-      fscanf(fich, "%lf ", &FMasaFuel);
+      FileInput >> FMasaFuel;
     } else {
-      fscanf(fich, "%lf ", &FDosadoInicial);
+      FileInput >> FDosadoInicial;
     }
 
-    fscanf(fich, "%lf ", &FRendimientoCombustion);
-    fscanf(fich, "%lf ", &FPoderCalorifico);
-    fscanf(fich, "%lf ", &FDensidadCombustible);
+    FileInput >> FRendimientoCombustion;
+    FileInput >> FPoderCalorifico;
+    FileInput >> FDensidadCombustible;
 
-    fscanf(fich, "%d ", &FNumTuboRendVol);
+    FileInput >> FNumTuboRendVol;
     // --------------------
     // PARAMETROS TERMICOS
     // --------------------
 
     FNumeroCiclosSinInerciaTermica = CiclosSinInerciaTermica;
-    fscanf(fich, "%lf ", &FTempInicial.Piston);
-    fscanf(fich, "%lf ", &FTempInicial.Culata);
-    fscanf(fich, "%lf ", &FTempInicial.Cylinder);
+    FileInput >> FTempInicial.Piston;
+    FileInput >> FTempInicial.Culata;
+    FileInput >> FTempInicial.Cylinder;
 
-    fscanf(fich, "%lf ", &FGeom.AreaPiston);
-    fscanf(fich, "%lf ", &FGeom.AreaCulata);
+    FileInput >> FGeom.AreaPiston;
+    FileInput >> FGeom.AreaCulata;
 
-    fscanf(fich, "%lf %lf %lf %lf ", &FParedPiston.Espesor,
-           &FParedPiston.Conductividad, &FParedPiston.Density,
-           &FParedPiston.CalorEspecifico);
-    fscanf(fich, "%lf %lf %lf %lf ", &FParedCulata.Espesor,
-           &FParedCulata.Conductividad, &FParedCulata.Density,
-           &FParedCulata.CalorEspecifico);
-    fscanf(fich, "%lf %lf %lf %lf ", &FParedCilindro.Espesor,
-           &FParedCilindro.Conductividad, &FParedCilindro.Density,
-           &FParedCilindro.CalorEspecifico);
+    FileInput >> FParedPiston.Espesor >> FParedPiston.Conductividad >>
+        FParedPiston.Density >> FParedPiston.CalorEspecifico;
+    FileInput >> FParedCulata.Espesor >> FParedCulata.Conductividad >>
+        FParedCulata.Density >> FParedCulata.CalorEspecifico;
+    FileInput >> FParedCilindro.Espesor >> FParedCilindro.Conductividad >>
+        FParedCilindro.Density >> FParedCilindro.CalorEspecifico;
 
-    fscanf(fich, "%lf %lf %lf %lf", &FAjusteTranCalAdm, &FAjusteTranCalEsc,
-           &FParPotMax, &FTempRefrigerante);
+    FileInput >> FAjusteTranCalAdm >> FAjusteTranCalEsc >> FParPotMax >>
+        FTempRefrigerante;
 
-    fscanf(fich, "%d ", &CalculoTempPared);
+    FileInput >> CalculoTempPared;
     switch (CalculoTempPared) {
     case 0:
       FCalculoPared = nmConInercia;
@@ -273,30 +258,30 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     // ------------------------------
     // WOSCHNI.TRANSMISION DE CALOR
     // ------------------------------
-    fscanf(fich, "%lf ", &FWoschni.cw1);
-    fscanf(fich, "%lf ", &FWoschni.cw2);
-    fscanf(fich, "%lf ", &FWoschni.xpe);
+    FileInput >> FWoschni.cw1;
+    FileInput >> FWoschni.cw2;
+    FileInput >> FWoschni.xpe;
 
     // -----------------------
     // PARAMETROS GEOMETRICOS
     // -----------------------
 
-    fscanf(fich, "%lf ", &FGeom.Biela);
-    fscanf(fich, "%lf ", &FGeom.Carrera);
-    fscanf(fich, "%lf ", &FGeom.Diametro);
-    fscanf(fich, "%lf ", &FGeom.RelaCompresion);
-    fscanf(fich, "%lf ", &FGeom.DiametroBowl);
-    fscanf(fich, "%lf ", &FGeom.AlturaBowl);
-    fscanf(fich, "%lf ", &FGeom.DistanciaValvulas);
-    fscanf(fich, "%lf ", &FGeom.AreaBlowBy);
-    fscanf(fich, "%lf ", &FGeom.CDBlowBy);
-    fscanf(fich, "%lf ", &FGeom.Excentricidad);
-    fscanf(fich, "%lf ", &FGeom.DiametroBulon);
-    fscanf(fich, "%lf ", &FGeom.AlturaCoronaPiston);
-    fscanf(fich, "%lf ", &FGeom.MasaBiela);
-    fscanf(fich, "%lf ", &FGeom.MasaPistonSegmentosBulon);
-    fscanf(fich, "%lf ", &FGeom.ModuloElasticidad);
-    fscanf(fich, "%lf ", &FGeom.CoefDeformaciones);
+    FileInput >> FGeom.Biela;
+    FileInput >> FGeom.Carrera;
+    FileInput >> FGeom.Diametro;
+    FileInput >> FGeom.RelaCompresion;
+    FileInput >> FGeom.DiametroBowl;
+    FileInput >> FGeom.AlturaBowl;
+    FileInput >> FGeom.DistanciaValvulas;
+    FileInput >> FGeom.AreaBlowBy;
+    FileInput >> FGeom.CDBlowBy;
+    FileInput >> FGeom.Excentricidad;
+    FileInput >> FGeom.DiametroBulon;
+    FileInput >> FGeom.AlturaCoronaPiston;
+    FileInput >> FGeom.MasaBiela;
+    FileInput >> FGeom.MasaPistonSegmentosBulon;
+    FileInput >> FGeom.ModuloElasticidad;
+    FileInput >> FGeom.CoefDeformaciones;
 
     FGeom.VCC = __geom::Cylinder_volume(FGeom.Diametro, FGeom.Carrera) /
                 (FGeom.RelaCompresion - 1.);
@@ -308,8 +293,8 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     // PERDIDAS MECANICAS
     // --------------------
 
-    fscanf(fich, "%lf %lf %lf %lf ", &FPerMec.Coef0, &FPerMec.Coef1,
-           &FPerMec.Coef2, &FPerMec.Coef3);
+    FileInput >> FPerMec.Coef0 >> FPerMec.Coef1 >> FPerMec.Coef2 >>
+        FPerMec.Coef3;
 
     // --------------------
     // MODELO DE VEHdegCULO
@@ -322,21 +307,20 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
       double Imc = 0., Ict = 0., Itr = 0.;
 
       // Lectura de las masas
-      fscanf(fich, "%lf %lf %lf ", &mv, &mt, &mr);
+      FileInput >> mv >> mt >> mr;
       FMasaTotalVehiculo = mv + mt + 4 * mr;
 
       // Lectura de las inercias
-      fscanf(fich, "%lf %lf %lf ", &Imc, &Ict, &Itr);
+      FileInput >> Imc >> Ict >> Itr;
 
       // Lectura caracteristicas transmision
-      fscanf(fich, "%lf %lf %lf ", &FRelCajaCambios, &FRendCajaCambios,
-             &FRelTrasmision);
+      FileInput >> FRelCajaCambios >> FRendCajaCambios >> FRelTrasmision;
 
       // Lectura del radio de la rueda
-      fscanf(fich, "%lf ", &FRadioRueda);
+      FileInput >> FRadioRueda;
 
       // Lectura del CrankAngle de la carretera
-      fscanf(fich, "%lf ", &FAnguloCarretera);
+      FileInput >> FAnguloCarretera;
 
       FInerciaTotal = pow2(FRelCajaCambios * FRelTrasmision) * Imc +
                       pow2(FRelTrasmision) * Ict + Itr +
@@ -349,39 +333,38 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
           (FInerciaTotal + FMasaTotalVehiculo * pow2(FRadioRueda));
 
       // Lectura de los coeficientes para obtener el Road Load
-      fscanf(fich, "%lf %lf %lf ", &FCoefRoadLoad.A0, &FCoefRoadLoad.B0,
-             &FCoefRoadLoad.C0);
-      fscanf(fich, "%lf %lf %lf %lf ", &FCoefRoadLoad.n, &FCoefRoadLoad.cd,
-             &FCoefRoadLoad.rho, &FCoefRoadLoad.A);
+      FileInput >> FCoefRoadLoad.A0 >> FCoefRoadLoad.B0 >> FCoefRoadLoad.C0;
+      FileInput >> FCoefRoadLoad.n >> FCoefRoadLoad.cd >> FCoefRoadLoad.rho >>
+          FCoefRoadLoad.A;
     }
 
     if (FACT) {
-      fscanf(fich, "%d ", &FInjectionSys.HoleNumber);
-      fscanf(fich, "%lf ", &FInjectionSys.HoleDiame);
-      fscanf(fich, "%lf ", &FInjectionSys.CDHole);
-      fscanf(fich, "%lf ", &FInjectionSys.InjectPressure);
+      FileInput >> FInjectionSys.HoleNumber;
+      FileInput >> FInjectionSys.HoleDiame;
+      FileInput >> FInjectionSys.CDHole;
+      FileInput >> FInjectionSys.InjectPressure;
 
-      fscanf(fich, "%lf ", &FInjectionSys.PendOpen_A1);
-      fscanf(fich, "%lf ", &FInjectionSys.PendOpen_A2);
-      fscanf(fich, "%lf ", &FInjectionSys.LevMax_B1);
-      fscanf(fich, "%lf ", &FInjectionSys.LevMax_B2);
-      fscanf(fich, "%lf ", &FInjectionSys.PendClose_C1);
-      fscanf(fich, "%lf ", &FInjectionSys.PendClose_C2);
-      fscanf(fich, "%lf ", &FInjectionSys.Desfase_D1);
-      fscanf(fich, "%lf ", &FInjectionSys.Desfase_D2);
-      fscanf(fich, "%d ", &FInjectionSys.NumPulsos);
+      FileInput >> FInjectionSys.PendOpen_A1;
+      FileInput >> FInjectionSys.PendOpen_A2;
+      FileInput >> FInjectionSys.LevMax_B1;
+      FileInput >> FInjectionSys.LevMax_B2;
+      FileInput >> FInjectionSys.PendClose_C1;
+      FileInput >> FInjectionSys.PendClose_C2;
+      FileInput >> FInjectionSys.Desfase_D1;
+      FileInput >> FInjectionSys.Desfase_D2;
+      FileInput >> FInjectionSys.NumPulsos;
 
       // FInjecPulse=new stInjecPulse[FInjectionSys.NumPulsos];
       stInjecPulse aux2;
       for (int i = 0; i < FInjectionSys.NumPulsos; ++i) {
-        fscanf(fich, "%lf ", &aux2.Angulo);
-        fscanf(fich, "%lf ", &aux2.Masa);
-        fscanf(fich, "%d ", &aux2.CtrAngID);
+        FileInput >> aux2.Angulo;
+        FileInput >> aux2.Masa;
+        FileInput >> aux2.CtrAngID;
         if (aux2.CtrAngID > 0)
           aux2.CtrAngd = true;
         else
           aux2.CtrAngd = false;
-        fscanf(fich, "%d ", &aux2.CtrMasID);
+        FileInput >> aux2.CtrMasID;
         if (aux2.CtrMasID > 0)
           aux2.CtrMasd = true;
         else
@@ -400,20 +383,20 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
 
       stWiebe WiebeSimple;
       stLeyQuemadoBD LeyQuemadoSimple;
-      fscanf(fich, "%d ", &FNumeroLeyesQuemado);
+      FileInput >> FNumeroLeyesQuemado;
       for (int j = 0; j < FNumeroLeyesQuemado; ++j) {
-        fscanf(fich, "%lf %lf %lf", &LeyQuemadoSimple.ma, &LeyQuemadoSimple.mf,
-               &LeyQuemadoSimple.n);
+        FileInput >> LeyQuemadoSimple.ma >> LeyQuemadoSimple.mf >>
+            LeyQuemadoSimple.n;
         if (LeyQuemadoSimple.ma > FLQMaMax)
           FLQMaMax = LeyQuemadoSimple.ma;
         if (LeyQuemadoSimple.mf > FLQMfMax)
           FLQMfMax = LeyQuemadoSimple.mf;
         if (LeyQuemadoSimple.n > FLQRegMax)
           FLQRegMax = LeyQuemadoSimple.n;
-        fscanf(fich, "%d ", &FNWiebes);
+        FileInput >> FNWiebes;
         for (int i = 0; i < FNWiebes; i++) {
-          fscanf(fich, "%lf %lf %lf %lf %lf ", &WiebeSimple.m, &WiebeSimple.C,
-                 &WiebeSimple.Beta, &WiebeSimple.IncAlpha, &WiebeSimple.Alpha0);
+          FileInput >> WiebeSimple.m >> WiebeSimple.C >> WiebeSimple.Beta >>
+              WiebeSimple.IncAlpha >> WiebeSimple.Alpha0;
           WiebeSimple.Alpha0 = -WiebeSimple.Alpha0;
           WiebeSimple.Inicia = WiebeSimple.Alpha0;
           LeyQuemadoSimple.Wiebes.push_back(WiebeSimple);
@@ -427,13 +410,13 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     // INYECCIÓN DE COMBUSTIBLE.
     // ------------------------------
 
-    fscanf(fich, "%d ", &FTipoDatosIny);
+    FileInput >> FTipoDatosIny;
     switch (FTipoDatosIny) {
     case 0: // No hay datos de inyeccion
       FNumeroInyecciones = 0;
       break;
     case 1: // Datos de Angulo y tiempo de inyecciones
-      fscanf(fich, "%d ", &FNumeroInyecciones); // Numero de inyecciones
+      FileInput >> FNumeroInyecciones; // Numero de inyecciones
       if (FNumeroInyecciones == 0) {
         FTipoDatosIny = 0;
         break;
@@ -442,20 +425,19 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
       FTIny.resize(FNumeroInyecciones);
       FPercentIny.resize(FNumeroInyecciones);
       for (int i = 0; i < FNumeroInyecciones; i++) {
-        fscanf(
-            fich, "%lf %lf %lf ", &FAngIny[i], &FTIny[i],
-            &FPercentIny[i]); // Angulo de la inyeccion con pms como referencia,
-                              // duracion en ms y porcentaje del total
+        FileInput >> FAngIny[i] >> FTIny[i] >>
+            FPercentIny[i]; // Angulo de la inyeccion con pms como referencia,
+                            // duracion en ms y porcentaje del total
       }
       break;
     case 2: // Datos de tabla de tasa de inyeccion
-      fscanf(fich, "%lf %lf", &FAngIniIny,
-             &FTStepIny); // Angulo de inicio de inyeccion y paso en ms entre
-                          // datos de la tabla
-      fscanf(fich, "%d ", &xnum);
+      FileInput >> FAngIniIny >>
+          FTStepIny; // Angulo de inicio de inyeccion y paso en ms entre
+                     // datos de la tabla
+      FileInput >> xnum;
       FY_dat.resize(xnum);
       for (int i = 0; i < xnum; i++) {
-        fscanf(fich, "%lf ", &FY_dat[i]);
+        FileInput >> FY_dat[i];
       }
       FX_dat.resize(xnum);
       FX_dat[0] = FAngIniIny;
@@ -471,7 +453,7 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
       for (int i = 0; i < xnum; i++) {
         FY_dat[i] = FY_dat[i] * FMasaFuel / FFuelTasaInt;
       }
-      fscanf(fich, "%d ", &TipoInterp);
+      FileInput >> TipoInterp;
       switch (TipoInterp) {
       case 0:
         fTipo = nmLineal;
@@ -494,7 +476,7 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     // ------------------------------
 
     if (FGeom.NCilin > 1) {
-      fscanf(fich, "%d ", &tipodesfa);
+      FileInput >> tipodesfa;
       switch (tipodesfa) {
       case 0:
         FTipoDesfase = nmPersonalizado;
@@ -505,7 +487,7 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
       }
       if (FTipoDesfase == nmPersonalizado) {
         for (int i = 0; i < FGeom.NCilin; ++i) {
-          fscanf(fich, "%lf ", &FDesfase[i]);
+          FileInput >> FDesfase[i];
           if (FTipoMotor == nm2T) {
             FCilindro[i] = new TCilindro2T(this, i + 1, FHayEGR);
           } else {
@@ -514,7 +496,7 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
         }
       } else {
         for (int i = 0; i < FGeom.NCilin; ++i) {
-          fscanf(fich, "%d ", &cil);
+          FileInput >> cil;
           FDesfase[cil - 1] = (double)i * FAngTotalCiclo / (double)FGeom.NCilin;
           if (FTipoMotor == nm2T) {
             FCilindro[cil - 1] = new TCilindro2T(this, cil, FHayEGR);
@@ -535,17 +517,17 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
     fflush(stdout);
     int controllers = 0;
     int param = 0;
-    fscanf(fich, "%d ", &controllers);
+    FileInput >> controllers;
     for (int i = 0; i < controllers; ++i) {
-      fscanf(fich, "%d ", &param);
+      FileInput >> param;
       switch (param) {
       case 0: // Engine speed controller
-        fscanf(fich, "%d ", &FRPMControllerID);
+        FileInput >> FRPMControllerID;
         FRPMControlled = true;
         SimulationType = nmTransitorioRegimen;
         break;
       case 1:
-        fscanf(fich, "%d ", &FInjectionSys.InjectPCtrID);
+        FileInput >> FInjectionSys.InjectPCtrID;
         FInjectionSys.InjectPCtrd = true;
         break;
       }
@@ -553,24 +535,20 @@ void TBloqueMotor::LeeMotor(const std::string &FileWAM, fpos_t &filepos,
 
     int MfControllerID = 0;
     for (int i = 0; i < FGeom.NCilin; ++i) {
-      fscanf(fich, "%d ", &controllers);
+      FileInput >> controllers;
       for (int j = 0; j < controllers; ++j) {
-        fscanf(fich, "%d ", &param);
+        FileInput >> param;
         switch (param) {
         case 0: // Mass fluel controller
-          fscanf(fich, "%d ", &MfControllerID);
+          FileInput >> MfControllerID;
           FCilindro[i]->PutMfControllerID(MfControllerID);
           break;
         }
       }
     }
-
-    fgetpos(fich, &filepos);
-    printf("DEBUG: LeeMotor fgetpos: %lld ftell: %ld\n", (long long)filepos,
-           ftell(fich));
+    printf("DEBUG: LeeMotor ftell: %ld\n", (long)FileInput.tellg());
     fflush(stdout);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::LeeMotor en el Bloque Engine. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -590,7 +568,7 @@ void TBloqueMotor::AsignacionTuboRendVol(TTubo **Pipe) {
 
     FNodoMedio = floor((FTuboRendVol->getNin()) / 2.);
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TBloqueMotor::AsignacionTuboRendVol en el Bloque Engine. "
         << std::endl;
@@ -610,8 +588,8 @@ void TBloqueMotor::IniciaAnguloCalculo() {
       FTheta = 256.;
     } else {
       std::cout << "ERROR: Tipo de motor mal definido" << std::endl;
-    }
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout
         << "ERROR: TBloqueMotor::IniciaAnguloCalculo en el Bloque Engine. "
         << std::endl;
@@ -623,14 +601,9 @@ void TBloqueMotor::IniciaAnguloCalculo() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TBloqueMotor::ReadAverageResultsBloqueMotor(const std::string &FileWAM,
-                                                 fpos_t &filepos) {
+void TBloqueMotor::ReadAverageResultsBloqueMotor(std::istream &FileInput) {
   try {
     int nvars = 0, Tipovar = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
-
     FResMediosMotor.ParNeto = false;
     FResMediosMotor.ParNetoSUM = 0.;
     FResMediosMotor.ParNetoMED = 0.;
@@ -707,9 +680,9 @@ void TBloqueMotor::ReadAverageResultsBloqueMotor(const std::string &FileWAM,
     FResMediosMotor.TiempoSUM = 0.;
     FResMediosMotor.Tiempo0 = 0.;
 
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &Tipovar);
+      FileInput >> Tipovar;
       switch (Tipovar) {
       case 0:
         FResMediosMotor.ParNeto = true;
@@ -799,12 +772,8 @@ void TBloqueMotor::ReadAverageResultsBloqueMotor(const std::string &FileWAM,
         std::cout << "Resultados medios en el motor (" << Tipovar
                   << ")no definido" << std::endl;
       }
-    }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::ReadAverageResults en el Bloque Engine. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -817,7 +786,6 @@ void TBloqueMotor::ReadAverageResultsBloqueMotor(const std::string &FileWAM,
 
 void TBloqueMotor::HeaderAverageResultsBloqueMotor(std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FResMediosMotor.ParNeto) {
@@ -931,10 +899,8 @@ void TBloqueMotor::HeaderAverageResultsBloqueMotor(std::ostream &medoutput) {
     if (FResMediosMotor.Swirl) {
       Label = "\t" + PutLabel(628);
       medoutput << Label.c_str();
-    }
-
-    // fclose(fich);
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout
         << "ERROR: TBloqueMotor::HeaderAverageResults en el Bloque Engine. "
         << std::endl;
@@ -948,10 +914,8 @@ void TBloqueMotor::HeaderAverageResultsBloqueMotor(std::ostream &medoutput) {
 
 void TBloqueMotor::ImprimeResultadosMediosBloqueMotor(std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-
-    if (FResMediosMotor.ParNeto)
-      medoutput << "\t" << FResMediosMotor.ParNetoMED;
+    // if (FResMediosMotor.ParNeto)
+    medoutput << "\t" << FResMediosMotor.ParNetoMED;
     if (FResMediosMotor.ParEfectivo)
       medoutput << "\t" << FResMediosMotor.ParEfectivoMED;
     if (FResMediosMotor.ParEfectivoCiclo)
@@ -1007,8 +971,7 @@ void TBloqueMotor::ImprimeResultadosMediosBloqueMotor(std::ostream &medoutput) {
     if (FResMediosMotor.Swirl)
       medoutput << "\t" << FResMediosMotor.SwirlMED;
 
-    // fclose(fich);
-  } catch (exception &N) {
+    } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::ImprimeResultadosMediosBloqueMotor "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1194,7 +1157,7 @@ void TBloqueMotor::ResultadosMediosBloqueMotor() {
     }
 
     FResMediosMotor.TiempoSUM = 0;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::ResultadosMediosBloqueMotor "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1294,7 +1257,7 @@ void TBloqueMotor::AcumulaResultadosMediosBloqueMotor(double TActual,
 
     FResMediosMotor.TiempoSUM += DeltaT;
     FResMediosMotor.Tiempo0 = TActual;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::AcumulaResultadosMediosBloqueMotor "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1408,7 +1371,7 @@ void TBloqueMotor::PrestacionesMotor() {
     std::cout << "INFO:----------------------------------------------"
               << std::endl;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::PrestacionesMotor en el Bloque Engine. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1471,9 +1434,8 @@ void TBloqueMotor::ModeloDeVehiculo(double Time) {
             __units::m_sTokm_h((__units::RPMToRad_s(FRegimen) * FRadioRueda) /
                                (FRelCajaCambios * FRelTrasmision));
       }
-    }
-
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::ModeloDeVehiculo en el Bloque Engine. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1487,7 +1449,7 @@ void TBloqueMotor::ModeloDeVehiculo(double Time) {
 TCilindro *TBloqueMotor::GetCilindro(int i) {
   try {
     return FCilindro[i];
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::GetCilindro en el EngineBlock. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1501,7 +1463,7 @@ TCilindro *TBloqueMotor::GetCilindro(int i) {
 double TBloqueMotor::GetDesfase(int i) {
   try {
     return FDesfase[i];
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::GetCilindro en el EngineBlock. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1531,7 +1493,7 @@ void TBloqueMotor::PutATCAdm(double valor) {
 
     FAjusteTranCalAdm = valor;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::PutATCAdm en el EngineBlock. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1547,7 +1509,7 @@ void TBloqueMotor::PutATCEsc(double valor) {
 
     FAjusteTranCalEsc = valor;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::PutATCEsc en el EngineBlock. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1595,9 +1557,8 @@ void TBloqueMotor::IniciaVarCilindro() {
 
     for (int i = 0; i < FGeom.NCilin; i++) {
       FCilindro[i]->IniciaVariables();
-    }
-
-  } catch (exception &N) {
+    } }
+catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::IniciaVarCilindro en el EngineBlock. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1613,7 +1574,7 @@ double TBloqueMotor::GetComposicionInicial(int i) {
 
     return FComposicionInicial[i];
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TBloqueMotor::GetComposicionInicial en el EngineBlock. "
         << std::endl;
@@ -1630,7 +1591,7 @@ double TBloqueMotor::GetComposicionAtmosfera(int i) {
 
     return FComposicionAtmosfera[i];
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TBloqueMotor::GetComposicionAtmosfera en el EngineBlock. "
         << std::endl;

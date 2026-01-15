@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -35,59 +36,52 @@
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
-//#include <cmath>
+// #include <cmath>
 #include "Globales.h"
 //---------------------------------------------------------------------------
 
 class TControlInyeccion {
-  private:
+private:
+  FILE *FichInyeccion;
 
-	FILE *FichInyeccion;
+  int FNumeroInyecciones;
+  double *FMasaFuel; // Masa de combustible inyectada en cada una de las
+                     // inyecciones realizadas
+  double *FSOI; // Punto de inyeccion para cada una de la inyecciones realizadas
+  double FPrail;          // Presion del common rail
+  double FDiferencia_SOI; // Diferencia entre el angulo de inyeccion de la
+                          // principal y el de la piloto.
 
-	int FNumeroInyecciones;
-	double *FMasaFuel; // Masa de combustible inyectada en cada una de las inyecciones realizadas
-	double *FSOI; // Punto de inyeccion para cada una de la inyecciones realizadas
-	double FPrail;      // Presion del common rail
-	double FDiferencia_SOI; // Diferencia entre el angulo de inyeccion de la principal y el de la piloto.
+  int FNumeroDatos_Prail_Regimen;
+  int FNumeroDatos_Mf_Prail;
+  int FNumeroDatos_Mf;
+  int FNumeroDatos_Regimen;
 
-	int FNumeroDatos_Prail_Regimen;
-	int FNumeroDatos_Mf_Prail;
-	int FNumeroDatos_Mf;
-	int FNumeroDatos_Regimen;
+  double *FVector_Mf_mapa;
+  double *FVector_Mf_mapaPrail;
+  double *FVector_Prail_Regimen_mapa;
+  double *FVector_Regimen_mapa;
 
-	double *FVector_Mf_mapa;
-	double *FVector_Mf_mapaPrail;
-	double *FVector_Prail_Regimen_mapa;
-	double *FVector_Regimen_mapa;
+  double **FMapa_Combustible_Piloto;
+  double **FMapa_SOI_Principal;
+  double **FMapa_SOI_Piloto;
+  double **FMapa_Prail;
 
-	double **FMapa_Combustible_Piloto;
-	double **FMapa_SOI_Principal;
-	double **FMapa_SOI_Piloto;
-	double **FMapa_Prail;
+public:
+  int getNumeroInyecciones() { return FNumeroInyecciones; };
+  double getPresionInyeccion() { return FPrail; };
+  // FUNCIONES PRIVADAS
+  double GetSOI(int i);
 
-  public:
+  double GetMasaFuel(int i);
 
-	int getNumeroInyecciones() {
-		return FNumeroInyecciones;
-	}
-	;
-	double getPresionInyeccion() {
-		return FPrail;
-	}
-	;
-// FUNCIONES PRIVADAS
-	double GetSOI(int i);
+  TControlInyeccion();
 
-	double GetMasaFuel(int i);
+  ~TControlInyeccion();
 
-	TControlInyeccion();
+  void CalculaSistemaInyeccion(double MasaFuel, double Regimen);
 
-	~TControlInyeccion();
-
-	void CalculaSistemaInyeccion(double MasaFuel, double Regimen);
-
-	void LeeDatosEntrada(char *Ruta, FILE *fich);
-
+  void LeeDatosEntrada(const std::string &Ruta, std::istream &fich);
 };
 
 #endif

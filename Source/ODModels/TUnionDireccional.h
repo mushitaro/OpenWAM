@@ -71,7 +71,7 @@ public:
 
   void AsignaCCUnionDireccional();
 
-  void LeeDatosUnionDireccional(const std::string &FileWAM, fpos_t &filepos);
+  void LeeDatosUnionDireccional(std::istream &FileInput);
 
   void CalculoUnionDireccional();
 

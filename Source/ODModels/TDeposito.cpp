@@ -149,18 +149,13 @@ TDeposito::~TDeposito() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TDeposito::LeeDatosGeneralesDepositos(const std::string &FileWAM,
-                                           fpos_t &filepos) {
+void TDeposito::LeeDatosGeneralesDepositos(std::istream &FileInput) {
   try {
     double fracciontotal = 0.;
-
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
-
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
     FMasaEspecie = new double[FNumeroEspecies - FIntEGR];
     for (int i = 0; i < FNumeroEspecies - 1; i++) {
-      fscanf(fich, "%lf ", &FFraccionMasicaEspecie[i]);
+      FileInput >> FFraccionMasicaEspecie[i];
       fracciontotal += FFraccionMasicaEspecie[i];
     }
     if (FHayEGR) {
@@ -185,7 +180,7 @@ void TDeposito::LeeDatosGeneralesDepositos(const std::string &FileWAM,
     }
 
     if (FTipoDeposito != nmDepVolVble) {
-      fscanf(fich, "%lf %lf %lf ", &FVolumen, &FPressure, &FTemperature);
+      FileInput >> FVolumen >> FPressure >> FTemperature;
       if (FCalculoEspecies == nmCalculoCompleto) {
 
         FRMezcla = CalculoCompletoRMezcla(
@@ -216,7 +211,7 @@ void TDeposito::LeeDatosGeneralesDepositos(const std::string &FileWAM,
         FMasaEspecie[j] = FMasa * FFraccionMasicaEspecie[j];
       }
     } else {
-      fscanf(fich, " %lf %lf ", &FPressure, &FTemperature);
+      FileInput >> FPressure >> FTemperature;
       if (FCalculoEspecies == nmCalculoCompleto) {
 
         FRMezcla = CalculoCompletoRMezcla(
@@ -245,11 +240,7 @@ void TDeposito::LeeDatosGeneralesDepositos(const std::string &FileWAM,
         FMasaEspecie[j] = FMasa * FFraccionMasicaEspecie[j];
       }
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::LeeDatosGeneralesDepositos en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -452,7 +443,7 @@ void TDeposito::AsignacionCC(TCondicionContorno **BC, int numCC) {
 
     delete[] CCasignadaUD;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::AsignacionCC en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -479,7 +470,7 @@ double TDeposito::EntalpiaEntrada(double ASonidoE, double VelocidadE,
       ret_val = 0.;
     }
     return ret_val;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito:EntalpiaEntrada en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -510,7 +501,7 @@ void TDeposito::AsignaCompresor(TCompresor *Compressor, int sentido) {
         FCompresorSentido = sentido;
       }
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito:AsignaCompresor en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -547,7 +538,7 @@ void TDeposito::CreaUnionED(int numero, int sentido) {
       FUnionED.push_back(numero);
       FSentidoUED.push_back(sentido);
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito:CreaUnionED en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -608,7 +599,7 @@ void TDeposito::PutNUniones(int value) {
                 << " are already asigned" << std::endl;
       throw Exception("");
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito:PutNUniones en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -638,7 +629,7 @@ void TDeposito::PutUnion(int indice, int valor) {
           << std::endl;
       throw Exception("");
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: PutUnion en el depositito: " << FNumeroDeposito
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -671,7 +662,7 @@ void TDeposito::PutSentidoFlujo(int indice, int valor) {
           << std::endl;
       throw Exception("");
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: PutSentidoFlujo en el depositito: " << FNumeroDeposito
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -704,7 +695,7 @@ void TDeposito::PutNumConductos(int indice, int valor) {
       std::cout << "ERROR: All pipes are already asigned" << std::endl;
       throw Exception("");
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: PutNumConductos en el depositito: " << FNumeroDeposito
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -736,7 +727,7 @@ void TDeposito::PutNumNodos(int indice, int valor) {
       std::cout << "ERROR: All connections are already asigned" << std::endl;
       throw Exception("");
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: PutNumConductos en el deposito: " << FNumeroDeposito
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -766,7 +757,7 @@ void TDeposito::ResultadosInstantaneosDep() {
     if (FResInstantDep.Gamma)
       FResInstantDep.GammaINS = FGamma;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::ResultadosInstantaneosDep en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -797,7 +788,7 @@ void TDeposito::AcumulaResultadosMedios(double Actual) {
 
     FResMediosDep.TiempoSUM += Delta;
     FResMediosDep.Tiempo0 = Actual;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::AcumulaResultadosMedios en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -830,7 +821,7 @@ void TDeposito::ResultadosMediosDep() {
       }
       FResMediosDep.TiempoSUM = 0;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::ResultadosMediosDep en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -841,16 +832,12 @@ void TDeposito::ResultadosMediosDep() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TDeposito::ReadInstantaneousResultsDep(const std::string &FileWAM,
-                                            fpos_t &filepos) {
+void TDeposito::ReadInstantaneousResultsDep(std::istream &FileInput) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResInstantDep.Pressure = true;
@@ -875,10 +862,7 @@ void TDeposito::ReadInstantaneousResultsDep(const std::string &FileWAM,
                   << " does not exist " << std::endl;
       }
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TDeposito::ReadInstantaneousResultsDep en el deposito: "
         << FNumeroDeposito << std::endl;
@@ -890,16 +874,12 @@ void TDeposito::ReadInstantaneousResultsDep(const std::string &FileWAM,
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TDeposito::ReadAverageResultsDep(const std::string &FileWAM,
-                                      fpos_t &filepos) {
+void TDeposito::ReadAverageResultsDep(std::istream &FileInput) {
   int nvars = 0, var = 0;
   try {
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &FNumResMed);
+    FileInput >> FNumResMed;
     for (int i = 0; i < FNumResMed; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResMediosDep.Pressure = true;
@@ -915,10 +895,7 @@ void TDeposito::ReadAverageResultsDep(const std::string &FileWAM,
                   << " does not exist " << std::endl;
       }
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::ReadAverageResultsDep en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -932,7 +909,6 @@ void TDeposito::ReadAverageResultsDep(const std::string &FileWAM,
 void TDeposito::HeaderInstantaneousResultsDep(std::ostream &insoutput,
                                               stEspecies *DatosEspecies) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FResInstantDep.Pressure) {
@@ -968,8 +944,7 @@ void TDeposito::HeaderInstantaneousResultsDep(std::ostream &insoutput,
       insoutput << Label.c_str();
     }
 
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TDeposito::CabeceraResultadosInstaneosDep en el deposito: "
         << FNumeroDeposito << std::endl;
@@ -983,10 +958,8 @@ void TDeposito::HeaderInstantaneousResultsDep(std::ostream &insoutput,
 
 void TDeposito::ImprimeResultadosInstantaneosDep(std::ostream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-
-    if (FResInstantDep.Pressure)
-      insoutput << "\t" << FResInstantDep.PresionINS;
+    // if (FResInstantDep.Pressure)
+    insoutput << "\t" << FResInstantDep.PresionINS;
     if (FResInstantDep.Temperature)
       insoutput << "\t" << FResInstantDep.TemperaturaINS;
     if (FResInstantDep.Volumen)
@@ -1001,8 +974,7 @@ void TDeposito::ImprimeResultadosInstantaneosDep(std::ostream &insoutput) {
     if (FResInstantDep.Gamma)
       insoutput << "\t" << FResInstantDep.GammaINS;
 
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TDeposito::ImprimeResultadosInstaneosDep en el deposito: "
         << FNumeroDeposito << std::endl;
@@ -1017,7 +989,6 @@ void TDeposito::ImprimeResultadosInstantaneosDep(std::ostream &insoutput) {
 void TDeposito::HeaderAverageResultsDep(std::ostream &medoutput,
                                         stEspecies *DatosEspecies) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
     if (FNumResMed > 0) {
       if (FResMediosDep.Pressure) {
@@ -1039,8 +1010,7 @@ void TDeposito::HeaderAverageResultsDep(std::ostream &medoutput,
         }
       }
     }
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::HeaderAverageResultsDep en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1053,20 +1023,18 @@ void TDeposito::HeaderAverageResultsDep(std::ostream &medoutput,
 
 void TDeposito::ImprimeResultadosMediosDep(std::ostream &medoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-    if (FNumResMed > 0) {
-      if (FResMediosDep.Pressure)
-        medoutput << "\t" << FResMediosDep.PresionMED;
-      if (FResMediosDep.Temperature)
-        medoutput << "\t" << FResMediosDep.TemperaturaMED;
-      if (FResMediosDep.FraccionMasicaEspecies) {
-        for (int i = 0; i < FNumeroEspecies - FIntEGR; i++) {
-          medoutput << "\t" << FResMediosDep.FraccionMED[i];
-        }
+    // if (FNumResMed > 0) {
+    if (FResMediosDep.Pressure)
+      medoutput << "\t" << FResMediosDep.PresionMED;
+    if (FResMediosDep.Temperature)
+      medoutput << "\t" << FResMediosDep.TemperaturaMED;
+    if (FResMediosDep.FraccionMasicaEspecies) {
+      for (int i = 0; i < FNumeroEspecies - FIntEGR; i++) {
+        medoutput << "\t" << FResMediosDep.FraccionMED[i];
       }
     }
-    // fclose(fich);
-  } catch (exception &N) {
+
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::ImprimeResultadosMediosDep en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1132,7 +1100,7 @@ double TDeposito::CriterioEstabilidad(double TMinimo) {
 
     MasaFinal += FMasa;
     return MasaFinal;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::CriterioEstabilidad en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1170,7 +1138,7 @@ void TDeposito::SalidaGeneralDep(stEspecies *DatosEspecies) {
       std::cout << std::endl;
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::SalidaGeneralDep en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1184,7 +1152,7 @@ void TDeposito::SalidaGeneralDep(stEspecies *DatosEspecies) {
 TCondicionContorno *TDeposito::GetCCUnionEntreDep(int i) {
   try {
     return FCCUnionEntreDep[i];
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::GetCCUnionEntreDep en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1198,7 +1166,7 @@ TCondicionContorno *TDeposito::GetCCUnionEntreDep(int i) {
 TCondicionContorno *TDeposito::GetCCDeposito(int i) {
   try {
     return FCCDeposito[i];
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::GetCCDeposito en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1231,7 +1199,7 @@ void TDeposito::ActualizaTiempo(double TiempoActual) {
 
     FTime = TiempoActual;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::PutCalculadoPaso en el deposito: "
               << FNumeroDeposito << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1244,7 +1212,7 @@ void TDeposito::ActualizaTiempo(double TiempoActual) {
 double TDeposito::GetFraccionMasicaEspecie(int i) {
   try {
     return FFraccionMasicaEspecie[i];
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TDeposito::GetConcentracionEspecie en la condicion de "
                  "contorno: "
               << FNumeroDeposito << std::endl;

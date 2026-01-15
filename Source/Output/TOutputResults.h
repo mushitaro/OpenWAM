@@ -107,9 +107,12 @@ private:
 
   iVector FParameterSpaceTime;
 
+  std::string FSpaceTimeFilename;
+
   ofstream FileOutPressure;  // !< Pointers to files for space time results.
   ofstream FileOutTemp;      // !< Pointers to files for space time results.
   ofstream FileOutVel;       // !< Pointers to files for space time results.
+  ofstream FileOutDensity;   // !< Pointers to files for space time results.
   ofstream FileOutFlow;      // !< Pointers to files for space time results.
   ofstream FOutYO2;          // !< Pointers to files for space time results.
   ofstream FOutYN2;          // !< Pointers to files for space time results.
@@ -171,8 +174,8 @@ public:
   double GetFControlAngle1() { return FControlAngle1; };
 
   void ReadAverageResults(
-      const std::string &FileWAM, fpos_t &filepos,
-      const std::vector<std::unique_ptr<TTubo>> &Pipe, bool EngineBlock,
+      std::istream &FileInput, const std::vector<std::unique_ptr<TTubo>> &Pipe,
+      bool EngineBlock,
       const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
       const std::vector<std::unique_ptr<TDeposito>> &Plenum,
       const std::vector<std::unique_ptr<TEjeTurbogrupo>> &Axis,
@@ -197,7 +200,7 @@ public:
   void CopyInstananeousResultsToFile(int mode);
 
   void ReadInstantaneousResults(
-      const std::string &FileWAM, fpos_t &filepos,
+      std::istream &FileInput,
       const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
       const std::vector<std::unique_ptr<TDeposito>> &Plenum,
       const std::vector<std::unique_ptr<TTubo>> &Pipe,
@@ -217,14 +220,14 @@ public:
       const std::string &ModelName);
 
   void
-  ReadSpaceTimeResults(const std::string &FileWAM, fpos_t &filepos,
+  ReadSpaceTimeResults(std::istream &FileInput,
                        const std::vector<std::unique_ptr<TTubo>> &Pipe,
                        const std::vector<std::unique_ptr<TBloqueMotor>> &Engine,
                        const std::vector<std::unique_ptr<TDeposito>> &Plenum);
 
   void DoSpaceTimeFiles(int SpeciesNumber);
 
-  void HeaderSpaceTimeResults(double thmax, double grmax, double agincr,
+  void HeaderSpaceTimeResults(bool Header, stEspecies *DatosEspecies,
                               int SpeciesNumber);
 
   void PrintSpaceTimeResults(

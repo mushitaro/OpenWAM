@@ -2,7 +2,8 @@
 ==========================|
  \\   /\ /\   // O pen     | OpenWAM: The Open Source 1D Gas-Dynamic Code
  \\ |  X  | //  W ave     |
- \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica Valencia
+ \\ \/_\/ //   A ction   | CMT-Motores Termicos / Universidad Politecnica
+Valencia
  \\/   \//    M odel    |
  ----------------------------------------------------------------------------------
  License
@@ -37,32 +38,26 @@
 #include "Globales.h"
 
 class TRegimenMotor {
-  private:
+private:
+  FILE *FichRegimen;
+  double FRegimenMotor;
+  double *FTiempo;
+  double *FRegimen;
+  int FNumeroDatos;
 
-	FILE *FichRegimen;
-	double FRegimenMotor;
-	double *FTiempo;
-	double *FRegimen;
-	int FNumeroDatos;
+  // Funcion de interpolacion
+  double xit_(double vizq, double vder, double axid, double xif);
 
-//Funcion de interpolacion
-	double xit_(double vizq, double vder, double axid, double xif);
+public:
+  double getRegimen() { return FRegimenMotor; };
 
-  public:
+  TRegimenMotor();
 
-	double getRegimen() {
-		return FRegimenMotor;
-	}
-	;
+  ~TRegimenMotor();
 
-	TRegimenMotor();
+  void CalculaRegimen(double TiempoActual);
 
-	~TRegimenMotor();
-
-	void CalculaRegimen(double TiempoActual);
-
-	void LeeDatosEntrada(char *Dir, FILE *fich);
-
+  void LeeDatosEntrada(const std::string &Dir, std::istream &fich);
 };
 //---------------------------------------------------------------------------
 #endif

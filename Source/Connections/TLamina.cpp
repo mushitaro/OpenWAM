@@ -144,18 +144,13 @@ TLamina::TLamina(TLamina *Origen, int Valvula) : TTipoValvula(nmLamina) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TLamina::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
-                                int norden, bool HayMotor,
-                                TBloqueMotor *Engine) {
+void TLamina::LeeDatosIniciales(std::istream &FileInput, int norden,
+                                bool HayMotor, TBloqueMotor *Engine) {
   try {
     int tipo = 0, sentido = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
     FNumeroOrden = norden;
 
-    fscanf(fich, "%d %lf %d ", &tipo, &FDiametroRef, &sentido);
+    FileInput >> tipo >> FDiametroRef >> sentido;
     switch (tipo) {
     case 0:
       FTipoLamina = nmLamina0D;
@@ -183,34 +178,29 @@ void TLamina::LeeDatosIniciales(const std::string &FileWAM, fpos_t &filepos,
     }
 
     if (FTipoLamina == nmLamina1D) {
-      fscanf(fich, "%lf %lf %lf %lf ", &FMasa, &FAmortiguamiento, &FRigidez,
-             &FArea);
+      FileInput >> FMasa >> FAmortiguamiento >> FRigidez >> FArea;
     } else if (FTipoLamina == nmLamina2D) {
-      fscanf(fich, "%lf %lf %lf %lf %lf %d %lf %lf ", &FDensidad,
-             &FAmortiguamiento, &FModuloYoung, &FAnchoPetalo, &FEspesor,
-             &FNumPestanyas, &FLongitud, &FLongReal);
+      FileInput >> FDensidad >> FAmortiguamiento >> FModuloYoung >>
+          FAnchoPetalo >> FEspesor >> FNumPestanyas >> FLongitud >> FLongReal;
     }
-    fscanf(fich, "%d %d ", &FNumLevCDE, &FNumLevCDS);
+    FileInput >> FNumLevCDE >> FNumLevCDS;
 
     FLiftCDin.resize(FNumLevCDE);
     FDatosCDEntrada.resize(FNumLevCDE);
     FLiftCDout.resize(FNumLevCDS);
     FDatosCDSalida.resize(FNumLevCDS);
 
-    fscanf(fich, "%lf ", &FIncrLev);
-    fscanf(fich, "%lf %lf ", &FKCDE, &FKCDS);
+    FileInput >> FIncrLev;
+    FileInput >> FKCDE >> FKCDS;
     for (int j = 0; j < FNumLevCDE; ++j) {
       FLiftCDin[j] = (double)j * FIncrLev;
-      fscanf(fich, "%lf ", &FDatosCDEntrada[j]);
+      FileInput >> FDatosCDEntrada[j];
     }
     for (int j = 0; j < FNumLevCDS; ++j) {
       FLiftCDout[j] = (double)j * FIncrLev;
-      fscanf(fich, "%lf ", &FDatosCDSalida[j]);
+      FileInput >> FDatosCDSalida[j];
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosIniciales Lamina" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -319,7 +309,7 @@ void TLamina::CalculaCD(double deltaP, double ttotal) {
     }
     FCDTubVol *= FSectionRatio;
     FCDVolTub *= FSectionRatio;
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CalculaCD Lamina" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -524,25 +514,21 @@ void TLamina::GetCDout(double Time) {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TLamina::LeeDatosGraficas(const std::string &FileWAM, fpos_t &filepos) {
+void TLamina::LeeDatosGraficas(std::istream &FileInput) {
   try {
     int ndv = 0, var = 0;
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
     FGraficasLam = true;
     FGrafLev = false;
-    fscanf(fich, " %d", &ndv);
+    FileInput >> ndv;
     for (int i = 0; i < ndv; i++) {
-      fscanf(fich, " %d", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FGrafLev = true;
         break;
       }
     }
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosGraficas Lamina" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -554,7 +540,6 @@ void TLamina::LeeDatosGraficas(const std::string &FileWAM, fpos_t &filepos) {
 
 void TLamina::CabeceraGraficaINS(stringstream &insoutput, int lam) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
     std::string Label;
 
     if (FGraficasLam) {
@@ -563,8 +548,7 @@ void TLamina::CabeceraGraficaINS(stringstream &insoutput, int lam) {
         insoutput << Label.c_str();
       }
     }
-    // fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: CabeceraGrafica Lamina" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -576,13 +560,10 @@ void TLamina::CabeceraGraficaINS(stringstream &insoutput, int lam) {
 
 void TLamina::ImprimeGraficaINS(stringstream &insoutput) {
   try {
-    // FILE *fich=fopen(FileSALIDA,"a");
-    if (FGraficasLam) {
-      if (FGrafLev)
-        insoutput << "\t" << FLev;
-    }
-    // fclose(fich);
-  } catch (exception &N) {
+    // if (FGraficasLam) {
+    if (FGrafLev)
+      insoutput << "\t" << FLev;
+  } catch (std::exception &N) {
     std::cout << "ERROR: ImprimeGrafica Lamina" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());

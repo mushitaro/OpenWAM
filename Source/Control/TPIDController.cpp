@@ -123,20 +123,15 @@ double TPIDController::Output(double Time) {
   return fOutput_filt;
 }
 
-void TPIDController::LeeController(const std::string &FileWAM,
-                                   fpos_t &filepos) {
+void TPIDController::LeeController(std::istream &FileInput) {
 
   int ctrl = 0;
+  FileInput >> fKP_pos >> fKI_pos >> fKD_pos;
+  FileInput >> fKP_neg >> fKI_neg >> fKD_neg;
 
-  FILE *fich = fopen(FileWAM.c_str(), "r");
-  fsetpos(fich, &filepos);
+  FileInput >> fOutput >> fOutput0 >> fMax_out >> fMin_out;
 
-  fscanf(fich, "%lf %lf %lf ", &fKP_pos, &fKI_pos, &fKD_pos);
-  fscanf(fich, "%lf %lf %lf ", &fKP_neg, &fKI_neg, &fKD_neg);
-
-  fscanf(fich, "%lf %lf %lf %lf ", &fOutput, &fOutput0, &fMax_out, &fMin_out);
-
-  fscanf(fich, "%lf %lf %lf ", &fPeriod, &fDelay, &fGain);
+  FileInput >> fPeriod >> fDelay >> fGain;
 
   fI_ant = fOutput;
   fiact = fOutput;
@@ -146,8 +141,8 @@ void TPIDController::LeeController(const std::string &FileWAM,
 
   int tmp = 0;
 
-  fscanf(fich, "%lf ", &fSetPoint);
-  fscanf(fich, "%d ", &ctrl);
+  FileInput >> fSetPoint;
+  FileInput >> ctrl;
   if (ctrl == 0)
     fSetPointControlled = false;
   else {
@@ -156,10 +151,7 @@ void TPIDController::LeeController(const std::string &FileWAM,
   }
 
   FSensorID.resize(1);
-  fscanf(fich, "%d ", &FSensorID[0]);
-
-  fgetpos(fich, &filepos);
-  fclose(fich);
+  FileInput >> FSensorID[0];
 }
 
 void TPIDController::AsignaObjetos(TSensor **Sensor, TController **Controller) {
@@ -170,17 +162,12 @@ void TPIDController::AsignaObjetos(TSensor **Sensor, TController **Controller) {
     fSetPointController = Controller[fSetPointControllerID - 1];
 }
 
-void TPIDController::LeeResultadosMedControlador(const std::string &FileWAM,
-                                                 fpos_t &filepos) {
+void TPIDController::LeeResultadosMedControlador(std::istream &FileInput) {
   try {
     int nvars = 0, var = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResMediosCtrl.Output = true;
@@ -205,10 +192,7 @@ void TPIDController::LeeResultadosMedControlador(const std::string &FileWAM,
                   << " no implementados " << std::endl;
       }
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TPIDController::LeeResultadosControlador en el controlador "
         << fID << std::endl;
@@ -217,17 +201,12 @@ void TPIDController::LeeResultadosMedControlador(const std::string &FileWAM,
   }
 }
 
-void TPIDController::LeeResultadosInsControlador(const std::string &FileWAM,
-                                                 fpos_t &filepos) {
+void TPIDController::LeeResultadosInsControlador(std::istream &FileInput) {
   try {
     int nvars = 0, var = 0;
-
-    FILE *fich = fopen(FileWAM.c_str(), "r");
-    fsetpos(fich, &filepos);
-
-    fscanf(fich, "%d ", &nvars);
+    FileInput >> nvars;
     for (int i = 0; i < nvars; i++) {
-      fscanf(fich, "%d ", &var);
+      FileInput >> var;
       switch (var) {
       case 0:
         FResInstantCtrl.Output = true;
@@ -252,10 +231,7 @@ void TPIDController::LeeResultadosInsControlador(const std::string &FileWAM,
                   << " no implementados " << std::endl;
       }
     }
-
-    fgetpos(fich, &filepos);
-    fclose(fich);
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::LeeResultadosInsControlador en el "
                  "controlador "
               << fID << std::endl;
@@ -293,7 +269,7 @@ void TPIDController::CabeceraResultadosMedControlador(std::ostream &medoutput) {
       medoutput << Label.c_str();
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::CabeceraResultadosMedControlador en "
                  "el controlador "
               << fID << std::endl;
@@ -330,7 +306,7 @@ void TPIDController::CabeceraResultadosInsControlador(std::ostream &insoutput) {
       Label = "\t" + PutLabel(712) + std::to_string(fID) + PutLabel(901);
       insoutput << Label.c_str();
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::CabeceraResultadosInsControlador en "
                  "el controlador "
               << fID << std::endl;
@@ -361,7 +337,7 @@ void TPIDController::ImprimeResultadosMedControlador(std::ostream &medoutput) {
     if (FResMediosCtrl.Output_filt) {
       medoutput << "\t" << FResMediosCtrl.Output_filtMED;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::ImprimeResultadosMedControlador en el "
                  "controlador "
               << fID << std::endl;
@@ -392,7 +368,7 @@ void TPIDController::ImprimeResultadosInsControlador(std::ostream &insoutput) {
     if (FResInstantCtrl.Output_filt) {
       insoutput << "\t" << FResInstantCtrl.Output_filtINS;
     }
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::CabeceraResultadosInsControlador en "
                  "el controlador "
               << fID << std::endl;
@@ -413,7 +389,7 @@ void TPIDController::IniciaMedias() {
     FResMediosCtrl.TiempoSUM = 0.;
     FResMediosCtrl.Tiempo0 = 0.;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::IniciaMedias en el controlador: "
               << fID << std::endl;
     // std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -456,7 +432,7 @@ void TPIDController::ResultadosMediosController() {
     }
     FResMediosCtrl.TiempoSUM = 0;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::ResultadosMediosController en el eje: "
               << fID << std::endl;
     // std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -492,7 +468,7 @@ void TPIDController::AcumulaResultadosMediosController(double Actual) {
     FResMediosCtrl.TiempoSUM += Delta;
     FResMediosCtrl.Tiempo0 = Actual;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::AcumulaResultadosMediosController en "
                  "el eje: "
               << fID << std::endl;
@@ -516,7 +492,7 @@ void TPIDController::ResultadosInstantController() {
     if (FResInstantCtrl.Output_filt)
       FResInstantCtrl.Output_filtINS = fOutput_filt;
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TPIDController::ResultadosInstantController en el eje "
               << fID << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;

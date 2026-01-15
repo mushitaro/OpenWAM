@@ -131,7 +131,7 @@ public:
 
   void CalculaVenturi();
 
-  void LeeResultadosInstantVenturi(const std::string &FileWAM, fpos_t &filepos);
+  void LeeResultadosInstantVenturi(std::istream &FileInput);
 
   void CabeceraResultadosInstantVenturi(std::ostream &insoutput);
 
@@ -139,7 +139,7 @@ public:
 
   void CalculaResultadosVenturi();
 
-  void ReadAverageResultsVenturi(const std::string &FileWAM, fpos_t &filepos);
+  void ReadAverageResultsVenturi(std::istream &FileInput);
 
   void HeaderAverageResultsVenturi(std::ostream &medoutput);
 
@@ -149,7 +149,7 @@ public:
 
   void ImprimeResultadosMediosVenturi(std::ostream &medoutput);
 
-  void LeeDatosVenturi(const std::string &FileWAM, fpos_t &filepos);
+  void LeeDatosVenturi(std::istream &FileInput);
 
   void AsignaEntradaSalidaLateralCC();
 

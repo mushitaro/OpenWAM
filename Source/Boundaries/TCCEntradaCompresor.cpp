@@ -61,8 +61,7 @@ TCCEntradaCompresor::~TCCEntradaCompresor() { delete[] FTuboExtremo; }
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCEntradaCompresor::ReadBoundaryData(
-    const std::string &FileWAM, fpos_t &filepos, int NumberOfPipes,
+void TCCEntradaCompresor::ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -96,13 +95,13 @@ void TCCEntradaCompresor::ReadBoundaryData(
       i++;
     }
 
-    FILE *fich = fopen(FileWAM.c_str(), "rb");
-    fsetpos(fich, &filepos);
+    
+    
 
-    fscanf(fich, "%d ", &FNumeroCompresor);
+    FileInput >> FNumeroCompresor;
 
-    fgetpos(fich, &filepos);
-    fclose(fich);
+    
+    
 
     // Inicializacion del transporte de especies quimicas.
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
@@ -111,7 +110,7 @@ void TCCEntradaCompresor::ReadBoundaryData(
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCEntradaCompresor::AsignaTubos en la condicion de "
                  "contorno: "
               << FNumeroCC << std::endl;
@@ -128,7 +127,7 @@ void TCCEntradaCompresor::AsignaCompresor(
 
     FCompresor = Compressor[FNumeroCompresor - 1].get();
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCEntradaCompresor::AsignaCompresor en la condicion "
                  "de contorno: "
               << FNumeroCC << std::endl;
@@ -186,7 +185,7 @@ void TCCEntradaCompresor::CalculaCondicionContorno(double Time) {
     // corriente que llega del tubo. Esta sera la composicion del fluido en el
     // compresor. Se actualiza directamente en el compresor.
 
-  } catch (exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCEntradaCompresor::CalculaCondicionContorno en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
