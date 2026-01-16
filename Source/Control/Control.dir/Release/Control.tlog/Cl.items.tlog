@@ -2,5 +2,6 @@ C:\Users\kazuh\OpenWAM\Source\Control\TController.cpp;C:\Users\kazuh\OpenWAM\Sou
 C:\Users\kazuh\OpenWAM\Source\Control\TDecisor.cpp;C:\Users\kazuh\OpenWAM\Source\Control\Control.dir\Release\TDecisor.obj
 C:\Users\kazuh\OpenWAM\Source\Control\TPIDController.cpp;C:\Users\kazuh\OpenWAM\Source\Control\Control.dir\Release\TPIDController.obj
 C:\Users\kazuh\OpenWAM\Source\Control\TSensor.cpp;C:\Users\kazuh\OpenWAM\Source\Control\Control.dir\Release\TSensor.obj
+C:\Users\kazuh\OpenWAM\Source\Control\TTable.cpp;C:\Users\kazuh\OpenWAM\Source\Control\Control.dir\Release\TTable.obj
 C:\Users\kazuh\OpenWAM\Source\Control\TTable1D.cpp;C:\Users\kazuh\OpenWAM\Source\Control\Control.dir\Release\TTable1D.obj
 C:\Users\kazuh\OpenWAM\Source\Control\TGain.cpp;C:\Users\kazuh\OpenWAM\Source\Control\Control.dir\Release\TGain.obj

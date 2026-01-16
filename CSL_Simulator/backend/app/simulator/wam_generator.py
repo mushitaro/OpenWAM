@@ -4,6 +4,17 @@ import math
 import numpy as np
 from ..models import SimConfig, ExhaustLayoutType
 
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional
+
+@dataclass
+class SweepSchedule:
+    duration: float
+    time_points: List[float]
+    rpm_points: List[float]
+    intake_bias_points: List[float]
+    exhaust_bias_points: List[float]
+
 class WAMGenerator:
     def __init__(self, config: SimConfig, output_dir: str):
         self.config = config
@@ -19,6 +30,7 @@ class WAMGenerator:
         # Buffer Lists
         self.wam_lines_pipes = []
         self.wam_lines_plenums = []
+        self.wam_lines_valves = [] 
         self.wam_lines_cons = []
         
         # ID Registries to track topology
@@ -52,11 +64,18 @@ class WAMGenerator:
         # Air: O2=0.233, N2=0.767, Rest=0.0
         # self.species_names order: O2, N2, CO2, H2O, CO, H2, HC, NO, PM, Soot
         # We need 10 values.
+        # self.species_names order: O2, N2, CO2, H2O, CO, H2, HC, NO, PM, Soot
+        # We need 10 values in the list, but if NoEGR, OpenWAM expects 11 values in composition lines?
+        # Actually, if n_species=11, we MUST provide 11 fractions.
         self.species_names = ["O2", "N2", "CO2", "H2O", "CO", "H2", "HC", "NO", "PM", "Soot"]
+        # FIXED: Removed 11th value (0.0). NoEGR mode reads (SpeciesNumber - 1) = 10 values.
         self.air_comp = "0.233 0.767 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0"
         self.air_comp_flag = 1
         self.there_is_egr = 0
         self.egr = self.there_is_egr
+        
+        # DEBUG KEYS
+        print(f"DEBUG: Init Complete. Keys: {list(self.ids.keys())}")
 
     def _add(self, val, comment=""):
         # DEBUG: Suppress comments to isolate parsing issues
@@ -111,49 +130,48 @@ class WAMGenerator:
         # CRITICAL: Do NOT output Delay/Gain for Time Sensor (Type 0, Param 0)
         self.wam_lines.append("0 0")
         
-    def generate_controllers(self, schedule):
-        # Generate TController Block
-        # We use TTable1D (Type 5)
-        times = schedule.get('time', [0.0, 10.0])
-        rpms = schedule.get('rpm', [2000.0, 2000.0])
-        tpss = schedule.get('tps', [1.0, 1.0])
+
+    def _generate_controllers(self, schedule: Optional[SweepSchedule]):
+        if not schedule:
+             self.wam_lines.append("0")
+             return
+
+        # 4 Controllers Total: 1(RPM), 2(Intake), 3(Exhaust), 4(LiftFix)
+        self.wam_lines.append("4")
         
-        num_ctrls = 2
-        self.wam_lines.append(f"{num_ctrls}")
-        
-        # --- Controller 1: RPM (ID 1) ---
-        # Type 5 (Table 1D)
-        self.wam_lines.append("5") 
-        self.wam_lines.append(f"{1}") # ID 1 (Explicit)
-        self.wam_lines.append("0") # FromFile = 0 (Inline)
-        
-        count = len(times)
-        self.wam_lines.append(f"{count}")
-        
-        for t, r in zip(times, rpms):
-            self.wam_lines.append(f"{t:.4f} {r:.2f}")
+        def add_function_controller(cid, time_arr, val_arr):
+            # Output Type 2 (Table1D)
+            # Format: Type(2) FromFile(0) NumPoints X Y ... Period(0) Interp(0) SensorID(1)
+            self.wam_lines.append("2") 
+            self.wam_lines.append("0") # fromfile=0
             
-        self.wam_lines.append("0.01") # Period (Update frequency)
-        self.wam_lines.append("0")    # Linear Interpolation
-        self.wam_lines.append("1")      # Num Sensors assigned
-        self.wam_lines.append("1")    # Input Sensor ID (Time)
-        
-        # --- Controller 2: TPS (ID 2) ---
-        # Type 5 (Table 1D)
-        self.wam_lines.append("5") 
-        
-        self.wam_lines.append("0") # Inline Data
-        self.wam_lines.append(f"{count}")
-        
-        for t, val in zip(times, tpss):
-            # TMariposa uses degrees (0-90)
-            deg = val * 90.0
-            self.wam_lines.append(f"{t:.4f} {deg:.2f}")
+            n = len(time_arr)
+            self.wam_lines.append(f"{n}")
+            for t, v in zip(time_arr, val_arr):
+                self.wam_lines.append(f"{t:.4f} {v:.4f}")
             
-        self.wam_lines.append("0.01") # Period
-        self.wam_lines.append("0")    # Linear Interp
-        self.wam_lines.append("1")      # Num Sensors
-        self.wam_lines.append("1")    # Input Sensor ID (Time)
+            self.wam_lines.append("0") # Period=0
+            self.wam_lines.append("0") # Interp=Linear
+            self.wam_lines.append("1") # SensorID=1 (Time)
+        
+        # 1. RPM Controller (ID 1)
+        add_function_controller(1, schedule.time_points, schedule.rpm_points)
+        
+        # 2. Intake Phase (ID 2)
+        # OpenWAM: Angle = Angle0 + Gap.
+        # Our Logic: Angle = Base - Bias.
+        # So Gap = -Bias.
+        neg_intake = [-x for x in schedule.intake_bias_points]
+        add_function_controller(2, schedule.time_points, neg_intake)
+        
+        # 3. Exhaust Phase (ID 3)
+        neg_exhaust = [-x for x in schedule.exhaust_bias_points]
+        add_function_controller(3, schedule.time_points, neg_exhaust)
+        
+        # 4. Lift Fix (ID 4) - Constant 1.0
+        # Just 2 points spanning duration
+        dur = schedule.duration if schedule.duration > 0 else 10.0
+        add_function_controller(4, [0.0, dur], [1.0, 1.0])
 
     def _generate_output_block(self):
         print("DEBUG: Generating OUTPUT Block")
@@ -167,11 +185,11 @@ class WAMGenerator:
         
         # Engine (ENABLE for simplified Dyno Data)
         # 1 means Enabled. Then it reads Params.
-        self.wam_lines.append("1") 
+        self.wam_lines.append("0") 
         # TBloqueMotor::ReadAverageResultsBloqueMotor
         # Count = 5 vars
         # IDs: 17=RPM, 0=Torque(Net), 12=Power, 18=VE, 24=AFR
-        self.wam_lines.append("5 17 0 12 18 24")
+        # self.wam_lines.append("5 17 0 12 18 24")
         
         self.wam_lines.append("0") # Plenums
         self.wam_lines.append("0 0") # Pipes + param (wamer)
@@ -207,15 +225,105 @@ class WAMGenerator:
         self.wam_lines.append("0")
 
         
-    def generate(self, schedule=None, simplify_exhaust=False) -> str:
-        # Define Schedule (Default if None)
-        if schedule is None:
-            schedule = {
-                'time': [0.0, 10.0],
-                'rpm': [2000.0, 8000.0],
-                'tps': [1.0, 1.0]
-            }
+    def _generate_engine_block(self, schedule: Optional[SweepSchedule]):
+        # Matches TBloqueMotor::LeeMotor Order (OpenWAM v2.2)
+        c = self.config
+        
+        # 1. ACT Usage (0=No, 1=Yes)
+        self._add("0", "ACT=No")
+        
+        # 2. Cylinders
+        self._add(f"{c.engine.cylinders}", "Num Cylinders")
+        
+        # 3. Initial Conditions
+        p_init = 101325.0
+        m_init = 0.0006
+        self._add(f"{c.engine.rpm} {p_init} {m_init}", "Initial: RPM Press Mass")
+        
+        # ImponerComposicionAE (0=False)
+        self._add("0", "Impose Comp AE=0")
+        
+        # FComposicionInicial (Loop N-1)
+        # Split air_comp, take N-1
+        ac_list = self.air_comp.strip().split()
+        to_write = len(ac_list) - 1
+        self._add(" ".join(ac_list[:to_write]), "Initial Composition")
+        
+        # TipoPresionAAE (0=Calc)
+        self._add("0", "Calc AAE Pressure")
+        
+        # 4. Combustion Type (1=MEP)
+        self._add("1", "Combustion=MEP")
+        
+        # 5. Fuel / Dosado
+        self._add("1.0", "Dosado")
+        
+        # 6. Efficiency & Fuel Props
+        self._add("0.98 44000000 750", "Eff LHV Rho")
+        
+        # 7. Ref Pipe
+        self._add("1", "Ref Pipe")
+        
+        # 8. Thermal Params
+        self._add("##VE_PIPE_ID## 450 400", "Temps")
+        
+        # Areas
+        bore = c.engine.geometry.bore / 1000.0
+        area = math.pi * (bore/2.0)**2
+        self._add(f"{area:.6f} {area*1.1:.6f}", "Areas")
+        
+        # Wall Props
+        self._add("0.01 150 2700 900", "Wall Piston")
+        self._add("0.01 150 2700 900", "Wall Head")
+        self._add("0.005 50 7800 500", "Wall Cyl")
+        
+        # Adjustments
+        self._add("1.0 1.0 1000.0 350.0", "Heat Transfer Adj")
+        # Wall Temp Calc
+        self._add("2", "Wall Temp Calc")
+        
+        # 9. Woschni
+        self._add("2.28 0.00324 0.0", "Woschni Params")
+        
+        # 10. Geometry
+        rod = c.engine.geometry.rod_length / 1000.0
+        stroke = c.engine.geometry.stroke / 1000.0
+        cr = c.engine.geometry.compression_ratio
+        geom_line = f"{rod:.4f} {stroke:.4f} {bore:.4f} {cr:.2f} 0.0 0.0 0.0 0.0001 0.8 0.0 0.0 0.0 0.5 0.4 2.1e11 0.0"
+        self._add(geom_line, "Geometry")
+        
+        # 11. Mechanical Losses
+        self._add("0.1 0.0 0.0 0.0", "Mech Losses")
+        
+        # 13. Injection / Heat Release
+        self._add("1", "Num Heat Laws")
+        self._add("1.0 1.0 2000.0", "Heat Law logic")
+        self._add("1", "Num Wiebes")
+        self._add("2.0 6.9 0.0 60.0 -15.0", "Wiebe Params")
+        
+        # 14. Injections Logic
+        self._add("0", "Injection Data Type")
+        
+        # 15. Desfase
+        if c.engine.cylinders > 1:
+            self._add("1", "Firing Order Type")
+            self._add("1 5 3 6 2 4", "Firing Order")
+            
+        # 16. Controllers (Engine Speed)
+        if schedule:
+            self._add(1, "Num Engine Controllers")
+            self._add("0 1", "RPM Control (Type 0) using Controller ID 1")
+        else:
+            self._add(0, "Num Engine Controllers")
+            
+        # 17. Mass Fuel Controller Loop
+        # For each cylinder: NumControllers(int).
+        # We output 0.
+        for i in range(c.engine.cylinders):
+            self._add("0", f"FuelMassCtrl Cyl {i+1}")
 
+    def generate(self, schedule: Optional[SweepSchedule] = None):
+        simplify_exhaust = False
         c = self.config
         
         # 1. Generate Valve Files (using explicit Engine Config)
@@ -227,188 +335,50 @@ class WAMGenerator:
         self._add("2200", "OpenWAM Version") 
         self._add(0, "Independent Simulation")
         # FORCE 1.0 deg Step Size for stability
-        self._add(f"1.0 {c.simulation.duration_cycles}", "dTheta Duration") 
-        self._add(f"{c.environment.ambient_pressure} {c.environment.ambient_temp}", "P_amb T_amb")
+        self._add(f"0.5 {c.simulation.duration_cycles}", "dTheta Duration") 
+        # OpenWAM expects BAR for P_amb
+        p_amb_bar = c.environment.ambient_pressure / 100000.0
+        self._add(f"{p_amb_bar:.5f} {c.environment.ambient_temp}", "P_amb T_amb")
         
         # General Data
         self._add("1 2", "Species=Complete, Gamma=Comp+Temp")
+        
+        # 1. Engine Exists (hayBQ)
         self._add("1", "Engine Exists")
-        # 4T, Steady(0), NoEGR(0) -> "0 0 0"
-        # 4T, Steady(0), NoEGR(0) -> "0 0 0"
+        
+        # 2. Cycle Mode (If EngineExists) (4T, Steady, NoEGR)
         self._add("0 0 0", "Cycle Mode EGR") 
         
-        # Fuel (Before SpeciesNumber!)
+        # 3. Fuel (haycombustible, tipocombustible)
+        # 1 1 = Yes Fuel, Gasoline
         self._add("1 1", "Fuel=Yes Type=Gasoline")
+        
+        # 4. Species Number
+        n_species = len(self.species_names)
+        if self.egr == 0: n_species += 1 # OpenWAM logic: n_species_to_read = SpeciesNumber - IntEGR
+        self._add(f"{n_species}", "Num Species")
+        
+        # 5. Species Names (Consumed by OpenWAM)
+        for s in self.species_names:
+            print(f"DEBUG: Adding Species: {s}")
+            self.wam_lines.append(s)
+        
+        # 6. Atmospheric Composition Data
+        self.wam_lines.append(f"{self.air_comp_flag}")
+        self._add(self.air_comp, "Initial Cyl Composition") # Note: This is read as CompAtmosfera loop
         
         # NOTE: Inertia (CyclesWithoutThemalInertia) and Interval (IntCA/IntStep)
         # Are NOT Read in Steady State Mode (0).
         # And IntStep seems missing from code entirely?
         # So we skip them.
 
-        # OpenWAM logic: n_species_to_read = SpeciesNumber - IntEGR
-        # If EGR=0, IntEGR=1. So we must output SpeciesNumber = len + 1
-        n_species = len(self.species_names)
-        if self.egr == 0:
-             n_species += 1
         
-        print(f"DEBUG: Species Count: {n_species}")
-        self._add(n_species, "SpeciesNumber")
-        for s in self.species_names:
-            print(f"DEBUG: Adding Species: {s}")
-            self.wam_lines.append(s)
+        # --- ENGINE BLOCK ---
         
-        self.wam_lines.append(f"{self.air_comp_flag}")
-        
-        print(f"DEBUG: Air Comp: {self.air_comp}")
-        self._add(self.air_comp, "Atmosphere")
-        
-        # 3. Engine Block
-        self._add(0, "ACT") 
-        
-        # --- MISSING ENGINE GEOMETRY BLOCK (Fixes 20GB Memory Leak) ---
-        # TBloqueMotor::LeeMotor expects:
-        # NCilin, Regimen, PresionInicialRCA, MasaInicial, 
-        # ImponerComposicionAE + Loop, TipoPresionAAE, 
-        # TipoCombustion, (MasaFuel/Dosado), RendComb, PoderCal, DensComb,
-        # NumTuboRendVol,
-        # CiclosSinInercia, Temps x3, Areas x2, Walls x3 (4 vars each)
-        
-        # 1. Cylinder Count
-        self._add(c.engine.cylinders, "NCilin")
-        
-        # 2. Initial Conditions
-        # Rpm, Pres(Pa), Mass(kg)
-        # Mass: V_disp * rho ~ 0.0005 * 1.2 ~ 0.0006. Use 0.001 safe.
-        self._add(f"2000.0 {c.environment.ambient_pressure} 0.001", "RPM P_init M_init")
-        
-        # 4. Impose Composition (AE) and Flag
-        # CRITICAL ALIGNMENT: Read BEFORE Initial Composition Loop (LeeMotor Line 182)
-        self._add("0", "Impose Comp AE") 
-        
-        # 3. Initial Composition
-        # Loop 10 species.
-        print(f"DEBUG: Air Comp: {self.air_comp}")
-        self._add(self.air_comp, "Initial Cyl Composition")
-        
-        # 4. AAE Pressure Type
-        # 0 = Calculated (P_exhaust)
-        self._add("0", "AAE Pressure Type (0=Calc)")
-        
-        # 5. Combustion Type
-        # 0 = Diesel(MEC), 1 = Gasoline(MEP)
-        self._add("1", "Combustion Type (1=MEP)")
-        
-        # 6. Fuel / Equivalence Ratio
-        # For MEP, reads Dosado (Equivalence Ratio).
-        self._add("1.0", "Dosado (Stoichiometric)")
-        
-        # 7. Efficiency & Fuel Props
-        # Rend, LHV(J/kg), Dens(kg/m3)
-        self._add("0.98 44000000 750", "Eff LHV Rho_fuel")
-        
-        # 8. Ref Pipe for Vol Eff
-        # MUST be > 0. Pipe[ID-1]. If 0 -> Pipe[-1] -> Crash.
-        self._add("1", "Ref Pipe (1=First Pipe)")
-        
-        # 9. Thermal Parameters
-        # Temps: Piston, Head, Cylinder (K)
-        self._add("500 450 400", "Temps: Piston Head Cyl")
-        
-        # Areas (m2): Piston, Head
-        bore = c.engine.geometry.bore / 1000.0
-        area = math.pi * (bore/2.0)**2
-        self._add(f"{area:.6f} {area*1.1:.6f}", "Areas: Piston Head")
-        
-        # Wall Properties: Thickness, Cond, Dens, Cp
-        # Piston (Alu)
-        self._add("0.01 150 2700 900", "Wall Piston")
-        # Head (Alu)
-        self._add("0.01 150 2700 900", "Wall Head")
-        # Cylinder (Iron/Steel)
-        self._add("0.005 50 7800 500", "Wall Cylinder")
+        # --- ENGINE BLOCK ---
+        self._generate_engine_block(schedule)
 
-        # 9b. Heat Transfer Adjustments (4 vars)
-        # LeeMotor Line 257: AdjustAdm, AdjustEsc, MaxTorque, CoolantTemp
-        self._add("1.0 1.0 1000.0 350.0", "Heat Transfer Adjustments")
-        
-        # 9c. Wall Temp Calculation Type (1 var)
-        # LeeMotor Line 260: CalculoTempPared
-        self._add("2", "Wall Temp Calc (2=Fixed)")
-
-        # 10. Heat Transfer Model (Woschni/Annand)
-        # LeeMotor Line 276: cw1, cw2, xpe (Woschni)
-        self._add("2.28 0.00324 0.0", "Woschni pw1 pw2 pw3")
-        
-        # 11. Geometry (16 vars)
-        # LeeMotor Line 267:
-        # Rod, Stroke, Bore, CR, BowlD, BowlH, DistValv, BlowByA, BlowByCD, 
-        # Eccentricity, PinD, CrownH, RodMass, PistonMass, ModElasticity, CoefDef
-        rod = c.engine.geometry.rod_length / 1000.0
-        stroke = c.engine.geometry.stroke / 1000.0
-        bore = c.engine.geometry.bore / 1000.0
-        cr = c.engine.geometry.compression_ratio
-        
-        # Default geometry values
-        geo_line = f"{rod:.4f} {stroke:.4f} {bore:.4f} {cr:.2f} " \
-                   f"0.0 0.0 0.0 0.0001 0.8 " \
-                   f"0.0 0.02 0.03 " \
-                   f"0.6 0.4 " \
-                   f"210000000000.0 0.0" # Steel Modulus (Pa)
-                   
-        self._add(geo_line, "Geometry: Rod Stroke Bore CR ... (16 vars)")
-        
-        # 12. Mechanical Losses (4 vars)
-        # LeeMotor Line 294: Coef0, Coef1, Coef2, Coef3 (Friction Mean Effective Pressure?)
-        # Fmep = c0 + c1*n + c2*n^2...
-        self._add("0.1 0.0 0.0 0.0", "Mechanical Losses Coeffs")
-        
-        # 13. Vehicle Model (Only if Transitorio)
-        # Skipped because we use Independent Simulation (Type 0)
-        
-        # 14. Burn Laws (Since ACT=0)
-        # LeeMotor Line 403: Num Burn Laws
-        self._add("1", "Num Burn Laws")
-        # Line 405: ma mf n
-        self._add("1.0 1.0 2000.0", "Ref: ma mf rpm") 
-        # Line 413: Num Wiebes
-        self._add("1", "Num Wiebes")
-        # Line 415: m C Beta IncAlpha Alpha0
-        self._add("2.0 6.9 0.0 60.0 -15.0", "Wiebe: m C Beta IncAlpha Alpha0")
-
-        # 15. Injection Data (Line 411)
-        # Type 0 (None)
-        self._add("0", "Injection Data Type (0=None)")
-        
-        # 16. Cylinder Creation (Desfase)
-        # Left for next block...
-
-        
-        # 16. Cylinder Creation (Phasing)
-        if c.engine.cylinders > 1:
-            # 1 = Imposed (Evenly spaced)
-            self._add("1", "Phasing Type (1=Imposed)")
-            # Firing Order for Inline 6: 1-5-3-6-2-4
-            # OpenWAM expects Cylinder IDs in firing order?
-            # LeeMotor Line 498: fscanf(fich, "%d ", &cil);
-            # FDesfase[cil-1] = ...
-            firing_order = "1 5 3 6 2 4"
-            self._add(firing_order, "Firing Order")
-        else:
-            # If 1 cylinder, logic is skipped in LeeMotor (Line 507)
-            pass
-
-        self._add(0, "Num Engine Controllers")
-        # Param 0 = RPM Controller (nmEngSpeed)
-        # self._add("0 1", "RPM Control (Type 0) using Controller ID 1")
-
-        # Cylinder Controllers (usually 0)
-        for i in range(c.engine.cylinders):
-            self._add(0, f"Cyl {i+1} Controllers")
-            
-        print("DEBUG: Checkpoint 2 - Topology Start")
-
-        # 4. Topology Generation
-        # Reset counters
+        # --- RESET STATE (For reuse) ---
         self.pipe_counter = 1
         self.plenum_counter = 1
         self.valve_counter = 1
@@ -418,36 +388,63 @@ class WAMGenerator:
         self.wam_lines_cons = []
         self.pipes = {}
         self.plenum_ids = set()
-        # Keep global IDs dict
         self.valves_intake = []
         self.valves_exhaust = []
         self.throttle_valves = []
-        self.ids = {"runners": [], "headers": [], "plenums": {}, "throttle_nodes": []}
         
-        # --- INTAKE SYSTEM ---
-        self._generate_intake(c)
+        # Reset IDs with CORRECT KEYS
+        self.ids = {
+            "plenum_intake": None,
+            "runners": [],
+            "itbs": [],
+            "cylinders": [],
+            "headers": [],
+            "exhaust_nodes": {}
+        }
         
-        # --- EXHAUST SYSTEM ---
-        if simplify_exhaust:
-            self._generate_simplified_exhaust(c)
+        # --- TOPOLOGY ---
+        print(f"DEBUG: Checkpoint 2 - Topology Start")
+        # Verify Headers
+        if c.engine.cylinders == 6:
+            # Assume S54 Split Header (3-into-1 x2)
+            self._generate_intake(c)
+            # Fallback to full exhaust if split logic missing
+            self._generate_full_exhaust(c) 
         else:
+            self._generate_intake(c) # Assume Intake is standard
             self._generate_full_exhaust(c)
             
         # --- FOOTER ---
         self._generate_footer(c, schedule)
         
-        # --- SENSORS & CONTROLLERS ---
-        self.generate_sensors()
-        self.generate_controllers(schedule)
-
-        # --- OUTPUT ---
-        self._generate_output_block()
+        if 'plenum_intake' not in self.ids: self.ids['plenum_intake'] = None
         
+        # --- RESOLVE PLACEHOLDERS ---
+        # Resolve ##VE_PIPE_ID##
+        # Use first runner pipe. If unavailable, use intake plenum pipe (if exists).
+        ve_pipe = 1
+        if self.ids['runners'] and len(self.ids['runners']) > 0:
+            ve_pipe = self.ids['runners'][0]
+        elif self.ids['plenum_intake']:
+            ve_pipe = self.ids['plenum_intake'] # Use plenum index? No, must be pipe? 
+            # wam_generator does not treat plenums as pipes unless it's a pipe-plenum?
+            # Actually runners are pipes.
+            pass
+            
+        final_wam = "\n".join(self.wam_lines)
+        if "##VE_PIPE_ID##" in final_wam:
+             print(f"DEBUG: Resolving ##VE_PIPE_ID## to {ve_pipe}")
+             final_wam = final_wam.replace("##VE_PIPE_ID##", str(ve_pipe))
+             
         print(f"DEBUG: generate() returning. Lines: {len(self.wam_lines)}")
-        return "\n".join(self.wam_lines)
+        return final_wam
 
     def _generate_intake(self, c):
-        print("DEBUG: Generating Intake")
+        print(f"DEBUG: Generate Intake. Keys: {list(self.ids.keys())}")
+        if 'itbs' not in self.ids: 
+            print("WARNING: 'itbs' key missing. Re-initializing.")
+            self.ids['itbs'] = []
+        if 'plenum_intake' not in self.ids: self.ids['plenum_intake'] = None
         # 1. Ambient Plenum
         amb_in_id = self.plenum_counter; self.plenum_counter += 1
         self._add_plenum(amb_in_id, "Ambient_Intake", 1000.0, 300, ptype=0) # Type 0 = Constant Volume
@@ -472,7 +469,7 @@ class WAMGenerator:
         # Plenum
         plenum_id = self.plenum_counter; self.plenum_counter += 1
         self._add_plenum(plenum_id, "Plenum_Main", c.intake.plenum_vol/1000.0, 313)
-        self.ids['plenums']['main'] = plenum_id
+        self.ids['plenum_intake'] = plenum_id
         
         cid_plenum_in = self.connection_counter
         self._add_con_plenum_pipe_v2(plenum_id, duct_id, 1) # Duct End -> Plenum
@@ -500,7 +497,7 @@ class WAMGenerator:
             
             # Port Split (Small Plenum)
             split_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(split_plenum_id, f"Split_Plenum_{cyl_idx}", 0.0001, 313)
+            self._add_plenum(split_plenum_id, f"Split_Plenum_{cyl_idx}", 0.002, 313)
             
             # Connection Runner END -> Split Plenum
             cid_split = self.connection_counter
@@ -514,8 +511,7 @@ class WAMGenerator:
             self._add_pipe(runner_id, f"Runner_{cyl_idx}", total_len,
                            r_dia_max_start, r_dia_max_end, 313,
                            cid_run_start, cid_split) 
-            
-            self.ids['throttle_nodes'].append(vid_throttle) 
+            self.ids['itbs'].append(vid_throttle)
                            
             # Port Pipes (2 per cyl)
             port_len_in = c.engine.head.intake_port.length / 1000.0
@@ -581,7 +577,7 @@ class WAMGenerator:
             
             # A. Merge Plenum
             merge_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(merge_plenum_id, f"Exh_Merge_Plenum_{cyl_idx}", 0.0001, 800)
+            self._add_plenum(merge_plenum_id, f"Exh_Merge_Plenum_{cyl_idx}", 0.002, 800)
 
             # B. Exhaust Ports
             for v in range(2):
@@ -683,7 +679,7 @@ class WAMGenerator:
         
         if c.exhaust.section2.layout == "Single":
             merge_plenum = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(merge_plenum, "Y_Merge", 0.001, 500)
+            self._add_plenum(merge_plenum, "Y_Merge", 0.005, 500)
             
             p_adp1 = self.pipe_counter; self.pipe_counter += 1
             p_adp2 = self.pipe_counter; self.pipe_counter += 1
@@ -716,7 +712,7 @@ class WAMGenerator:
             p_main = self.pipe_counter; self.pipe_counter += 1
             c_main_start = self._connect_from_prev(curr_node, p_main)
             split_plenum = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(split_plenum, "Y_Split", 0.001, 400)
+            self._add_plenum(split_plenum, "Y_Split", 0.005, 400)
             c_main_end = self.connection_counter; self._add_con_plenum_pipe_v2(split_plenum, p_main, 1)
             
             self._add_pipe(p_main, "Sec2_Main", main_len, base_dia, base_dia, 450, c_main_start, c_main_end)
@@ -794,15 +790,25 @@ class WAMGenerator:
         self.wam_lines.extend(self.wam_lines_pipes)
         
         # Valves
+        control_ids = None
+        if schedule:
+            # Checkpoint: Disable VVT to debug crash
+            # Define IDs: RPM=1 (Engine), Intake=2, Exhaust=3, LiftFix=4
+            # control_ids = {'intake': 2, 'exhaust': 3, 'lift_fix': 4}
+            pass
+            
         total_valves = 25 + len(self.throttle_valves)
         self.wam_lines.append(f"{total_valves}")
-        for i in range(12): self._add_valve_def(i+1, "intake.vlv", c.engine.head.intake_valve.diameter/1000.0)
-        for i in range(12): self._add_valve_def(i+13, "exhaust.vlv", c.engine.head.exhaust_valve.diameter/1000.0)
+        for i in range(12): self._add_valve_def(i+1, "intake.vlv", c.engine.head.intake_valve.diameter/1000.0, control_ids)
+        for i in range(12): self._add_valve_def(i+13, "exhaust.vlv", c.engine.head.exhaust_valve.diameter/1000.0, control_ids)
         self._add_valve_fixed_cd(25, 1.0, 1.0)
         
         for vid in self.throttle_valves:
             dia = c.intake.bellmouth.diameter/1000.0
             self._add_valve_throttle_mariposa(vid, dia, 2)
+            
+        # Append Buffered Valves
+        self.wam_lines.extend(self.wam_lines_valves)
             
         # Plenums
         # After NumberOfPlenums, C++ expects 3 WAMer params: numeroturbinas, numeroventuris, numerounionesdireccionales
@@ -827,8 +833,8 @@ class WAMGenerator:
         # Sensors: Num=1. Type=0(Time) Param=0. Delay=0.0 Gain=1.0
         self.wam_lines.append("1") 
         self.wam_lines.append("0 0 0.0 1.0")
-        # Controllers: Num=0 (DISABLED)
-        self.wam_lines.append("0")
+        # Call controller Generation
+        self._generate_controllers(schedule)
         # Output block is generated separately
 
     # --- HELPERS (Same as before) ---
@@ -852,26 +858,29 @@ class WAMGenerator:
         }
 
     def _finalize_pipes(self):
+        # Explicitly rebuild pipe lines to prevent corruption
         sorted_pids = sorted(self.pipes.keys())
         for pid in sorted_pids:
             p = self.pipes[pid]
-            # OpenWAM requires 1-based Node IDs (it subtracts 1)
-            self.wam_lines_pipes.append(f"{p['left_node'] + 1} {p['right_node'] + 1} 1 1 ")
-            self.wam_lines_pipes.append(f"{p['friction']} ") 
-            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} 101325.0 0.0 ")
-            self.wam_lines_pipes.append(f"1 1.0 1.0 ") 
-            self.wam_lines_pipes.append(f"{self.air_comp} ")
-            # Mallado 0.01, ThermalModel 2 (Constant Temp) -> Fixes 0-layer crash
-            self.wam_lines_pipes.append(f"0.01 2 ") 
-            # Fix: Method must be ints. 0(LW) 1(FCT) 0(DDNAD) 0.8(Courant)
-            self.wam_lines_pipes.append("0 1 0 0.8 ") 
-            self.wam_lines_pipes.append(f"{p['d_start']} ")
-            self.wam_lines_pipes.append(f"{p['length']} {p['d_end']} ")
-            # If Tctpt=2 (Constant), NO thermal data is read.
-            # dp_mm = (p['length'] * 1000.0) / 5.0
-            # dp_mm = max(5.0, min(dp_mm, 50.0))
-            # self.wam_lines_pipes.append(f"{dp_mm:.2f} 0.8 0 ")
-            # self.wam_lines_pipes.append("0 ")
+            # OpenWAM requires 1-based Node IDs (it matches FNumeroCC = Index + 1)
+            # Line 1: Connectivity (N1 N2 NCells NumDucts)
+            self.wam_lines_pipes.append(f"{p['left_node'] + 1} {p['right_node'] + 1} 1 1")
+            # Line 2: Friction
+            self.wam_lines_pipes.append(f"{p['friction']}") 
+            # Line 3: Wall Temp
+            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} 1.01325 0.0")
+            # Line 4: Multipliers
+            self.wam_lines_pipes.append(f"1 1.0 1.0") 
+            # Line 5: Composition
+            self.wam_lines_pipes.append(f"{self.air_comp}")
+            # Line 6: Mesh & Thermal Model
+            self.wam_lines_pipes.append(f"0.05 2") 
+            # Line 7: Method (TVD=2, Courant=0.8)
+            self.wam_lines_pipes.append(f"2 0.8") 
+            # Line 8: Start Diameter
+            self.wam_lines_pipes.append(f"{p['d_start']}")
+            # Line 9: Length & End Diameter
+            self.wam_lines_pipes.append(f"{p['length']} {p['d_end']}")
             
     def _validate_valve_config(self, valve_conf, bias=0.0):
         if abs(bias) > 40.0: pass 
@@ -888,79 +897,124 @@ class WAMGenerator:
             val = 1.0 - ((3 * t**2) - (2 * t**3))
         return max_lift * val
 
-    def _add_valve_def(self, vid, file, dia):
+    def _add_valve_def(self, vid, file, dia, control_ids: Optional[Dict[str, int]] = None):
         is_intake = "intake" in file
         head_conf = self.config.engine.head
         valve_conf = head_conf.intake_valve if is_intake else head_conf.exhaust_valve
         base_open_intake = 350.0 
         base_open_exhaust = 130.0
         vanos_bias = 0.0
-        if is_intake:
-            vanos_bias = self.config.engine.vanos_intake_bias
-            self._validate_valve_config(valve_conf, vanos_bias)
-            open_angle = base_open_intake - vanos_bias
+        
+        # If controlled, we don't apply static bias here (Controller handles it dynamically)
+        # BUT, standard OpenWAM logic adds "Angle0" + Gap.
+        # Angle0 usually comes from 'open_angle' in file.
+        # So we should probably set Angle0 to Base?
+        # If static (no control):
+        if not control_ids:
+            if is_intake:
+                vanos_bias = self.config.engine.vanos_intake_bias
+                self._validate_valve_config(valve_conf, vanos_bias)
+                open_angle = base_open_intake - vanos_bias
+            else:
+                vanos_bias = self.config.engine.vanos_exhaust_bias
+                self._validate_valve_config(valve_conf, vanos_bias)
+                open_angle = base_open_exhaust - vanos_bias
         else:
-            open_angle = base_open_exhaust
+             # Simulation with control: Set Base Angle. Controller outputs Bias (Gap).
+             # open_angle = Angle0
+             open_angle = base_open_intake if is_intake else base_open_exhaust
             
-        self.wam_lines.append("1") 
-        num_lev = 37 
-        incr_ang = 5.0
-        self.wam_lines.append(f"{dia} {num_lev} {incr_ang} {open_angle:.2f} {dia} 0.0")
+        self.wam_lines_valves.append("1") 
+        # Dynamic Duration Logic
+        step = 5.0
+        duration = valve_conf.duration
+        num_lev = int(duration / step) + 1
+        
+        # Ensure we cover the full duration
+        actual_duration = (num_lev - 1) * step
+        
+        self.wam_lines_valves.append(f"{dia} {num_lev} {step} {open_angle:.2f} {dia} 0.0")
         
         lifts = []
         max_lift_m = valve_conf.max_lift / 1000.0
         for i in range(num_lev):
-            progress = (i * 5.0) / 180.0
+            progress = i / (num_lev - 1)
             l = self._calculate_lift_polynomial(progress, max_lift_m)
             lifts.append(f"{l:.5f}")
-        self.wam_lines.append(" ".join(lifts))
-        self.wam_lines.append("10 0.0011") 
+        self.wam_lines_valves.append(" ".join(lifts))
+        self.wam_lines_valves.append("10 0.0011") 
         flow_scalar = head_conf.port_flow_coeff
         base_cd = 0.6 * flow_scalar
         cd_vals = [f"{base_cd:.3f}"] * 10
-        self.wam_lines.append(" ".join(cd_vals))
-        self.wam_lines.append(" ".join(cd_vals))
+        self.wam_lines_valves.append(" ".join(cd_vals))
+        self.wam_lines_valves.append(" ".join(cd_vals))
         swirl_vals = ["0.0"] * 10
-        self.wam_lines.append(" ".join(swirl_vals))
-        self.wam_lines.append("1") 
-        self.wam_lines.append("1.0") 
-        self.wam_lines.append("0")
+        self.wam_lines_valves.append(" ".join(swirl_vals))
+        self.wam_lines_valves.append("1") 
+        self.wam_lines_valves.append("1.0") 
+        
+        # CONTROLLERS (Swapped Flag Workaround)
+        if control_ids:
+            # Check if this valve type has a controller assigned
+            ctrl_id = control_ids.get('intake' if is_intake else 'exhaust')
+            lift_fix_id = control_ids.get('lift_fix')
+            
+            if ctrl_id and lift_fix_id:
+                # 2 Controllers:
+                # 0 -> Phase (Timing) Controller ID (Sets Lift=True)
+                # 1 -> Lift (Multiplier) Controller ID (Sets Timing=True)
+                self.wam_lines_valves.append("2")
+                self.wam_lines_valves.append(f"0 {ctrl_id}")
+                self.wam_lines_valves.append(f"1 {lift_fix_id}")
+            else:
+                self.wam_lines_valves.append("0")
+        else:
+            self.wam_lines_valves.append("0")
 
     def _add_valve_fixed_cd(self, vid, cd_in, cd_out):
         # Type 0: TCDFijo (Fixed Discharge Coefficient)
         # Format: CDEntrada CDSalida ActivaDiamRef(0/1) [DiamRef if 1]
-        self.wam_lines.append("0")
-        self.wam_lines.append(f"{cd_in} {cd_out} 0")  # CD_in, CD_out, no ref diameter
+        self.wam_lines_valves.append("0")
+        self.wam_lines_valves.append(f"{cd_in} {cd_out} 0")  # CD_in, CD_out, no ref diameter
 
     def _add_valve_throttle_mariposa(self, vid, dia, ctrl_id):
         # Type 10: TMariposa
-        self.wam_lines.append("10") 
+        self.wam_lines_valves.append("10") 
         # Header: NumPoints RefDiameter
-        self.wam_lines.append(f"10 {dia:.5f}")
+        self.wam_lines_valves.append(f"10 {dia:.5f}")
         
         # Points: Angle(deg) CdIn CdOut
         for i in range(10):
             ang = i * 10.0 
             cd = 0.65 * (ang / 90.0)
             if cd < 0.01: cd = 0.0 
-            self.wam_lines.append(f"{ang:.1f} {cd:.3f} {cd:.3f}")
+            self.wam_lines_valves.append(f"{ang:.1f} {cd:.3f} {cd:.3f}")
             
         # Initial State: Lift(Angle) - Fixed 90.0 (WOT)
-        self.wam_lines.append("90.0")
+        self.wam_lines_valves.append("90.0")
         
         # Controlled: 0 = No
-        self.wam_lines.append("0")
+        self.wam_lines_valves.append("0")
         # Params: Skipped if Controlled=0
 
     def _add_plenum(self, plid, label, vol, wall_temp, ptype=0):
-        self.wam_lines_plenums.append(f"{ptype}") 
+        # Type 0: Constant Volume
+        
+        # BRUTE FORCE STABILITY: Minimum 100 Liters
+        vol = max(vol, 0.1)
+        
+        self.wam_lines_plenums.append(f"{ptype}")
         self.wam_lines_plenums.append(self.air_comp)
+        
         temp_c = wall_temp - 273.15
-        self.wam_lines_plenums.append(f"{vol:.5f} 101325 {temp_c:.2f}")
+        # Original format: Vol P T
+        self.wam_lines_plenums.append(f"{vol:.5f} 1.01325 {temp_c:.2f}")
+        
         self.plenum_ids.add(plid)
 
     def _add_con_plenum_valve_pipe_v2(self, plenum_id, pipe_id, pipe_end, valve_id):
-        # Type 11 (TCCDeposito) reads: numid, plenum_id, then quevalv (valve index)
+        # Type 11 (TCCDeposito) reads: numid, plenum_id. 
+        # THEN TOpenWAM::ReadConnections reads 'quevalv' (Valve Index).
         self.wam_lines_cons.append("11")
         self.wam_lines_cons.append(f"0 {plenum_id}")
         self.wam_lines_cons.append(f"{valve_id}")  # Valve index (1-based)
@@ -975,8 +1029,8 @@ class WAMGenerator:
         self.connection_counter += 1
 
     def _add_con_plenum_pipe_v2(self, plid, pid, end_idx):
-        # Type 11 (TCCDeposito) reads: numid, plenum_id, then quevalv (valve index)
-        # For connections without explicit valve, use valve 25 (first fixed CD valve)
+        # Type 11 (TCCDeposito) reads: numid, plenum_id.
+        # THEN TOpenWAM::ReadConnections reads 'quevalv' (Valve Index).
         self.wam_lines_cons.append("11")
         self.wam_lines_cons.append(f"0 {plid}")
         self.wam_lines_cons.append("25")  # Fixed CD valve index (valve #25)

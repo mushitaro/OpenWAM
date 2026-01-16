@@ -1,6 +1,6 @@
 ^C:\USERS\KAZUH\OPENWAM\SOURCE\ENGINE\CMAKELISTS.TXT
 setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM -BC:/Users/kazuh/OpenWAM --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Engine/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM/Source -BC:/Users/kazuh/OpenWAM/Source --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Engine/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

@@ -93,6 +93,7 @@ class EngineConfig(BaseModel):
     combustion: CombustionConfig = CombustionConfig()
     heat_transfer: HeatTransferConfig = HeatTransferConfig()
     vanos_intake_bias: float = 0.0 # deg
+    vanos_exhaust_bias: float = 0.0 # deg
 
 # 3. Exhaust System (Modular Toplogy)
 class HeaderConfig(BaseModel):

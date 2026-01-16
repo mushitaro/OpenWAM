@@ -22,7 +22,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{8F345698-3F54-3D28-8246-8C6CF491A6CD}</ProjectGuid>
+    <ProjectGuid>{046F62B8-0C09-34A9-A405-A075FF8FB42A}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
     <Platform>x64</Platform>
@@ -59,19 +59,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\kazuh\OpenWAM\lib\Debug\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\kazuh\OpenWAM\Source\Control\Debug\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Control.dir\Debug\</IntDir>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Control</TargetName>
     <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\kazuh\OpenWAM\lib\Release\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\kazuh\OpenWAM\Source\Control\Release\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Control.dir\Release\</IntDir>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Control</TargetName>
     <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\kazuh\OpenWAM\lib\MinSizeRel\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\kazuh\OpenWAM\Source\Control\MinSizeRel\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Control.dir\MinSizeRel\</IntDir>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Control</TargetName>
     <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.lib</TargetExt>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\kazuh\OpenWAM\lib\RelWithDebInfo\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\kazuh\OpenWAM\Source\Control\RelWithDebInfo\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Control.dir\RelWithDebInfo\</IntDir>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Control</TargetName>
     <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.lib</TargetExt>
@@ -84,9 +84,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
-      <LanguageStandard>stdcpp14</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
-      <OpenMPSupport>true</OpenMPSupport>
       <Optimization>Disabled</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -94,12 +92,12 @@
       <SupportJustMyCode></SupportJustMyCode>
       <UseFullPaths>false</UseFullPaths>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;WITH_OPENMP;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;WITH_OPENMP;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\kazuh\OpenWAM\Source\1DPipes;C:\Users\kazuh\OpenWAM\Source\Act;C:\Users\kazuh\OpenWAM\Source\Boundaries;C:\Users\kazuh\OpenWAM\Source\Concentric Pipe;C:\Users\kazuh\OpenWAM\Source\Connections;C:\Users\kazuh\OpenWAM\Source\Control;C:\Users\kazuh\OpenWAM\Source\DPF;C:\Users\kazuh\OpenWAM\Source\Engine;C:\Users\kazuh\OpenWAM\Source\Extern;C:\Users\kazuh\OpenWAM\Source\Includes;C:\Users\kazuh\OpenWAM\Source\Labels;C:\Users\kazuh\OpenWAM\Source\Math_wam;C:\Users\kazuh\OpenWAM\Source\ODModels;C:\Users\kazuh\OpenWAM\Source\Output;C:\Users\kazuh\OpenWAM\Source\Turbocompressor;C:\Users\kazuh\OpenWAM\Source\Wrappers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
@@ -121,9 +119,7 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
-      <LanguageStandard>stdcpp14</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
-      <OpenMPSupport>true</OpenMPSupport>
       <Optimization>MaxSpeed</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -131,14 +127,14 @@
       <SupportJustMyCode></SupportJustMyCode>
       <UseFullPaths>false</UseFullPaths>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;WITH_OPENMP;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <DebugInformationFormat>
       </DebugInformationFormat>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;WITH_OPENMP;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\kazuh\OpenWAM\Source\1DPipes;C:\Users\kazuh\OpenWAM\Source\Act;C:\Users\kazuh\OpenWAM\Source\Boundaries;C:\Users\kazuh\OpenWAM\Source\Concentric Pipe;C:\Users\kazuh\OpenWAM\Source\Connections;C:\Users\kazuh\OpenWAM\Source\Control;C:\Users\kazuh\OpenWAM\Source\DPF;C:\Users\kazuh\OpenWAM\Source\Engine;C:\Users\kazuh\OpenWAM\Source\Extern;C:\Users\kazuh\OpenWAM\Source\Includes;C:\Users\kazuh\OpenWAM\Source\Labels;C:\Users\kazuh\OpenWAM\Source\Math_wam;C:\Users\kazuh\OpenWAM\Source\ODModels;C:\Users\kazuh\OpenWAM\Source\Output;C:\Users\kazuh\OpenWAM\Source\Turbocompressor;C:\Users\kazuh\OpenWAM\Source\Wrappers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
@@ -160,9 +156,7 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <LanguageStandard>stdcpp14</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
-      <OpenMPSupport>true</OpenMPSupport>
       <Optimization>MinSpace</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -170,14 +164,14 @@
       <SupportJustMyCode></SupportJustMyCode>
       <UseFullPaths>false</UseFullPaths>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;WITH_OPENMP;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <DebugInformationFormat>
       </DebugInformationFormat>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;WITH_OPENMP;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\kazuh\OpenWAM\Source\1DPipes;C:\Users\kazuh\OpenWAM\Source\Act;C:\Users\kazuh\OpenWAM\Source\Boundaries;C:\Users\kazuh\OpenWAM\Source\Concentric Pipe;C:\Users\kazuh\OpenWAM\Source\Connections;C:\Users\kazuh\OpenWAM\Source\Control;C:\Users\kazuh\OpenWAM\Source\DPF;C:\Users\kazuh\OpenWAM\Source\Engine;C:\Users\kazuh\OpenWAM\Source\Extern;C:\Users\kazuh\OpenWAM\Source\Includes;C:\Users\kazuh\OpenWAM\Source\Labels;C:\Users\kazuh\OpenWAM\Source\Math_wam;C:\Users\kazuh\OpenWAM\Source\ODModels;C:\Users\kazuh\OpenWAM\Source\Output;C:\Users\kazuh\OpenWAM\Source\Turbocompressor;C:\Users\kazuh\OpenWAM\Source\Wrappers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
@@ -200,9 +194,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <LanguageStandard>stdcpp14</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
-      <OpenMPSupport>true</OpenMPSupport>
       <Optimization>MaxSpeed</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -210,12 +202,12 @@
       <SupportJustMyCode></SupportJustMyCode>
       <UseFullPaths>false</UseFullPaths>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;WITH_OPENMP;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;WITH_OPENMP;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\kazuh\OpenWAM\Source\1DPipes;C:\Users\kazuh\OpenWAM\Source\Act;C:\Users\kazuh\OpenWAM\Source\Boundaries;C:\Users\kazuh\OpenWAM\Source\Concentric Pipe;C:\Users\kazuh\OpenWAM\Source\Connections;C:\Users\kazuh\OpenWAM\Source\Control;C:\Users\kazuh\OpenWAM\Source\DPF;C:\Users\kazuh\OpenWAM\Source\Engine;C:\Users\kazuh\OpenWAM\Source\Extern;C:\Users\kazuh\OpenWAM\Source\Includes;C:\Users\kazuh\OpenWAM\Source\Labels;C:\Users\kazuh\OpenWAM\Source\Math_wam;C:\Users\kazuh\OpenWAM\Source\ODModels;C:\Users\kazuh\OpenWAM\Source\Output;C:\Users\kazuh\OpenWAM\Source\Turbocompressor;C:\Users\kazuh\OpenWAM\Source\Wrappers;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
@@ -235,7 +227,7 @@
       <UseUtf8Encoding>Always</UseUtf8Encoding>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/kazuh/OpenWAM/Source/Control/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM -BC:/Users/kazuh/OpenWAM --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Control/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM/Source -BC:/Users/kazuh/OpenWAM/Source --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Control/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -248,7 +240,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/kazuh/OpenWAM/Source/Control/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM -BC:/Users/kazuh/OpenWAM --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Control/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM/Source -BC:/Users/kazuh/OpenWAM/Source --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Control/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -261,7 +253,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/kazuh/OpenWAM/Source/Control/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM -BC:/Users/kazuh/OpenWAM --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Control/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM/Source -BC:/Users/kazuh/OpenWAM/Source --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Control/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -274,7 +266,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/kazuh/OpenWAM/Source/Control/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM -BC:/Users/kazuh/OpenWAM --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Control/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/kazuh/OpenWAM/Source -BC:/Users/kazuh/OpenWAM/Source --check-stamp-file C:/Users/kazuh/OpenWAM/Source/Control/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -292,13 +284,14 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Control\TDecisor.cpp" />
     <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Control\TPIDController.cpp" />
     <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Control\TSensor.cpp" />
+    <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Control\TTable.cpp" />
     <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Control\TTable1D.cpp" />
     <ClCompile Include="C:\Users\kazuh\OpenWAM\Source\Control\TGain.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <ProjectReference Include="C:\Users\kazuh\OpenWAM\ZERO_CHECK.vcxproj">
-      <Project>{92A314F8-BC3C-3971-A3C1-C51DB6ED2821}</Project>
+    <ProjectReference Include="C:\Users\kazuh\OpenWAM\Source\ZERO_CHECK.vcxproj">
+      <Project>{3E6D3BF8-83E9-35B5-BC69-02B2052B6E8A}</Project>
       <Name>ZERO_CHECK</Name>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>

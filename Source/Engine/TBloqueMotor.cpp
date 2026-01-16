@@ -513,16 +513,19 @@ void TBloqueMotor::LeeMotor(std::istream &FileInput,
         FCilindro[0] = new TCilindro4T(this, 1, FHayEGR);
       }
     }
-    printf("DEBUG: LeeMotor Cylinders Created\n");
+    printf("DEBUG: LeeMotor Cylinders Created. NCilin: %d\n", FGeom.NCilin);
     fflush(stdout);
     int controllers = 0;
     int param = 0;
     FileInput >> controllers;
+    printf("DEBUG: Engine Controllers Count: %d\n", controllers);
     for (int i = 0; i < controllers; ++i) {
       FileInput >> param;
+      printf("DEBUG: Engine Controller Param: %d\n", param);
       switch (param) {
       case 0: // Engine speed controller
         FileInput >> FRPMControllerID;
+        printf("DEBUG: RPM Controller ID: %d\n", FRPMControllerID);
         FRPMControlled = true;
         SimulationType = nmTransitorioRegimen;
         break;
@@ -536,6 +539,7 @@ void TBloqueMotor::LeeMotor(std::istream &FileInput,
     int MfControllerID = 0;
     for (int i = 0; i < FGeom.NCilin; ++i) {
       FileInput >> controllers;
+      printf("DEBUG: Cyl %d Controllers: %d\n", i, controllers);
       for (int j = 0; j < controllers; ++j) {
         FileInput >> param;
         switch (param) {
@@ -546,6 +550,9 @@ void TBloqueMotor::LeeMotor(std::istream &FileInput,
         }
       }
     }
+
+    if (FileInput.fail())
+      printf("DEBUG: LeeMotor Stream FAIL state!\n");
     printf("DEBUG: LeeMotor ftell: %ld\n", (long)FileInput.tellg());
     fflush(stdout);
   } catch (std::exception &N) {
@@ -561,12 +568,28 @@ void TBloqueMotor::LeeMotor(std::istream &FileInput,
 
 void TBloqueMotor::AsignacionTuboRendVol(TTubo **Pipe) {
   try {
+    std::cout << "DEBUG: TBloqueMotor::AsignacionTuboRendVol Start"
+              << std::endl;
+    std::cout << "DEBUG: FNumTuboRendVol = " << FNumTuboRendVol << std::endl;
 
     // Asignacion del tubo al que se refiere el rendimiento volumetrico.
 
+    if (FNumTuboRendVol <= 0) {
+      std::cout << "ERROR: FNumTuboRendVol <= 0" << std::endl;
+      throw std::runtime_error("Invalid FNumTuboRendVol <= 0");
+    }
+
     FTuboRendVol = Pipe[FNumTuboRendVol - 1];
 
+    if (FTuboRendVol == nullptr) {
+      std::cout << "ERROR: Pipe[" << FNumTuboRendVol - 1 << "] is NULL"
+                << std::endl;
+      throw std::runtime_error("Pipe is NULL");
+    }
+
+    std::cout << "DEBUG: Accessed Pipe. Calling getNin()" << std::endl;
     FNodoMedio = floor((FTuboRendVol->getNin()) / 2.);
+    std::cout << "DEBUG: FNodoMedio = " << FNodoMedio << std::endl;
 
   } catch (std::exception &N) {
     std::cout
@@ -588,8 +611,8 @@ void TBloqueMotor::IniciaAnguloCalculo() {
       FTheta = 256.;
     } else {
       std::cout << "ERROR: Tipo de motor mal definido" << std::endl;
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TBloqueMotor::IniciaAnguloCalculo en el Bloque Engine. "
         << std::endl;
@@ -772,8 +795,8 @@ void TBloqueMotor::ReadAverageResultsBloqueMotor(std::istream &FileInput) {
         std::cout << "Resultados medios en el motor (" << Tipovar
                   << ")no definido" << std::endl;
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::ReadAverageResults en el Bloque Engine. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -899,8 +922,8 @@ void TBloqueMotor::HeaderAverageResultsBloqueMotor(std::ostream &medoutput) {
     if (FResMediosMotor.Swirl) {
       Label = "\t" + PutLabel(628);
       medoutput << Label.c_str();
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TBloqueMotor::HeaderAverageResults en el Bloque Engine. "
         << std::endl;
@@ -971,7 +994,7 @@ void TBloqueMotor::ImprimeResultadosMediosBloqueMotor(std::ostream &medoutput) {
     if (FResMediosMotor.Swirl)
       medoutput << "\t" << FResMediosMotor.SwirlMED;
 
-    } catch (std::exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::ImprimeResultadosMediosBloqueMotor "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1434,8 +1457,8 @@ void TBloqueMotor::ModeloDeVehiculo(double Time) {
             __units::m_sTokm_h((__units::RPMToRad_s(FRegimen) * FRadioRueda) /
                                (FRelCajaCambios * FRelTrasmision));
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::ModeloDeVehiculo en el Bloque Engine. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1557,8 +1580,8 @@ void TBloqueMotor::IniciaVarCilindro() {
 
     for (int i = 0; i < FGeom.NCilin; i++) {
       FCilindro[i]->IniciaVariables();
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TBloqueMotor::IniciaVarCilindro en el EngineBlock. "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;

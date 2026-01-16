@@ -27,6 +27,7 @@ Valencia |   \\/   \//    M odel    |
 
 // ---------------------------------------------------------------------------
 #include <cmath>
+#include <iostream>
 #include <thread>
 #include <chrono>
 #ifdef __BORLANDC__
@@ -517,8 +518,18 @@ void TOpenWAM::ReadInputData(std::string FileName) {
   ReadSensors();
 
   ReadControllers();
+  std::cout << "DEBUG: Finished Reading Controllers" << std::endl;
 
   ReadOutput(FileName);
+  std::cout << "DEBUG: Finished Reading Output" << std::endl;
+
+  std::cout << "DEBUG: Calling InitEngine" << std::endl;
+  // InitEngine(); // WRONG LOCATION
+  std::cout << "DEBUG: InitEngine Finished (Skipped)" << std::endl;
+
+  std::cout << "DEBUG: Calling InitPipes" << std::endl;
+  // InitPipes(); // WRONG LOCATION
+  std::cout << "DEBUG: InitPipes Finished (Skipped)" << std::endl;
 
   for (int i = 0; i < NumberOfConnections; i++) {
     if (BC[i]->getTipoCC() == nmCompresor) {
@@ -906,6 +917,8 @@ void TOpenWAM::ReadConnections() {
     if (NumberOfConnections != 0) {
       for (int i = 0; i <= NumberOfConnections - 1; ++i) {
         FileInput >> TipoCC;
+        printf("DEBUG: Reading Connection %d Type %d\n", i, TipoCC);
+        fflush(stdout);
 
         switch (TipoCC) {
         /* Case 999 Removed */
@@ -1417,12 +1430,14 @@ void TOpenWAM::ReadOutput(std::string FileName) {
 
   Output = std::make_unique<TOutputResults>();
 
+  std::cout << "DEBUG: Calling ReadAverageResults" << std::endl;
   // OUTPUT ->
 #ifdef ParticulateFilter
   Output->ReadAverageResults(FileInput, Pipe, EngineBlock, Engine, Plenum, Axis,
                              Compressor, Turbine, BC, DPF, VolumetricCompressor,
                              Venturi, Sensor, Controller,
                              (int)SimulationDuration, FileName);
+  std::cout << "DEBUG: Calling ReadInstantaneousResults" << std::endl;
 
   Output->ReadInstantaneousResults(
       FileInput, Engine, Plenum, Pipe, Venturi, BC, DPF, Axis, Compressor,
@@ -1434,13 +1449,17 @@ void TOpenWAM::ReadOutput(std::string FileName) {
                              Venturi, Sensor, Controller,
                              (int)SimulationDuration, FileName);
 
+  std::cout << "DEBUG: Calling ReadInstantaneousResults (No DPF)" << std::endl;
+
   Output->ReadInstantaneousResults(
       FileInput, Engine, Plenum, Pipe, Venturi, BC, DPF, Axis, Compressor,
       Turbine, VolumetricCompressor, BCWasteGate, NumberOfWasteGates,
       BCReedValve, NumberOfReedValves, Sensor, Controller, FileName);
 #endif
 
+  std::cout << "DEBUG: Calling ReadSpaceTimeResults" << std::endl;
   Output->ReadSpaceTimeResults(FileInput, Pipe, Engine, Plenum);
+  std::cout << "DEBUG: Finished ReadSpaceTimeResults" << std::endl;
 
   FirstIterStep = true;
 #ifdef ConcentricElement
@@ -1455,13 +1474,16 @@ void TOpenWAM::ReadOutput(std::string FileName) {
     }
   }
 
+  std::cout << "DEBUG: Calling AllocateVGTData" << std::endl;
   AllocateVGTData();
+  std::cout << "DEBUG: Finished AllocateVGTData" << std::endl;
 
   for (int i = 0; i < NumberOfPlenums; i++) {
     if (Plenum[i]->getTipoDeposito() == nmDepVolVble) {
       dynamic_cast<TDepVolVariable *>(Plenum[i].get())->IniciaVolumen(Theta);
     }
   }
+  std::cout << "DEBUG: Finished Plenum IniciaVolumen" << std::endl;
 
   if (EngineBlock) {
     for (int i = 0; i < NumberOfPlenums; i++) {
@@ -1470,13 +1492,17 @@ void TOpenWAM::ReadOutput(std::string FileName) {
             ->UpdateSpeed(Engine[0]->getRegimen());
       }
     }
+    std::cout << "DEBUG: Finished Plenum UpdateSpeed" << std::endl;
 
     Engine[0]->IniciaVarCilindro();
+    std::cout << "DEBUG: Finished Engine IniciaVarCilindro" << std::endl;
+
     std::vector<TTubo *> RawPipe;
     RawPipe.reserve(Pipe.size());
     for (const auto &p : Pipe)
       RawPipe.push_back(p.get());
     Engine[0]->AsignacionTuboRendVol(RawPipe.data());
+    std::cout << "DEBUG: Finished AsignacionTuboRendVol" << std::endl;
 
     if ((Engine[0]->getNumTuboRendVol() > NumberOfPipes) ||
         Engine[0]->getNumTuboRendVol() <= 0) {
@@ -4701,6 +4727,8 @@ void TOpenWAM::ReadSensors() {
   if (NumberOfSensors > 0) {
     Sensor.reserve(NumberOfSensors);
     for (int i = 0; i < NumberOfSensors; i++) {
+      printf("DEBUG: Reading Sensor %d\n", i);
+      fflush(stdout);
       Sensor.push_back(std::make_unique<TSensor>(i));
       Sensor.back()->ReadSensor(FileInput);
       Sensor.back()->IniciaMedias();
@@ -4716,6 +4744,8 @@ void TOpenWAM::ReadControllers() {
     Controller.reserve(NumberOfControllers);
     for (int i = 0; i < NumberOfControllers; i++) {
       FileInput >> ctrl;
+      printf("DEBUG: Reading Controller %d Type %d\n", i, ctrl);
+      fflush(stdout);
       switch (ctrl) {
       case 1:
         Controller.push_back(std::make_unique<TPIDController>(i));

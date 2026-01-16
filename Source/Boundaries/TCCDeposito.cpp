@@ -119,31 +119,47 @@ void TCCDeposito::ReadBoundaryData(
 
     FPref = 1;
 
-    while (FNumeroTubosCC < 1 && i < NumberOfPipes) {
+    for (int i = 0; i < NumberOfPipes; i++) {
       if (Pipe[i]->getNodoIzq() == FNumeroCC) {
-        FTuboExtremo[FNumeroTubosCC].Pipe = Pipe[i].get();
-        FTuboExtremo[FNumeroTubosCC].TipoExtremo = nmLeft;
-        FNodoFin = 0;
-        FIndiceCC = 0;
-        FCC = &(FTuboExtremo[FNumeroTubosCC].Beta);
-        FCD = &(FTuboExtremo[FNumeroTubosCC].Landa);
-        FNumeroTubosCC++;
-        FUnionDPF = false;
-        FEncontrado = true;
+        if (FNumeroTubosCC < 1) {
+          FTuboExtremo[FNumeroTubosCC].Pipe = Pipe[i].get();
+          FTuboExtremo[FNumeroTubosCC].TipoExtremo = nmLeft;
+          FNodoFin = 0;
+          FIndiceCC = 0;
+          FCC = &(FTuboExtremo[FNumeroTubosCC].Beta);
+          FCD = &(FTuboExtremo[FNumeroTubosCC].Landa);
+          FNumeroTubosCC++;
+          FUnionDPF = false;
+          FEncontrado = true;
+        } else {
+          // std::cout << "ERROR: TCCDeposito::ReadBoundaryData Mas de un tubo
+          // conectado a la condicion de contorno: " << FNumeroCC << std::endl;
+          FNumeroTubosCC++;
+          // throw Exception("Mas de un tubo conectado a la condicion de
+          // contorno");
+        }
       }
       if (Pipe[i]->getNodoDer() == FNumeroCC) {
-        FTuboExtremo[FNumeroTubosCC].Pipe = Pipe[i].get();
-        FTuboExtremo[FNumeroTubosCC].TipoExtremo = nmRight;
-        FNodoFin = Pipe[i]->getNin() - 1;
-        FIndiceCC = 1;
-        FCC = &(FTuboExtremo[FNumeroTubosCC].Landa);
-        FCD = &(FTuboExtremo[FNumeroTubosCC].Beta);
-        FNumeroTubosCC++;
-        FUnionDPF = false;
-        FEncontrado = true;
+        if (FNumeroTubosCC < 1) {
+          FTuboExtremo[FNumeroTubosCC].Pipe = Pipe[i].get();
+          FTuboExtremo[FNumeroTubosCC].TipoExtremo = nmRight;
+          FNodoFin = Pipe[i]->getNin() - 1;
+          FIndiceCC = 1;
+          FCC = &(FTuboExtremo[FNumeroTubosCC].Landa);
+          FCD = &(FTuboExtremo[FNumeroTubosCC].Beta);
+          FNumeroTubosCC++;
+          FUnionDPF = false;
+          FEncontrado = true;
+        } else {
+          // std::cout << "ERROR: TCCDeposito::ReadBoundaryData Mas de un tubo
+          // conectado a la condicion de contorno: " << FNumeroCC << std::endl;
+          FNumeroTubosCC++;
+          // throw Exception("Mas de un tubo conectado a la condicion de
+          // contorno");
+        }
       }
-      i++;
     }
+
 #ifdef ParticulateFilter
     if (!FEncontrado) { // It is a junction between a plenum and a DPF
       int k = 0;
@@ -202,38 +218,22 @@ void TCCDeposito::ReadBoundaryData(
       FUnionDPF = true;
     }
 #endif
-    std::cout << "DEBUG: TCCDeposito::ReadBoundaryData Start" << std::endl;
-    std::cout << "DEBUG: TCCDeposito::ReadBoundaryData Start" << std::endl;
-
     // Stream is already positioned by caller (ReadConnections)
     // No need to fopen/seek.
 
     FileInput >> numid;
-    std::cout << "DEBUG: TCCDeposito Read NumID: " << numid << std::endl;
-
     FileInput >> FNumeroDeposito;
-    std::cout << "DEBUG: TCCDeposito Read NumDep: " << FNumeroDeposito
-              << std::endl;
-
-    // filepos is not needed as stream tracks position automatically
 
     // Inicializacion del transporte de especies quimicas
-    std::cout << "DEBUG: TCCDeposito FNumeroTubosCC: " << FNumeroTubosCC
-              << std::endl;
     FFraccionMasicaEspecie = new double[FNumeroEspecies - FIntEGR];
     if (!FUnionDPF) {
-      std::cout << "DEBUG: FUnionDPF is false. Checking Pipe Ptr." << std::endl;
       if (FTuboExtremo[0].Pipe == NULL) {
         std::cout << "ERROR: FTuboExtremo[0].Pipe is NULL!" << std::endl;
         throw Exception("Pipe is NULL");
       }
-      std::cout << "DEBUG: Pipe Ptr: " << FTuboExtremo[0].Pipe << std::endl;
       for (int i = 0; i < FNumeroEspecies - FIntEGR; i++) {
-        std::cout << "DEBUG: Species Loop i=" << i << std::endl;
         FFraccionMasicaEspecie[i] =
             FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
-        std::cout << "DEBUG: Species Loop Val=" << FFraccionMasicaEspecie[i]
-                  << std::endl;
       }
     } else {
 #ifdef ParticulateFilter

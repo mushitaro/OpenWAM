@@ -29,7 +29,7 @@ def kill_zombie_processes():
     except: pass
     time.sleep(0.1)
 
-def run_simulation(rpm, rel_opening, base_config=None):
+def run_simulation(rpm, rel_opening, vanos_intake=0.0, vanos_exhaust=0.0, base_config=None):
     kill_zombie_processes() # Preemptive cleanup
     
     if base_config is None:
@@ -41,6 +41,8 @@ def run_simulation(rpm, rel_opening, base_config=None):
     tps = rel_opening / 100.0
     cfg.engine.rpm = float(rpm)
     cfg.engine.throttle_position = float(tps)
+    cfg.engine.vanos_intake_bias = float(vanos_intake)
+    cfg.engine.vanos_exhaust_bias = float(vanos_exhaust)
     
     gen = WAMGenerator(cfg, ".")
     content = gen.generate()

@@ -598,6 +598,11 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
                 << " (g)" << std::endl;
       std::cout << "INFO: Trapped mass:        " << FMasaAtrapada * 1e3
                 << " (g)" << std::endl;
+      // Added for Sweep Correlation
+      std::cout << "INFO: Time: " << TiempoActual
+                << " RPM: " << FMotor->getRegimen()
+                << " Trapped mass: " << FMasaAtrapada * 1e3 << " (g)"
+                << std::endl;
       // std::cout << "INFO: Masa de combustible: " << FMasaFuel*1e6 << " (mg)"
       // << std::endl;
       std::cout << "INFO: Pressure at I.C.:    " << FPresionRCA << " (bar)"
@@ -724,7 +729,7 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
             Fecg0 = 0.;
             FecgTotal = 0.;
             //(FHcl - FUfgasoil) * (FFuelInstant + FFuelInstantPil) /
-            //FDeltaAngulo; energía del combustible gaseoso (evaporación), hay
+            // FDeltaAngulo; energía del combustible gaseoso (evaporación), hay
             // que integrala
             FCalor.FQL0 = CalculaCalorLiberado(FAnguloComb - FDeltaAngulo);
           } else {
@@ -792,7 +797,8 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
               FMasaEspecieCicloCerrado[1] - FMfquem -
               FComposicionCicloCerrado[1] * FMasaBlowBy + FFuelInstant;
           //					if (FMasaEspecieCicloCerrado[1]
-          //< 0) { 						FMasaEspecieCicloCerrado[1] = 0;
+          //< 0) {
+          //FMasaEspecieCicloCerrado[1] = 0;
           //					}
           // Combustible
           FMasaEspecieCicloCerrado[2] =
@@ -1026,34 +1032,38 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
     //			if (FMotor->getSpeciesModel() == nmCalculoCompleto) {
     //				if (!FCicloCerrado) {
     ////					FGamma =
-    ///FuncionGamma(FTemperature + 273., 0.1);
+    /// FuncionGamma(FTemperature + 273., 0.1);
     //					FRMezcla = CalculoSimpleRMezcla(0.1,
-    //nmComposicionTemperatura) 					FCvMezcla = CalculoSimpleCvMezcla(FTemperature +
-    //273., 0.1, nmComposicionTemperatura);
+    // nmComposicionTemperatura)
+    // FCvMezcla = CalculoSimpleCvMezcla(FTemperature + 273., 0.1,
+    // nmComposicionTemperatura);
     //
     //				}
     //				else if (FCicloCerrado) {
     ////					FGamma =
-    ///FuncionGamma(FTemperature + 273., /
-    ///FComposicionCicloCerrado[0]);
+    /// FuncionGamma(FTemperature + 273., /
+    /// FComposicionCicloCerrado[0]);
     //					FRMezcla =
-    //CalculoSimpleRMezcla(FComposicionCicloCerrado[0],
-    //nmComposicionTemperatura); 					FCvMezcla = CalculoSimpleCvMezcla(FTemperature
+    // CalculoSimpleRMezcla(FComposicionCicloCerrado[0],
+    // nmComposicionTemperatura); FCvMezcla = CalculoSimpleCvMezcla(FTemperature
     //+ 273., FComposicionCicloCerrado[0], nmComposicionTemperatura);
     //				}
     //			}
     //			else if (FMotor->getSpeciesModel() == nmCalculoSimple) {
     ////				FGamma = FuncionGamma(FTemperature +
-    ///273., /					FFraccionMasicaEspecie[0]);
+    /// 273., /					FFraccionMasicaEspecie[0]);
     //				FRMezcla =
-    //CalculoSimpleRMezcla(FComposicionCicloCerrado[0],
-    //nmComposicionTemperatura); 				FCvMezcla = CalculoSimpleCvMezcla(FTemperature
+    // CalculoSimpleRMezcla(FComposicionCicloCerrado[0],
+    // nmComposicionTemperatura); 				FCvMezcla =
+    // CalculoSimpleCvMezcla(FTemperature
     //+ 273., FComposicionCicloCerrado[0], nmComposicionTemperatura);
     //
     //			}
     //			FGamma = CalculoSimpleGamma(FRMezcla, FCvMezcla,
-    //nmComposicionTemperatura); 			FGamma1 = __Gamma::G1(FGamma); 			FGamma2 =
-    //__Gamma::G2(FGamma); 			FGamma4 = __Gamma::G4(FGamma); 			FGamma6 =
+    // nmComposicionTemperatura); 			FGamma1 =
+    // __Gamma::G1(FGamma); 			FGamma2 =
+    //__Gamma::G2(FGamma); 			FGamma4 = __Gamma::G4(FGamma);
+    //FGamma6 =
     //__Gamma::G6(FGamma);
     //		}
     bool PrimerPaso = true;
