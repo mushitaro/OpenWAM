@@ -3774,9 +3774,11 @@ void TOpenWAM::ManageOutput() {
                                   SpeciesNumber);
 
     if (CrankAngle - Run.AngleStep <= 0. && Theta >= 750.) {
-      Output->OutputAverageResults(AcumulatedTime, EXTERN.get(), ThereIsDLL);
+      Output->OutputAverageResults(AcumulatedTime, EXTERN.get(), ThereIsDLL,
+                                   Engine[0]->getCiclo());
 
       Output->CopyAverageResultsToFile(1);
+
 #ifdef gestorcom
       if (GestorWAM)
         GestorWAM->FichResMediosActualizado();

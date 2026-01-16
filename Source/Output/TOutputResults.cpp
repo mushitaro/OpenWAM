@@ -1980,14 +1980,14 @@ void TOutputResults::HeaderAverageResults(stEspecies *SpeciesName,
 
 void TOutputResults::OutputAverageResults(double AcumulatedTime,
                                           TCalculoExtern *EXTERN,
-                                          bool ThereIsDLL) {
+                                          bool ThereIsDLL, int CycleNumber) {
 
   float pasafloat;
 
   pasafloat = (float)(AcumulatedTime);
 
   FAvgOutput << std::endl;
-  FAvgOutput << AvgEngine->getCiclo();
+  FAvgOutput << CycleNumber;
   FAvgOutput << "\t";
   FAvgOutput << pasafloat;
 

@@ -193,7 +193,7 @@ public:
                             bool ThereIsDLL);
 
   void OutputAverageResults(double AcumulatedTime, TCalculoExtern *EXTERN,
-                            bool ThereIsDLL);
+                            bool ThereIsDLL, int CycleNumber);
 
   void CopyAverageResultsToFile(int mode);
 
