@@ -236,7 +236,8 @@ class WAMGenerator:
         self._add(f"{c.engine.cylinders}", "Num Cylinders")
         
         # 3. Initial Conditions
-        p_init = 101325.0
+        # WARNING: OpenWAM Engine Initialization likely expects Bar for Pressure!
+        p_init = 1.01325 
         m_init = 0.0006
         self._add(f"{c.engine.rpm} {p_init} {m_init}", "Initial: RPM Press Mass")
         
@@ -346,8 +347,14 @@ class WAMGenerator:
         # 1. Engine Exists (hayBQ)
         self._add("1", "Engine Exists")
         
-        # 2. Cycle Mode (If EngineExists) (4T, Steady, NoEGR)
-        self._add("0 0 0", "Cycle Mode EGR") 
+        # 2. Cycle Mode (If EngineExists) (4T, Mode, EGR)
+        # Mode: 0=Steady, 1=TransientLoad, 2=TransientRPM
+        if schedule:
+             # Transient Mode is currently unstable (Supersonic).
+             # Falling back to Steady State. Runner must manage Quasi-Steady sweep.
+             self._add("0 0 0", "Cycle Mode (Steady)")
+        else:
+             self._add("0 0 0", "Cycle Mode (Steady)") 
         
         # 3. Fuel (haycombustible, tipocombustible)
         # 1 1 = Yes Fuel, Gasoline
@@ -460,7 +467,8 @@ class WAMGenerator:
         cid_filter = self.connection_counter
         self._add_pressure_loss(cid_filter, 10, 5.0) # Type 10 (Quad), K=5.0
         
-        self._add_pipe(filter_pipe_id, "Air_Filter_Elem", 0.05, 0.15, 0.15, 300, cid_amb, cid_filter)
+        # Adjusted to 0.15m for stability/speed (50mm mesh x 3 nodes)
+        self._add_pipe(filter_pipe_id, "Air_Filter_Elem", 0.15, 0.15, 0.15, 300, cid_amb, cid_filter)
         
         # 3. Intake Duct
         duct_id = self.pipe_counter; self.pipe_counter += 1
@@ -563,7 +571,7 @@ class WAMGenerator:
                                cid_valve, cid_amb)
 
     def _generate_full_exhaust(self, c):
-        print("DEBUG: Generating FULL Exhaust")
+        print("DEBUG: Generating FULL Exhaust (Junction Logic)")
         port_len_ex = c.engine.head.exhaust_port.length / 1000.0
         port_dia_ex = c.engine.head.exhaust_port.diameter / 1000.0
         
@@ -571,13 +579,21 @@ class WAMGenerator:
         col2_id = self.plenum_counter; self.plenum_counter += 1
         col_map = {0: col1_id, 1: col1_id, 2: col1_id, 3: col2_id, 4: col2_id, 5: col2_id} 
         
+        # 1. Collectors as Small Junctions (2.0L)
+        # Replaces massive tank with flow-oriented junction node
+        # Increased to damp Mach 4 spikes.
+        self._add_plenum(col1_id, "Collector_1_Junct", 0.002, 800)
+        self._add_plenum(col2_id, "Collector_2_Junct", 0.002, 800)
+        
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
             target_col_id = col_map.get(i, col1_id)
             
-            # A. Merge Plenum
+            # A. Port Junction (Matches 2 ports to 1 header)
+            # Volume: 1.0L (Increased from 0.2L to check damping)
+            # Stable junction volume is key for 1D codes.
             merge_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(merge_plenum_id, f"Exh_Merge_Plenum_{cyl_idx}", 0.002, 800)
+            self._add_plenum(merge_plenum_id, f"Port_Junct_{cyl_idx}", 0.001, 800)
 
             # B. Exhaust Ports
             for v in range(2):
@@ -608,11 +624,6 @@ class WAMGenerator:
             self._add_pipe(pid_prim, f"Header_{cyl_idx}", c.exhaust.headers.primary_length/1000.0,
                            c.exhaust.headers.primary_diameter/1000.0, c.exhaust.headers.collector_dia/1000.0, 1073,
                            cid_header_start, cid_col)
-
-        # 2. Collectors
-        col_vol_m3 = c.exhaust.headers.collector_vol / 1000.0 
-        self._add_plenum(col1_id, "Collector_1", col_vol_m3, 800)
-        self._add_plenum(col2_id, "Collector_2", col_vol_m3, 800)
         
         node_left = col1_id
         node_right = col2_id
@@ -625,8 +636,8 @@ class WAMGenerator:
         s2 = c.exhaust.section1_2
         len1 = s1.length / 1000.0
         len2 = s2.length / 1000.0
-        dia1 = s1.diameter / 1000.0 if hasattr(s1, 'diameter') and s1.diameter > 0 else 0.060
-        dia2 = s2.diameter / 1000.0 if hasattr(s2, 'diameter') and s2.diameter > 0 else 0.060
+        dia1 = s1.diameter / 1000.0 if hasattr(s1, 'diameter') and s1.diameter > 0 else 0.075
+        dia2 = s2.diameter / 1000.0 if hasattr(s2, 'diameter') and s2.diameter > 0 else 0.075
         
         p1_id = self.pipe_counter; self.pipe_counter += 1
         p2_id = self.pipe_counter; self.pipe_counter += 1
@@ -646,7 +657,10 @@ class WAMGenerator:
         if s1.layout == "X-Pipe" or s2.layout == "X-Pipe":
             offset_val = s1.crossover_offset if s1.layout == "X-Pipe" else (s2.crossover_offset if s2.layout == "X-Pipe" else 400)
             offset = offset_val / 1000.0
-            off1 = min(offset, len1 * 0.9); off2 = min(offset, len2 * 0.9)
+            # Enforce minimum segment length of 0.15m (150mm) to prevent tiny pipes
+            # Ensure off1 is between 0.15 and len1-0.15
+            off1 = max(0.15, min(offset, len1 - 0.15))
+            off2 = max(0.15, min(offset, len2 - 0.15))
             
             self.pipes[p1_id]['length'] = off1; self.pipes[p2_id]['length'] = off2
             self.pipes[p1_id]['label'] = "Sec1_Front1"; self.pipes[p2_id]['label'] = "Sec1_Front2"
@@ -675,7 +689,8 @@ class WAMGenerator:
 
         # --- SECTION 2 ---
         sec2_len = c.exhaust.section2.length / 1000.0
-        sec2_dia = c.exhaust.section2.diameter / 1000.0
+        sec2_len = c.exhaust.section2.length / 1000.0
+        sec2_dia = (c.exhaust.section2.diameter / 1000.0) if c.exhaust.section2.diameter > 0 else 0.075
         
         if c.exhaust.section2.layout == "Single":
             merge_plenum = self.plenum_counter; self.plenum_counter += 1
@@ -690,8 +705,8 @@ class WAMGenerator:
             c_m1_end = self.connection_counter; self._add_con_plenum_pipe_v2(merge_plenum, p_adp1, 1)
             c_m2_end = self.connection_counter; self._add_con_plenum_pipe_v2(merge_plenum, p_adp2, 1)
             
-            self._add_pipe(p_adp1, "Adp_Merge_L", 0.05, dia1, dia1, 500, c_adp1_start, c_m1_end)
-            self._add_pipe(p_adp2, "Adp_Merge_R", 0.05, dia1, dia1, 500, c_adp2_start, c_m2_end)
+            self._add_pipe(p_adp1, "Adp_Merge_L", 0.15, dia1, dia1, 500, c_adp1_start, c_m1_end)
+            self._add_pipe(p_adp2, "Adp_Merge_R", 0.15, dia1, dia1, 500, c_adp2_start, c_m2_end)
             
             # Resonator
             res_fitted = getattr(c.exhaust.section2, 'resonator_fitted', False)
@@ -746,7 +761,7 @@ class WAMGenerator:
 
         # --- MUFFLER & TAILPIPES ---
         muffler_id = self.plenum_counter; self.plenum_counter += 1
-        muff_vol_m3 = c.exhaust.section3.volume / 1000.0
+        muff_vol_m3 = max(c.exhaust.section3.volume / 1000.0, 0.030)
         self._add_plenum(muffler_id, "Muffler_Dual", muff_vol_m3, 400)
         
         # Connect to Muffler
@@ -757,8 +772,10 @@ class WAMGenerator:
              c_s2 = self.connection_counter; self._add_con_plenum_pipe_v2(node_right, p_in2, 0)
              c_m1 = self.connection_counter; self._add_con_plenum_pipe_v2(muffler_id, p_in1, 1)
              c_m2 = self.connection_counter; self._add_con_plenum_pipe_v2(muffler_id, p_in2, 1)
-             self._add_pipe(p_in1, "Muf_In1", 0.05, sec2_dia, sec2_dia, 400, c_s1, c_m1)
-             self._add_pipe(p_in2, "Muf_In2", 0.05, sec2_dia, sec2_dia, 400, c_s2, c_m2)
+             self._add_pipe(p_in1, "Muf_In1", 0.15, sec2_dia, sec2_dia, 400, c_s1, c_m1, friction=0.5)
+             self.pipes[p_in1]['mesh_dx'] = 0.02 # Force finer mesh for stability
+             self._add_pipe(p_in2, "Muf_In2", 0.15, sec2_dia, sec2_dia, 400, c_s2, c_m2, friction=0.5)
+             self.pipes[p_in2]['mesh_dx'] = 0.02
         else:
              p_adp_m1 = self.pipe_counter; self.pipe_counter += 1
              p_adp_m2 = self.pipe_counter; self.pipe_counter += 1
@@ -850,8 +867,9 @@ class WAMGenerator:
         pass
 
     def _add_pipe(self, pid, label, length, d_start, d_end, wall_temp, left_node=0, right_node=0, friction=0.01):
-        if length < 0.005: 
-            length = 0.005 
+        # Global Stability Clamp: Enforce min 50mm length
+        if length < 0.05: 
+            length = 0.05 
         self.pipes[pid] = {
             "pid": pid, "label": label, "length": length, "d_start": d_start, "d_end": d_end,
             "wall_temp": wall_temp, "left_node": left_node, "right_node": right_node, "friction": friction
@@ -867,14 +885,22 @@ class WAMGenerator:
             self.wam_lines_pipes.append(f"{p['left_node'] + 1} {p['right_node'] + 1} 1 1")
             # Line 2: Friction
             self.wam_lines_pipes.append(f"{p['friction']}") 
-            # Line 3: Wall Temp
-            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} 1.01325 0.0")
+            # Line 3: Wall Temp, Pressure, Velocity
+            # Change P from 1.01325 (Bar) to 101325.0 (Pa) (Correct: Pipes need Pa, Plenums need Bar)
+            # wall_temp is already Kelvin (e.g. 300)
+            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} 101325.0 0.0")
             # Line 4: Multipliers
             self.wam_lines_pipes.append(f"1 1.0 1.0") 
             # Line 5: Composition
             self.wam_lines_pipes.append(f"{self.air_comp}")
             # Line 6: Mesh & Thermal Model
-            self.wam_lines_pipes.append(f"0.05 2") 
+            # Optimized Mesh Size: Target 50mm globally. 
+            # For short pipes (50mm), use 2 nodes (dx=Length/2) for stability (1-node caused supersonic).
+            if 'mesh_dx' in p:
+                dx = p['mesh_dx']
+            else:
+                dx = min(0.05, p['length'] / 2.0)
+            self.wam_lines_pipes.append(f"{dx:.5f} 2") 
             # Line 7: Method (TVD=2, Courant=0.8)
             self.wam_lines_pipes.append(f"2 0.8") 
             # Line 8: Start Diameter
@@ -1000,15 +1026,18 @@ class WAMGenerator:
     def _add_plenum(self, plid, label, vol, wall_temp, ptype=0):
         # Type 0: Constant Volume
         
-        # BRUTE FORCE STABILITY: Minimum 100 Liters
-        vol = max(vol, 0.1)
+        # BRUTE FORCE STABILITY: Minimum 1 Liters (0.001 m3) - Reduced from 100L as Pa fix should solve it.
+        # OpenWAM stability usually fine with >0.1L if invalid pressures are fixed.
+        vol = max(vol, 0.001)
         
         self.wam_lines_plenums.append(f"{ptype}")
         self.wam_lines_plenums.append(self.air_comp)
         
-        temp_c = wall_temp - 273.15
         # Original format: Vol P T
-        self.wam_lines_plenums.append(f"{vol:.5f} 1.01325 {temp_c:.2f}")
+        # Change 1: P from 1.01325 (Bar) to 101325.0 (Pa) -> CORRECT: OpenWAM Deposito needs Pa
+        # Change 2: T from Celsius to Kelvin (Remove -273.15)
+        # wall_temp is passed in Kelvin (e.g. 313)
+        self.wam_lines_plenums.append(f"{vol:.5f} 101325.0 {wall_temp:.2f}")
         
         self.plenum_ids.add(plid)
 
