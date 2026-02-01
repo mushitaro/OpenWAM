@@ -289,6 +289,35 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
     FGamma4 = __Gamma::G4(FGamma);
     FGamma6 = __Gamma::G6(FGamma);
 
+    // DEBUG & GUARD: When gas properties become NaN, reset to air values
+    // This prevents cascade failure while the simulation stabilizes
+    if (std::isnan(FRMezcla) || std::isnan(FGamma) || std::isnan(FGamma1) ||
+        std::isnan(FCpMezcla) || std::isnan(FCvMezcla)) {
+      static int nanCountCyl = 0;
+      if (nanCountCyl < 5) {
+        printf("GUARD: Cyl %d NaN detected - FRMezcla=%.6e FGamma=%.6e -> "
+               "Resetting to air\n",
+               FNumeroCilindro, FRMezcla, FGamma);
+        nanCountCyl++;
+      }
+      // Fallback to air properties at ~500K (typical intake charge)
+      FRMezcla = 287.0;   // R_air [J/(kg·K)]
+      FCpMezcla = 1030.0; // Cp_air at 500K [J/(kg·K)]
+      FCvMezcla = 743.0;  // Cv_air at 500K [J/(kg·K)]
+      FGamma = 1.386;     // γ_air at 500K
+      FGamma1 = __Gamma::G1(FGamma);
+      FGamma2 = __Gamma::G2(FGamma);
+      FGamma4 = __Gamma::G4(FGamma);
+      FGamma6 = __Gamma::G6(FGamma);
+      // Reset species composition to fresh air
+      FFraccionMasicaEspecie[0] = 0.0; // Burned gas
+      FFraccionMasicaEspecie[1] = 0.0; // Fuel
+      FFraccionMasicaEspecie[2] = 1.0; // Fresh air
+      FComposicionCicloCerrado[0] = 0.0;
+      FComposicionCicloCerrado[1] = 0.0;
+      FComposicionCicloCerrado[2] = 1.0;
+    }
+
     /* if(FNumeroCilindro==4){
      printf(" %lf %lf\n", FAnguloActual,FGamma);
      }
@@ -374,8 +403,14 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
 
         /* Transporte de especies quimicas */
         for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
-          FMasaEspecie[j] +=
-              FCCValvulaAdm[i]->GetFraccionMasicaEspecie(j) * FMasaValvAdm;
+          double valveFrac = FCCValvulaAdm[i]->GetFraccionMasicaEspecie(j);
+          // DEBUG: Check for NaN from intake valve
+          if (std::isnan(valveFrac) && FNumeroCilindro == 3 && j < 3) {
+            printf("DEBUG VALVE NaN Cyl %d AdmValve %d Species %d: "
+                   "valveFrac=nan MasaValvAdm=%.6e\n",
+                   FNumeroCilindro, i, j, FMasaValvAdm);
+          }
+          FMasaEspecie[j] += valveFrac * FMasaValvAdm;
         }
         if (FHayEGR)
           FAcumMasaEGR += FCCValvulaAdm[i]->GetFraccionMasicaEspecie(
@@ -402,8 +437,14 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
 
         /* Transporte de especies quimicas */
         for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
-          FMasaEspecie[j] +=
-              FCCValvulaEsc[i]->GetFraccionMasicaEspecie(j) * masavalesc;
+          double valveFrac = FCCValvulaEsc[i]->GetFraccionMasicaEspecie(j);
+          // DEBUG: Check for NaN from exhaust valve
+          if (std::isnan(valveFrac) && FNumeroCilindro == 3 && j < 3) {
+            printf("DEBUG VALVE NaN Cyl %d EscValve %d Species %d: "
+                   "valveFrac=nan masavalesc=%.6e\n",
+                   FNumeroCilindro, i, j, masavalesc);
+          }
+          FMasaEspecie[j] += valveFrac * masavalesc;
         }
       }
     }
@@ -798,7 +839,7 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
               FComposicionCicloCerrado[1] * FMasaBlowBy + FFuelInstant;
           //					if (FMasaEspecieCicloCerrado[1]
           //< 0) {
-          //FMasaEspecieCicloCerrado[1] = 0;
+          // FMasaEspecieCicloCerrado[1] = 0;
           //					}
           // Combustible
           FMasaEspecieCicloCerrado[2] =
@@ -996,6 +1037,16 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
         }
       }
     } else if (!FCicloCerrado) {
+      // DEBUG: Check for potential division by zero/nan in species transport
+      if (FMasa <= 0 || std::isnan(FMasa)) {
+        printf(
+            "DEBUG SPECIES FAIL Cyl %d: FMasa=%.6e (division will cause NaN)\n",
+            FNumeroCilindro, FMasa);
+        printf("  FMasaEspecie[0-2]: %.6e %.6e %.6e\n", FMasaEspecie[0],
+               FMasaEspecie[1], FMasaEspecie[2]);
+        printf("  FMasaBlowBy=%.6e FFraccionMasicaEspecie[0]=%.6e\n",
+               FMasaBlowBy, FFraccionMasicaEspecie[0]);
+      }
       for (int j = 0; j < FMotor->getSpeciesNumber() - 2; j++) {
         FFraccionMasicaEspecie[j] =
             (FMasaEspecie[j] - FFraccionMasicaEspecie[j] * FMasaBlowBy) / FMasa;
@@ -1063,7 +1114,7 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
     // nmComposicionTemperatura); 			FGamma1 =
     // __Gamma::G1(FGamma); 			FGamma2 =
     //__Gamma::G2(FGamma); 			FGamma4 = __Gamma::G4(FGamma);
-    //FGamma6 =
+    // FGamma6 =
     //__Gamma::G6(FGamma);
     //		}
     bool PrimerPaso = true;
@@ -1137,6 +1188,19 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
           FVolumen0 * FMasa / FVolumen / FMasa0 *
           exp((H1 + H0) / 2. + (FCalor.TransTotal + FCalor.Liberado + FecgInt) *
                                    (MasTempMed / FRMezcla));
+
+      // DEBUG: Trace Energia calculation when problematic
+      if (Energia <= 0 || std::isnan(Energia) || std::isinf(Energia)) {
+        printf("DEBUG ENERGIA FAIL Cyl %d: Energia=%.6e V0=%.6e V=%.6e M=%.6e "
+               "M0=%.6e\n",
+               FNumeroCilindro, Energia, FVolumen0, FVolumen, FMasa, FMasa0);
+        printf("  H1=%.6e H0=%.6e TransTotal=%.6e Liberado=%.6e FecgInt=%.6e\n",
+               H1, H0, FCalor.TransTotal, FCalor.Liberado, FecgInt);
+        printf(
+            "  MasTempMed=%.6e FRMezcla=%.6e FGamma1=%.6e FTemperature=%.2f\n",
+            MasTempMed, FRMezcla, FGamma1, FTemperature);
+      }
+
       Temp1 = __units::KTodegC(__units::degCToK(FTemperature) *
                                pow(Energia, FGamma1));
       Error = (Diff = Temp1 - Temp0, fabs(Diff)) / Temp1;

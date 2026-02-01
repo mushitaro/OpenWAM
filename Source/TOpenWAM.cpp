@@ -3640,6 +3640,7 @@ void TOpenWAM::CalculateFlowCommon() {
     Pipe[j]->CalculaVariablesFundamentales();
     Pipe[j]->CalculaCaracteristicasExtremos(BC, Run.TimeStep);
   }
+
 #ifdef ParticulateFilter
   for (int i = 0; i < NumberOfDPF; i++) {
     for (int j = 0; j < DPF[i]->getNumeroHacesCanales(); j++) {
@@ -3663,6 +3664,7 @@ void TOpenWAM::CalculateFlowCommon() {
       dynamic_cast<TCCCompresor *>(BC[i].get())
           ->ObtencionValoresInstantaneos(Theta, TimeEndStep);
     }
+
     BC[i]->CalculaCondicionContorno(TimeEndStep);
 
     if (BC[i]->getTipoCC() == nmUnionEntreDepositos) {
@@ -3675,6 +3677,7 @@ void TOpenWAM::CalculateFlowCommon() {
   }
 
 #pragma omp parallel for
+
   for (int j = 0; j < NumberOfPipes; j++) {
     Pipe[j]->ActualizaValoresNuevos(BC);
     Pipe[j]->ActualizaPropiedadesGas();

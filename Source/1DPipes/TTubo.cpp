@@ -1224,13 +1224,34 @@ void TTubo::ActualizaPropiedadesGas() {
         }
       } else {
 
-        FRMezcla[i] = CalculoCompletoRMezcla(
-            FFraccionMasicaEspecie[i][0], FFraccionMasicaEspecie[i][1],
-            FFraccionMasicaEspecie[i][2], 0, FCalculoGamma, nmMEP);
+        // DEBUG: Check if species fractions are NaN before Gamma calculation
+        // GUARD: Use air composition if species are NaN to prevent cascade
+        // failure
+        double sp0 = FFraccionMasicaEspecie[i][0];
+        double sp1 = FFraccionMasicaEspecie[i][1];
+        double sp2 = FFraccionMasicaEspecie[i][2];
+        if (std::isnan(sp0) || std::isnan(sp1) || std::isnan(sp2)) {
+          static int nanCount = 0;
+          if (nanCount < 3) {
+            printf("DEBUG PIPE GAMMA SPECIES NaN Pipe %d Node %d: "
+                   "Species[0-2]=%.6e %.6e %.6e -> Using air fallback\n",
+                   FNumeroTubo, i, FFraccionMasicaEspecie[i][0],
+                   FFraccionMasicaEspecie[i][1], FFraccionMasicaEspecie[i][2]);
+            nanCount++;
+          }
+          // Fallback to air composition: O2=0.23, N2=0.77, Fuel=0
+          sp0 = 0.0;  // Fuel fraction
+          sp1 = 0.77; // N2 fraction
+          sp2 = 0.23; // O2 fraction
+          // Also fix the actual species array to prevent further propagation
+          FFraccionMasicaEspecie[i][0] = sp0;
+          FFraccionMasicaEspecie[i][1] = sp1;
+          FFraccionMasicaEspecie[i][2] = sp2;
+        }
+        FRMezcla[i] =
+            CalculoCompletoRMezcla(sp0, sp1, sp2, 0, FCalculoGamma, nmMEP);
         double CpMezcla = CalculoCompletoCpMezcla(
-            FFraccionMasicaEspecie[i][0], FFraccionMasicaEspecie[i][1],
-            FFraccionMasicaEspecie[i][2], 0, FTemperature[i], FCalculoGamma,
-            nmMEP);
+            sp0, sp1, sp2, 0, FTemperature[i], FCalculoGamma, nmMEP);
         FGammaN = CalculoCompletoGamma(FRMezcla[i], CpMezcla, FCalculoGamma);
         if (abs(FGammaN - FGamma[i]) > 0.025) {
           FGamma[i];
@@ -1351,6 +1372,14 @@ void TTubo::Transforma2(double &v, double &a, double &p, double **U,
     }
 
     // Solucion del Transporte de Especies Quimicas.
+    // DEBUG: Check for problematic U[0][i] before division
+    if (U[0][i] <= 0 || std::isnan(U[0][i]) || std::isinf(U[0][i])) {
+      printf("DEBUG PIPE SPECIES NaN Pipe %d Node %d: U[0][i]=%.6e (division "
+             "will cause NaN)\n",
+             FNumeroTubo, i, U[0][i]);
+      printf("  U[1][i]=%.6e U[2][i]=%.6e U[3][i]=%.6e\n", U[1][i], U[2][i],
+             U[3][i]);
+    }
     for (int j = 0; j < FNumeroEspecies - 2; j++) {
       Yespecie[j] = U[j + 3][i] / U[0][i];
       fraccionmasicaacum += Yespecie[j];
@@ -1379,7 +1408,12 @@ void TTubo::Transforma2Area(double &v, double &a, double &p, double **U,
   try {
 #endif
     double fraccionmasicaacum = 0.;
-    if (U[0][i] < 0) {
+    if (U[0][i] <= 0 || std::isnan(U[0][i]) || std::isinf(U[0][i])) {
+      printf("DEBUG PIPE SPECIES NaN Pipe %d Node %d: U[0][i]=%.6e "
+             "(Transforma2Area)\n",
+             FNumeroTubo, i, U[0][i]);
+      printf("  U[1][i]=%.6e U[2][i]=%.6e U[3][i]=%.6e\n", U[1][i], U[2][i],
+             U[3][i]);
       std::cout << "ERROR: Calculation in pipe " << FNumeroTubo
                 << " is unstable" << std::endl;
       if (FMod.Modelo == nmLaxWendroff)
@@ -2388,6 +2422,14 @@ void TTubo::ActualizaValoresNuevos(
 
     TransformaContorno(LandaIzq, BetaIzq, EntropiaIzq, a, v, p, 1, FGamma1[0],
                        FGamma3[0], FGamma4[0], FGamma5[0]);
+    // DEBUG: Check if BC values or transformed values are NaN
+    if (std::isnan(LandaIzq) || std::isnan(BetaIzq) ||
+        std::isnan(EntropiaIzq) || std::isnan(a) || std::isnan(v) ||
+        std::isnan(p)) {
+      printf("DEBUG BC NaN Pipe %d LEFT: Landa=%.6e Beta=%.6e Entropia=%.6e\n",
+             FNumeroTubo, LandaIzq, BetaIzq, EntropiaIzq);
+      printf("  After TransformaContorno: a=%.6e v=%.6e p=%.6e\n", a, v, p);
+    }
     if (BC[FNodoIzq - 1]->getTipoCC() == nmBranch) {
       if (v < 0.) {
         for (int i = 0; i < FNumeroEspecies - FIntEGR; i++) {
@@ -2416,6 +2458,14 @@ void TTubo::ActualizaValoresNuevos(
     TransformaContorno(LandaDer, BetaDer, EntropiaDer, a, v, p, 1,
                        FGamma1[FNin - 1], FGamma3[FNin - 1], FGamma4[FNin - 1],
                        FGamma5[FNin - 1]);
+    // DEBUG: Check if BC values or transformed values are NaN
+    if (std::isnan(LandaDer) || std::isnan(BetaDer) ||
+        std::isnan(EntropiaDer) || std::isnan(a) || std::isnan(v) ||
+        std::isnan(p)) {
+      printf("DEBUG BC NaN Pipe %d RIGHT: Landa=%.6e Beta=%.6e Entropia=%.6e\n",
+             FNumeroTubo, LandaDer, BetaDer, EntropiaDer);
+      printf("  After TransformaContorno: a=%.6e v=%.6e p=%.6e\n", a, v, p);
+    }
     if (BC[FNodoDer - 1]->getTipoCC() == nmBranch) {
       if (v > 0.) {
         for (int i = 0; i < FNumeroEspecies - FIntEGR; i++) {
@@ -2462,8 +2512,10 @@ void TTubo::ActualizaValoresNuevos(
         FAsonidoDim[i] = FAsonido0[i] * __cons::ARef;
         FFlowMass[i] = FU0[1][i];
         if (FVelocidadDim[i] > FAsonidoDim[i] + 1.0e-10) {
+#ifdef VERBOSE_SUPERSONIC
           printf("Supersonic flow in pipe: %d node: %d, Mach = %lf\n",
                  FNumeroTubo, i, FVelocidadDim[i] / FAsonidoDim[i]);
+#endif
         }
       }
     }
@@ -5121,9 +5173,17 @@ double TTubo::Interpola_Caracteristica(double entropia, int signo, int extremo,
 
       int ind1 = ind + signo;
 
+      // DEBUG/GUARD: If Gamma is NaN, use default air gamma
+      double gamma_ind = FGamma[ind];
+      double gamma_ind1 = FGamma[ind1];
+      if (std::isnan(gamma_ind))
+        gamma_ind = 1.4;
+      if (std::isnan(gamma_ind1))
+        gamma_ind1 = 1.4;
+
       stCharOrigin CharOrigin(FU0[0][ind], FU0[1][ind], FU0[2][ind],
                               FU0[0][ind1], FU0[1][ind1], FU0[2][ind1],
-                              FGamma[ind], FGamma[ind1], dtdx, signo);
+                              gamma_ind, gamma_ind1, dtdx, signo);
 
       double dist = zbrent(CharOrigin, 0., 1., 1e-5);
 

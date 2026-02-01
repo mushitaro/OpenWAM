@@ -707,8 +707,8 @@ void TCilindro::AsignacionCC_Pointers(TCondicionContorno **BC, int numCC) {
       FValvEsc[i].MachSUM = 0.;
       FValvEsc[i].RelacionPresionGargantaSUM = 0.;
       FValvEsc[i].NITSUM = 0.;
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::AsignacionCC en cilindro: "
               << FNumeroCilindro << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -894,8 +894,8 @@ void TCilindro::ReadAverageResultsCilindro(std::istream &FileInput) {
         std::cout << "Resultados medios en cilindro " << FNumeroCilindro
                   << " no implementado " << std::endl;
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::ReadAverageResultsCilindro en cilindro: "
               << FNumeroCilindro << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1057,8 +1057,8 @@ void TCilindro::HeaderAverageResultsCilindro(std::ostream &medoutput,
                 PutLabel(901);
         medoutput << Label.c_str();
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::HeaderAverageResultsCilindro en cilindro: "
               << FNumeroCilindro << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1133,11 +1133,11 @@ void TCilindro::ImprimeResultadosMediosCilindro(std::ostream &medoutput) {
     if (FResMediosCilindro.RendVolumetrico)
       medoutput << "\t" << FResMediosCilindro.RendVolumetricoMED;
   } catch (std::exception &N) {
-  std::cout << "ERROR: TCilindro::ImprimeResultadosMediosCilindro "
-            << std::endl;
-  std::cout << "Tipo de error: " << N.what() << std::endl;
-  throw Exception(N.what());
-}
+    std::cout << "ERROR: TCilindro::ImprimeResultadosMediosCilindro "
+              << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1211,8 +1211,8 @@ void TCilindro::AcumulaResultadosMediosCilindro(double TActual) {
 
       FResMediosCilindro.TiempoSUM += DeltaT;
       FResMediosCilindro.Tiempo0 = TActual;
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::AcumulaResultadosMediosCilindro "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1381,8 +1381,8 @@ void TCilindro::CalculaResultadosMediosCilindro() {
       }
 
       FResMediosCilindro.TiempoSUM = 0;
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::CalculaResultadosMediosCilindro "
               << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -1574,8 +1574,8 @@ void TCilindro::ReadInstantaneousResultsCilindro(std::istream &FileInput) {
           break;
         }
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout
         << "ERROR: TCilindro::ReadInstantaneousResultsCilindro en cilindro: "
         << FNumeroCilindro << std::endl;
@@ -1816,12 +1816,12 @@ void TCilindro::HeaderInstantaneousResultsCilindro(std::ostream &insoutput,
       insoutput << Label.c_str();
     }
   } catch (std::exception &N) {
-  std::cout
-      << "ERROR: TCilindro::HeaderInstantaneousResultsCilindro en cilindro: "
-      << FNumeroCilindro << std::endl;
-  std::cout << "Tipo de error: " << N.what() << std::endl;
-  throw Exception(N.what());
-}
+    std::cout
+        << "ERROR: TCilindro::HeaderInstantaneousResultsCilindro en cilindro: "
+        << FNumeroCilindro << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1948,12 +1948,12 @@ void TCilindro::ImprimeResultadosInstantaneosCilindro(std::ostream &insoutput) {
     if (FResInstantCilindro.HeatPis)
       insoutput << "\t" << FResInstantCilindro.HeatPisINS;
   } catch (std::exception &N) {
-  std::cout
-      << "ERROR: TCilindro::HeaderInstantaneousResultsCilindro en cilindro: "
-      << FNumeroCilindro << std::endl;
-  std::cout << "Tipo de error: " << N.what() << std::endl;
-  throw Exception(N.what());
-}
+    std::cout
+        << "ERROR: TCilindro::HeaderInstantaneousResultsCilindro en cilindro: "
+        << FNumeroCilindro << std::endl;
+    std::cout << "Tipo de error: " << N.what() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2101,8 +2101,8 @@ void TCilindro::CalculaResultadosInstantaneosCilindro() {
         FResInstantCilindro.HeatCylINS = FCalor.TransCilindro;
       if (FResInstantCilindro.HeatPis)
         FResInstantCilindro.HeatPisINS = FCalor.TransPiston;
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::CalculaResultadosInstantaneosCilindro en "
                  "cilindro: "
               << FNumeroCilindro << std::endl;
@@ -2338,12 +2338,32 @@ void TCilindro::IniciaVariables() {
       // Ciclo cerrado. Compresion Isoentropica.
       if (FAnguloActual < 180. || FAnguloActual > 540.) {
         FCicloCerrado = true;
-        FPressure =
-            FMotor->getPresionInicial() * pow((FVolumenCA / FVolumen), FGamma);
+        // Duplicate line removed.
+
+        // [DEBUG ANTIGRAVITY] - Log Initialization State
+        // Check if Volume matches TDC (50cc) or BDC (600cc) and if Mass is
+        // consistent.
+        std::cout << "[DEBUG_INIT] Cyl:" << FNumeroCilindro
+                  << " Ang:" << FAnguloActual << " Vol:" << FVolumen
+                  << " P:" << FPressure << " Mass:" << FMasa << std::endl;
+
+        // [MODIFIED] Force Initial Pressure (Stop Adiabatic Compression at t=0)
+        FPressure = FMotor->getPresionInicial();
+
         // FMasa = FMotor->getMasaInicial();
-        FMasa = __units::BarToPa(FMotor->getPresionInicial()) * FVolumenCA /
+        // FMasa calculated from Current Volume to ensure P=1Bar at t=0
+        FMasa = __units::BarToPa(FMotor->getPresionInicial()) * FVolumen /
                 __units::degCToK(60) / FRMezcla;
         FMasaAtrapada = FMasa;
+
+        // [DEBUG ANTIGRAVITY]
+        std::cout << "[DEBUG_INIT] Cyl:" << FNumeroCilindro
+                  << " Ang:" << FAnguloActual << " Vol:" << FVolumen
+                  << " P:" << FPressure << " Mass:" << FMasa << std::endl;
+
+        for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
+          FMasaEspecie[j] = FMasa * FFraccionMasicaEspecie[j];
+        }
         for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
           FMasaEspecie[j] = FMasa * FFraccionMasicaEspecie[j];
         }
@@ -2572,8 +2592,8 @@ void TCilindro::InicioFinCombustion() {
           }
         }
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: AnguloInicioCombustion en el cilindro: "
               << FNumeroCilindro << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -3219,8 +3239,8 @@ void TCilindro::DefineCombustion() {
       } else {
         FCalcComb = nmFQL;
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::PutModComb en el cilindro: "
               << FNumeroCilindro << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -3432,8 +3452,8 @@ void TCilindro::SalidaGeneralCilindros() {
         std::cout << "INFO: Trapped mass:   "
                   << FResMediosCilindro.MasaAtrapadaMED << " (kg/cc)"
                   << std::endl;
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::SalidaGeneralCilindros en el cilindro: "
               << FNumeroCilindro << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
@@ -3455,8 +3475,8 @@ void TCilindro::CalculaVariablesResultados() {
     }
     if (FResMediosCilindro.Swirl) {
       CalculaSWIRL();
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCilindro::CalculaMomentoAngular en el cilindro: "
               << FNumeroCilindro << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;

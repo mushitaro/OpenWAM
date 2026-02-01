@@ -37,6 +37,17 @@ Valencia |   \\/   \//    M odel    |
 // #include <tchar.h>
 // ---------------------------------------------------------------------------
 
+// VERBOSE_DEBUG: Uncomment to enable per-loop debug output (WARNING: ~750MB
+// logs) #define VERBOSE_DEBUG
+
+#ifdef VERBOSE_DEBUG
+#define LOOP_DEBUG(msg)                                                        \
+  printf(msg);                                                                 \
+  fflush(stdout);
+#else
+#define LOOP_DEBUG(msg)
+#endif
+
 #pragma argsused
 
 TOpenWAM *Aplication = NULL;
@@ -84,55 +95,43 @@ int main(int argc, char *argv[]) {
     fflush(stdout);
 
     do {
-      printf("DEBUG: Loop Start (Independent)\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: Loop Start (Independent)\n")
 
       Aplication->Progress();
-      printf("DEBUG: After Progress (Independent)\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After Progress (Independent)\n")
 
       Aplication->DetermineTimeStepIndependent();
-      printf("DEBUG: After DetermineTimeStepIndependent\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After DetermineTimeStepIndependent\n")
 
       Aplication->NewEngineCycle();
-      printf("DEBUG: After NewEngineCycle (Independent)\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After NewEngineCycle (Independent)\n")
 
       Aplication->CalculateFlowIndependent();
-      printf("DEBUG: After CalculateFlowIndependent\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After CalculateFlowIndependent\n")
 
       Aplication->ManageOutput();
-      printf("DEBUG: After ManageOutput (Independent)\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After ManageOutput (Independent)\n")
 
     } while (!Aplication->CalculationEnd());
 
   } else {
     do {
-      printf("DEBUG: Loop Start\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: Loop Start\n")
 
       Aplication->Progress();
-      printf("DEBUG: After Progress\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After Progress\n")
 
       Aplication->DetermineTimeStepCommon();
-      printf("DEBUG: After DetermineTimeStepCommon\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After DetermineTimeStepCommon\n")
 
       Aplication->NewEngineCycle();
-      printf("DEBUG: After NewEngineCycle\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After NewEngineCycle\n")
 
       Aplication->CalculateFlowCommon();
-      printf("DEBUG: After CalculateFlowCommon\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After CalculateFlowCommon\n")
 
       Aplication->ManageOutput();
-      printf("DEBUG: After ManageOutput\n");
-      fflush(stdout);
+      LOOP_DEBUG("DEBUG: After ManageOutput\n")
 
     } while (!Aplication->CalculationEnd());
   }
