@@ -69,7 +69,7 @@ class HeadConfig(BaseModel):
     intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0)
     exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=260.0)
     intake_port: PortConfig = PortConfig(diameter=35.0, length=105.0) # S54 Spec
-    exhaust_port: PortConfig = PortConfig(diameter=30.0, length=70.0)
+    exhaust_port: PortConfig = PortConfig(diameter=30.0, length=90.0)  # 90mm for numerical stability
 
 class HeatTransferConfig(BaseModel):
     woschni_coeffs: List[float] = [128.0, 2.28, 0.0]
@@ -98,7 +98,7 @@ class EngineConfig(BaseModel):
 # 3. Exhaust System (Modular Toplogy)
 class HeaderConfig(BaseModel):
     type: str = "Stock Euro"
-    primary_length: float = 350.0 # mm
+    primary_length: float = 480.0 # mm [CSL Spec]
     primary_diameter: float = 40.0 # mm
     collector_count: int = 2 # 2 for 6-cyl (3-into-1 x 2)
     collector_vol: float = 1.5 # Liters
@@ -124,18 +124,22 @@ class ExhaustSectionConfig(BaseModel):
     
 class Section1Config(ExhaustSectionConfig): # Backward Compat wrap
     name: str = "Section 1"
-    layout: ExhaustLayoutType = ExhaustLayoutType.H_PIPE
+    layout: ExhaustLayoutType = ExhaustLayoutType.STRAIGHT
+    length: float = 1200.0 # Total Length (600 + 300 + 300)
     cat_fitted: bool = True
-    crossover_offset: float = 0.0 # Alias logic handled in generator
-    crossover_type: str = "none" # Added for frontend compat
+    cat_offset: float = 600.0 # mm from start (Section 1-1 Length)
+    # Cat length is usually defined in CatalystConfig, or we assume implicit? 
+    # Let's assume the conversion logic splits this based on `catalyst` config or internal logic.
+    # User said: Sec1-1(600) -> Cat(300) -> Sec1-2(300). Total 1200.
+    crossover_type: str = "none" # Straight
 
 class Section2Config(ExhaustSectionConfig):
     name: str = "Section 2"
-    layout: ExhaustLayoutType = ExhaustLayoutType.STRAIGHT
-    resonator_fitted: bool = True
-    resonator_location: str = "before_h"
-    resonator_length: float = 300.0 # mm
-    resonator_diameter: float = 80.0 # mm
+    layout: ExhaustLayoutType = ExhaustLayoutType.H_PIPE # H-Pipe here
+    length: float = 1400.0 # Total: 400(2-1) + 200(H) + 800(2-2)
+    resonator_fitted: bool = False # User didn't mention resonator, just pipes
+    resonator_location: str = "none"
+    # Logic needs to split this based on H-Pipe location
 
 class Section3Config(ExhaustSectionConfig):
     name: str = "Muffler"
@@ -145,10 +149,10 @@ class Section3Config(ExhaustSectionConfig):
 
 class ExhaustConfig(BaseModel):
     headers: HeaderConfig = HeaderConfig()
-    catalyst: CatalystConfig = CatalystConfig()
-    section1_1: Section1Config = Section1Config()
-    section1_2: Section1Config = Section1Config()
-    section2: Section2Config = Section2Config()
+    catalyst: CatalystConfig = CatalystConfig() # Uses length=300 in models?
+    section1_1: Section1Config = Section1Config() # Bank 1 Pipeline
+    section1_2: Section1Config = Section1Config() # Bank 2 Pipeline (Duplicate config)
+    section2: Section2Config = Section2Config()   # Merged Section (or Dual)
     section3: Section3Config = Section3Config()
 
 # Root Config

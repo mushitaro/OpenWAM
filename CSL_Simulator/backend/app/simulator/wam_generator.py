@@ -31,7 +31,8 @@ class WAMGenerator:
         self.wam_lines_pipes = []
         self.wam_lines_plenums = []
         self.wam_lines_valves = [] 
-        self.wam_lines_cons = []
+        # REFACTORED: Store connections as dict {cid: [type, line1, line2, ...]}
+        self.connections = {}
         
         # ID Registries to track topology
         self.ids = {
@@ -84,11 +85,8 @@ class WAMGenerator:
     def _add_pressure_loss(self, cid, type_loss, K_factor):
         # Type 9 (Linear) or 10 (Quadratic)
         # K_factor is the loss coefficient
-        self.wam_lines_cons.append(f"{type_loss}")
-        # Data: No extra data for simple K? 
-        # Check TCCPerdidadePresion::ReadBoundaryData -> fscanf(fich, "%lf ", &FK);
-        # So yes, just K.
-        self.wam_lines_cons.append(f"{K_factor}")
+        cid = self.connection_counter
+        self.connections[cid] = (type_loss, [f"{K_factor}"])
         self.connection_counter += 1
 
     def _get_dynamic_cd(self, lift_mm, valve_dia_mm, is_intake=True):
@@ -132,99 +130,60 @@ class WAMGenerator:
         
 
     def _generate_controllers(self, schedule: Optional[SweepSchedule]):
-        if not schedule:
-             self.wam_lines.append("0")
-             return
-
-        # 4 Controllers Total: 1(RPM), 2(Intake), 3(Exhaust), 4(LiftFix)
-        self.wam_lines.append("4")
+        """Generate controllers including throttle controller for Mariposa valves."""
         
-        def add_function_controller(cid, time_arr, val_arr):
+        def add_function_controller(time_arr, val_arr):
             # Output Type 2 (Table1D)
             # Format: Type(2) FromFile(0) NumPoints X Y ... Period(0) Interp(0) SensorID(1)
             self.wam_lines.append("2") 
-            self.wam_lines.append("0") # fromfile=0
+            self.wam_lines.append("0")  # fromfile=0
             
             n = len(time_arr)
             self.wam_lines.append(f"{n}")
             for t, v in zip(time_arr, val_arr):
                 self.wam_lines.append(f"{t:.4f} {v:.4f}")
             
-            self.wam_lines.append("0") # Period=0
-            self.wam_lines.append("0") # Interp=Linear
-            self.wam_lines.append("1") # SensorID=1 (Time)
+            self.wam_lines.append("0")  # Period=0
+            self.wam_lines.append("0")  # Interp=Linear
+            self.wam_lines.append("1")  # SensorID=1 (Time)
+        
+        # Calculate throttle angle from config
+        throttle_angle = self._calculate_throttle_angle(
+            self.config.engine.throttle_position
+        )
+        
+        if not schedule:
+            # VE Table Mode: Only throttle controller needed
+            # Controller ID = 1 for Throttle
+            self.wam_lines.append("1")  # 1 controller
+            
+            # Throttle Controller (ID 1): Fixed angle throughout simulation
+            add_function_controller([0.0, 1.0], [throttle_angle, throttle_angle])
+            return
+
+        # Full Schedule Mode: 5 Controllers
+        # 1(RPM), 2(Intake), 3(Exhaust), 4(LiftFix), 5(Throttle)
+        self.wam_lines.append("5")
         
         # 1. RPM Controller (ID 1)
-        add_function_controller(1, schedule.time_points, schedule.rpm_points)
+        add_function_controller(schedule.time_points, schedule.rpm_points)
         
         # 2. Intake Phase (ID 2)
-        # OpenWAM: Angle = Angle0 + Gap.
-        # Our Logic: Angle = Base - Bias.
-        # So Gap = -Bias.
         neg_intake = [-x for x in schedule.intake_bias_points]
-        add_function_controller(2, schedule.time_points, neg_intake)
+        add_function_controller(schedule.time_points, neg_intake)
         
         # 3. Exhaust Phase (ID 3)
         neg_exhaust = [-x for x in schedule.exhaust_bias_points]
-        add_function_controller(3, schedule.time_points, neg_exhaust)
+        add_function_controller(schedule.time_points, neg_exhaust)
         
         # 4. Lift Fix (ID 4) - Constant 1.0
-        # Just 2 points spanning duration
         dur = schedule.duration if schedule.duration > 0 else 10.0
-        add_function_controller(4, [0.0, dur], [1.0, 1.0])
+        add_function_controller([0.0, dur], [1.0, 1.0])
+        
+        # 5. Throttle Controller (ID 5) - Fixed angle
+        add_function_controller([0.0, dur], [throttle_angle, throttle_angle])
 
-    def _generate_output_block(self):
-        print("DEBUG: Generating OUTPUT Block")
-        # OUTPUT BLOCK STRUCTURE (TOutputResults compatibility)
-        # 1. Output Mode: 
-        # 2 = All Cycles Concatenated (Single file)
-        self.wam_lines.append("2")
-        
-        # 2. Average Results
-        self.wam_lines.append("0") # Cylinders
-        
-        # Engine (ENABLE for simplified Dyno Data)
-        # 1 means Enabled. Then it reads Params.
-        self.wam_lines.append("0") 
-        # TBloqueMotor::ReadAverageResultsBloqueMotor
-        # Count = 5 vars
-        # IDs: 17=RPM, 0=Torque(Net), 12=Power, 18=VE, 24=AFR
-        # self.wam_lines.append("5 17 0 12 18 24")
-        
-        self.wam_lines.append("0") # Plenums
-        self.wam_lines.append("0 0") # Pipes + param (wamer)
-        self.wam_lines.append("0") # Axis
-        self.wam_lines.append("0") # Compressors
-        self.wam_lines.append("0") # Turbines
-        self.wam_lines.append("0") # Valves
-        self.wam_lines.append("0") # Roots
-        self.wam_lines.append("0") # Venturis
-        self.wam_lines.append("0") # Connections
-        # DPF is skipped (ifdef)
-        self.wam_lines.append("0") # Sensors
-        self.wam_lines.append("0") # Controllers
-        
-        # 3. Instantaneous Results
-        self.wam_lines.append("0") # Cylinders
-        self.wam_lines.append("0") # Plenums
-        self.wam_lines.append("0 0") # Pipes
-        self.wam_lines.append("0") # Venturis
-        self.wam_lines.append("0") # Valves
-        self.wam_lines.append("0") # Turbochargers
-        self.wam_lines.append("0") # Compressors
-        self.wam_lines.append("0") # Turbines
-        self.wam_lines.append("0") # Roots
-        self.wam_lines.append("0") # Connections
-        self.wam_lines.append("0") # WasteGates
-        self.wam_lines.append("0") # ReedValves
-        # self.wam_lines.append("0") # DPF Inst REMOVED
-        self.wam_lines.append("0") # Sensors
-        self.wam_lines.append("0") # Controllers
-        
-        # 4. SpaceTime Results
-        self.wam_lines.append("0")
 
-        
     def _generate_engine_block(self, schedule: Optional[SweepSchedule]):
         # Matches TBloqueMotor::LeeMotor Order (OpenWAM v2.2)
         c = self.config
@@ -237,6 +196,9 @@ class WAMGenerator:
         
         # 3. Initial Conditions
         # WARNING: OpenWAM Engine Initialization likely expects Bar for Pressure!
+        # CONFIRMED: 101325.0 resulted in 67kg trapped mass (100k Bar). Must use Bar.
+        # EXPERIMENT: Restoring Standard Mass (0.6g) + Friction 0.5 (Ports) + Mesh 0.05.
+        # This combination aims to dampen the 10 Bar startup spike without crashing the solver.
         p_init = 1.01325 
         m_init = 0.0006
         self._add(f"{c.engine.rpm} {p_init} {m_init}", "Initial: RPM Press Mass")
@@ -244,11 +206,11 @@ class WAMGenerator:
         # ImponerComposicionAE (0=False)
         self._add("0", "Impose Comp AE=0")
         
-        # FComposicionInicial (Loop N-1)
-        # Split air_comp, take N-1
+        # FComposicionInicial (Loop FNumeroEspecies - 1)
+        # OpenWAM reads (FNumeroEspecies - 1) = 10 values when FNumeroEspecies = 11
+        # We must output ALL 10 values from air_comp, NOT N-1
         ac_list = self.air_comp.strip().split()
-        to_write = len(ac_list) - 1
-        self._add(" ".join(ac_list[:to_write]), "Initial Composition")
+        self._add(" ".join(ac_list), "Initial Composition (10 values)")
         
         # TipoPresionAAE (0=Calc)
         self._add("0", "Calc AAE Pressure")
@@ -262,11 +224,15 @@ class WAMGenerator:
         # 6. Efficiency & Fuel Props
         self._add("0.98 44000000 750", "Eff LHV Rho")
         
-        # 7. Ref Pipe
-        self._add("1", "Ref Pipe")
-        
-        # 8. Thermal Params
-        self._add("##VE_PIPE_ID## 450 400", "Temps")
+        # 7-8. Thermal Params - MUST be separate values for TBloqueMotor::LeeMotor
+        # Line 222: FNumTuboRendVol (Ref Pipe for VE calculation)
+        # Line 228: FTempInicial.Piston
+        # Line 229: FTempInicial.Culata (Head)
+        # Line 230: FTempInicial.Cylinder
+        self._add("##VE_PIPE_ID##", "Ref Pipe VE")
+        self._add("60", "Temp Piston (C)")
+        self._add("60", "Temp Head (C)")
+        self._add("60", "Temp Cylinder (C)")
         
         # Areas
         bore = c.engine.geometry.bore / 1000.0
@@ -300,7 +266,9 @@ class WAMGenerator:
         self._add("1", "Num Heat Laws")
         self._add("1.0 1.0 2000.0", "Heat Law logic")
         self._add("1", "Num Wiebes")
-        self._add("2.0 6.9 0.0 60.0 -15.0", "Wiebe Params")
+        # Wiebe: m=2.0, a=6.9, FQL_ini=0.0, Duration=60deg, Start=ignition_timing (BTDC, negative)
+        ign_start = -self.ignition_timing if hasattr(self, 'ignition_timing') else -15.0
+        self._add(f"2.0 6.9 0.0 60.0 {ign_start:.1f}", "Wiebe Params")
         
         # 14. Injections Logic
         self._add("0", "Injection Data Type")
@@ -323,7 +291,9 @@ class WAMGenerator:
         for i in range(c.engine.cylinders):
             self._add("0", f"FuelMassCtrl Cyl {i+1}")
 
-    def generate(self, schedule: Optional[SweepSchedule] = None):
+    def generate(self, schedule: Optional[SweepSchedule] = None, ignition_timing: float = 15.0):
+        # ignition_timing: Degrees BTDC (positive value, e.g. 30 means 30 BTDC)
+        self.ignition_timing = ignition_timing
         simplify_exhaust = False
         c = self.config
         
@@ -336,7 +306,9 @@ class WAMGenerator:
         self._add("2200", "OpenWAM Version") 
         self._add(0, "Independent Simulation")
         # FORCE 1.0 deg Step Size for stability
-        self._add(f"0.5 {c.simulation.duration_cycles}", "dTheta Duration") 
+        # Extended simulation time: 2.0s for cycle stabilization (was 0.5s)
+        # At 3000 RPM: 2.0s = ~50 cycles, sufficient for VE convergence
+        self._add(f"2.0 {c.simulation.duration_cycles}", "dTheta Duration") 
         # OpenWAM expects BAR for P_amb
         p_amb_bar = c.environment.ambient_pressure / 100000.0
         self._add(f"{p_amb_bar:.5f} {c.environment.ambient_temp}", "P_amb T_amb")
@@ -348,15 +320,17 @@ class WAMGenerator:
         self._add("1", "Engine Exists")
         
         # 2. Cycle Mode (If EngineExists) (4T, Mode, EGR)
-        # Mode: 0=Steady, 1=TransientLoad, 2=TransientRPM
-        if schedule:
-             # Transient Mode is currently unstable (Supersonic).
-             # Falling back to Steady State. Runner must manage Quasi-Steady sweep.
-             self._add("0 0 0", "Cycle Mode (Steady)")
-        else:
-             self._add("0 0 0", "Cycle Mode (Steady)") 
+        # Mode: 0=Steady, 1=TransientLoad, 2=TransientRPM, 3=TransientRPMExternal
+        # Using Transient Load mode to enable warmup (CyclesWithoutThemalInertia)
+        self._add("0 1 0", "Cycle Mode (4T, TransientLoad, NoEGR)")
         
-        # 3. Fuel (haycombustible, tipocombustible)
+        # 3. CyclesWithoutThemalInertia (ONLY read in Transient modes)
+        # This enables warmup: wall temperature uses simplified calculation
+        # for first N cycles to avoid thermal shock instabilities
+        warmup_cycles = 10  # 10 cycles of warmup before full thermal inertia
+        self._add(f"{warmup_cycles}", "Warmup Cycles (CyclesWithoutThemalInertia)")
+        
+        # 4. Fuel (haycombustible, tipocombustible)
         # 1 1 = Yes Fuel, Gasoline
         self._add("1 1", "Fuel=Yes Type=Gasoline")
         
@@ -392,7 +366,7 @@ class WAMGenerator:
         self.connection_counter = 0
         self.wam_lines_pipes = []
         self.wam_lines_plenums = []
-        self.wam_lines_cons = []
+        self.connections = {}  # REFACTORED: dict instead of list
         self.pipes = {}
         self.plenum_ids = set()
         self.valves_intake = []
@@ -463,16 +437,18 @@ class WAMGenerator:
         cid_amb = self.connection_counter 
         self._add_con_plenum_pipe_v2(amb_in_id, filter_pipe_id, 0)
         
-        # Create Pressure Loss Node (Air Filter Loss)
-        cid_filter = self.connection_counter
-        self._add_pressure_loss(cid_filter, 10, 5.0) # Type 10 (Quad), K=5.0
+        # Filter Pipe End -> Duct Start: Type 6 Direct Pipe-to-Pipe Connection
+        # CRITICAL: Both pipes MUST reference the same connection ID
+        c_filter_to_duct = self._create_pipe_to_pipe_connection()
         
-        # Adjusted to 0.15m for stability/speed (50mm mesh x 3 nodes)
-        self._add_pipe(filter_pipe_id, "Air_Filter_Elem", 0.15, 0.15, 0.15, 300, cid_amb, cid_filter)
+        # Higher friction for filter pressure loss
+        self._add_pipe(filter_pipe_id, "Air_Filter_Elem", 0.15, 0.15, 0.15, 300, cid_amb, c_filter_to_duct, friction=0.3)
         
         # 3. Intake Duct
         duct_id = self.pipe_counter; self.pipe_counter += 1
-        node_duct_start = cid_filter # Connect to Filter Output
+        
+        # Start: Use same Type 6 connection as Filter End
+        cid_duct_start = c_filter_to_duct  # Type 6: References same ID as Filter End
         
         # Plenum
         plenum_id = self.plenum_counter; self.plenum_counter += 1
@@ -481,17 +457,17 @@ class WAMGenerator:
         
         cid_plenum_in = self.connection_counter
         self._add_con_plenum_pipe_v2(plenum_id, duct_id, 1) # Duct End -> Plenum
-        node_duct_end = cid_plenum_in
         
         self._add_pipe(duct_id, "Intake_Duct", c.intake.inlet.duct_length/1000.0,
                        c.intake.inlet.duct_diameter/1000.0, c.intake.inlet.duct_diameter/1000.0, 313,
-                       node_duct_start, node_duct_end)
+                       cid_duct_start, cid_plenum_in)
+
 
         # 4. Runners (Dynamic Count based on Cylinders)
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
             
-            # Runner Pipe
+            # Runner Pipe (with built-in bellmouth taper effect)
             runner_id = self.pipe_counter; self.pipe_counter += 1
             self.ids['runners'].append(runner_id)
             
@@ -511,36 +487,65 @@ class WAMGenerator:
             cid_split = self.connection_counter
             self._add_con_plenum_pipe_v2(split_plenum_id, runner_id, 1)
             
-            # Define Runner Pipe
-            r_dia_max_start = c.intake.bellmouth.diameter/1000.0
+            # Define Runner Pipe with BELLMOUTH TAPER
+            # Start diameter: 20% larger than ITB (simulates bellmouth funnel)
+            # End diameter: Port diameter (actual runner exit)
+            itb_dia = c.intake.itb.diameter / 1000.0
+            bellmouth_dia = itb_dia * 1.2  # 60mm for 50mm ITB
             r_dia_max_end = c.engine.head.intake_port.diameter / 1000.0
-            total_len = c.intake.bellmouth.length/1000.0
+            total_len = c.intake.bellmouth.length / 1000.0
             
+            # Taper from bellmouth (60mm) to port (smaller)
             self._add_pipe(runner_id, f"Runner_{cyl_idx}", total_len,
-                           r_dia_max_start, r_dia_max_end, 313,
-                           cid_run_start, cid_split) 
+                           bellmouth_dia, r_dia_max_end, 313,
+                           cid_run_start, cid_split, friction=0.08, dx_mesh=0.020) 
             self.ids['itbs'].append(vid_throttle)
                            
-            # Port Pipes (2 per cyl)
+            # Port Pipes (2 per cyl) - SEGMENTED for stability
+            # Port is split into: Main Port -> Valve Pocket (buffer) -> Valve
             port_len_in = c.engine.head.intake_port.length / 1000.0
             port_dia_in = c.engine.head.intake_port.diameter / 1000.0
             
+            # Segment lengths: Main=70%, Pocket=30%
+            port_main_len = port_len_in * 0.7
+            port_pocket_len = port_len_in * 0.3
+            
             for v in range(2): 
-                pid_port = self.pipe_counter; self.pipe_counter += 1
-                
                 vid_global = (i * 2) + v + 1
                 self.valves_intake.append(vid_global)
                 
+                # --- VALVE POCKET (buffer plenum before valve) ---
+                # 3cc pocket to absorb backflow shockwaves
+                valve_pocket_id = self.plenum_counter; self.plenum_counter += 1
+                self._add_plenum(valve_pocket_id, f"ValvePocket_In_{cyl_idx}_{v+1}", 0.003, 380)
+                
+                # --- MAIN PORT PIPE (from split plenum to valve pocket) ---
+                pid_main = self.pipe_counter; self.pipe_counter += 1
+                
+                cid_main_start = self.connection_counter
+                self._add_con_plenum_pipe_v2(split_plenum_id, pid_main, 0)
+                
+                cid_main_end = self.connection_counter
+                self._add_con_plenum_pipe_v2(valve_pocket_id, pid_main, 1)
+                
+                # Main port: wider entry, narrower at pocket (taper for stability)
+                self._add_pipe(pid_main, f"Port_In_Main_{cyl_idx}_{v+1}", port_main_len,
+                               port_dia_in, port_dia_in * 0.95, 400,
+                               cid_main_start, cid_main_end, friction=0.3, dx_mesh=0.025)
+                
+                # --- POCKET PIPE (from valve pocket to valve) ---
+                pid_pocket = self.pipe_counter; self.pipe_counter += 1
+                
+                cid_pocket_start = self.connection_counter
+                self._add_con_plenum_pipe_v2(valve_pocket_id, pid_pocket, 0)
+                
                 cid_valve = self.connection_counter
-                self._add_con_valve_v2(pid_port, 1, cyl_idx, True, vid_global) 
+                self._add_con_valve_v2(pid_pocket, 1, cyl_idx, True, vid_global)
                 
-                # Connect Port Start to Split Plenum
-                cid_port_start = self.connection_counter
-                self._add_con_plenum_pipe_v2(split_plenum_id, pid_port, 0)
-                
-                self._add_pipe(pid_port, f"Port_In_{cyl_idx}_{v+1}", port_len_in,
-                               port_dia_in, port_dia_in, 400,
-                               cid_port_start, cid_valve)
+                # Pocket pipe: short, fine mesh for stability near valve
+                self._add_pipe(pid_pocket, f"Port_In_Pocket_{cyl_idx}_{v+1}", port_pocket_len,
+                               port_dia_in * 0.95, port_dia_in, 400,
+                               cid_pocket_start, cid_valve, friction=0.5, dx_mesh=0.020)
 
     def _generate_simplified_exhaust(self, c):
         print("DEBUG: Generating SIMPLIFIED Exhaust")
@@ -571,193 +576,224 @@ class WAMGenerator:
                                cid_valve, cid_amb)
 
     def _generate_full_exhaust(self, c):
-        print("DEBUG: Generating FULL Exhaust (Junction Logic)")
+        print("DEBUG: Generating FULL Exhaust (CSL 3-Stage Topology)")
         port_len_ex = c.engine.head.exhaust_port.length / 1000.0
         port_dia_ex = c.engine.head.exhaust_port.diameter / 1000.0
+        
+        # --- 1. COLLECTORS & BUFFER PIPES ---
+        # Bank 1: Cyl 1-3 -> Col 1 -> Buffer 1
+        # Bank 2: Cyl 4-6 -> Col 2 -> Buffer 2
         
         col1_id = self.plenum_counter; self.plenum_counter += 1
         col2_id = self.plenum_counter; self.plenum_counter += 1
         col_map = {0: col1_id, 1: col1_id, 2: col1_id, 3: col2_id, 4: col2_id, 5: col2_id} 
         
-        # 1. Collectors as Small Junctions (2.0L)
-        # Replaces massive tank with flow-oriented junction node
-        # Increased to damp Mach 4 spikes.
-        self._add_plenum(col1_id, "Collector_1_Junct", 0.002, 800)
-        self._add_plenum(col2_id, "Collector_2_Junct", 0.002, 800)
+        # Tiny Junction (2cc) to merge headers without reflection
+        self._add_plenum(col1_id, "Collector_1_Junct", 0.002, 400)
+        self._add_plenum(col2_id, "Collector_2_Junct", 0.002, 400)
         
+        # HEADER + PORT GENERATION (Unchanged Logic, mostly)
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
             target_col_id = col_map.get(i, col1_id)
             
-            # A. Port Junction (Matches 2 ports to 1 header)
-            # Volume: 1.0L (Increased from 0.2L to check damping)
-            # Stable junction volume is key for 1D codes.
+            # Port Junction (1.0L -> 0.001L)
             merge_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(merge_plenum_id, f"Port_Junct_{cyl_idx}", 0.001, 800)
+            self._add_plenum(merge_plenum_id, f"Port_Junct_{cyl_idx}", 0.001, 380)
 
-            # B. Exhaust Ports
+            # Ports - SEGMENTED for stability
+            # Port is split into: Valve -> Valve Pocket (buffer) -> Main Port -> Junction
+            # Segment lengths: Pocket=30%, Main=70%
+            port_pocket_len = port_len_ex * 0.3
+            port_main_len = port_len_ex * 0.7
+            
             for v in range(2):
-                pid_port = self.pipe_counter; self.pipe_counter += 1
                 vid_global = 12 + (i * 2) + v + 1
                 self.valves_exhaust.append(vid_global)
                 
+                # --- VALVE POCKET (buffer plenum after exhaust valve) ---
+                # 5cc pocket to absorb blowdown shockwaves (larger than intake due to high temp/pressure)
+                valve_pocket_id = self.plenum_counter; self.plenum_counter += 1
+                self._add_plenum(valve_pocket_id, f"ValvePocket_Ex_{cyl_idx}_{v+1}", 0.005, 360)
+                
+                # --- POCKET PIPE (from valve to valve pocket) ---
+                pid_pocket = self.pipe_counter; self.pipe_counter += 1
+                
                 cid_valve = self.connection_counter
-                self._add_con_valve_v2(pid_port, 0, cyl_idx, False, vid_global) 
+                self._add_con_valve_v2(pid_pocket, 0, cyl_idx, False, vid_global) 
+                
+                cid_pocket_end = self.connection_counter
+                self._add_con_plenum_pipe_v2(valve_pocket_id, pid_pocket, 1)
+                
+                # Pocket pipe: short, fine mesh for stability near valve
+                self._add_pipe(pid_pocket, f"Port_Ex_Pocket_{cyl_idx}_{v+1}", port_pocket_len,
+                               port_dia_ex, port_dia_ex * 1.05, 360,
+                               cid_valve, cid_pocket_end, friction=0.5, dx_mesh=0.020) 
+                
+                # --- MAIN PORT PIPE (from valve pocket to merge junction) ---
+                pid_main = self.pipe_counter; self.pipe_counter += 1
+                
+                cid_main_start = self.connection_counter
+                self._add_con_plenum_pipe_v2(valve_pocket_id, pid_main, 0)
                 
                 cid_port_end = self.connection_counter
-                self._add_con_plenum_pipe_v2(merge_plenum_id, pid_port, 1)
+                self._add_con_plenum_pipe_v2(merge_plenum_id, pid_main, 1)
                 
-                self._add_pipe(pid_port, f"Port_Ex_{cyl_idx}_{v+1}", port_len_ex,
-                               port_dia_ex, port_dia_ex, 800,
-                               cid_valve, cid_port_end)
+                # Main port: slight expansion for pressure recovery
+                self._add_pipe(pid_main, f"Port_Ex_Main_{cyl_idx}_{v+1}", port_main_len,
+                               port_dia_ex * 1.05, port_dia_ex, 
+                               370, cid_main_start, cid_port_end, friction=0.3, dx_mesh=0.025) 
 
-            # C. Primary Header Pipe
-            pid_prim = self.pipe_counter; self.pipe_counter += 1
+            # Headers
+            header_len = c.exhaust.headers.primary_length / 1000.0
+            header_dia = c.exhaust.headers.primary_diameter / 1000.0
+            col_dia = c.exhaust.headers.collector_dia / 1000.0
+            
+            pid_prim = self.pipe_counter; self.pipe_counter += 1 
             self.ids['headers'].append(pid_prim)
             
             cid_header_start = self.connection_counter
             self._add_con_plenum_pipe_v2(merge_plenum_id, pid_prim, 0)
-            
             cid_col = self.connection_counter
             self._add_con_plenum_pipe_v2(target_col_id, pid_prim, 1) 
-            
-            self._add_pipe(pid_prim, f"Header_{cyl_idx}", c.exhaust.headers.primary_length/1000.0,
-                           c.exhaust.headers.primary_diameter/1000.0, c.exhaust.headers.collector_dia/1000.0, 1073,
-                           cid_header_start, cid_col)
+
+            # Exhaust Header: 35mm Mesh, Friction 0.5
+            self._add_pipe(pid_prim, f"Header_{cyl_idx}", header_len,
+                           header_dia, col_dia, 
+                           400, cid_header_start, cid_col, friction=0.5, dx_mesh=0.035)
+
+        # BUFFER PIPES (100cc Equivalent) to damp Supersonic Flow
+        # D=60mm, L=50mm -> Vol ~ 140cc.
+        buf_len = 0.05
+        buf_dia = 0.06
         
-        node_left = col1_id
-        node_right = col2_id
+        p_buf1 = self.pipe_counter; self.pipe_counter += 1
+        p_buf2 = self.pipe_counter; self.pipe_counter += 1
         
-        if c.exhaust.catalyst.installed and c.exhaust.catalyst.location == "header_collector":
-            node_left, node_right = self._add_catalyst_section(node_left, node_right, c.exhaust.catalyst, "FrontCat")
-            
-        # --- SECTION 1 ---
+        c_buf1_start = self._connect_from_prev(col1_id, p_buf1)
+        c_buf2_start = self._connect_from_prev(col2_id, p_buf2)
+        
+        # Buffer End -> Section 1-1 Start: Type 6 Direct Pipe-to-Pipe Connection
+        # CRITICAL: Both pipes MUST reference the same connection ID
+        c_buf1_to_s11 = self._create_pipe_to_pipe_connection()  # Buffer1_End & Sec1_1_L_Start
+        c_buf2_to_s11 = self._create_pipe_to_pipe_connection()  # Buffer2_End & Sec1_1_R_Start
+        
+        self._add_pipe(p_buf1, "Collector_Buffer_1", buf_len, buf_dia, buf_dia, 400, c_buf1_start, c_buf1_to_s11, dx_mesh=0.035)
+        self._add_pipe(p_buf2, "Collector_Buffer_2", buf_len, buf_dia, buf_dia, 400, c_buf2_start, c_buf2_to_s11, dx_mesh=0.035)
+
+        # --- SECTION 1: 3-Stage Split (Pipe -> Cat -> Pipe) ---
+        # User Spec: 600mm -> 300mm Cat -> 300mm
         s1 = c.exhaust.section1_1
-        s2 = c.exhaust.section1_2
-        len1 = s1.length / 1000.0
-        len2 = s2.length / 1000.0
-        dia1 = s1.diameter / 1000.0 if hasattr(s1, 'diameter') and s1.diameter > 0 else 0.075
-        dia2 = s2.diameter / 1000.0 if hasattr(s2, 'diameter') and s2.diameter > 0 else 0.075
+        s2 = c.exhaust.section1_2 # Assuming symmetric
         
-        p1_id = self.pipe_counter; self.pipe_counter += 1
-        p2_id = self.pipe_counter; self.pipe_counter += 1
+        cat_len = c.exhaust.catalyst.length / 1000.0 if c.exhaust.catalyst.installed else 0.0
+        sec1_total_len = s1.length / 1000.0
+        part1_1_len = s1.cat_offset / 1000.0 # 600mm
+        part1_2_len = max(0.1, sec1_total_len - part1_1_len - cat_len) # Remainder (~300mm)
+        dia1 = s1.diameter / 1000.0
         
-        c1_start = self._connect_from_prev(node_left, p1_id)
-        c2_start = self._connect_from_prev(node_right, p2_id)
+        # Part 1-1 (Pre-Cat): Start from Buffer End connection, End at Type 6 junction
+        p1_1 = self.pipe_counter; self.pipe_counter += 1
+        p1_2 = self.pipe_counter; self.pipe_counter += 1
+        # Start: Uses same connection ID as Buffer End (Type 6 requirement: 2 pipes)
+        c1_1_start = c_buf1_to_s11  # Type 6: Pipe 2 references same ID
+        c1_2_start = c_buf2_to_s11
+        # End: Create new Type 6 for connection to Catalyst/Post-Cat
+        c_s11_to_cat = self._create_pipe_to_pipe_connection()
+        c_s11_to_cat_R = self._create_pipe_to_pipe_connection()
         
-        c1_end = self.connection_counter
-        self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-        c2_end = self.connection_counter
-        self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
+        self._add_pipe(p1_1, "Sec1_1_L", part1_1_len, dia1, dia1, 380, c1_1_start, c_s11_to_cat)
+        self._add_pipe(p1_2, "Sec1_1_R", part1_1_len, dia1, dia1, 380, c1_2_start, c_s11_to_cat_R)
         
-        self._add_pipe(p1_id, "Sec1_Bank1", len1, dia1, dia1, 1073, c1_start, c1_end)
-        self._add_pipe(p2_id, "Sec1_Bank2", len2, dia2, dia2, 1073, c2_start, c2_end)
+        # node_left/right now hold Type 6 connection IDs for next section
+        node_left, node_right = c_s11_to_cat, c_s11_to_cat_R
         
-        # Handle X/H
-        if s1.layout == "X-Pipe" or s2.layout == "X-Pipe":
-            offset_val = s1.crossover_offset if s1.layout == "X-Pipe" else (s2.crossover_offset if s2.layout == "X-Pipe" else 400)
-            offset = offset_val / 1000.0
-            # Enforce minimum segment length of 0.15m (150mm) to prevent tiny pipes
-            # Ensure off1 is between 0.15 and len1-0.15
-            off1 = max(0.15, min(offset, len1 - 0.15))
-            off2 = max(0.15, min(offset, len2 - 0.15))
-            
-            self.pipes[p1_id]['length'] = off1; self.pipes[p2_id]['length'] = off2
-            self.pipes[p1_id]['label'] = "Sec1_Front1"; self.pipes[p2_id]['label'] = "Sec1_Front2"
+        # Catalyst
+        if c.exhaust.catalyst.installed:
+            node_left, node_right = self._add_catalyst_section(node_left, node_right, c.exhaust.catalyst, "FrontCat")
 
-            x_union_id = self.connection_counter
-            self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-            
-            self.pipes[p1_id]['right_node'] = x_union_id
-            self.pipes[p2_id]['right_node'] = x_union_id
-            
-            p1_rear = self.pipe_counter; self.pipe_counter += 1
-            p2_rear = self.pipe_counter; self.pipe_counter += 1
-            c1_rear_end = self.connection_counter
-            self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-            c2_rear_end = self.connection_counter
-            self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-            
-            self._add_pipe(p1_rear, "Sec1_Rear1", len1 - off1, dia1, dia1, 1073, x_union_id, c1_rear_end)
-            self._add_pipe(p2_rear, "Sec1_Rear2", len2 - off2, dia2, dia2, 1073, x_union_id, c2_rear_end)
-            node_left, node_right = c1_rear_end, c2_rear_end
-        else:
-            node_left, node_right = c1_end, c2_end
-            
-        if c.exhaust.catalyst.installed and c.exhaust.catalyst.location == "section1_end":
-            node_left, node_right = self._add_catalyst_section(node_left, node_right, c.exhaust.catalyst, "RearCat")
+        # Part 1-2 (Post-Cat)
+        p2_1 = self.pipe_counter; self.pipe_counter += 1
+        p2_2 = self.pipe_counter; self.pipe_counter += 1
+        # node_left/right come from Catalyst section (Type 6 IDs)
+        c2_1_start = node_left  # Type 6: References same ID as Catalyst End
+        c2_2_start = node_right
+        # End: Create Type 6 for connection to Section 2-1
+        c_s12_to_s21 = self._create_pipe_to_pipe_connection()
+        c_s12_to_s21_R = self._create_pipe_to_pipe_connection()
 
-        # --- SECTION 2 ---
-        sec2_len = c.exhaust.section2.length / 1000.0
-        sec2_len = c.exhaust.section2.length / 1000.0
-        sec2_dia = (c.exhaust.section2.diameter / 1000.0) if c.exhaust.section2.diameter > 0 else 0.075
+        self._add_pipe(p2_1, "Sec1_2_L", part1_2_len, dia1, dia1, 370, c2_1_start, c_s12_to_s21)
+        self._add_pipe(p2_2, "Sec1_2_R", part1_2_len, dia1, dia1, 370, c2_2_start, c_s12_to_s21_R)
         
-        if c.exhaust.section2.layout == "Single":
-            merge_plenum = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(merge_plenum, "Y_Merge", 0.005, 500)
-            
-            p_adp1 = self.pipe_counter; self.pipe_counter += 1
-            p_adp2 = self.pipe_counter; self.pipe_counter += 1
-            
-            c_adp1_start = self._connect_from_prev(node_left, p_adp1)
-            c_adp2_start = self._connect_from_prev(node_right, p_adp2)
-            
-            c_m1_end = self.connection_counter; self._add_con_plenum_pipe_v2(merge_plenum, p_adp1, 1)
-            c_m2_end = self.connection_counter; self._add_con_plenum_pipe_v2(merge_plenum, p_adp2, 1)
-            
-            self._add_pipe(p_adp1, "Adp_Merge_L", 0.15, dia1, dia1, 500, c_adp1_start, c_m1_end)
-            self._add_pipe(p_adp2, "Adp_Merge_R", 0.15, dia1, dia1, 500, c_adp2_start, c_m2_end)
-            
-            # Resonator
-            res_fitted = getattr(c.exhaust.section2, 'resonator_fitted', False)
-            res_len = (getattr(c.exhaust.section2, 'resonator_length', 300.0)/1000.0) if res_fitted else 0.0
-            main_len = max(0.1, sec2_len - res_len)
-            base_dia = sec2_dia * 1.414 
-            res_dia = (getattr(c.exhaust.section2, 'resonator_diameter', 0.0)/1000.0) or (base_dia * 1.3)
-            
-            curr_node = merge_plenum
-            if res_fitted:
-                p_res = self.pipe_counter; self.pipe_counter += 1
-                c_res_start = self.connection_counter; self._add_con_plenum_pipe_v2(curr_node, p_res, 0)
-                c_res_end = self.connection_counter 
-                self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-                self._add_pipe(p_res, "Sec2_Resonator", res_len, res_dia, res_dia, 450, c_res_start, c_res_end)
-                curr_node = c_res_end
-                
-            p_main = self.pipe_counter; self.pipe_counter += 1
-            c_main_start = self._connect_from_prev(curr_node, p_main)
-            split_plenum = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(split_plenum, "Y_Split", 0.005, 400)
-            c_main_end = self.connection_counter; self._add_con_plenum_pipe_v2(split_plenum, p_main, 1)
-            
-            self._add_pipe(p_main, "Sec2_Main", main_len, base_dia, base_dia, 450, c_main_start, c_main_end)
-            node_left, node_right = split_plenum, split_plenum
-            last_pipe_L = p_main # Treat as Single
-            last_pipe_R = p_main
-            
-        else:
-            # Independent/H
-            res_fitted = getattr(c.exhaust.section2, 'resonator_fitted', False)
-            res_loc = getattr(c.exhaust.section2, 'resonator_location', 'before_h')
-            layout = c.exhaust.section2.layout
-            
-            res_len = (getattr(c.exhaust.section2, 'resonator_length', 300.0)/1000.0) if res_fitted else 0.0
-            main_len = max(0.1, sec2_len - res_len)
-            res_dia = (getattr(c.exhaust.section2, 'resonator_diameter', 0.0)/1000.0) or (sec2_dia * 1.5)
-            
-            # Simplified for refactor: Assume 1 segment for now if no Res
-            p1_L = self.pipe_counter; self.pipe_counter += 1
-            p1_R = self.pipe_counter; self.pipe_counter += 1
-            c1_L_start = self._connect_from_prev(node_left, p1_L)
-            c1_R_start = self._connect_from_prev(node_right, p1_R)
-            c1_L_end = self.connection_counter; self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-            c1_R_end = self.connection_counter; self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-            
-            self._add_pipe(p1_L, "Sec2_L", sec2_len, sec2_dia, sec2_dia, 400, c1_L_start, c1_L_end)
-            self._add_pipe(p1_R, "Sec2_R", sec2_len, sec2_dia, sec2_dia, 400, c1_R_start, c1_R_end)
-            
-            node_left, node_right = c1_L_end, c1_R_end
-            last_pipe_L, last_pipe_R = p1_L, p1_R
+        # node_left/right now hold Type 6 for Section 2-1 Start
+        node_left, node_right = c_s12_to_s21, c_s12_to_s21_R
+
+        # --- SECTION 2: 3-Stage Split (Pipe -> H-Pipe -> Pipe) ---
+        # User Spec: 400mm -> H-Pipe (200mm) -> 800mm. Total 1400mm.
+        sec2_total_len = c.exhaust.section2.length / 1000.0
+        h_len = 0.2 # 200mm for H-section
+        part2_1_len = 0.4 # 400mm
+        part2_2_len = max(0.1, sec2_total_len - part2_1_len - h_len) # 800mm
+        dia2 = c.exhaust.section2.diameter / 1000.0
+        
+        # Part 2-1 (Pre-H): Start from Section 1-2 End
+        p3_1 = self.pipe_counter; self.pipe_counter += 1
+        p3_2 = self.pipe_counter; self.pipe_counter += 1
+        c3_1_start = node_left  # Type 6: References same ID as Section 1-2 End
+        c3_2_start = node_right
+        
+        # H-Pipe Section setup
+        p4_1 = self.pipe_counter; self.pipe_counter += 1 # L Straight
+        p4_2 = self.pipe_counter; self.pipe_counter += 1 # R Straight
+        p_cross = self.pipe_counter; self.pipe_counter += 1 # Crossover
+        
+        # Use Junction Plenums for H-Pipe connection
+        h_junct_L = self.plenum_counter; self.plenum_counter += 1
+        h_junct_R = self.plenum_counter; self.plenum_counter += 1
+        self._add_plenum(h_junct_L, "H_Junc_L", 0.002, 360)
+        self._add_plenum(h_junct_R, "H_Junc_R", 0.002, 360)
+        
+        # Connect Pre-H End -> H-Junct
+        # This creates the correct End Connection ID for P3_1/P3_2 (Plenum type)
+        cid_p3_1_end = self.connection_counter; self._add_con_plenum_pipe_v2(h_junct_L, p3_1, 1)
+        cid_p3_2_end = self.connection_counter; self._add_con_plenum_pipe_v2(h_junct_R, p3_2, 1)
+        
+        # Now we can safely add the Pre-H pipes with correct connections
+        self._add_pipe(p3_1, "Sec2_1_L", part2_1_len, dia2, dia2, 360, c3_1_start, cid_p3_1_end)
+        self._add_pipe(p3_2, "Sec2_1_R", part2_1_len, dia2, dia2, 360, c3_2_start, cid_p3_2_end)
+        
+        # Connect H-Straight Starts -> H-Junct
+        cid_p4_1_start = self.connection_counter; self._add_con_plenum_pipe_v2(h_junct_L, p4_1, 0)
+        cid_p4_2_start = self.connection_counter; self._add_con_plenum_pipe_v2(h_junct_R, p4_2, 0)
+        
+        # Connect Crossover Starts/Ends to H-Junct
+        cid_cross_L = self.connection_counter; self._add_con_plenum_pipe_v2(h_junct_L, p_cross, 0)
+        cid_cross_R = self.connection_counter; self._add_con_plenum_pipe_v2(h_junct_R, p_cross, 1)
+        
+        # H-Straight Ends -> Section 2-2 Start: Type 6 Direct Connection
+        c_hend_to_s22 = self._create_pipe_to_pipe_connection()
+        c_hend_to_s22_R = self._create_pipe_to_pipe_connection()
+        
+        self._add_pipe(p4_1, "Sec2_H_L", h_len, dia2, dia2, 360, cid_p4_1_start, c_hend_to_s22)
+        self._add_pipe(p4_2, "Sec2_H_R", h_len, dia2, dia2, 360, cid_p4_2_start, c_hend_to_s22_R)
+        
+        # Crossover Pipe
+        # Usually narrower? Let's use same diameter for H-Pipe.
+        self._add_pipe(p_cross, "Sec2_H_Cross", 0.15, dia2, dia2, 360, cid_cross_L, cid_cross_R)
+
+        # Part 2-2 (Post-H / Rear): Start from H-Straight End Type 6
+        p5_1 = self.pipe_counter; self.pipe_counter += 1
+        p5_2 = self.pipe_counter; self.pipe_counter += 1
+        c5_1_start = c_hend_to_s22  # Type 6: References same ID as H-Straight End
+        c5_2_start = c_hend_to_s22_R
+        # End: Create Type 6 for Muffler Adapter connection
+        c_s22_to_muf = self._create_pipe_to_pipe_connection()
+        c_s22_to_muf_R = self._create_pipe_to_pipe_connection()
+        
+        self._add_pipe(p5_1, "Sec2_2_L", part2_2_len, dia2, dia2, 350, c5_1_start, c_s22_to_muf)
+        self._add_pipe(p5_2, "Sec2_2_R", part2_2_len, dia2, dia2, 350, c5_2_start, c_s22_to_muf_R)
+        
+        node_left, node_right = c_s22_to_muf, c_s22_to_muf_R
 
         # --- MUFFLER & TAILPIPES ---
         muffler_id = self.plenum_counter; self.plenum_counter += 1
@@ -770,21 +806,36 @@ class WAMGenerator:
              p_in2 = self.pipe_counter; self.pipe_counter += 1
              c_s1 = self.connection_counter; self._add_con_plenum_pipe_v2(node_left, p_in1, 0)
              c_s2 = self.connection_counter; self._add_con_plenum_pipe_v2(node_right, p_in2, 0)
+             # --- EXPERIMENT 1: VENT TO ATMOSPHERE (DISABLED/REMOVED for Exp 1b) ---
+             # (Original Exp 1 code was here. Reverting to normal flow for potential future restoration)
+             # But since 'return' is upstream, this code is unreachable anyway.
+             # Restoring original structure for clarity if Exp 1b is removed.
+             
              c_m1 = self.connection_counter; self._add_con_plenum_pipe_v2(muffler_id, p_in1, 1)
              c_m2 = self.connection_counter; self._add_con_plenum_pipe_v2(muffler_id, p_in2, 1)
-             self._add_pipe(p_in1, "Muf_In1", 0.15, sec2_dia, sec2_dia, 400, c_s1, c_m1, friction=0.5)
-             self.pipes[p_in1]['mesh_dx'] = 0.02 # Force finer mesh for stability
-             self._add_pipe(p_in2, "Muf_In2", 0.15, sec2_dia, sec2_dia, 400, c_s2, c_m2, friction=0.5)
+             
+             # Fixed NameError: sec2_dia -> dia2
+             self._add_pipe(p_in1, "Muf_In1", 0.15, dia2, dia2, 400, c_s1, c_m1, friction=0.5)
+             self.pipes[p_in1]['mesh_dx'] = 0.02 
+             self._add_pipe(p_in2, "Muf_In2", 0.15, dia2, dia2, 400, c_s2, c_m2, friction=0.5)
              self.pipes[p_in2]['mesh_dx'] = 0.02
+             
         else:
              p_adp_m1 = self.pipe_counter; self.pipe_counter += 1
              p_adp_m2 = self.pipe_counter; self.pipe_counter += 1
-             c_s1 = self._connect_from_prev(node_left, p_adp_m1)
-             c_s2 = self._connect_from_prev(node_right, p_adp_m2)
+             # node_left/right are Type 6 connection IDs - use directly
+             c_s1 = node_left  # Type 6: References same ID as Section 2-2 End
+             c_s2 = node_right
              c_m1 = self.connection_counter; self._add_con_plenum_pipe_v2(muffler_id, p_adp_m1, 1)
              c_m2 = self.connection_counter; self._add_con_plenum_pipe_v2(muffler_id, p_adp_m2, 1)
-             self._add_pipe(p_adp_m1, "Muf_Adapter_L", 0.15, sec2_dia, sec2_dia, 700, c_s1, c_m1)
-             self._add_pipe(p_adp_m2, "Muf_Adapter_R", 0.15, sec2_dia, sec2_dia, 700, c_s2, c_m2)
+             
+             # Apply Friction Damping and Mesh Refinement for Dual Adapters too
+             # Reduced to 0.1 / 0.05 after 0.5/0.02 caused Crash 3221226505
+             # Fixed NameError: sec2_dia -> dia2 (Variable 'dia2' calculated at start of Sec2)
+             self._add_pipe(p_adp_m1, "Muf_Adapter_L", 0.15, dia2, dia2, 350, c_s1, c_m1, friction=0.1)
+             self.pipes[p_adp_m1]['mesh_dx'] = 0.05
+             self._add_pipe(p_adp_m2, "Muf_Adapter_R", 0.15, dia2, dia2, 350, c_s2, c_m2, friction=0.1)
+             self.pipes[p_adp_m2]['mesh_dx'] = 0.05
 
         # Tailpipes
         amb_out_id = self.plenum_counter; self.plenum_counter += 1
@@ -820,9 +871,14 @@ class WAMGenerator:
         for i in range(12): self._add_valve_def(i+13, "exhaust.vlv", c.engine.head.exhaust_valve.diameter/1000.0, control_ids)
         self._add_valve_fixed_cd(25, 1.0, 1.0)
         
+        # Throttle valves: ctrl_id depends on schedule mode
+        # VE Table Mode (schedule=None): Controller ID = 1
+        # Full Schedule Mode: Controller ID = 5
+        throttle_ctrl_id = 1 if not schedule else 5
+        
         for vid in self.throttle_valves:
             dia = c.intake.bellmouth.diameter/1000.0
-            self._add_valve_throttle_mariposa(vid, dia, 2)
+            self._add_valve_throttle_mariposa(vid, dia, throttle_ctrl_id)
             
         # Append Buffered Valves
         self.wam_lines.extend(self.wam_lines_valves)
@@ -843,7 +899,12 @@ class WAMGenerator:
         # numentradacompresor, numentradapresionestatica
         self.wam_lines.append(f"{self.connection_counter}")
         self.wam_lines.append("0 0 0 0 0 0 0 0 0")  # WAMer params
-        self.wam_lines.extend(self.wam_lines_cons)
+        
+        # REFACTORED: Serialize connections in CID order (critical for OpenWAM parser)
+        for cid in sorted(self.connections.keys()):
+            conn_type, conn_lines = self.connections[cid]
+            self.wam_lines.append(str(conn_type))
+            self.wam_lines.extend(conn_lines)
         
         # TurboAxis (Not implemented yet)
         self.wam_lines.append("0")
@@ -852,7 +913,96 @@ class WAMGenerator:
         self.wam_lines.append("0 0 0.0 1.0")
         # Call controller Generation
         self._generate_controllers(schedule)
-        # Output block is generated separately
+        
+        # [FIX] Generate Output Block
+        self._generate_output_block()
+
+    def _generate_output_block(self):
+        """
+        Generate complete Output Block following OpenWAM v2.2 specification.
+        Structure: StorageMode -> Average Results -> Instantaneous Results -> SpaceTime Results
+        
+        DEBUG MODE: Full pipe monitoring enabled for NaN diagnosis.
+        Outputs: Pressure, Velocity, Temperature, Mass Flow at inlet/outlet of all pipes.
+        """
+        print("DEBUG: Generating OUTPUT Block (Full Pipe Monitoring Mode)")
+        
+        # Get total number of pipes
+        num_pipes = len(self.pipes)
+        print(f"DEBUG: Total pipes for monitoring: {num_pipes}")
+        
+        # OUTPUT BLOCK STRUCTURE (TOutputResults compatibility)
+        # 1. Output Mode: 
+        # 2 = All Cycles Concatenated (Single file)
+        self.wam_lines.append("2")
+        
+        # 2. Average Results
+        self.wam_lines.append("0")  # Cylinders
+        
+        # Engine (0=Disabled for simplified Dyno Data)
+        self.wam_lines.append("0") 
+        
+        self.wam_lines.append("0")  # Plenums
+        self.wam_lines.append("0 0")  # Pipes + WAMer param
+        self.wam_lines.append("0")  # Axis
+        self.wam_lines.append("0")  # Compressors
+        self.wam_lines.append("0")  # Turbines
+        self.wam_lines.append("0")  # Valves
+        self.wam_lines.append("0")  # Roots
+        self.wam_lines.append("0")  # Venturis
+        self.wam_lines.append("0")  # Connections
+        # DPF is skipped (ifdef ParticulateFilter)
+        self.wam_lines.append("0")  # Sensors
+        self.wam_lines.append("0")  # Controllers
+        
+        # 3. Instantaneous Results
+        self.wam_lines.append("0")  # Cylinders
+        self.wam_lines.append("0")  # Plenums
+        
+        # --- PIPE INSTANTANEOUS RESULTS (DEBUG MODE) ---
+        # Format: NumPipes WAMerParam
+        # For each pipe: PipeID NumMeasurementPoints
+        #   For each point: Distance NumVars Var1 Var2 ...
+        # Variables: 0=Pressure, 1=Velocity, 2=Temp, 3=MassFlow
+        
+        self.wam_lines.append(f"{num_pipes} 0")  # All pipes, WAMer=0
+        
+        for pid, pipe_data in sorted(self.pipes.items()):
+            pipe_length = pipe_data.get('length', 0.5)  # Default 0.5m if not stored
+            
+            # 2 measurement points per pipe: inlet (0.0) and outlet (length)
+            self.wam_lines.append(f"{pid} 2")
+            
+            # Point 1: Inlet (distance = 0.0)
+            # Request 4 variables: Pressure(0), Velocity(1), Temp(2), MassFlow(3)
+            self.wam_lines.append(f"0.0 4 0 1 2 3")
+            
+            # Point 2: Outlet (distance = pipe_length)
+            self.wam_lines.append(f"{pipe_length:.4f} 4 0 1 2 3")
+        
+        # --- END PIPE INSTANTANEOUS RESULTS ---
+        
+        self.wam_lines.append("0")  # Venturis
+        self.wam_lines.append("0")  # Valves
+        self.wam_lines.append("0")  # Turbochargers
+        self.wam_lines.append("0")  # Compressors
+        self.wam_lines.append("0")  # Turbines
+        self.wam_lines.append("0")  # Roots
+        self.wam_lines.append("0")  # Connections
+        self.wam_lines.append("0")  # WasteGates
+        self.wam_lines.append("0")  # ReedValves
+        # DPF Inst skipped (ifdef ParticulateFilter)
+        self.wam_lines.append("0")  # Sensors
+        self.wam_lines.append("0")  # Controllers
+        
+        # 4. SpaceTime Results
+        self.wam_lines.append("0")
+
+        # 5. DLL Block (ReadDataDLL)
+        # ThereIsDLL: 0=No external coupling, 1=DLL coupling enabled
+        # This is MANDATORY - omitting it causes the parser to misread the next token
+        self.wam_lines.append("0")  # ThereIsDLL = No
+
 
     # --- HELPERS (Same as before) ---
     def _connect_from_prev(self, prev_node, next_pid):
@@ -863,16 +1013,37 @@ class WAMGenerator:
         else:
             return prev_node
 
+    def _create_pipe_to_pipe_connection(self):
+        """
+        Create Type 6 connection for direct pipe-to-pipe junction.
+        CRITICAL: This connection ID MUST be referenced by exactly 2 pipes:
+        - Pipe A's right_node (end)
+        - Pipe B's left_node (start)
+        """
+        cid = self.connection_counter
+        # Store connection data as dict: {cid: (type, [lines])}
+        self.connections[cid] = (6, ["0.0 0.0"])  # Type 6, Thickness/Conductivity
+        self.connection_counter += 1
+        return cid
+
     def _add_h_pipe_junction(self, p1, p2, location_ratio):
         pass
 
-    def _add_pipe(self, pid, label, length, d_start, d_end, wall_temp, left_node=0, right_node=0, friction=0.01):
-        # Global Stability Clamp: Enforce min 50mm length
-        if length < 0.05: 
-            length = 0.05 
+    def _add_pipe(self, pid, label, length, d_start, d_end, wall_temp, left_node=0, right_node=0, friction=0.01, dx_mesh=0.05):
+        # Format: PipeID Label Length D_Start D_End T_Wall LeftNode RightNode Friction
+        # NEW: dx_mesh (Mesh Size in meters) is the 4th value in the internal storage dict
+        # self.pipes[pid] = {'label': label, 'length': length, ...}
+        
         self.pipes[pid] = {
-            "pid": pid, "label": label, "length": length, "d_start": d_start, "d_end": d_end,
-            "wall_temp": wall_temp, "left_node": left_node, "right_node": right_node, "friction": friction
+            'label': label,
+            'length': length, # restored key name 'length' (was 'len')
+            'd_start': d_start,
+            'd_end': d_end,
+            'wall_temp': wall_temp,
+            'left_node': left_node,
+            'right_node': right_node,
+            'friction': friction,
+            'dx_mesh': dx_mesh # Store explicit mesh size
         }
 
     def _finalize_pipes(self):
@@ -886,9 +1057,10 @@ class WAMGenerator:
             # Line 2: Friction
             self.wam_lines_pipes.append(f"{p['friction']}") 
             # Line 3: Wall Temp, Pressure, Velocity
-            # Change P from 1.01325 (Bar) to 101325.0 (Pa) (Correct: Pipes need Pa, Plenums need Bar)
-            # wall_temp is already Kelvin (e.g. 300)
-            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} 101325.0 0.0")
+            # Line 3: Wall Temp, Pressure, Velocity
+            # [FIXED] Revert P to Bar (1.01325). TTubo.cpp converts BarToPa(FPini).
+            # Previous value 101325.0 was interpreted as 101325 Bar -> 10 GPa -> Explosion.
+            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} 1.01325 0.0")
             # Line 4: Multipliers
             self.wam_lines_pipes.append(f"1 1.0 1.0") 
             # Line 5: Composition
@@ -896,10 +1068,18 @@ class WAMGenerator:
             # Line 6: Mesh & Thermal Model
             # Optimized Mesh Size: Target 50mm globally. 
             # For short pipes (50mm), use 2 nodes (dx=Length/2) for stability (1-node caused supersonic).
+            
+            # Mesh parameters
             if 'mesh_dx' in p:
                 dx = p['mesh_dx']
             else:
+            # Default Sizing (Refined for Stability)
+                # 50mm segments -> 25mm mesh (2 nodes)
                 dx = min(0.05, p['length'] / 2.0)
+            
+            print(f"DEBUG: Pipe Finalize: ID={pid} Label={p.get('label','?')} L={p['length']:.3f} dx={dx:.3f}")
+
+            # Line 6: Mesh & Thermal Model (dx, Implicit)
             self.wam_lines_pipes.append(f"{dx:.5f} 2") 
             # Line 7: Method (TVD=2, Courant=0.8)
             self.wam_lines_pipes.append(f"2 0.8") 
@@ -952,7 +1132,7 @@ class WAMGenerator:
             
         self.wam_lines_valves.append("1") 
         # Dynamic Duration Logic
-        step = 5.0
+        step = 1.0 # High resolution for stability (was 5.0)
         duration = valve_conf.duration
         num_lev = int(duration / step) + 1
         
@@ -963,10 +1143,25 @@ class WAMGenerator:
         
         lifts = []
         max_lift_m = valve_conf.max_lift / 1000.0
+        half_dur = duration / 2.0
+        
         for i in range(num_lev):
+            # Calculate angle relative to center (0.0)
+            # Progress 0.0 -> -half_dur
+            # Progress 1.0 -> +half_dur
             progress = i / (num_lev - 1)
-            l = self._calculate_lift_polynomial(progress, max_lift_m)
-            lifts.append(f"{l:.5f}")
+            ang = (progress - 0.5) * duration
+            
+            # Harmonic Cosine Profile
+            if abs(ang) <= half_dur:
+                rad = (ang / half_dur) * (math.pi / 2.0)
+                l = max_lift_m * math.cos(rad)
+                if l < 0: l = 0.0
+            else:
+                l = 0.0
+                
+            lifts.append(f"{l:.6f}")
+            
         self.wam_lines_valves.append(" ".join(lifts))
         self.wam_lines_valves.append("10 0.0011") 
         flow_scalar = head_conf.port_flow_coeff
@@ -1003,25 +1198,58 @@ class WAMGenerator:
         self.wam_lines_valves.append("0")
         self.wam_lines_valves.append(f"{cd_in} {cd_out} 0")  # CD_in, CD_out, no ref diameter
 
+    def _calculate_throttle_angle(self, ro: float) -> float:
+        """
+        F1-Style Progressive DBW Logic
+        Convert Relative Opening (0.0-1.0) to Physical Angle (deg).
+        
+        Formula: TP = Offset + (Max - Offset) * (RO ^ Gamma)
+        - Offset: 3.0 deg (Increased from 1.5 to simulate ICV at speed/prevent choke)
+        - Max: 90.0 deg
+        - Gamma: 1.0 (Linear for Simulation Resolution)
+        """
+        # Clamp input
+        ro = max(0.0, min(1.0, ro))
+        
+        idle_offset = 3.0
+        max_angle = 90.0
+        gamma = 1.0 # Linear selected for simulation resolution at 0.1%
+        
+        tp = idle_offset + (max_angle - idle_offset) * (ro ** gamma)
+        return tp
+
     def _add_valve_throttle_mariposa(self, vid, dia, ctrl_id):
+        """
+        Throttle Butterfly Valve (TMariposa)
+        
+        Args:
+            vid: Valve ID
+            dia: Reference diameter (m)
+            ctrl_id: Controller ID for angle control
+        """
         # Type 10: TMariposa
         self.wam_lines_valves.append("10") 
         # Header: NumPoints RefDiameter
         self.wam_lines_valves.append(f"10 {dia:.5f}")
         
         # Points: Angle(deg) CdIn CdOut
+        # More points for better resolution at low angles
         for i in range(10):
             ang = i * 10.0 
             cd = 0.65 * (ang / 90.0)
             if cd < 0.01: cd = 0.0 
             self.wam_lines_valves.append(f"{ang:.1f} {cd:.3f} {cd:.3f}")
             
-        # Initial State: Lift(Angle) - Fixed 90.0 (WOT)
-        self.wam_lines_valves.append("90.0")
+        # Initial angle: calculated from throttle_position
+        current_angle = self._calculate_throttle_angle(self.config.engine.throttle_position)
+        self.wam_lines_valves.append(f"{current_angle:.4f}")
         
-        # Controlled: 0 = No
+        # Control Flag: 1 = Controlled by Controller
+        self.wam_lines_valves.append("1")
+        # ParamType: 0 = Standard (Mandatory for v2.2 parser)
         self.wam_lines_valves.append("0")
-        # Params: Skipped if Controlled=0
+        # Controller ID
+        self.wam_lines_valves.append(f"{ctrl_id}")
 
     def _add_plenum(self, plid, label, vol, wall_temp, ptype=0):
         # Type 0: Constant Volume
@@ -1033,53 +1261,51 @@ class WAMGenerator:
         self.wam_lines_plenums.append(f"{ptype}")
         self.wam_lines_plenums.append(self.air_comp)
         
-        # Original format: Vol P T
-        # Change 1: P from 1.01325 (Bar) to 101325.0 (Pa) -> CORRECT: OpenWAM Deposito needs Pa
-        # Change 2: T from Celsius to Kelvin (Remove -273.15)
-        # wall_temp is passed in Kelvin (e.g. 313)
-        self.wam_lines_plenums.append(f"{vol:.5f} 101325.0 {wall_temp:.2f}")
+        # Line 3: Vol P T
+        # [FIXED] Revert P to Bar (1.01325). TDeposito.cpp converts BarToPa(FPressure).
+        # Previous value 101325.0 was interpreted as 101325 Bar -> 10 GPa -> Exhaust Explosion.
+        self.wam_lines_plenums.append(f"{vol:.5f} 1.01325 {wall_temp:.2f}")
         
         self.plenum_ids.add(plid)
 
     def _add_con_plenum_valve_pipe_v2(self, plenum_id, pipe_id, pipe_end, valve_id):
         # Type 11 (TCCDeposito) reads: numid, plenum_id. 
         # THEN TOpenWAM::ReadConnections reads 'quevalv' (Valve Index).
-        self.wam_lines_cons.append("11")
-        self.wam_lines_cons.append(f"0 {plenum_id}")
-        self.wam_lines_cons.append(f"{valve_id}")  # Valve index (1-based)
+        cid = self.connection_counter
+        self.connections[cid] = (11, [f"0 {plenum_id}", f"{valve_id}"])
         self.connection_counter += 1
 
     def _add_con_valve_v2(self, pid, end_idx, cyl_id, is_intake, vid_global):
-        ctype = "7" if is_intake else "8"
-        self.wam_lines_cons.append(ctype)
-        # Type 7/8 (TCCCilindro) reads: numid, cyl_id, then quevalv (valve index)
-        self.wam_lines_cons.append(f"0 {cyl_id}")
-        self.wam_lines_cons.append(f"{vid_global}")  # Valve index (1-based)
+        ctype = 7 if is_intake else 8
+        cid = self.connection_counter
+        self.connections[cid] = (ctype, [f"0 {cyl_id}", f"{vid_global}"])
         self.connection_counter += 1
 
     def _add_con_plenum_pipe_v2(self, plid, pid, end_idx):
         # Type 11 (TCCDeposito) reads: numid, plenum_id.
         # THEN TOpenWAM::ReadConnections reads 'quevalv' (Valve Index).
-        self.wam_lines_cons.append("11")
-        self.wam_lines_cons.append(f"0 {plid}")
-        self.wam_lines_cons.append("25")  # Fixed CD valve index (valve #25)
+        cid = self.connection_counter
+        self.connections[cid] = (11, [f"0 {plid}", "25"])  # Type 11, plenum_id, valve index
         self.connection_counter += 1
 
     def _add_catalyst_section(self, node_left, node_right, cat_conf, label_prefix):
-        curr_l = node_left
-        curr_r = node_right
+        """
+        Add catalyst pipes with Type 6 direct connections.
+        Input: node_left/right are Type 6 connection IDs from previous section.
+        Output: Returns Type 6 connection IDs for next section.
+        """
         cat_len = cat_conf.length / 1000.0
         cat_dia = cat_conf.diameter / 1000.0
         friction = 0.01 + (cat_conf.cpsi / 10000.0) 
         p_cat1 = self.pipe_counter; self.pipe_counter += 1
         p_cat2 = self.pipe_counter; self.pipe_counter += 1
-        c1_s = self._connect_from_prev(curr_l, p_cat1)
-        c2_s = self._connect_from_prev(curr_r, p_cat2)
-        c1_e = self.connection_counter
-        self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-        c2_e = self.connection_counter
-        self.wam_lines_cons.append("6"); self.wam_lines_cons.append("0.0 0.0"); self.connection_counter += 1
-        self._add_pipe(p_cat1, f"{label_prefix}_L", cat_len, cat_dia, cat_dia, 600, c1_s, c1_e, friction=friction)
-        self._add_pipe(p_cat2, f"{label_prefix}_R", cat_len, cat_dia, cat_dia, 600, c2_s, c2_e, friction=friction)
-        return c1_e, c2_e
+        # Start: Use incoming Type 6 connection IDs
+        c1_s = node_left  # Type 6: References same ID as Section 1-1 End
+        c2_s = node_right
+        # End: Create Type 6 for connection to Section 1-2
+        c_cat_to_s12 = self._create_pipe_to_pipe_connection()
+        c_cat_to_s12_R = self._create_pipe_to_pipe_connection()
+        self._add_pipe(p_cat1, f"{label_prefix}_L", cat_len, cat_dia, cat_dia, 600, c1_s, c_cat_to_s12, friction=friction)
+        self._add_pipe(p_cat2, f"{label_prefix}_R", cat_len, cat_dia, cat_dia, 600, c2_s, c_cat_to_s12_R, friction=friction)
+        return c_cat_to_s12, c_cat_to_s12_R  # Return Type 6 connection IDs
 
