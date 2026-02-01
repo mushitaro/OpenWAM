@@ -46,3 +46,22 @@ temp/
 # Client build (will be created later)
 client/dist/
 client/build/
+
+# C++ Build Artifacts (Visual Studio / CMake)
+*.lib
+*.pdb
+*.exe
+*.obj
+*.ilk
+*.exp
+lib/Debug/
+lib/Release/
+x64/
+Source/**/*.dir/
+Source/**/*.tlog/
+Source/ZERO_CHECK.vcxproj*
+Source/CMakeFiles/
+Source/Output/
+Source/CMakeCache.txt
+Source/*.sln
+Source/ALL_BUILD.vcxproj*
