@@ -1,174 +1,95 @@
-# OpenWAM Web Application
+# OpenWAM - BMW S54 CSL Simulator Fork
 
-A modern web-based interface for the OpenWAM engine simulation software, providing an intuitive way to create, configure, and run engine simulations through a browser-based interface.
+A fork of [CMT-UPV/OpenWAM](https://github.com/CMT-UPV/OpenWAM) customized for high-fidelity BMW S54 (M3 CSL) engine simulation with Volumetric Efficiency (VE) table generation.
 
-## Features
+## Key Modifications
 
-- **Visual Model Editor**: Drag-and-drop interface for building engine models
-- **Real-time Simulation**: Monitor simulation progress with live updates
-- **File Management**: Upload/download OpenWAM files and results
-- **Project Management**: Organize simulations into projects
-- **Results Visualization**: Interactive charts and data analysis
-- **Local Deployment**: Runs entirely on your local machine
+### OpenWAM Engine Core (C++)
 
-## Prerequisites
+- **NaN Guards**: Symmetric fallback to air properties (γ=1.386, R=287) in cylinder and pipe solvers
+- **Stability Fixes**: Crash prevention for Pipe ID bounds and species transport
+- **Memory Modernization**: `std::unique_ptr`, `std::shared_ptr`, `std::string`
+- **Parallelization**: OpenMP enabled for flow calculations
 
-- Node.js 18+
-- npm or yarn
-- OpenWAM executable (for running simulations)
+### CSL Simulator (Python)
 
-## Engine Core Development (C++)
+A complete VE simulation pipeline for the S54B32HP engine:
 
-The OpenWAM engine core has been modernized to serve as a base for specific vehicle model development.
-
-### Key Changes
-
-- **Modern C++ (C++14/17)**: Raw pointers replaced with `std::unique_ptr` and `std::shared_ptr` for robust memory management.
-- **I/O Modernization**: `FILE*` and `char*` replaced with `<fstream>` and `std::string`.
-- **Parallelization**: OpenMP enabled for key calculation loops (`TOpenWAM::CalculateFlowCommon`).
-
-### Build Instructions
-
-Requirements: CMake 3.10+, C++17 compliant compiler, OpenMP (optional but recommended).
-
-```bash
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --config Release
-```
-
-## Installation
-
-1. Clone the repository:
-
-```bash
-git clone <repository-url>
-cd openwam-webapp
-```
-
-1. Install dependencies:
-
-```bash
-npm install
-```
-
-1. Copy environment configuration:
-
-```bash
-cp .env.example .env
-```
-
-1. Edit `.env` file with your configuration
-
-## Development
-
-Start the development server:
-
-```bash
-npm run dev
-```
-
-This will start:
-
-- Backend server on <http://localhost:5000>
-- Frontend development server on <http://localhost:3000>
-
-## Building for Production
-
-Build the application:
-
-```bash
-npm run build
-```
-
-Start the production server:
-
-```bash
-npm start
-```
-
-## Testing
-
-Run tests:
-
-```bash
-npm test
-```
-
-Run tests in watch mode:
-
-```bash
-npm run test:watch
-```
+- **WAM Generator**: Dynamic topology creation with 81 pipes, dual-bank exhaust, H-pipe crossover
+- **VANOS Integration**: OEM map-based intake/exhaust cam timing
+- **VE Validation**: 13-point sweep comparing simulation vs OEM ECU maps
+- **Parallel Execution**: Multi-threaded VE table generation
 
 ## Project Structure
 
 ```
-├── src/
-│   ├── server/          # Backend Node.js/Express server
-│   │   ├── database/    # Database management
-│   │   ├── routes/      # API routes
-│   │   ├── socket/      # WebSocket handlers
-│   │   ├── middleware/  # Express middleware
-│   │   └── utils/       # Utilities
-│   └── shared/          # Shared types and constants
-├── client/              # Frontend React application (to be created)
-├── app_data/            # Application data and database
-├── uploads/             # Uploaded files
-└── logs/                # Application logs
+OpenWAM/
+├── Source/                              # C++ Engine Core
+│   ├── Engine/TCilindro4T.cpp          # Cylinder solver (w/ NaN guard)
+│   ├── 1DPipes/TTubo.cpp               # Pipe solver (w/ NaN guard)
+│   └── CMakeLists.txt
+├── build/                               # CMake build output
+│   └── bin/release/OpenWAM.exe
+├── CSL_Simulator/
+│   ├── backend/
+│   │   ├── app/
+│   │   │   ├── models.py               # Pydantic config (S54 spec)
+│   │   │   ├── data/csl_ecu_maps.json  # OEM VE/VANOS maps
+│   │   │   └── simulator/
+│   │   │       └── wam_generator.py    # WAM file generator
+│   │   ├── scripts/                    # CLI tools
+│   │   │   ├── ve_validation_sequential.py
+│   │   │   └── ve_table_runner_parallel.py
+│   │   └── output/                     # Generated files
+│   └── docs/
+│       └── csl_simulator_technical_spec.md
+└── README.md
 ```
 
-## API Documentation
+## Build Instructions
 
-### Projects
+### OpenWAM Engine (C++)
 
-- `GET /api/projects` - Get all projects
-- `POST /api/projects` - Create new project
-- `GET /api/projects/:id` - Get project by ID
-- `PUT /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete project
+Requirements: CMake 3.10+, C++17 compiler, OpenMP (optional)
 
-### Simulations
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release
+```
 
-- `GET /api/simulations/:id` - Get simulation status
-- `POST /api/simulations` - Start new simulation
-- `PUT /api/simulations/:id` - Update simulation
-- `DELETE /api/simulations/:id` - Cancel simulation
+### CSL Simulator (Python)
 
-### Files
+Requirements: Python 3.10+, pandas
 
-- `POST /api/files/upload` - Upload file
-- `GET /api/files/:id/download` - Download file
-- `DELETE /api/files/:id` - Delete file
+```bash
+cd CSL_Simulator/backend
+python scripts/ve_validation_sequential.py
+```
 
-### System
+## S54 Engine Configuration
 
-- `GET /api/system/status` - Get system status
-- `GET /api/system/health` - Health check
-- `GET /api/system/logs` - Get recent logs
+| Parameter | Value |
+|-----------|-------|
+| Bore × Stroke | 87.0 × 91.0 mm |
+| Displacement | 3246 cc |
+| Compression Ratio | 11.5:1 |
+| Cylinders | 6 (Inline) |
+| Valve Lift | 11.8 / 11.2 mm (In/Ex) |
 
-## WebSocket Events
+## Validation Results
 
-The application uses WebSocket for real-time communication:
+| RPM Range | TPS Range | Accuracy |
+|-----------|-----------|----------|
+| 1400-3100 | 10-50% | ±13% |
+| 3500-7000 | 65-100% | -23% to -35% |
 
-- `simulation:start` - Start simulation
-- `simulation:stop` - Stop simulation
-- `simulation:progress` - Simulation progress updates
-- `model:validate` - Validate engine model
+**Status**: 12/13 points passing (92%)
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the LICENSE file for details.
+GNU General Public License v3.0 - See original [OpenWAM](https://github.com/CMT-UPV/OpenWAM) for details.
 
-## Contributing
+## Acknowledgments
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
-
-## Support
-
-For issues and questions, please create an issue in the repository.
+- [CMT-UPV/OpenWAM](https://github.com/CMT-UPV/OpenWAM) - Original engine simulation framework
