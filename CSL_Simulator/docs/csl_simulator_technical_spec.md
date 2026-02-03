@@ -2,8 +2,8 @@
 
 ## BMW S54 / M3 CSL OpenWAM Integration
 
-**Version**: 2.0 (Post-NaN Guard Implementation)  
-**Date**: 2026-02-01  
+**Version**: 2.1 (Literature-based Valve Cd Model)
+**Date**: 2026-02-03
 **Status**: 12/13 validation points passing (92%)
 
 ---
@@ -35,7 +35,8 @@ CSL_Simulator/
 │       ├── intake.vlv                 # Intake valve curve
 │       └── exhaust.vlv                # Exhaust valve curve
 ├── docs/
-│   └── csl_simulator_technical_spec.md  # This document
+│   ├── csl_simulator_technical_spec.md       # This document
+│   └── valve_discharge_coefficient_theory.md # Valve Cd theory & literature review
 └── frontend/                          # UI (React, unused)
 ```
 
@@ -72,6 +73,10 @@ CSL_Simulator/
 | Max Lift | 11.8 | 11.2 | mm |
 | Duration | 260.0 | 260.0 | deg |
 | Valve Files | `intake.vlv` | `exhaust.vlv` | - |
+| L/D at Max Lift | 0.337 | 0.373 | - |
+| Peak Cd (model) | 0.685 | 0.940 | - |
+
+> **Technical Reference:** For detailed valve discharge coefficient (Cd) theory, mathematical model derivation, and literature review, see [valve_discharge_coefficient_theory.md](valve_discharge_coefficient_theory.md).
 
 ### 2.3 Combustion Model (Wiebe)
 
