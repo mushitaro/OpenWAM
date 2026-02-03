@@ -90,17 +90,65 @@ class WAMGenerator:
         self.connection_counter += 1
 
     def _get_dynamic_cd(self, lift_mm, valve_dia_mm, is_intake=True):
-        # F1-Grade Dynamic Discharge Coefficient
-        if lift_mm <= 0.05: return 0.0
+        """
+        Literature-based Discharge Coefficient Model
+
+        References:
+        - SAE 2021-36-0107: Honda CBR600RR measured Cd (exhaust: 0.45-0.91, intake: 0.42-0.69)
+        - Heywood "Internal Combustion Engine Fundamentals" 2nd Ed, Ch.6.3.2
+        - SAE 2017-01-5022: TU Munich flow bench measurements
+
+        Key improvements over previous simplified model:
+        - Separate curves for intake vs exhaust (exhaust has higher peak Cd)
+        - Higher peak Cd values matching measured data from high-performance NA engines
+        - Proper behavior at high L/D ratios (>0.30) for S54-class valve lifts
+        """
+        if lift_mm <= 0.01:
+            return 0.0
+
         ld_ratio = lift_mm / valve_dia_mm
-        
-        # Base Curve
-        if ld_ratio < 0.1: base_cd = 0.4 * (ld_ratio / 0.1)
-        elif ld_ratio < 0.25: base_cd = 0.4 + (0.25 * ((ld_ratio-0.1)/0.15))
-        else: base_cd = 0.65 - 0.03 * min(1.0, (ld_ratio - 0.25)/0.2)
-        
-        # Apply head flow scalar
-        return base_cd * self.config.engine.head.port_flow_coeff
+
+        if is_intake:
+            # Intake valve Cd curve (4-valve pent-roof, high-performance NA)
+            # Peak Cd ~ 0.72 at L/D = 0.25, slight decrease at higher lifts due to separation
+            # Based on SAE data: intake Cd typically 0.42-0.72 range
+            if ld_ratio < 0.05:
+                # Very low lift: viscous dominated, linear ramp
+                base_cd = 5.0 * ld_ratio  # 0 -> 0.25
+            elif ld_ratio < 0.15:
+                # Low-mid lift: rapid increase as flow area opens
+                base_cd = 0.25 + 3.3 * (ld_ratio - 0.05)  # 0.25 -> 0.58
+            elif ld_ratio < 0.25:
+                # Mid lift: approaching peak efficiency
+                base_cd = 0.58 + 1.4 * (ld_ratio - 0.15)  # 0.58 -> 0.72
+            elif ld_ratio < 0.35:
+                # High lift: slight decrease due to flow separation at valve head
+                base_cd = 0.72 - 0.4 * (ld_ratio - 0.25)  # 0.72 -> 0.68
+            else:
+                # Very high lift: plateau with minor losses
+                base_cd = 0.68 - 0.1 * min(1.0, (ld_ratio - 0.35) / 0.10)  # 0.68 -> 0.67
+        else:
+            # Exhaust valve Cd curve
+            # Higher peak Cd ~ 0.85-0.91 at L/D > 0.30 (SAE 2021-36-0107 CBR600RR data)
+            # Exhaust flow benefits from pressure-driven discharge (blowdown)
+            if ld_ratio < 0.05:
+                # Very low lift
+                base_cd = 4.5 * ld_ratio  # 0 -> 0.225
+            elif ld_ratio < 0.15:
+                # Low-mid lift: rapid increase
+                base_cd = 0.225 + 3.25 * (ld_ratio - 0.05)  # 0.225 -> 0.55
+            elif ld_ratio < 0.25:
+                # Mid lift: continuing increase
+                base_cd = 0.55 + 2.5 * (ld_ratio - 0.15)  # 0.55 -> 0.80
+            elif ld_ratio < 0.35:
+                # High lift: approaching peak
+                base_cd = 0.80 + 0.7 * (ld_ratio - 0.25)  # 0.80 -> 0.87
+            else:
+                # Very high lift: plateau near maximum
+                base_cd = 0.87 + 0.3 * min(1.0, (ld_ratio - 0.35) / 0.10)  # 0.87 -> 0.90
+
+        # Apply head flow scalar (user tuning factor) and enforce physical limit
+        return min(base_cd * self.config.engine.head.port_flow_coeff, 0.95)
 
     def generate_valve_curve(self, duration: float, lift: float, filename: str, dia: float):
         path = os.path.join(self.output_dir, filename)
