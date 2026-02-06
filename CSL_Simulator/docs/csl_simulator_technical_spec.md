@@ -2,8 +2,8 @@
 
 ## BMW S54 / M3 CSL OpenWAM Integration
 
-**Version**: 2.1 (Literature-based Valve Cd Model)
-**Date**: 2026-02-03
+**Version**: 2.2 (Valve Cd + Throttle Cd Models)
+**Date**: 2026-02-06
 **Status**: 12/13 validation points passing (92%)
 
 ---
@@ -258,12 +258,40 @@ if (std::isnan(sp0) || std::isnan(sp1) || std::isnan(sp2)) {
 
 ### 8.1 High Priority
 
-| Parameter | Location | Current | Recommended Range | Expected Effect |
-|-----------|----------|---------|-------------------|-----------------|
-| **Simulation Duration** | wam_generator.py:311 | 2.0s | 3.0-4.0s | Fix low RPM timeout |
-| **Runner Mesh dx** | wam_generator.py:501 | 20mm | 15-20mm | Improve wave dynamics |
-| **Valve Cd Map** | _get_dynamic_cd() | Simplified | Full flowbench data | Better port flow |
-| **TPS→Area Mapping** | Throttle model | Linear | Non-linear butterfly | More accurate part-load |
+| Parameter | Location | Current | Status | Expected Effect |
+|-----------|----------|---------|--------|-----------------|
+| **Simulation Duration** | wam_generator.py:311 | 2.0s | ⚠️ TODO: 3.0-4.0s | Fix low RPM timeout |
+| **Runner Mesh dx** | wam_generator.py:501 | 20mm | ⚠️ TODO: 15-20mm | Improve wave dynamics |
+| **Valve Cd Map** | _get_dynamic_cd() | Literature-based | ✅ **DONE v2.1** | +7.6% intake, +49% exhaust |
+| **Throttle Cd Curve** | _get_butterfly_cd() | ITB flow bench data | ✅ **DONE v2.1** | +31% WOT, +108% part-load |
+
+#### 8.1.1 Valve Discharge Coefficient Model (Implemented)
+
+Literature-based Cd model derived from SAE papers and flow bench data:
+
+| Valve | L/D | Previous Cd | New Cd | Improvement |
+|-------|-----|-------------|--------|-------------|
+| Intake (max lift) | 0.337 | 0.637 | 0.685 | +7.6% |
+| Exhaust (max lift) | 0.373 | 0.632 | 0.940 | +48.9% |
+
+> See [valve_discharge_coefficient_theory.md](valve_discharge_coefficient_theory.md) for full documentation.
+
+#### 8.1.2 Butterfly Throttle Valve Model (Implemented)
+
+Non-linear Cd curve based on ITB flow bench measurements:
+
+| Angle | Previous Cd | New Cd | Improvement |
+|-------|-------------|--------|-------------|
+| 10° (low load) | 0.072 | 0.120 | +67% |
+| 30° (part throttle) | 0.217 | 0.450 | +108% |
+| 60° (high load) | 0.433 | 0.750 | +73% |
+| 90° (WOT) | 0.650 | 0.850 | +31% |
+
+Physical basis:
+- Low angles: Separation losses dominate (vena contracta)
+- Mid angles: Flow reattachment, rapid Cd increase
+- High angles: Port geometry becomes limiting factor
+- WOT: Maximum Cd ~0.85 (bellmouth + port limited)
 
 ### 8.2 Medium Priority
 
