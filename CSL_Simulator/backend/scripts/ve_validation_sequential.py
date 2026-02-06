@@ -205,3 +205,13 @@ if success_count == len(results):
     print("\n✅ All points passed!")
 else:
     print(f"\n❌ {len(results) - success_count} points failed.")
+
+# Save results to CSV
+import csv
+csv_path = os.path.join("output", "ve_validation_results_seq.csv")
+os.makedirs("output", exist_ok=True)
+with open(csv_path, "w", newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=["rpm", "tps", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
+    writer.writeheader()
+    writer.writerows(results)
+print(f"\nResults saved to {csv_path}")
