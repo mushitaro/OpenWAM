@@ -19,7 +19,7 @@ class InletConfig(BaseModel):
     duct_diameter: float = 100.0 # mm (Airbox Snorkel)
 
 class BellmouthConfig(BaseModel):
-    length: float = 120.0 # mm
+    length: float = 280.0 # mm (S54 Tuned Length)
     diameter: float = 50.0 # mm (Opening)
     taper_angle: float = 3.5 # degrees (Ram Theory)
 

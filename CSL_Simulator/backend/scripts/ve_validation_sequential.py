@@ -7,6 +7,7 @@ import subprocess
 import re
 import json
 import time
+import csv
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -95,6 +96,15 @@ print("=" * 70)
 print(f"\nRunning {len(VALIDATION_POINTS)} points sequentially...")
 print()
 
+# Initialize CSV with header
+csv_path = os.path.join("output", "ve_validation_results_seq.csv")
+os.makedirs("output", exist_ok=True)
+with open(csv_path, "w", newline='') as f:
+    writer = csv.DictWriter(f, fieldnames=["rpm", "tps", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
+    writer.writeheader()
+
+print(f"Results will be saved incrementally to {csv_path}")
+
 results = []
 for i, (rpm, tps) in enumerate(VALIDATION_POINTS):
     print(f"[{i+1}/{len(VALIDATION_POINTS)}] Running {rpm} RPM @ {tps}% TPS...")
@@ -161,7 +171,7 @@ for i, (rpm, tps) in enumerate(VALIDATION_POINTS):
     status = "✅" if ve_sim > 50 else "❌"
     print(f"   {status} Exit={exit_code}, Mass={mass_mg:.2f}mg, VE_sim={ve_sim:.1f}%, VE_oem={ve_oem:.1f}%, Δ={diff:+.1f}%")
     
-    results.append({
+    curr_result = {
         "rpm": rpm,
         "tps": tps,
         "exit_code": exit_code,
@@ -169,7 +179,13 @@ for i, (rpm, tps) in enumerate(VALIDATION_POINTS):
         "ve_sim": round(ve_sim, 1),
         "ve_oem": round(ve_oem, 1),
         "diff": round(diff, 1)
-    })
+    }
+    results.append(curr_result)
+    
+    # Append to CSV immediately
+    with open(csv_path, "a", newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=["rpm", "tps", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
+        writer.writerow(curr_result)
     
     # Cleanup temp files immediately after each point
     for f in [wam_file, log_file]:

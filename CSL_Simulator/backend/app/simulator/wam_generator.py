@@ -469,34 +469,38 @@ class WAMGenerator:
         return final_wam
 
     def _generate_intake(self, c):
-        print(f"DEBUG: Generate Intake. Keys: {list(self.ids.keys())}")
+        print(f"DEBUG: Generate Intake (CSL Carbon Airbox). Keys: {list(self.ids.keys())}")
         if 'itbs' not in self.ids: 
             print("WARNING: 'itbs' key missing. Re-initializing.")
             self.ids['itbs'] = []
         if 'plenum_intake' not in self.ids: self.ids['plenum_intake'] = None
+        
         # 1. Ambient Plenum
         amb_in_id = self.plenum_counter; self.plenum_counter += 1
         self._add_plenum(amb_in_id, "Ambient_Intake", 1000.0, 300, ptype=0) # Type 0 = Constant Volume
         
-        # 2. Filter Element Pipe (Air Filter)
-        filter_pipe_id = self.pipe_counter; self.pipe_counter += 1
+        # 2. CSL Intake Pipe (Snorkel)
+        # Spec: D=200mm, Length Tapered 500mm-200mm -> Avg 350mm
+        intake_pipe_id = self.pipe_counter; self.pipe_counter += 1
         
-        # Connect Ambient to Filter Pipe Start
+        # Connect Ambient to Pipe Start
         cid_amb = self.connection_counter 
-        self._add_con_plenum_pipe_v2(amb_in_id, filter_pipe_id, 0)
+        self._add_con_plenum_pipe_v2(amb_in_id, intake_pipe_id, 0)
         
-        # Filter Pipe End -> Duct Start: Type 6 Direct Pipe-to-Pipe Connection
-        # CRITICAL: Both pipes MUST reference the same connection ID
-        c_filter_to_duct = self._create_pipe_to_pipe_connection()
+        # Pipe End -> Filter Start: Type 6 Direct Pipe-to-Pipe Connection
+        c_pipe_to_filter = self._create_pipe_to_pipe_connection()
         
-        # Higher friction for filter pressure loss
-        self._add_pipe(filter_pipe_id, "Air_Filter_Elem", 0.15, 0.15, 0.15, 300, cid_amb, c_filter_to_duct, friction=0.3)
+        # Intake Pipe: Low friction (smooth carbon), D=200mm
+        self._add_pipe(intake_pipe_id, "CSL_Intake_Pipe", 0.350, 0.200, 0.200, 300, 
+                       cid_amb, c_pipe_to_filter, friction=0.05, dx_mesh=0.05)
         
-        # 3. Intake Duct
-        duct_id = self.pipe_counter; self.pipe_counter += 1
+        # 3. Panel Filter (Between Pipe and Plenum)
+        # Spec: "Plenum face size", ~20mm thick.
+        # Estimate: 600mm x 150mm => ~340mm equivalent diameter. Using 300mm conservatively.
+        filter_id = self.pipe_counter; self.pipe_counter += 1
         
-        # Start: Use same Type 6 connection as Filter End
-        cid_duct_start = c_filter_to_duct  # Type 6: References same ID as Filter End
+        # Start: Use same Type 6 connection as Pipe End
+        cid_filter_start = c_pipe_to_filter
         
         # Plenum
         plenum_id = self.plenum_counter; self.plenum_counter += 1
@@ -504,11 +508,12 @@ class WAMGenerator:
         self.ids['plenum_intake'] = plenum_id
         
         cid_plenum_in = self.connection_counter
-        self._add_con_plenum_pipe_v2(plenum_id, duct_id, 1) # Duct End -> Plenum
+        self._add_con_plenum_pipe_v2(plenum_id, filter_id, 1) # Filter End -> Plenum
         
-        self._add_pipe(duct_id, "Intake_Duct", c.intake.inlet.duct_length/1000.0,
-                       c.intake.inlet.duct_diameter/1000.0, c.intake.inlet.duct_diameter/1000.0, 313,
-                       cid_duct_start, cid_plenum_in)
+        # Panel Filter: Short (20mm), Wide (300mm), High Friction (Filter Media)
+        # Friction 0.5-1.0 typical for filter media in 1D
+        self._add_pipe(filter_id, "CSL_Panel_Filter", 0.020, 0.300, 0.300, 300,
+                       cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
 
 
         # 4. Runners (Dynamic Count based on Cylinders)
@@ -537,10 +542,11 @@ class WAMGenerator:
             
             # Define Runner Pipe with BELLMOUTH TAPER
             # Start diameter: 20% larger than ITB (simulates bellmouth funnel)
-            # End diameter: Port diameter (actual runner exit)
+            # End diameter: ITB Diameter (Runner maintains size until split)
+            # REVISION: Previously used intake_port.diameter (35mm), causing massive choke.
             itb_dia = c.intake.itb.diameter / 1000.0
             bellmouth_dia = itb_dia * 1.2  # 60mm for 50mm ITB
-            r_dia_max_end = c.engine.head.intake_port.diameter / 1000.0
+            r_dia_max_end = itb_dia # 50mm (Matches ITB)
             total_len = c.intake.bellmouth.length / 1000.0
             
             # Taper from bellmouth (60mm) to port (smaller)
