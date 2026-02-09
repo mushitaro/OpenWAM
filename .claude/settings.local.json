@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(done)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git log:*)"
     ]
-  }
+  },
+  "outputStyle": "default"
 }

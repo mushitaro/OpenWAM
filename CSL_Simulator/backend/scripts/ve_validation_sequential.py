@@ -69,51 +69,55 @@ def get_vanos_bias(rpm, tps):
     exhaust_bias = exhaust_raw - 128.0
     return intake_bias, exhaust_bias
 
-# Full 13 validation points - complete operating range
+# Validation points: (RPM, RO%)
+# VE sensitivity is concentrated in RO 0.1-10% range.
+# OEM map has 16/24 breakpoints in this range.
 VALIDATION_POINTS = [
-    # Low RPM / Low Load
-    (1100, 5),
-    (1400, 10),
-    # Mid RPM / Part Load
-    (2200, 20),
-    (2700, 25),
-    (3000, 45),
-    (3100, 50),
-    # Mid RPM / High Load
-    (3500, 65),
-    (4000, 85),
-    # High RPM
-    (5000, 65),
-    (5500, 85),
-    (6000, 100),
-    (6500, 85),
-    (7000, 100),
+    # Low RO% - VE high-sensitivity zone (5% → 79% VE)
+    (2200, 0.39),
+    (2200, 1.0),
+    (2200, 3.2),
+    (2200, 7.5),
+    (3100, 0.39),
+    (3100, 1.0),
+    (3100, 3.2),
+    (3100, 7.5),
+    (5000, 1.0),
+    (5000, 5.0),
+    (5000, 10.0),
+    # Mid/High RO% - VE plateau zone
+    (3100, 20.0),
+    (3100, 45.0),
+    (5000, 45.0),
+    (5000, 100.0),
+    (7000, 10.0),
+    (7000, 100.0),
 ]
 
 print("=" * 70)
 print(" VE Validation - SEQUENTIAL Execution (v2)")
 print("=" * 70)
-print(f"\nRunning {len(VALIDATION_POINTS)} points sequentially...")
+print(f"\nRunning {len(VALIDATION_POINTS)} points sequentially (RO% = Relative Opening)...")
 print()
 
 # Initialize CSV with header
 csv_path = os.path.join("output", "ve_validation_results_seq.csv")
 os.makedirs("output", exist_ok=True)
 with open(csv_path, "w", newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=["rpm", "tps", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
+    writer = csv.DictWriter(f, fieldnames=["rpm", "ro", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
     writer.writeheader()
 
 print(f"Results will be saved incrementally to {csv_path}")
 
 results = []
-for i, (rpm, tps) in enumerate(VALIDATION_POINTS):
-    print(f"[{i+1}/{len(VALIDATION_POINTS)}] Running {rpm} RPM @ {tps}% TPS...")
+for i, (rpm, ro) in enumerate(VALIDATION_POINTS):
+    print(f"[{i+1}/{len(VALIDATION_POINTS)}] Running {rpm} RPM @ RO={ro}%...")
     
-    b_in, b_ex = get_vanos_bias(rpm, tps)
+    b_in, b_ex = get_vanos_bias(rpm, ro)
     
     # Use unique file names per point to avoid locking issues
-    wam_file = f"temp_seq_{i}_{rpm}_{tps}.wam"
-    log_file = f"log_seq_{i}_{rpm}_{tps}.txt"
+    wam_file = f"temp_seq_{i}_{rpm}_{ro}.wam"
+    log_file = f"log_seq_{i}_{rpm}_{ro}.txt"
     
     # Clean up any existing files first
     for f in [wam_file, log_file]:
@@ -125,7 +129,7 @@ for i, (rpm, tps) in enumerate(VALIDATION_POINTS):
     
     cfg = SimConfig()
     cfg.engine.rpm = float(rpm)
-    cfg.engine.throttle_position = float(tps / 100.0)
+    cfg.engine.throttle_position = float(ro / 100.0)
     cfg.engine.vanos_intake_bias = float(b_in)
     cfg.engine.vanos_exhaust_bias = float(b_ex)
     
@@ -165,7 +169,7 @@ for i, (rpm, tps) in enumerate(VALIDATION_POINTS):
     th_mass = 543.0 * (rho_air / 1000.0) * 1000.0  # mg
     
     ve_sim = (mass_mg / th_mass) * 100.0 if th_mass > 0 else 0
-    ve_oem = get_oem_ve(rpm, tps)
+    ve_oem = get_oem_ve(rpm, ro)
     diff = ve_sim - ve_oem
     
     status = "✅" if ve_sim > 50 else "❌"
@@ -173,7 +177,7 @@ for i, (rpm, tps) in enumerate(VALIDATION_POINTS):
     
     curr_result = {
         "rpm": rpm,
-        "tps": tps,
+        "ro": ro,
         "exit_code": exit_code,
         "mass_mg": round(mass_mg, 2),
         "ve_sim": round(ve_sim, 1),
@@ -184,27 +188,27 @@ for i, (rpm, tps) in enumerate(VALIDATION_POINTS):
     
     # Append to CSV immediately
     with open(csv_path, "a", newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=["rpm", "tps", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
+        writer = csv.DictWriter(f, fieldnames=["rpm", "ro", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
         writer.writerow(curr_result)
     
     # Cleanup temp files immediately after each point
-    for f in [wam_file, log_file]:
-        if os.path.exists(f):
-            try:
-                os.remove(f)
-            except:
-                pass
+    # for f in [wam_file, log_file]:
+    #     if os.path.exists(f):
+    #         try:
+    #             os.remove(f)
+    #         except:
+    #             pass
 
 print("\n" + "=" * 70)
-print(" SEQUENTIAL VALIDATION SUMMARY")
+print(" SEQUENTIAL VALIDATION SUMMARY (RO% = Relative Opening)")
 print("=" * 70)
-print(f"\n{'RPM':>5} {'TPS%':>5} {'Exit':>5} {'Mass(mg)':>10} {'VE_sim':>7} {'VE_oem':>7} {'Diff':>7}")
+print(f"\n{'RPM':>5} {'RO%':>7} {'Exit':>5} {'Mass(mg)':>10} {'VE_sim':>7} {'VE_oem':>7} {'Diff':>7}")
 print("-" * 55)
 
 success_count = 0
 for r in results:
     status = "✓" if r['ve_sim'] > 50 else "✗"
-    print(f"{r['rpm']:5d} {r['tps']:5d} {r['exit_code']:5d} {r['mass_mg']:10.2f} {r['ve_sim']:7.1f} {r['ve_oem']:7.1f} {r['diff']:+7.1f} {status}")
+    print(f"{r['rpm']:5d} {r['ro']:7.2f} {r['exit_code']:5d} {r['mass_mg']:10.2f} {r['ve_sim']:7.1f} {r['ve_oem']:7.1f} {r['diff']:+7.1f} {status}")
     if r['ve_sim'] > 50:
         success_count += 1
 
@@ -227,7 +231,7 @@ import csv
 csv_path = os.path.join("output", "ve_validation_results_seq.csv")
 os.makedirs("output", exist_ok=True)
 with open(csv_path, "w", newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=["rpm", "tps", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
+    writer = csv.DictWriter(f, fieldnames=["rpm", "ro", "exit_code", "mass_mg", "ve_sim", "ve_oem", "diff"])
     writer.writeheader()
     writer.writerows(results)
 print(f"\nResults saved to {csv_path}")

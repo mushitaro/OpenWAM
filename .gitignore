@@ -43,6 +43,15 @@ coverage/
 tmp/
 temp/
 
+# Python cache
+__pycache__/
+*.pyc
+
+# OpenWAM simulation temp files
+temp_*.wam
+temp_*.DAT
+log_seq_*.txt
+
 # Client build (will be created later)
 client/dist/
 client/build/

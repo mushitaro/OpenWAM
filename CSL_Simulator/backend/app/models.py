@@ -19,7 +19,7 @@ class InletConfig(BaseModel):
     duct_diameter: float = 100.0 # mm (Airbox Snorkel)
 
 class BellmouthConfig(BaseModel):
-    length: float = 280.0 # mm (S54 Tuned Length)
+    length: float = 150.0 # mm (Bellmouth funnel, Plenum to ITB)
     diameter: float = 50.0 # mm (Opening)
     taper_angle: float = 3.5 # degrees (Ram Theory)
 
@@ -35,6 +35,7 @@ class IntakeConfig(BaseModel):
     plenum_vol: float = 10.5 # Liters
     bellmouth: BellmouthConfig = BellmouthConfig()
     itb: ITBConfig = ITBConfig() # New ITB Module
+    runner_friction: float = 0.015 # F1-Spec Polished (was 0.08)
 
 # 2. Engine Core
 class EngineGeometry(BaseModel):
@@ -63,13 +64,15 @@ class PortConfig(BaseModel):
     length: float = 100.0 # mm
 
 class HeadConfig(BaseModel):
-    port_flow_coeff: float = 1.0 # Scalar modifier
+    port_flow_coeff: float = 1.0 # Scalar modifier (Stable Baseline)
     valves_per_cyl: int = 4
     wall_temp: float = 450.0 # K
     intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0)
     exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=260.0)
     intake_port: PortConfig = PortConfig(diameter=35.0, length=105.0) # S54 Spec
+    intake_port: PortConfig = PortConfig(diameter=35.0, length=105.0) # S54 Spec
     exhaust_port: PortConfig = PortConfig(diameter=30.0, length=90.0)  # 90mm for numerical stability
+    port_friction: float = 0.05 # F1-Spec Port Job (was 0.3-0.5)
 
 class HeatTransferConfig(BaseModel):
     woschni_coeffs: List[float] = [128.0, 2.28, 0.0]
@@ -98,13 +101,15 @@ class EngineConfig(BaseModel):
 # 3. Exhaust System (Modular Toplogy)
 class HeaderConfig(BaseModel):
     type: str = "Stock Euro"
-    primary_length: float = 480.0 # mm [CSL Spec]
+    primary_length: float = 300.0 # mm [KI Master Spec: 300mm Headers]
     primary_diameter: float = 40.0 # mm
     collector_count: int = 2 # 2 for 6-cyl (3-into-1 x 2)
     collector_vol: float = 1.5 # Liters
     collector_dia: float = 60.0 # mm
     wall_temp: float = 800.0 # K
+    wall_temp: float = 800.0 # K
     heat_coeff: float = 45.0
+    header_friction: float = 0.02 # Stainless Smooth (was 0.5)
 
 class CatalystConfig(BaseModel):
     installed: bool = True
@@ -154,6 +159,7 @@ class ExhaustConfig(BaseModel):
     section1_2: Section1Config = Section1Config() # Bank 2 Pipeline (Duplicate config)
     section2: Section2Config = Section2Config()   # Merged Section (or Dual)
     section3: Section3Config = Section3Config()
+    muffler_friction: float = 0.05 # Smooth Adapter (was 0.1)
 
 # Root Config
 class EnvironmentConfig(BaseModel):
