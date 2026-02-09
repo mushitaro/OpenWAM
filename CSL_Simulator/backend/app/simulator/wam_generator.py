@@ -538,7 +538,7 @@ class WAMGenerator:
             
             # ITB Junction (small plenum downstream of throttle butterfly)
             itb_junction_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(itb_junction_id, f"ITB_Junction_{cyl_idx}", 0.001, 313)  # 1cc
+            self._add_plenum(itb_junction_id, f"ITB_Junction_{cyl_idx}", 0.000001, 313)  # 1cc = 1e-6 m3
             
             # Connect Bellmouth End → [ThrottleValve] → ITB Junction
             cid_bell_end = self.connection_counter
@@ -558,7 +558,7 @@ class WAMGenerator:
             
             # Port Split (Small Plenum)
             split_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(split_plenum_id, f"Split_Plenum_{cyl_idx}", 0.002, 313)
+            self._add_plenum(split_plenum_id, f"Split_Plenum_{cyl_idx}", 0.000002, 313)  # 2cc = 2e-6 m3
             
             # Connection Runner END → Split Plenum
             cid_split = self.connection_counter
@@ -567,7 +567,7 @@ class WAMGenerator:
             # Define Runner pipe (taper: φ50mm → φ35mm)
             self._add_pipe(runner_id, f"Runner_{cyl_idx}", runner_len,
                            itb_dia, port_dia_in, 313,
-                           cid_run_start, cid_split, friction=0.08, dx_mesh=0.010)
+                           cid_run_start, cid_split, friction=c.intake.runner_friction, dx_mesh=0.010)
             self.ids['itbs'].append(vid_throttle)
                            
             # Port Pipes (2 per cyl) - SEGMENTED for stability
@@ -586,7 +586,7 @@ class WAMGenerator:
                 # --- VALVE POCKET (buffer plenum before valve) ---
                 # 3cc pocket to absorb backflow shockwaves
                 valve_pocket_id = self.plenum_counter; self.plenum_counter += 1
-                self._add_plenum(valve_pocket_id, f"ValvePocket_In_{cyl_idx}_{v+1}", 0.003, 380)
+                self._add_plenum(valve_pocket_id, f"ValvePocket_In_{cyl_idx}_{v+1}", 0.000003, 380)  # 3cc = 3e-6 m3
                 
                 # --- MAIN PORT PIPE (from split plenum to valve pocket) ---
                 pid_main = self.pipe_counter; self.pipe_counter += 1
@@ -600,7 +600,7 @@ class WAMGenerator:
                 # Main port: wider entry, narrower at pocket (taper for stability)
                 self._add_pipe(pid_main, f"Port_In_Main_{cyl_idx}_{v+1}", port_main_len,
                                port_dia_in, port_dia_in * 0.95, 400,
-                               cid_main_start, cid_main_end, friction=0.3, dx_mesh=0.010)
+                               cid_main_start, cid_main_end, friction=c.engine.head.port_friction, dx_mesh=0.010)
                 
                 # --- POCKET PIPE (from valve pocket to valve) ---
                 pid_pocket = self.pipe_counter; self.pipe_counter += 1
@@ -614,7 +614,7 @@ class WAMGenerator:
                 # Pocket pipe: short, fine mesh for stability near valve
                 self._add_pipe(pid_pocket, f"Port_In_Pocket_{cyl_idx}_{v+1}", port_pocket_len,
                                port_dia_in * 0.95, port_dia_in, 400,
-                               cid_pocket_start, cid_valve, friction=0.5, dx_mesh=0.010)
+                               cid_pocket_start, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010)
 
     def _generate_simplified_exhaust(self, c):
         print("DEBUG: Generating SIMPLIFIED Exhaust")
@@ -658,8 +658,8 @@ class WAMGenerator:
         col_map = {0: col1_id, 1: col1_id, 2: col1_id, 3: col2_id, 4: col2_id, 5: col2_id} 
         
         # Tiny Junction (2cc) to merge headers without reflection
-        self._add_plenum(col1_id, "Collector_1_Junct", 0.002, 400)
-        self._add_plenum(col2_id, "Collector_2_Junct", 0.002, 400)
+        self._add_plenum(col1_id, "Collector_1_Junct", 0.000002, 400)  # 2cc = 2e-6 m3
+        self._add_plenum(col2_id, "Collector_2_Junct", 0.000002, 400)  # 2cc = 2e-6 m3
         
         # HEADER + PORT GENERATION (Unchanged Logic, mostly)
         for i in range(c.engine.cylinders):
@@ -668,7 +668,7 @@ class WAMGenerator:
             
             # Port Junction (1.0L -> 0.001L)
             merge_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(merge_plenum_id, f"Port_Junct_{cyl_idx}", 0.001, 380)
+            self._add_plenum(merge_plenum_id, f"Port_Junct_{cyl_idx}", 0.000001, 380)  # 1cc = 1e-6 m3
 
             # Ports - SEGMENTED for stability
             # Port is split into: Valve -> Valve Pocket (buffer) -> Main Port -> Junction
@@ -683,7 +683,7 @@ class WAMGenerator:
                 # --- VALVE POCKET (buffer plenum after exhaust valve) ---
                 # 5cc pocket to absorb blowdown shockwaves (larger than intake due to high temp/pressure)
                 valve_pocket_id = self.plenum_counter; self.plenum_counter += 1
-                self._add_plenum(valve_pocket_id, f"ValvePocket_Ex_{cyl_idx}_{v+1}", 0.005, 360)
+                self._add_plenum(valve_pocket_id, f"ValvePocket_Ex_{cyl_idx}_{v+1}", 0.000005, 360)  # 5cc = 5e-6 m3
                 
                 # --- POCKET PIPE (from valve to valve pocket) ---
                 pid_pocket = self.pipe_counter; self.pipe_counter += 1
@@ -697,7 +697,7 @@ class WAMGenerator:
                 # Pocket pipe: short, fine mesh for stability near valve
                 self._add_pipe(pid_pocket, f"Port_Ex_Pocket_{cyl_idx}_{v+1}", port_pocket_len,
                                port_dia_ex, port_dia_ex * 1.05, 360,
-                               cid_valve, cid_pocket_end, friction=0.5, dx_mesh=0.020) 
+                               cid_valve, cid_pocket_end, friction=c.engine.head.port_friction, dx_mesh=0.020)
                 
                 # --- MAIN PORT PIPE (from valve pocket to merge junction) ---
                 pid_main = self.pipe_counter; self.pipe_counter += 1
@@ -711,7 +711,7 @@ class WAMGenerator:
                 # Main port: slight expansion for pressure recovery
                 self._add_pipe(pid_main, f"Port_Ex_Main_{cyl_idx}_{v+1}", port_main_len,
                                port_dia_ex * 1.05, port_dia_ex, 
-                               370, cid_main_start, cid_port_end, friction=0.3, dx_mesh=0.025) 
+                               370, cid_main_start, cid_port_end, friction=c.engine.head.port_friction, dx_mesh=0.025)
 
             # Headers
             header_len = c.exhaust.headers.primary_length / 1000.0
@@ -821,8 +821,8 @@ class WAMGenerator:
         # Use Junction Plenums for H-Pipe connection
         h_junct_L = self.plenum_counter; self.plenum_counter += 1
         h_junct_R = self.plenum_counter; self.plenum_counter += 1
-        self._add_plenum(h_junct_L, "H_Junc_L", 0.002, 360)
-        self._add_plenum(h_junct_R, "H_Junc_R", 0.002, 360)
+        self._add_plenum(h_junct_L, "H_Junc_L", 0.000002, 360)  # 2cc = 2e-6 m3
+        self._add_plenum(h_junct_R, "H_Junc_R", 0.000002, 360)  # 2cc = 2e-6 m3
         
         # Connect Pre-H End -> H-Junct
         # This creates the correct End Connection ID for P3_1/P3_2 (Plenum type)
@@ -1424,7 +1424,7 @@ class WAMGenerator:
         if angle_deg <= 0.0:
             return 0.0
         if angle_deg >= 90.0:
-            return 0.85
+            return 0.96  # ITB at WOT: blade parallel to flow (Jenvey/Keihin data)
 
         # Physical Butterfly Cd from ITB flow bench data
         # Low angle regime (0-10 deg): Near-closed blade, only leakage flow
@@ -1447,9 +1447,9 @@ class WAMGenerator:
             (40.0, 0.580),
             (50.0, 0.680),
             (60.0, 0.750),
-            (70.0, 0.800),
-            (80.0, 0.830),
-            (90.0, 0.850),
+            (70.0, 0.840),
+            (80.0, 0.910),
+            (90.0, 0.960),  # ITB WOT: blade parallel, minimal obstruction
         ]
 
         # Linear interpolation
@@ -1461,7 +1461,7 @@ class WAMGenerator:
                 return cd1 + (cd2 - cd1) * t
 
         # Fallback (should not reach here)
-        return 0.85
+        return 0.96
 
     def _add_valve_throttle_mariposa(self, vid, dia, ctrl_id):
         """
@@ -1510,9 +1510,10 @@ class WAMGenerator:
     def _add_plenum(self, plid, label, vol, wall_temp, ptype=0):
         # Type 0: Constant Volume
         
-        # BRUTE FORCE STABILITY: Minimum 1 Liters (0.001 m3) - Reduced from 100L as Pa fix should solve it.
-        # OpenWAM stability usually fine with >0.1L if invalid pressures are fixed.
-        vol = max(vol, 0.001)
+        # Minimum volume clamp for numerical stability.
+        # Unit is m3: 1e-6 m3 = 1 cc (smallest physical buffer plenum).
+        # Previous clamp of 0.001 m3 (= 1 Liter) was destroying wave dynamics.
+        vol = max(vol, 0.000001)
         
         self.wam_lines_plenums.append(f"{ptype}")
         self.wam_lines_plenums.append(self.air_comp)
