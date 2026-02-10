@@ -438,7 +438,7 @@ class WAMGenerator:
             # Assume S54 Split Header (3-into-1 x2)
             self._generate_intake(c)
             # Fallback to full exhaust if split logic missing
-            self._generate_full_exhaust(c) 
+            self._generate_full_exhaust(c) # Type 12 plenumless exhaust
         else:
             self._generate_intake(c) # Assume Intake is standard
             self._generate_full_exhaust(c)
@@ -516,105 +516,91 @@ class WAMGenerator:
                        cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
 
 
-        # 4. Per-Cylinder: Bellmouth → [ITB] → Runner → Port → Valve
+        # 4. Equalization Tube (等圧管 / Gleichdruckrohr)
+        # S54 physical component: φ20mm × 450mm tube connecting all runners
+        # Provides inter-cylinder pressure equalization
+        # Volume: π × (10mm)² × 450mm ≈ 141cc
+        eq_tube_id = self.plenum_counter; self.plenum_counter += 1
+        eq_tube_vol = math.pi * (0.010**2) * 0.450  # ~1.41e-4 m³ ≈ 141cc
+        self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 313)
+        print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
+
+        # 5. Per-Cylinder: Bellmouth → [Type 9 Throttle] → Runner_Upper → [Type 12] → Runner_Lower → [Type 12] → Ports
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
             
-            itb_dia = c.intake.itb.diameter / 1000.0         # 0.050m (50mm)
-            bellmouth_entry_dia = itb_dia * 1.2               # 0.060m (60mm)
-            bellmouth_len = c.intake.bellmouth.length / 1000.0 # 0.200m (200mm)
-            port_dia_in = c.engine.head.intake_port.diameter / 1000.0  # 0.035m (35mm)
-            runner_len = 0.040  # 40mm runner (ITB to port)
+            itb_dia = 0.052                             # 52mm fixed
+            bellmouth_entry_dia = 0.070                         # 70mm fixed entry
+            bellmouth_len = 0.150                       # 150mm fixed
+            port_dia_in = 0.052                         # 52mm fixed
             
-            # --- BELLMOUTH PIPE (Plenum → Bellmouth, φ60→φ50, 200mm) ---
+            # --- BELLMOUTH PIPE (Plenum → Bellmouth, φ70→φ52, 150mm) ---
             bellmouth_id = self.pipe_counter; self.pipe_counter += 1
             
             cid_bell_start = self.connection_counter
-            self._add_con_plenum_pipe_v2(plenum_id, bellmouth_id, 0)  # Plenum → Bellmouth Start
+            self._add_con_plenum_pipe_v2(plenum_id, bellmouth_id, 0)
             
-            # --- THROTTLE VALVE (ITB) ---
+            # --- THROTTLE VALVE (ITB) - STRATEGY A: PIPE-TO-PIPE ---
             vid_throttle = 26 + i
             self.throttle_valves.append(vid_throttle)
+            cid_throttle = self._create_pipe_to_pipe_throttle(vid_throttle)
+            cid_bell_end = cid_throttle
             
-            # ITB Junction (small plenum downstream of throttle butterfly)
-            itb_junction_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(itb_junction_id, f"ITB_Junction_{cyl_idx}", 0.000001, 313)  # 1cc = 1e-6 m3
-            
-            # Connect Bellmouth End → [ThrottleValve] → ITB Junction
-            cid_bell_end = self.connection_counter
-            self._add_con_plenum_valve_pipe_v2(itb_junction_id, bellmouth_id, 1, vid_throttle)
-            
-            # Define Bellmouth pipe (taper: φ60mm → φ50mm)
+            # Bellmouth pipe (taper: φ70 → φ52)
             self._add_pipe(bellmouth_id, f"Bellmouth_{cyl_idx}", bellmouth_len,
                            bellmouth_entry_dia, itb_dia, 313,
                            cid_bell_start, cid_bell_end, friction=0.015, dx_mesh=0.010)
             
-            # --- RUNNER PIPE (ITB Junction → Runner, φ50→φ35, 50mm) ---
-            runner_id = self.pipe_counter; self.pipe_counter += 1
-            self.ids['runners'].append(runner_id)
-            
-            cid_run_start = self.connection_counter
-            self._add_con_plenum_pipe_v2(itb_junction_id, runner_id, 0)  # Junction → Runner Start
-            
-            # Port Split (Small Plenum)
-            split_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(split_plenum_id, f"Split_Plenum_{cyl_idx}", 0.000002, 313)  # 2cc = 2e-6 m3
-            
-            # Connection Runner END → Split Plenum
-            cid_split = self.connection_counter
-            self._add_con_plenum_pipe_v2(split_plenum_id, runner_id, 1)
-            
-            # Define Runner pipe (taper: φ50mm → φ35mm)
-            self._add_pipe(runner_id, f"Runner_{cyl_idx}", runner_len,
-                           itb_dia, port_dia_in, 313,
-                           cid_run_start, cid_split, friction=c.intake.runner_friction, dx_mesh=0.010)
+            # --- RUNNER UPPER (Throttle → EqTube branch, φ52, 15mm) ---
+            runner_upper_id = self.pipe_counter; self.pipe_counter += 1
+            self.ids['runners'].append(runner_upper_id)
             self.ids['itbs'].append(vid_throttle)
-                           
-            # Port Pipes (2 per cyl) - SEGMENTED for stability
-            # Port is split into: Main Port -> Valve Pocket (buffer) -> Valve
-            port_len_in = c.engine.head.intake_port.length / 1000.0
-            port_dia_in = c.engine.head.intake_port.diameter / 1000.0
             
-            # Segment lengths: Main=70%, Pocket=30%
-            port_main_len = port_len_in * 0.7
-            port_pocket_len = port_len_in * 0.3
+            cid_run_upper_start = cid_throttle
+            
+            # Type 12 ① : EqTube branch junction (Runner_Upper + EqTube_Stub + Runner_Lower)
+            cid_eq_branch = self._create_branch_junction()
+            
+            self._add_pipe(runner_upper_id, f"Runner_Upper_{cyl_idx}", 0.015,
+                           itb_dia, itb_dia, 313,
+                           cid_run_upper_start, cid_eq_branch, friction=0.05, dx_mesh=0.0075)
+
+            # --- EQUALIZATION TUBE STUB (φ10, 75mm) ---
+            eq_pipe_id = self.pipe_counter; self.pipe_counter += 1
+            eq_pipe_dia = 0.010  # 10mm diameter stub
+
+            cid_eq_end = self.connection_counter
+            self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
+
+            self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", 0.075,
+                           eq_pipe_dia, eq_pipe_dia, 313,
+                           cid_eq_branch, cid_eq_end, friction=0.02, dx_mesh=0.025)
+
+            # --- RUNNER LOWER (EqTube branch → Port split, φ52, 25mm) ---
+            runner_lower_id = self.pipe_counter; self.pipe_counter += 1
+            
+            # Type 12 ② : Port split junction (Runner_Lower + Port1 + Port2)
+            cid_port_split = self._create_branch_junction()
+            
+            self._add_pipe(runner_lower_id, f"Runner_Lower_{cyl_idx}", 0.025,
+                           itb_dia, itb_dia, 313,
+                           cid_eq_branch, cid_port_split, friction=0.05, dx_mesh=0.010)
+
+            # --- INTAKE PORTS (2 per cyl, single pipe each, φ52, 105mm) ---
+            port_len_in = c.engine.head.intake_port.length / 1000.0  # 0.105m
             
             for v in range(2): 
                 vid_global = (i * 2) + v + 1
                 self.valves_intake.append(vid_global)
                 
-                # --- VALVE POCKET (buffer plenum before valve) ---
-                # 3cc pocket to absorb backflow shockwaves
-                valve_pocket_id = self.plenum_counter; self.plenum_counter += 1
-                self._add_plenum(valve_pocket_id, f"ValvePocket_In_{cyl_idx}_{v+1}", 0.000003, 380)  # 3cc = 3e-6 m3
-                
-                # --- MAIN PORT PIPE (from split plenum to valve pocket) ---
-                pid_main = self.pipe_counter; self.pipe_counter += 1
-                
-                cid_main_start = self.connection_counter
-                self._add_con_plenum_pipe_v2(split_plenum_id, pid_main, 0)
-                
-                cid_main_end = self.connection_counter
-                self._add_con_plenum_pipe_v2(valve_pocket_id, pid_main, 1)
-                
-                # Main port: wider entry, narrower at pocket (taper for stability)
-                self._add_pipe(pid_main, f"Port_In_Main_{cyl_idx}_{v+1}", port_main_len,
-                               port_dia_in, port_dia_in * 0.95, 400,
-                               cid_main_start, cid_main_end, friction=c.engine.head.port_friction, dx_mesh=0.010)
-                
-                # --- POCKET PIPE (from valve pocket to valve) ---
-                pid_pocket = self.pipe_counter; self.pipe_counter += 1
-                
-                cid_pocket_start = self.connection_counter
-                self._add_con_plenum_pipe_v2(valve_pocket_id, pid_pocket, 0)
+                pid_port = self.pipe_counter; self.pipe_counter += 1
                 
                 cid_valve = self.connection_counter
-                self._add_con_valve_v2(pid_pocket, 1, cyl_idx, True, vid_global)
+                self._add_con_valve_v2(pid_port, 1, cyl_idx, True, vid_global)
                 
-                # Pocket pipe: short, fine mesh for stability near valve
-                self._add_pipe(pid_pocket, f"Port_In_Pocket_{cyl_idx}_{v+1}", port_pocket_len,
-                               port_dia_in * 0.95, port_dia_in, 400,
-                               cid_pocket_start, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010)
+                self._add_pipe(pid_port, f"Port_In_{cyl_idx}_{v+1}", port_len_in,
+                               port_dia_in, port_dia_in, 400,
+                               cid_port_split, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010)
 
     def _generate_simplified_exhaust(self, c):
         print("DEBUG: Generating SIMPLIFIED Exhaust")
@@ -649,71 +635,41 @@ class WAMGenerator:
         port_len_ex = c.engine.head.exhaust_port.length / 1000.0
         port_dia_ex = c.engine.head.exhaust_port.diameter / 1000.0
         
-        # --- 1. COLLECTORS & BUFFER PIPES ---
-        # Bank 1: Cyl 1-3 -> Col 1 -> Buffer 1
-        # Bank 2: Cyl 4-6 -> Col 2 -> Buffer 2
+        # --- 1. COLLECTORS (Type 12: Direct Branch Junction) ---
+        # Bank 1: Cyl 1-3 Headers + Col_Out_L share junction
+        # Bank 2: Cyl 4-6 Headers + Col_Out_R share junction
+        # Type 12 (TCCRamificacion) auto-discovers all pipes referencing the same connection ID.
+        # No plenum volume → no mass depletion crash, proper wave propagation.
         
-        col1_id = self.plenum_counter; self.plenum_counter += 1
-        col2_id = self.plenum_counter; self.plenum_counter += 1
-        col_map = {0: col1_id, 1: col1_id, 2: col1_id, 3: col2_id, 4: col2_id, 5: col2_id} 
+        col1_branch_cid = self._create_branch_junction()
+        col2_branch_cid = self._create_branch_junction()
+        col_map = {0: col1_branch_cid, 1: col1_branch_cid, 2: col1_branch_cid,
+                   3: col2_branch_cid, 4: col2_branch_cid, 5: col2_branch_cid}
         
-        # Tiny Junction (2cc) to merge headers without reflection
-        self._add_plenum(col1_id, "Collector_1_Junct", 0.000002, 400)  # 2cc = 2e-6 m3
-        self._add_plenum(col2_id, "Collector_2_Junct", 0.000002, 400)  # 2cc = 2e-6 m3
-        
-        # HEADER + PORT GENERATION (Unchanged Logic, mostly)
+        # HEADER + PORT GENERATION
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
-            target_col_id = col_map.get(i, col1_id)
+            target_col_cid = col_map.get(i, col1_branch_cid)
             
-            # Port Junction (1.0L -> 0.001L)
-            merge_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(merge_plenum_id, f"Port_Junct_{cyl_idx}", 0.000001, 380)  # 1cc = 1e-6 m3
+            # Type 12 ③ : Port merge junction (Port1 + Port2 + Header)
+            cid_port_merge = self._create_branch_junction()
 
-            # Ports - SEGMENTED for stability
-            # Port is split into: Valve -> Valve Pocket (buffer) -> Main Port -> Junction
-            # Segment lengths: Pocket=30%, Main=70%
-            port_pocket_len = port_len_ex * 0.3
-            port_main_len = port_len_ex * 0.7
-            
+            # Exhaust Ports (2 per cyl, single pipe each, φ48, 90mm)
             for v in range(2):
                 vid_global = 12 + (i * 2) + v + 1
                 self.valves_exhaust.append(vid_global)
                 
-                # --- VALVE POCKET (buffer plenum after exhaust valve) ---
-                # 5cc pocket to absorb blowdown shockwaves (larger than intake due to high temp/pressure)
-                valve_pocket_id = self.plenum_counter; self.plenum_counter += 1
-                self._add_plenum(valve_pocket_id, f"ValvePocket_Ex_{cyl_idx}_{v+1}", 0.000005, 360)  # 5cc = 5e-6 m3
-                
-                # --- POCKET PIPE (from valve to valve pocket) ---
-                pid_pocket = self.pipe_counter; self.pipe_counter += 1
+                pid_port = self.pipe_counter; self.pipe_counter += 1
                 
                 cid_valve = self.connection_counter
-                self._add_con_valve_v2(pid_pocket, 0, cyl_idx, False, vid_global) 
+                self._add_con_valve_v2(pid_port, 0, cyl_idx, False, vid_global) 
                 
-                cid_pocket_end = self.connection_counter
-                self._add_con_plenum_pipe_v2(valve_pocket_id, pid_pocket, 1)
-                
-                # Pocket pipe: short, fine mesh for stability near valve
-                self._add_pipe(pid_pocket, f"Port_Ex_Pocket_{cyl_idx}_{v+1}", port_pocket_len,
-                               port_dia_ex, port_dia_ex * 1.05, 360,
-                               cid_valve, cid_pocket_end, friction=c.engine.head.port_friction, dx_mesh=0.020)
-                
-                # --- MAIN PORT PIPE (from valve pocket to merge junction) ---
-                pid_main = self.pipe_counter; self.pipe_counter += 1
-                
-                cid_main_start = self.connection_counter
-                self._add_con_plenum_pipe_v2(valve_pocket_id, pid_main, 0)
-                
-                cid_port_end = self.connection_counter
-                self._add_con_plenum_pipe_v2(merge_plenum_id, pid_main, 1)
-                
-                # Main port: slight expansion for pressure recovery
-                self._add_pipe(pid_main, f"Port_Ex_Main_{cyl_idx}_{v+1}", port_main_len,
-                               port_dia_ex * 1.05, port_dia_ex, 
-                               370, cid_main_start, cid_port_end, friction=c.engine.head.port_friction, dx_mesh=0.025)
+                self._add_pipe(pid_port, f"Port_Ex_{cyl_idx}_{v+1}", port_len_ex,
+                               port_dia_ex, port_dia_ex, 400,
+                               cid_valve, cid_port_merge, friction=c.engine.head.port_friction, dx_mesh=0.010)
 
-            # Headers
+            # Header: Start connects to port merge junction (Type 12)
+            # End connects to collector branch junction (Type 12)
             header_len = c.exhaust.headers.primary_length / 1000.0
             header_dia = c.exhaust.headers.primary_diameter / 1000.0
             col_dia = c.exhaust.headers.collector_dia / 1000.0
@@ -721,29 +677,24 @@ class WAMGenerator:
             pid_prim = self.pipe_counter; self.pipe_counter += 1 
             self.ids['headers'].append(pid_prim)
             
-            cid_header_start = self.connection_counter
-            self._add_con_plenum_pipe_v2(merge_plenum_id, pid_prim, 0)
-            cid_col = self.connection_counter
-            self._add_con_plenum_pipe_v2(target_col_id, pid_prim, 1) 
+            cid_header_start = cid_port_merge
+            cid_col = target_col_cid
 
-            # Exhaust Header: Mesh 35mm, Friction from Config
             self._add_pipe(pid_prim, f"Header_{cyl_idx}", header_len,
                            header_dia, col_dia, 
                            400, cid_header_start, cid_col, friction=c.exhaust.headers.header_friction, dx_mesh=0.035)
 
-        # BUFFER PIPES (100cc Equivalent) to damp Supersonic Flow
-        # 6. COLLECTOR OUTPUT PIPE (Collector → Section 1)
-        # Independent pipe between collector and Section 1.
-        # This is a separate component from Section 1 Pre-Cat pipe.
-        # UI can swap this segment for crossover/straight layouts.
+        # COLLECTOR OUTPUT PIPES
+        # Col_Out left_node = same branch junction CID (Type 12)
         col_out_len = 0.500  # 500mm
         col_out_dia = 0.060  # 60mm
         
         p_buf1 = self.pipe_counter; self.pipe_counter += 1
         p_buf2 = self.pipe_counter; self.pipe_counter += 1
         
-        c_buf1_start = self._connect_from_prev(col1_id, p_buf1)
-        c_buf2_start = self._connect_from_prev(col2_id, p_buf2)
+        # Col_Out start: references the same branch junction as Headers
+        c_buf1_start = col1_branch_cid
+        c_buf2_start = col2_branch_cid
         
         # Collector Output End → Section 1-1 Start: Type 6 Direct Pipe-to-Pipe Connection
         c_buf1_to_s11 = self._create_pipe_to_pipe_connection()
@@ -1110,6 +1061,37 @@ class WAMGenerator:
         self.connection_counter += 1
         return cid
 
+    def _create_pipe_to_pipe_throttle(self, valve_id):
+        """
+        Create Type 9 (Linear Pressure Loss) connection linking to a dynamic Valve.
+        Key for Strategy A: Enables pipe-to-pipe throttle without plenum volume.
+        """
+        cid = self.connection_counter
+        # Store connection data as dict: {cid: (type, [lines])}
+        # Type 9 format: K_factor
+        # Use negative K to indicate Valve ID linkage (e.g. -27 for Valve 27)
+        # Check if valve_id is valid (positive integer)
+        if valve_id <= 0:
+            print(f"WARNING: Invalid Valve ID {valve_id} for Type 9 Throttle")
+            
+        k_val = -float(valve_id)
+        # Use Type 10 (Quadratic Pressure Loss) for Throttles
+        self.connections[cid] = (10, [f"{k_val:.1f}"]) 
+        self.connection_counter += 1
+        return cid
+
+    def _create_branch_junction(self):
+        """
+        Create Type 12 connection (TCCRamificacion) for multi-pipe branch/merge.
+        All pipes whose left_node or right_node reference this CID are
+        auto-discovered by AsignaTubos. No additional input data needed.
+        Supports N-pipe junctions (e.g. 3 headers + 1 collector output = 4 pipes).
+        """
+        cid = self.connection_counter
+        self.connections[cid] = (12, [])  # Type 12, no additional data lines
+        self.connection_counter += 1
+        return cid
+
     def _add_h_pipe_junction(self, p1, p2, location_ratio):
         pass
 
@@ -1154,8 +1136,8 @@ class WAMGenerator:
             # For short pipes (50mm), use 2 nodes (dx=Length/2) for stability (1-node caused supersonic).
             
             # Mesh parameters
-            if 'mesh_dx' in p:
-                dx = p['mesh_dx']
+            if 'dx_mesh' in p:
+                dx = p['dx_mesh']
             else:
             # Default Sizing (Refined for Stability)
                 # 50mm segments -> 25mm mesh (2 nodes)
@@ -1432,23 +1414,27 @@ class WAMGenerator:
         #   Heywood Ch.6 Fig.6-15: Butterfly Cd at small angles
         #   SAE 2003-01-3149: ITB flow characterization
         #   Blair Ch.5: Throttle flow area = pi/4 * D^2 * (1 - cos(theta))
+        # Revised Cd table: minimum Cd=0.02 at 0° (blade gap leakage)
+        # The C++ solver floors Cd at 0.05 and clamps K at 2.0.
+        # Values below 0.05 will hit the C++ floor but are kept for physical accuracy.
+        # At operating idle (3° offset), Cd=0.06 ensures K<2.0 (safe for startup).
         cd_table = [
-            (0.0, 0.000),
-            (1.0, 0.001),   # Near-closed: leakage only
-            (2.0, 0.003),
-            (3.0, 0.008),   # ICV idle angle
-            (5.0, 0.020),   # Very low opening
-            (8.0, 0.050),
-            (10.0, 0.080),
-            (15.0, 0.160),
-            (20.0, 0.280),  # Flow reattachment zone
-            (25.0, 0.360),
-            (30.0, 0.450),
-            (40.0, 0.580),
-            (50.0, 0.680),
-            (60.0, 0.750),
-            (70.0, 0.840),
-            (80.0, 0.910),
+            (0.0, 0.020),   # Near-closed: blade gap leakage (ITB mechanical tolerance)
+            (1.0, 0.030),   # Minimal opening
+            (2.0, 0.045),   # Just below C++ floor (0.05) — will be floored in solver
+            (3.0, 0.060),   # ICV idle angle — above C++ floor, K ≈ 1/0.06²-1 = 277 → clamped to 2.0
+            (5.0, 0.100),   # Very low opening — K ≈ 99 → clamped to 2.0
+            (8.0, 0.170),   # Low opening — K ≈ 33.6 → clamped to 2.0
+            (10.0, 0.220),  # Significant restriction still
+            (15.0, 0.330),  # Flow reattachment begins
+            (20.0, 0.420),  # Moderate opening
+            (25.0, 0.500),  # Half-open
+            (30.0, 0.560),  # Past reattachment
+            (40.0, 0.660),  # Wide opening
+            (50.0, 0.740),  # Near-WOT
+            (60.0, 0.800),
+            (70.0, 0.860),
+            (80.0, 0.920),
             (90.0, 0.960),  # ITB WOT: blade parallel, minimal obstruction
         ]
 
@@ -1510,10 +1496,30 @@ class WAMGenerator:
     def _add_plenum(self, plid, label, vol, wall_temp, ptype=0):
         # Type 0: Constant Volume
         
-        # Minimum volume clamp for numerical stability.
-        # Unit is m3: 1e-6 m3 = 1 cc (smallest physical buffer plenum).
-        # Previous clamp of 0.001 m3 (= 1 Liter) was destroying wave dynamics.
-        vol = max(vol, 0.000001)
+        # Universal minimum volume clamp for numerical stability.
+        # Unit is m3. 0.00005 m3 = 50cc.
+        #
+        # History of clamp values and crash results:
+        #   100cc (original): Stable but destroys wave dynamics (all plenums = reservoirs)
+        #   5cc: Collector_Junct crashes at Theta=621° ("no mass in plenum")
+        #   5cc intake + 50cc exhaust: ITB_Junction crashes at Theta=600°
+        #   → Both exhaust blowdown AND intake backflow kill small plenums.
+        #
+        # 50cc (0.00005 m3) is the minimum viable 0D plenum volume for:
+        #   - Surviving exhaust blowdown shockwaves (4-6 bar → 1 bar)
+        #   - Surviving intake pressure reversals during valve overlap
+        #   - Still 2x smaller than original 100cc → improved wave dynamics
+        #
+        # Affected plenums (physical → clamped):
+        #   ITB_Junction: 1cc → 50cc | Collector_Junct: 2cc → 50cc
+        #   Split_Plenum: 2cc → 50cc | Port_Junct: 1cc → 50cc
+        #   ValvePocket_In: 3cc → 50cc | ValvePocket_Ex: 5cc → 50cc
+        #   H_Junc: 2cc → 50cc
+        # Unaffected: Ambient (1e9), Plenum_Main (10.5L), Muffler (30L)
+        
+        # Use configurable minimum volume (Strategy B: Low Vacuum Validation)
+        min_vol = getattr(self.config.intake, 'min_plenum_vol', 0.00005)
+        vol = max(vol, min_vol)
         
         self.wam_lines_plenums.append(f"{ptype}")
         self.wam_lines_plenums.append(self.air_comp)

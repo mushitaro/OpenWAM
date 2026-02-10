@@ -521,15 +521,9 @@ void TOpenWAM::ReadInputData(std::string FileName) {
   std::cout << "DEBUG: Finished Reading Controllers" << std::endl;
 
   ReadOutput(FileName);
-  std::cout << "DEBUG: Finished Reading Output" << std::endl;
 
-  std::cout << "DEBUG: Calling InitEngine" << std::endl;
   // InitEngine(); // WRONG LOCATION
-  std::cout << "DEBUG: InitEngine Finished (Skipped)" << std::endl;
-
-  std::cout << "DEBUG: Calling InitPipes" << std::endl;
   // InitPipes(); // WRONG LOCATION
-  std::cout << "DEBUG: InitPipes Finished (Skipped)" << std::endl;
 
   for (int i = 0; i < NumberOfConnections; i++) {
     if (BC[i]->getTipoCC() == nmCompresor) {
@@ -1415,6 +1409,31 @@ void TOpenWAM::ReadConnections() {
         }
       }
     }
+
+    //-------------------------------------------------------------------------
+    // Dynamic Valve Linking for TCCPerdidadePresion (Strategy A)
+    //-------------------------------------------------------------------------
+    if (NumTCCPerdidaPresion > 0) {
+      for (size_t j = 0; j < PerdidaPresion.size(); j++) {
+        int valveID = PerdidaPresion[j]->GetValveID();
+        if (valveID > 0) {
+          // Link the valve (creates a copy inside TCCPerdidadePresion)
+          PerdidaPresion[j]->AsignaTipoValvula(TypeOfValve, valveID,
+                                               numerovalvula);
+          numerovalvula++;
+
+          // Register the copy so Controllers can update it
+          if (TypeOfValve[valveID - 1]->getTypeOfValve() == nmMariposa) {
+            NumberOfButerflyValves++;
+            BCButerflyValve.push_back(PerdidaPresion[j]->getValvula());
+            printf(
+                "TOpenWAM: Linked Valve %d to TCCPerdidadePresion (Type 9)\n",
+                valveID);
+          }
+        }
+      }
+    }
+
   } catch (std::exception &N) {
     std::cout << " ERROR : ReadConnections " << std::endl;
     std::cout << " Tipo de error : " << N.what() << std::endl;
@@ -1768,6 +1787,10 @@ void TOpenWAM::ConnectFlowElements() {
 void TOpenWAM::ConnectControlElements() {
   int ID = 0;
 
+  printf("DEBUG CCE: Start. Sensors=%d Controllers=%d ButerflyValves=%d\n",
+         NumberOfSensors, NumberOfControllers, NumberOfButerflyValves);
+  fflush(stdout);
+
   std::vector<TController *> RawController;
   RawController.reserve(Controller.size());
   for (const auto &c : Controller)
@@ -1778,16 +1801,29 @@ void TOpenWAM::ConnectControlElements() {
   for (const auto &s : Sensor)
     RawSensor.push_back(s.get());
 
+  printf("DEBUG CCE: Raw vectors built. RawSensor=%zu RawController=%zu\n",
+         RawSensor.size(), RawController.size());
+  fflush(stdout);
+
   // Asign elements to sensor
   for (int i = 0; i < NumberOfSensors; i++) {
+    printf("DEBUG CCE: Sensor %d ObjectSensed=%d\n", i,
+           (int)Sensor[i]->ObjectSensed());
+    fflush(stdout);
 
     switch (Sensor[i]->ObjectSensed()) {
     case nmSensTubo:
       ID = Sensor[i]->ObjectID();
+      printf("DEBUG CCE: Sensor %d -> Pipe ID=%d (max=%zu)\n", i, ID,
+             Pipe.size());
+      fflush(stdout);
       Sensor[i]->AsignaObjeto((TObject *)Pipe[ID - 1].get());
       break;
     case nmSensDeposito:
       ID = Sensor[i]->ObjectID();
+      printf("DEBUG CCE: Sensor %d -> Plenum ID=%d (max=%zu)\n", i, ID,
+             Plenum.size());
+      fflush(stdout);
       Sensor[i]->AsignaObjeto((TObject *)Plenum[ID - 1].get());
       break;
     case nmSensMotor:
@@ -1796,19 +1832,45 @@ void TOpenWAM::ConnectControlElements() {
     }
   }
 
+  printf("DEBUG CCE: Sensors assigned. Assigning controllers...\n");
+  fflush(stdout);
+
   // Asign output sensor to controllers
   for (int i = 0; i < NumberOfControllers; ++i) {
     Controller[i]->AsignaObjetos(RawSensor.data(), RawController.data());
   }
 
+  printf("DEBUG CCE: Controllers assigned. Assigning turbines...\n");
+  fflush(stdout);
+
   // Asign controllers to elments.
   for (int i = 0; i < NumberOfTurbines; i++) {
     Turbine[i]->AsignaRackController(RawController.data());
   }
+
+  printf("DEBUG CCE: Turbines done. Assigning %d butterfly valves (vec "
+         "size=%zu)...\n",
+         NumberOfButerflyValves, BCButerflyValve.size());
+  fflush(stdout);
+
   for (int i = 0; i < NumberOfButerflyValves; i++) {
-    dynamic_cast<TMariposa *>(BCButerflyValve[i])
-        ->AsignaLevController(RawController.data());
+    printf("DEBUG CCE: ButerflyValve[%d] ptr=%p\n", i,
+           (void *)BCButerflyValve[i]);
+    fflush(stdout);
+    TMariposa *mp = dynamic_cast<TMariposa *>(BCButerflyValve[i]);
+    printf("DEBUG CCE: ButerflyValve[%d] cast=%p\n", i, (void *)mp);
+    fflush(stdout);
+    if (mp) {
+      mp->AsignaLevController(RawController.data());
+    } else {
+      printf("WARNING CCE: ButerflyValve[%d] is NOT a TMariposa!\n", i);
+      fflush(stdout);
+    }
   }
+
+  printf("DEBUG CCE: Butterfly valves done. Assigning intake valves...\n");
+  fflush(stdout);
+
   for (int i = 0; i < NumberOfIntakeValves; i++) {
     if (dynamic_cast<TCCCilindro *>(BCIntakeValve[i])
             ->getValvula()
@@ -1818,6 +1880,10 @@ void TOpenWAM::ConnectControlElements() {
           ->AsignaLevController(RawController.data());
     }
   }
+
+  printf("DEBUG CCE: Intake valves done. Assigning exhaust valves...\n");
+  fflush(stdout);
+
   for (int i = 0; i < NumberOfExhaustValves; i++) {
     if (dynamic_cast<TCCCilindro *>(BCExhaustValve[i])
             ->getValvula()
@@ -1828,6 +1894,9 @@ void TOpenWAM::ConnectControlElements() {
     }
   }
 
+  printf("DEBUG CCE: Exhaust valves done. Assigning engine RPM/Mf...\n");
+  fflush(stdout);
+
   if (EngineBlock) {
     Engine[0]->AsignRPMController(RawController.data());
     Engine[0]->AsignMfController(RawController.data());
@@ -1835,6 +1904,9 @@ void TOpenWAM::ConnectControlElements() {
 
   if (NumberOfAxis > 0)
     Axis[0]->AsignaRPMController(RawController.data());
+
+  printf("DEBUG CCE: All done.\n");
+  fflush(stdout);
 }
 
 void TOpenWAM::InitialHeatTransferParameters() {

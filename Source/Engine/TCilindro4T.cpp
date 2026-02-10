@@ -294,10 +294,15 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
     if (std::isnan(FRMezcla) || std::isnan(FGamma) || std::isnan(FGamma1) ||
         std::isnan(FCpMezcla) || std::isnan(FCvMezcla)) {
       static int nanCountCyl = 0;
-      if (nanCountCyl < 5) {
+      if (nanCountCyl < 10) {
         printf("GUARD: Cyl %d NaN detected - FRMezcla=%.6e FGamma=%.6e -> "
                "Resetting to air\n",
                FNumeroCilindro, FRMezcla, FGamma);
+        printf(
+            "  Species[0-2]: %.6e %.6e %.6e Ang=%.1f Masa=%.6e T=%.1f P=%.4f\n",
+            FFraccionMasicaEspecie[0], FFraccionMasicaEspecie[1],
+            FFraccionMasicaEspecie[2], FAnguloActual, FMasa, FTemperature,
+            FPressure);
         nanCountCyl++;
       }
       // Fallback to air properties at ~500K (typical intake charge)
@@ -404,11 +409,13 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
         /* Transporte de especies quimicas */
         for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
           double valveFrac = FCCValvulaAdm[i]->GetFraccionMasicaEspecie(j);
-          // DEBUG: Check for NaN from intake valve
-          if (std::isnan(valveFrac) && FNumeroCilindro == 3 && j < 3) {
-            printf("DEBUG VALVE NaN Cyl %d AdmValve %d Species %d: "
-                   "valveFrac=nan MasaValvAdm=%.6e\n",
-                   FNumeroCilindro, i, j, FMasaValvAdm);
+          // Guard: NaN species from pipe boundary instability at backflow
+          if (std::isnan(valveFrac)) {
+            // Intake valve: use air composition as safe fallback
+            if (j == 2)
+              valveFrac = 1.0; // Fresh air
+            else
+              valveFrac = 0.0; // No burned gas / no fuel
           }
           FMasaEspecie[j] += valveFrac * FMasaValvAdm;
         }
@@ -438,11 +445,13 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
         /* Transporte de especies quimicas */
         for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
           double valveFrac = FCCValvulaEsc[i]->GetFraccionMasicaEspecie(j);
-          // DEBUG: Check for NaN from exhaust valve
-          if (std::isnan(valveFrac) && FNumeroCilindro == 3 && j < 3) {
-            printf("DEBUG VALVE NaN Cyl %d EscValve %d Species %d: "
-                   "valveFrac=nan masavalesc=%.6e\n",
-                   FNumeroCilindro, i, j, masavalesc);
+          // Guard: NaN species from pipe boundary instability at backflow
+          if (std::isnan(valveFrac)) {
+            // Exhaust valve: use burned gas composition as safe fallback
+            if (j == 0)
+              valveFrac = 1.0; // Burned gas
+            else
+              valveFrac = 0.0; // No fuel / no fresh air
           }
           FMasaEspecie[j] += valveFrac * masavalesc;
         }

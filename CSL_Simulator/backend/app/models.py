@@ -20,12 +20,12 @@ class InletConfig(BaseModel):
 
 class BellmouthConfig(BaseModel):
     length: float = 150.0 # mm (Bellmouth funnel, Plenum to ITB)
-    diameter: float = 50.0 # mm (Opening)
+    diameter: float = 52.0 # mm (Opening, tapers from 70mm entry)
     taper_angle: float = 3.5 # degrees (Ram Theory)
 
 class ITBConfig(BaseModel):
     fitted: bool = True
-    diameter: float = 50.0 # mm
+    diameter: float = 52.0 # mm
     plate_thickness: float = 2.0 # mm
     discharge_coeff_map: str = "default_butterfly" # Reference to lookup
 
@@ -36,6 +36,7 @@ class IntakeConfig(BaseModel):
     bellmouth: BellmouthConfig = BellmouthConfig()
     itb: ITBConfig = ITBConfig() # New ITB Module
     runner_friction: float = 0.015 # F1-Spec Polished (was 0.08)
+    min_plenum_vol: float = 0.00005 # Default 50cc (m3). Adjustable for high-vacuum testing.
 
 # 2. Engine Core
 class EngineGeometry(BaseModel):
@@ -69,9 +70,8 @@ class HeadConfig(BaseModel):
     wall_temp: float = 450.0 # K
     intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0)
     exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=260.0)
-    intake_port: PortConfig = PortConfig(diameter=35.0, length=105.0) # S54 Spec
-    intake_port: PortConfig = PortConfig(diameter=35.0, length=105.0) # S54 Spec
-    exhaust_port: PortConfig = PortConfig(diameter=30.0, length=90.0)  # 90mm for numerical stability
+    intake_port: PortConfig = PortConfig(diameter=52.0, length=105.0) # S54 CSL Spec
+    exhaust_port: PortConfig = PortConfig(diameter=48.0, length=90.0)  # S54 CSL Spec
     port_friction: float = 0.05 # F1-Spec Port Job (was 0.3-0.5)
 
 class HeatTransferConfig(BaseModel):
@@ -102,10 +102,10 @@ class EngineConfig(BaseModel):
 class HeaderConfig(BaseModel):
     type: str = "Stock Euro"
     primary_length: float = 300.0 # mm [KI Master Spec: 300mm Headers]
-    primary_diameter: float = 40.0 # mm
+    primary_diameter: float = 48.0 # mm
     collector_count: int = 2 # 2 for 6-cyl (3-into-1 x 2)
     collector_vol: float = 1.5 # Liters
-    collector_dia: float = 60.0 # mm
+    collector_dia: float = 68.0 # mm
     wall_temp: float = 800.0 # K
     wall_temp: float = 800.0 # K
     heat_coeff: float = 45.0
@@ -122,7 +122,7 @@ class ExhaustSectionConfig(BaseModel):
     name: str = "Section"
     layout: ExhaustLayoutType = ExhaustLayoutType.STRAIGHT
     length: float = 500.0 # mm
-    diameter: float = 60.0 # mm
+    diameter: float = 68.0 # mm
     cat_fitted: bool = False
     cat_offset: float = 200.0 # mm from start
     wall_temp: float = 600.0 # K

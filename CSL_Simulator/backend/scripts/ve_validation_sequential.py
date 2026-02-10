@@ -143,7 +143,7 @@ for i, (rpm, ro) in enumerate(VALIDATION_POINTS):
     exit_code = -1
     try:
         cmd = f'"{WAM_BIN}" {wam_file} > {log_file} 2>&1'
-        result = subprocess.run(cmd, shell=True, timeout=120, check=False)
+        result = subprocess.run(cmd, shell=True, timeout=300, check=False)
         exit_code = result.returncode
         
         # Wait a moment to ensure file is fully written

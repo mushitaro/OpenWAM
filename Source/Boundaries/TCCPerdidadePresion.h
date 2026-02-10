@@ -38,6 +38,8 @@ Valencia
 #endif
 #include <cstdio>
 #include <iostream>
+#include "TMariposa.h"
+#include "TTipoValvula.h"
 
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
@@ -66,6 +68,10 @@ private:
   double FRelacionEntropia; // Relacion entre la entropia del tubo saliente y la
                             // del tubo entrante.
 
+  // Optional: Dynamic Valve Support (Target: Strategy A)
+  int FValveID;        // ID of the linked valve (if any). If -1, use static FK.
+  TMariposa *FValvula; // Pointer to the valve object (if linked)
+
 public:
   TCCPerdidadePresion(nmTypeBC TipoCC, int numCC,
                       nmTipoCalculoEspecies SpeciesModel, int numeroespecies,
@@ -73,8 +79,7 @@ public:
 
   ~TCCPerdidadePresion();
 
-  void ReadBoundaryData(std::istream &FileInput,
-                        int NumberOfPipes,
+  void ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
                         const std::vector<std::unique_ptr<TTubo>> &Pipe,
                         int nDPF,
                         const std::vector<std::unique_ptr<TDPF>> &DPF);
@@ -86,6 +91,13 @@ public:
   double getK() { return FK; };
 
   void PutK(double valor) { FK = valor; }
+
+  // Dynamic Valve Extensions
+  int GetValveID() { return FValveID; }
+  TTipoValvula *getValvula() { return FValvula; }
+  void
+  AsignaTipoValvula(const std::vector<std::unique_ptr<TTipoValvula>> &Origen,
+                    int Valv, int i);
 };
 
 //---------------------------------------------------------------------------

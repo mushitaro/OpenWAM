@@ -54,6 +54,13 @@ TTipoValvula::TTipoValvula(nmTipoValvula TipVal) {
   FToCylinder = false;
   FEngine = NULL;
   FTime0 = 0.;
+  // Default: no pipe diameter scaling. PutPipe() overrides when attached to a
+  // pipe.
+  FSectionRatio = 1.0;
+  FCDTubVol = 0.0;
+  FCDVolTub = 0.0;
+  FDiamTubo = 0.0;
+  FDiamRef = 0.0;
 }
 
 //---------------------------------------------------------------------------
@@ -89,8 +96,8 @@ double TTipoValvula::LeeDiametro() {
       return FDiamRef;
     } else {
       return FDiamTubo;
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDiametro TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -134,8 +141,8 @@ void TTipoValvula::LeeDatosGraficasINS(std::istream &FileInput) {
         FGraficaCDSINS = true;
         break;
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosGraficas TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -158,8 +165,8 @@ void TTipoValvula::CabeceraGraficaINS(stringstream &insoutput, int nodo) {
         Label = "\t" + PutLabel(12) + std::to_string(nodo) + PutLabel(901);
         insoutput << Label.c_str();
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: CabeceraGrafica TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -177,10 +184,10 @@ void TTipoValvula::ImprimeGraficaINS(stringstream &insoutput) {
     if (FGraficaCDSINS)
       insoutput << "\t" << FCDVolTub;
   } catch (std::exception &N) {
-  std::cout << "ERROR: ImprimeGrafica TypeOfValve" << std::endl;
-  // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-  throw Exception(N.what());
-}
+    std::cout << "ERROR: ImprimeGrafica TypeOfValve" << std::endl;
+    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------
@@ -198,8 +205,8 @@ void TTipoValvula::AcumulaCDMedio(double TiempoActual) {
       if (FGraficaCDSMED)
         FSumCDS += FCDVolTub * DeltaT;
       FSumTime += DeltaT;
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: AcumulaCDMedio TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -225,8 +232,8 @@ void TTipoValvula::LeeDatosGraficasMED(std::istream &FileInput) {
         FGraficaCDSMED = true;
         break;
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: LeeDatosGraficas TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -249,8 +256,8 @@ void TTipoValvula::CabeceraGraficaMED(stringstream &medoutput, int nodo) {
         Label = "\t" + PutLabel(12) + std::to_string(nodo) + PutLabel(901);
         medoutput << Label.c_str();
       }
-    } }
-catch (std::exception &N) {
+    }
+  } catch (std::exception &N) {
     std::cout << "ERROR: CabeceraGrafica TypeOfValve" << std::endl;
     // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
     throw Exception(N.what());
@@ -275,10 +282,10 @@ void TTipoValvula::ImprimeGraficaMED(stringstream &medoutput) {
     }
     FSumTime = 0;
   } catch (std::exception &N) {
-  std::cout << "ERROR: ImprimeGrafica TypeOfValve" << std::endl;
-  // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
-  throw Exception(N.what());
-}
+    std::cout << "ERROR: ImprimeGrafica TypeOfValve" << std::endl;
+    // std::cout << "Tipo de error: " << N.what().scr() << std::endl;
+    throw Exception(N.what());
+  }
 }
 
 //---------------------------------------------------------------------------

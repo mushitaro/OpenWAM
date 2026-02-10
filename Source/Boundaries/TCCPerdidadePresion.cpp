@@ -49,6 +49,8 @@ TCCPerdidadePresion::TCCPerdidadePresion(nmTypeBC TipoCC, int numCC,
     : TCondicionContorno(TipoCC, numCC, SpeciesModel, numeroespecies,
                          GammaCalculation, ThereIsEGR) {
 
+  FValveID = -1;
+  FValvula = NULL;
   FTuboExtremo = NULL;
   FCC = NULL;
   FCD = NULL;
@@ -70,6 +72,10 @@ TCCPerdidadePresion::TCCPerdidadePresion(nmTypeBC TipoCC, int numCC,
 //---------------------------------------------------------------------------
 
 TCCPerdidadePresion::~TCCPerdidadePresion() {
+  // Delete owned TMariposa copy (created in AsignaTipoValvula)
+  if (FValvula != NULL)
+    delete FValvula;
+
   delete[] FTuboExtremo;
 
   if (FNodoFin != NULL)
@@ -87,7 +93,8 @@ TCCPerdidadePresion::~TCCPerdidadePresion() {
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-void TCCPerdidadePresion::ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
+void TCCPerdidadePresion::ReadBoundaryData(
+    std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -138,15 +145,21 @@ void TCCPerdidadePresion::ReadBoundaryData(std::istream &FileInput, int NumberOf
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
 
-    
-    // 
-    
-
     FileInput >> FK; /* Coeficiente de perdidas con signo positivo */
     printf("DEBUG: TCCPerdidadePresion Read K: %f\n", FK);
     fflush(stdout);
 
-    } catch (std::exception &N) {
+    // Strategy A: Dynamic Valve Link
+    // If K is negative, interpret |K| as a Valve ID for dynamic Cd lookup
+    if (FK < 0) {
+      FValveID = (int)(-FK);
+      FK = 0; // Will be computed dynamically from valve Cd
+      printf("DEBUG: TCCPerdidadePresion Dynamic Mode linked to Valve ID: %d\n",
+             FValveID);
+      fflush(stdout);
+    }
+
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCPerdidadePresion::LecturaPerdidaPresion en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
@@ -180,6 +193,46 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
            xx3 = 0., ei = 0, ed = 0;
     double flujo, FraccionMasicaAcum = 0.;
     int TuboCalculado = 0;
+
+    // Strategy A: Dynamic Cd -> K conversion
+    // Physics: K = (1/Cd^2) - 1  (Borda-Carnot pressure loss model)
+    // Stability: K_max=2.0 is the practical limit for 1D Lax-Wendroff solvers
+    //            (Winterbone & Pearson, "Theory of Engine Manifold Design")
+    //            Cd_min=0.05 prevents startup singularities at near-closed
+    //            throttle
+    if (FValveID >= 0 && FValvula != NULL) {
+      // Trigger Cd computation from current valve angle.
+      // Wrapped in try-catch because controller/interpolation may crash at
+      // startup.
+      double cd = 0.5; // Safe default: moderate restriction
+      try {
+        FValvula->CalculaCD(Time);
+        cd = FValvula->getCDTubVol();
+        // Safety: if Cd is NaN or zero (uninitialized), use fallback
+        if (cd != cd || cd <= 0.0)
+          cd = 0.5;
+      } catch (...) {
+        cd = 0.5; // Fallback on any error
+      }
+      // Floor: Cd=0.05 → K=399 → clamped to 2.0. Prevents NaN at low angles.
+      if (cd < 0.05)
+        cd = 0.05;
+      FK = (1.0 / (cd * cd)) - 1.0;
+
+      // Ceiling: K=2.0 is the maximum stable pressure loss for 1D pipe solvers
+      if (FK > 2.0)
+        FK = 2.0;
+      if (FK < 0)
+        FK = 0;
+
+      // Debug trace (occasional)
+      static int debug_counter = 0;
+      debug_counter++;
+      if (debug_counter % 5000 == 0) {
+        printf("[TCCPerdidadePresion] Time=%.5f ID=%d Cd=%.4f K=%.4f\n", Time,
+               FValveID, cd, FK);
+      }
+    }
 
     if (FTuboActual == 10000) {
       TuboCalculado = FTuboActual;
@@ -363,13 +416,44 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
       // La composicion se mantiene, al estar el flujo parado.
     }
 
-  }
-catch (std::exception &N) {
+  } catch (std::exception &N) {
     std::cout << "ERROR: TCCPerdidadePresion::CalculaCondicionContorno en la "
                  "condicion de contorno: "
               << FNumeroCC << std::endl;
     std::cout << "Tipo de error: " << N.what() << std::endl;
     throw Exception(N.what());
+  }
+}
+
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+
+void TCCPerdidadePresion::AsignaTipoValvula(
+    const std::vector<std::unique_ptr<TTipoValvula>> &Origen, int Valv, int i) {
+  // Create an OWNED COPY of the TMariposa valve for dynamic Cd lookup.
+  // CRITICAL: TypeOfValve[] entries are templates — their LeeDatosIniciales()
+  // reads the Cd table data but does NOT create the Hermite interpolation
+  // objects (fun_CDin/fun_CDout). Only the copy constructor creates them.
+  // Without the copy, CalculaCD() dereferences NULL fun_CDin → crash.
+  if (FValveID >= 1 && FValveID <= (int)Origen.size()) {
+    TMariposa *orig = dynamic_cast<TMariposa *>(Origen[FValveID - 1].get());
+    if (orig) {
+      // Create an owned copy — this calls TMariposa(TMariposa*, int)
+      // which initializes fun_CDin/fun_CDout from the Cd table data.
+      FValvula = new TMariposa(orig, Valv);
+      printf("TCCPerdidadePresion: Created copy of Valve %d (TMariposa) OK\n",
+             FValveID);
+      fflush(stdout);
+    } else {
+      printf("WARNING: Valve %d (index %d) is not TMariposa (type=%d)\n",
+             FValveID, FValveID - 1,
+             (int)Origen[FValveID - 1]->getTypeOfValve());
+      fflush(stdout);
+    }
+  } else {
+    printf("WARNING: FValveID=%d out of range (1..%zu)\n", FValveID,
+           Origen.size());
+    fflush(stdout);
   }
 }
 

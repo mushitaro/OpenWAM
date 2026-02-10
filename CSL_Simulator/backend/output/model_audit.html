@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>S54 CSL — OpenWAM Model Topology Audit</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; padding: 24px; }
+h1 { color: #58a6ff; font-size: 24px; margin-bottom: 8px; }
+h2 { color: #79c0ff; font-size: 18px; margin: 24px 0 12px; border-bottom: 1px solid #21262d; padding-bottom: 6px; }
+h3 { color: #d2a8ff; font-size: 15px; margin: 16px 0 8px; }
+.subtitle { color: #8b949e; font-size: 13px; margin-bottom: 20px; }
+
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 16px 0; }
+.summary-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; }
+.summary-card .value { font-size: 28px; font-weight: 700; color: #58a6ff; }
+.summary-card .label { font-size: 12px; color: #8b949e; margin-top: 4px; }
+
+.warn { background: #2d1b00; border-color: #9e6a03; }
+.warn .value { color: #e3b341; }
+.error { background: #3d0000; border-color: #f85149; }
+.error .value { color: #f85149; }
+
+table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0; }
+th { background: #161b22; color: #58a6ff; padding: 8px 6px; text-align: left; border-bottom: 2px solid #30363d; position: sticky; top: 0; }
+td { padding: 6px; border-bottom: 1px solid #21262d; }
+tr:hover { background: #161b22; }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
+.clamped { background: #3d1f00; color: #e3b341; }
+.ok { color: #3fb950; }
+.bad { color: #f85149; font-weight: 600; }
+
+.issue-card { background: #161b22; border-left: 4px solid #f85149; padding: 12px 16px; margin: 8px 0; border-radius: 0 6px 6px 0; }
+.issue-card.warn { border-left-color: #e3b341; }
+.issue-card .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+.issue-card .tag.critical { color: #f85149; }
+.issue-card .tag.warning { color: #e3b341; }
+.issue-card p { font-size: 13px; line-height: 1.5; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 1200px) { .two-col { grid-template-columns: 1fr; } }
+
+.topology-section { margin: 16px 0; padding: 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+.flow-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 6px 0; font-size: 11px; }
+.fl-pipe { background: #1f3a5f; color: #79c0ff; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.fl-plenum { background: #3d2a00; color: #e3b341; padding: 3px 8px; border-radius: 12px; white-space: nowrap; }
+.fl-junction { background: #1a3d1f; color: #3fb950; padding: 3px 8px; border-radius: 4px; white-space: nowrap; border: 1px solid #3fb950; }
+.fl-valve { background: #3d0020; color: #f778ba; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.fl-arrow { color: #484f58; }
+.fl-ambient { background: #0d4429; color: #56d364; padding: 3px 8px; border-radius: 12px; font-weight: 600; }
+
+.section-label { font-size: 11px; color: #8b949e; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+
+<h1>🏎️ S54 CSL — OpenWAM Model Topology Audit</h1>
+<p class="subtitle">BMW S54B32 | 3246cc I6 DOHC | Individual Throttle Bodies | Dual-Exit Exhaust</p>
+
+<!-- Summary Cards -->
+<div class="summary-grid">
+  <div class="summary-card"><div class="value">87</div><div class="label">Pipes</div></div>
+  <div class="summary-card"><div class="value">48</div><div class="label">Plenums</div></div>
+  <div class="summary-card"><div class="value">155</div><div class="label">Connections</div></div>
+  <div class="summary-card"><div class="value">2</div><div class="label">Type 12<br>Branch Junctions</div></div>
+  <div class="summary-card"><div class="value">13</div><div class="label">Type 6<br>Pipe-to-Pipe</div></div>
+  <div class="summary-card warn"><div class="value">44/48</div><div class="label">Plenums<br>Volume-Clamped</div></div>
+  <div class="summary-card error"><div class="value">50→50cc</div><div class="label">Clamp Override<br>(1-5cc physical)</div></div>
+</div>
+
+<!-- Workflow Section -->
+<h2>📋 Simulation Workflow (正しいデータフロー)</h2>
+<div class="topology-section">
+<pre style="font-size: 12px; color: #c9d1d9; line-height: 1.6;">
+<span style="color:#58a6ff">1. WAM Generation</span>
+   models.py (SimConfig) → wam_generator.py → <b>xxx.wam</b> (入力ファイル)
+   ・RPM, RO%, 全パラメータから87パイプ+48プレナムのトポロジーを構築
+   ・⚠️ バルブタイミングmapping、摩擦係数、プレナム容量クランプに注意
+
+<span style="color:#58a6ff">2. Simulation Execution</span>
+   OpenWAM.exe xxx.wam → <b>xxxINS.DAT</b> (結果ファイル)
+   ・Exit code 0 = 成功、それ以外 = クラッシュ
+   ・⚠️ <span style="color:#f85149">INSファイルはWAMファイル名に連動 — 同名で再実行すると上書き・消失</span>
+   ・⚠️ クラッシュ時もINSファイルを部分的に生成→破損データの可能性
+
+<span style="color:#58a6ff">3. Result Analysis</span>
+   xxxINS.DAT → visualize_flow_field.py → <b>flow_field.html</b>
+   ・Pipe ID が FLOW_PATH 定義と一致する必要あり
+   ・⚠️ wam_generator変更後は FLOW_PATH の ID 再マッピング必須
+
+<span style="color:#f85149; font-weight:600">🛡️ 安全ルール:</span>
+   ・成功したINSファイルは即座にリネーム/コピーして保護
+   ・wam_generator変更前に git commit で状態を保存
+   ・WAMファイル名に日時スタンプを含める: temp_{rpm}_{ro}_{timestamp}.wam
+</pre>
+</div>
+
+<!-- Flow Topology -->
+<h2>🔧 Flow Topology — Cylinder 1 (代表)</h2>
+
+<div class="topology-section">
+<div class="section-label">Intake Path (Ambient → Cylinder)</div>
+<div class="flow-line">
+  <span class="fl-ambient">Ambient (∞)</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P2: Intake φ200 L350</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P3: Filter φ300 L20 f=0.8</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">Plenum_Main 10.5L</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P4: Bellmouth φ60→50 L150</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-valve">🦋 ITB Throttle</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">ITB_Junct [50cc★]</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P5: Runner φ50→35 L40</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">Split_Pl [50cc★]</span>
+</div>
+<div class="flow-line" style="margin-left: 16px;">
+  <span style="color:#484f58">├─</span>
+  <span class="fl-pipe">P6: Port_Main φ35→33 L73</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">ValvePkt [50cc★]</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P7: Port_Pkt φ33→35 L32</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-valve">🔴 Intake Valve 1</span>
+</div>
+<div class="flow-line" style="margin-left: 16px;">
+  <span style="color:#484f58">└─</span>
+  <span class="fl-pipe">P8: Port_Main φ35→33 L73</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">ValvePkt [50cc★]</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P9: Port_Pkt φ33→35 L32</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-valve">🔴 Intake Valve 2</span>
+</div>
+</div>
+
+<div class="topology-section">
+<div class="section-label">Exhaust Path (Cylinder → Ambient) — Bank Left (Cyl 1-3)</div>
+<div class="flow-line">
+  <span class="fl-valve">🔴 Ex Valve 1</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P40: Pkt φ30→32 L27</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">ValvePkt_Ex [50cc★]</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P41: Main φ32→30 L63</span>
+  <span class="fl-arrow">──┐</span>
+</div>
+<div class="flow-line">
+  <span class="fl-valve">🔴 Ex Valve 2</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P42: Pkt φ30→32 L27</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">ValvePkt_Ex [50cc★]</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P43: Main φ32→30 L63</span>
+  <span class="fl-arrow">──┤</span>
+</div>
+<div class="flow-line" style="margin-left: 40px;">
+  <span class="fl-plenum">Port_Junct [50cc★]</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P44: Header φ40→60 L300</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-junction">Type12 CID75 (3→1)</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P70: Col_Out φ60 L500</span>
+</div>
+<div class="flow-line" style="margin-left: 40px;">
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P72: Sec1_1 φ60 L600</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P74: FrontCat φ120 L200</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P76: Sec1_2 φ60 L400</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P78: Sec2_1 φ60 L400</span>
+</div>
+<div class="flow-line" style="margin-left: 40px;">
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">H_Junc_L [50cc★]</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P80: H_L φ60 L200</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P83: Sec2_2 φ60 L800</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P85: Muf_Adpt φ60 L150 f=0.1</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-plenum">Muffler 30L</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-pipe">P87: Tail φ60 L150</span>
+  <span class="fl-arrow">→</span>
+  <span class="fl-ambient">Ambient</span>
+</div>
+</div>
+
+<!-- PIPE TABLE -->
+<h2>📐 Pipe Parameters (Complete)</h2>
+<div style="overflow-x: auto;">
+<table>
+<tr>
+  <th>ID</th><th>Label</th><th>L(mm)</th><th>φL(mm)</th><th>φR(mm)</th>
+  <th>T(K)</th><th>f</th><th>dx(mm)</th><th>Nodes</th><th>CID_L</th><th>CID_R</th>
+</tr>
+<tr>
+  <td class="num">2</td>
+  <td>CSL_Intake_Pipe</td>
+  <td class="num">350</td>
+  <td class="num">200.0</td>
+  <td class="num">200.0</td>
+  <td class="num">300</td>
+  <td class="num">0.050</td>
+  <td class="num">50</td>
+  <td class="num">7</td>
+  <td class="num">0</td>
+  <td class="num">1</td>
+</tr>
+<tr>
+  <td class="num">3</td>
+  <td>CSL_Panel_Filter</td>
+  <td class="num">20</td>
+  <td class="num">300.0</td>
+  <td class="num">300.0</td>
+  <td class="num">300</td>
+  <td class="num">0.800</td>
+  <td class="num">10</td>
+  <td class="num">3</td>
+  <td class="num">1</td>
+  <td class="num">2</td>
+</tr>
+<tr>
+  <td class="num">4</td>
+  <td>Bellmouth_1</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">50.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">16</td>
+  <td class="num">3</td>
+  <td class="num">4</td>
+</tr>
+<tr>
+  <td class="num">5</td>
+  <td>Runner_1</td>
+  <td class="num">40</td>
+  <td class="num">50.0</td>
+  <td class="num">35.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">5</td>
+  <td class="num">5</td>
+  <td class="num">6</td>
+</tr>
+<tr>
+  <td class="num">6</td>
+  <td>Port_In_Main_1_1</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">7</td>
+  <td class="num">8</td>
+</tr>
+<tr>
+  <td class="num">7</td>
+  <td>Port_In_Pocket_1_1</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">9</td>
+  <td class="num">10</td>
+</tr>
+<tr>
+  <td class="num">8</td>
+  <td>Port_In_Main_1_2</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">11</td>
+  <td class="num">12</td>
+</tr>
+<tr>
+  <td class="num">9</td>
+  <td>Port_In_Pocket_1_2</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">13</td>
+  <td class="num">14</td>
+</tr>
+<tr>
+  <td class="num">10</td>
+  <td>Bellmouth_2</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">50.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">16</td>
+  <td class="num">15</td>
+  <td class="num">16</td>
+</tr>
+<tr>
+  <td class="num">11</td>
+  <td>Runner_2</td>
+  <td class="num">40</td>
+  <td class="num">50.0</td>
+  <td class="num">35.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">5</td>
+  <td class="num">17</td>
+  <td class="num">18</td>
+</tr>
+<tr>
+  <td class="num">12</td>
+  <td>Port_In_Main_2_1</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">19</td>
+  <td class="num">20</td>
+</tr>
+<tr>
+  <td class="num">13</td>
+  <td>Port_In_Pocket_2_1</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">21</td>
+  <td class="num">22</td>
+</tr>
+<tr>
+  <td class="num">14</td>
+  <td>Port_In_Main_2_2</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">23</td>
+  <td class="num">24</td>
+</tr>
+<tr>
+  <td class="num">15</td>
+  <td>Port_In_Pocket_2_2</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">25</td>
+  <td class="num">26</td>
+</tr>
+<tr>
+  <td class="num">16</td>
+  <td>Bellmouth_3</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">50.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">16</td>
+  <td class="num">27</td>
+  <td class="num">28</td>
+</tr>
+<tr>
+  <td class="num">17</td>
+  <td>Runner_3</td>
+  <td class="num">40</td>
+  <td class="num">50.0</td>
+  <td class="num">35.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">5</td>
+  <td class="num">29</td>
+  <td class="num">30</td>
+</tr>
+<tr>
+  <td class="num">18</td>
+  <td>Port_In_Main_3_1</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">31</td>
+  <td class="num">32</td>
+</tr>
+<tr>
+  <td class="num">19</td>
+  <td>Port_In_Pocket_3_1</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">33</td>
+  <td class="num">34</td>
+</tr>
+<tr>
+  <td class="num">20</td>
+  <td>Port_In_Main_3_2</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">35</td>
+  <td class="num">36</td>
+</tr>
+<tr>
+  <td class="num">21</td>
+  <td>Port_In_Pocket_3_2</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">37</td>
+  <td class="num">38</td>
+</tr>
+<tr>
+  <td class="num">22</td>
+  <td>Bellmouth_4</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">50.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">16</td>
+  <td class="num">39</td>
+  <td class="num">40</td>
+</tr>
+<tr>
+  <td class="num">23</td>
+  <td>Runner_4</td>
+  <td class="num">40</td>
+  <td class="num">50.0</td>
+  <td class="num">35.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">5</td>
+  <td class="num">41</td>
+  <td class="num">42</td>
+</tr>
+<tr>
+  <td class="num">24</td>
+  <td>Port_In_Main_4_1</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">43</td>
+  <td class="num">44</td>
+</tr>
+<tr>
+  <td class="num">25</td>
+  <td>Port_In_Pocket_4_1</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">45</td>
+  <td class="num">46</td>
+</tr>
+<tr>
+  <td class="num">26</td>
+  <td>Port_In_Main_4_2</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">47</td>
+  <td class="num">48</td>
+</tr>
+<tr>
+  <td class="num">27</td>
+  <td>Port_In_Pocket_4_2</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">49</td>
+  <td class="num">50</td>
+</tr>
+<tr>
+  <td class="num">28</td>
+  <td>Bellmouth_5</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">50.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">16</td>
+  <td class="num">51</td>
+  <td class="num">52</td>
+</tr>
+<tr>
+  <td class="num">29</td>
+  <td>Runner_5</td>
+  <td class="num">40</td>
+  <td class="num">50.0</td>
+  <td class="num">35.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">5</td>
+  <td class="num">53</td>
+  <td class="num">54</td>
+</tr>
+<tr>
+  <td class="num">30</td>
+  <td>Port_In_Main_5_1</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">55</td>
+  <td class="num">56</td>
+</tr>
+<tr>
+  <td class="num">31</td>
+  <td>Port_In_Pocket_5_1</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">57</td>
+  <td class="num">58</td>
+</tr>
+<tr>
+  <td class="num">32</td>
+  <td>Port_In_Main_5_2</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">59</td>
+  <td class="num">60</td>
+</tr>
+<tr>
+  <td class="num">33</td>
+  <td>Port_In_Pocket_5_2</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">61</td>
+  <td class="num">62</td>
+</tr>
+<tr>
+  <td class="num">34</td>
+  <td>Bellmouth_6</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">50.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">16</td>
+  <td class="num">63</td>
+  <td class="num">64</td>
+</tr>
+<tr>
+  <td class="num">35</td>
+  <td>Runner_6</td>
+  <td class="num">40</td>
+  <td class="num">50.0</td>
+  <td class="num">35.0</td>
+  <td class="num">313</td>
+  <td class="num">0.015</td>
+  <td class="num">10</td>
+  <td class="num">5</td>
+  <td class="num">65</td>
+  <td class="num">66</td>
+</tr>
+<tr>
+  <td class="num">36</td>
+  <td>Port_In_Main_6_1</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">67</td>
+  <td class="num">68</td>
+</tr>
+<tr>
+  <td class="num">37</td>
+  <td>Port_In_Pocket_6_1</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">69</td>
+  <td class="num">70</td>
+</tr>
+<tr>
+  <td class="num">38</td>
+  <td>Port_In_Main_6_2</td>
+  <td class="num">74</td>
+  <td class="num">35.0</td>
+  <td class="num">33.2</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">8</td>
+  <td class="num">71</td>
+  <td class="num">72</td>
+</tr>
+<tr>
+  <td class="num">39</td>
+  <td>Port_In_Pocket_6_2</td>
+  <td class="num">32</td>
+  <td class="num">33.2</td>
+  <td class="num">35.0</td>
+  <td class="num">400</td>
+  <td class="num">0.050</td>
+  <td class="num">10</td>
+  <td class="num">4</td>
+  <td class="num">73</td>
+  <td class="num">74</td>
+</tr>
+<tr class="clamped">
+  <td class="num">40</td>
+  <td>Port_Ex_Pocket_1_1</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">77</td>
+  <td class="num">78</td>
+</tr>
+<tr>
+  <td class="num">41</td>
+  <td>Port_Ex_Main_1_1</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">79</td>
+  <td class="num">80</td>
+</tr>
+<tr class="clamped">
+  <td class="num">42</td>
+  <td>Port_Ex_Pocket_1_2</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">81</td>
+  <td class="num">82</td>
+</tr>
+<tr>
+  <td class="num">43</td>
+  <td>Port_Ex_Main_1_2</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">83</td>
+  <td class="num">84</td>
+</tr>
+<tr>
+  <td class="num">44</td>
+  <td>Header_1</td>
+  <td class="num">300</td>
+  <td class="num">40.0</td>
+  <td class="num">60.0</td>
+  <td class="num">400</td>
+  <td class="num">0.020</td>
+  <td class="num">35</td>
+  <td class="num">9</td>
+  <td class="num">85</td>
+  <td class="num">75</td>
+</tr>
+<tr class="clamped">
+  <td class="num">45</td>
+  <td>Port_Ex_Pocket_2_1</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">86</td>
+  <td class="num">87</td>
+</tr>
+<tr>
+  <td class="num">46</td>
+  <td>Port_Ex_Main_2_1</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">88</td>
+  <td class="num">89</td>
+</tr>
+<tr class="clamped">
+  <td class="num">47</td>
+  <td>Port_Ex_Pocket_2_2</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">90</td>
+  <td class="num">91</td>
+</tr>
+<tr>
+  <td class="num">48</td>
+  <td>Port_Ex_Main_2_2</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">92</td>
+  <td class="num">93</td>
+</tr>
+<tr>
+  <td class="num">49</td>
+  <td>Header_2</td>
+  <td class="num">300</td>
+  <td class="num">40.0</td>
+  <td class="num">60.0</td>
+  <td class="num">400</td>
+  <td class="num">0.020</td>
+  <td class="num">35</td>
+  <td class="num">9</td>
+  <td class="num">94</td>
+  <td class="num">75</td>
+</tr>
+<tr class="clamped">
+  <td class="num">50</td>
+  <td>Port_Ex_Pocket_3_1</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">95</td>
+  <td class="num">96</td>
+</tr>
+<tr>
+  <td class="num">51</td>
+  <td>Port_Ex_Main_3_1</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">97</td>
+  <td class="num">98</td>
+</tr>
+<tr class="clamped">
+  <td class="num">52</td>
+  <td>Port_Ex_Pocket_3_2</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">99</td>
+  <td class="num">100</td>
+</tr>
+<tr>
+  <td class="num">53</td>
+  <td>Port_Ex_Main_3_2</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">101</td>
+  <td class="num">102</td>
+</tr>
+<tr>
+  <td class="num">54</td>
+  <td>Header_3</td>
+  <td class="num">300</td>
+  <td class="num">40.0</td>
+  <td class="num">60.0</td>
+  <td class="num">400</td>
+  <td class="num">0.020</td>
+  <td class="num">35</td>
+  <td class="num">9</td>
+  <td class="num">103</td>
+  <td class="num">75</td>
+</tr>
+<tr class="clamped">
+  <td class="num">55</td>
+  <td>Port_Ex_Pocket_4_1</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">104</td>
+  <td class="num">105</td>
+</tr>
+<tr>
+  <td class="num">56</td>
+  <td>Port_Ex_Main_4_1</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">106</td>
+  <td class="num">107</td>
+</tr>
+<tr class="clamped">
+  <td class="num">57</td>
+  <td>Port_Ex_Pocket_4_2</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">108</td>
+  <td class="num">109</td>
+</tr>
+<tr>
+  <td class="num">58</td>
+  <td>Port_Ex_Main_4_2</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">110</td>
+  <td class="num">111</td>
+</tr>
+<tr>
+  <td class="num">59</td>
+  <td>Header_4</td>
+  <td class="num">300</td>
+  <td class="num">40.0</td>
+  <td class="num">60.0</td>
+  <td class="num">400</td>
+  <td class="num">0.020</td>
+  <td class="num">35</td>
+  <td class="num">9</td>
+  <td class="num">112</td>
+  <td class="num">76</td>
+</tr>
+<tr class="clamped">
+  <td class="num">60</td>
+  <td>Port_Ex_Pocket_5_1</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">113</td>
+  <td class="num">114</td>
+</tr>
+<tr>
+  <td class="num">61</td>
+  <td>Port_Ex_Main_5_1</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">115</td>
+  <td class="num">116</td>
+</tr>
+<tr class="clamped">
+  <td class="num">62</td>
+  <td>Port_Ex_Pocket_5_2</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">117</td>
+  <td class="num">118</td>
+</tr>
+<tr>
+  <td class="num">63</td>
+  <td>Port_Ex_Main_5_2</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">119</td>
+  <td class="num">120</td>
+</tr>
+<tr>
+  <td class="num">64</td>
+  <td>Header_5</td>
+  <td class="num">300</td>
+  <td class="num">40.0</td>
+  <td class="num">60.0</td>
+  <td class="num">400</td>
+  <td class="num">0.020</td>
+  <td class="num">35</td>
+  <td class="num">9</td>
+  <td class="num">121</td>
+  <td class="num">76</td>
+</tr>
+<tr class="clamped">
+  <td class="num">65</td>
+  <td>Port_Ex_Pocket_6_1</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">122</td>
+  <td class="num">123</td>
+</tr>
+<tr>
+  <td class="num">66</td>
+  <td>Port_Ex_Main_6_1</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">124</td>
+  <td class="num">125</td>
+</tr>
+<tr class="clamped">
+  <td class="num">67</td>
+  <td>Port_Ex_Pocket_6_2</td>
+  <td class="num">27</td>
+  <td class="num">30.0</td>
+  <td class="num">31.5</td>
+  <td class="num">360</td>
+  <td class="num">0.050</td>
+  <td class="num">20</td>
+  <td class="num">2</td>
+  <td class="num">126</td>
+  <td class="num">127</td>
+</tr>
+<tr>
+  <td class="num">68</td>
+  <td>Port_Ex_Main_6_2</td>
+  <td class="num">63</td>
+  <td class="num">31.5</td>
+  <td class="num">30.0</td>
+  <td class="num">370</td>
+  <td class="num">0.050</td>
+  <td class="num">25</td>
+  <td class="num">3</td>
+  <td class="num">128</td>
+  <td class="num">129</td>
+</tr>
+<tr>
+  <td class="num">69</td>
+  <td>Header_6</td>
+  <td class="num">300</td>
+  <td class="num">40.0</td>
+  <td class="num">60.0</td>
+  <td class="num">400</td>
+  <td class="num">0.020</td>
+  <td class="num">35</td>
+  <td class="num">9</td>
+  <td class="num">130</td>
+  <td class="num">76</td>
+</tr>
+<tr>
+  <td class="num">70</td>
+  <td>Col_Out_L</td>
+  <td class="num">500</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">400</td>
+  <td class="num">0.020</td>
+  <td class="num">50</td>
+  <td class="num">11</td>
+  <td class="num">75</td>
+  <td class="num">131</td>
+</tr>
+<tr>
+  <td class="num">71</td>
+  <td>Col_Out_R</td>
+  <td class="num">500</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">400</td>
+  <td class="num">0.020</td>
+  <td class="num">50</td>
+  <td class="num">11</td>
+  <td class="num">76</td>
+  <td class="num">132</td>
+</tr>
+<tr>
+  <td class="num">72</td>
+  <td>Sec1_1_L</td>
+  <td class="num">600</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">380</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">21</td>
+  <td class="num">131</td>
+  <td class="num">133</td>
+</tr>
+<tr>
+  <td class="num">73</td>
+  <td>Sec1_1_R</td>
+  <td class="num">600</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">380</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">21</td>
+  <td class="num">132</td>
+  <td class="num">134</td>
+</tr>
+<tr>
+  <td class="num">74</td>
+  <td>FrontCat_L</td>
+  <td class="num">200</td>
+  <td class="num">120.0</td>
+  <td class="num">120.0</td>
+  <td class="num">600</td>
+  <td class="num">0.030</td>
+  <td class="num">30</td>
+  <td class="num">7</td>
+  <td class="num">133</td>
+  <td class="num">135</td>
+</tr>
+<tr>
+  <td class="num">75</td>
+  <td>FrontCat_R</td>
+  <td class="num">200</td>
+  <td class="num">120.0</td>
+  <td class="num">120.0</td>
+  <td class="num">600</td>
+  <td class="num">0.030</td>
+  <td class="num">30</td>
+  <td class="num">7</td>
+  <td class="num">134</td>
+  <td class="num">136</td>
+</tr>
+<tr>
+  <td class="num">76</td>
+  <td>Sec1_2_L</td>
+  <td class="num">400</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">370</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">14</td>
+  <td class="num">135</td>
+  <td class="num">137</td>
+</tr>
+<tr>
+  <td class="num">77</td>
+  <td>Sec1_2_R</td>
+  <td class="num">400</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">370</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">14</td>
+  <td class="num">136</td>
+  <td class="num">138</td>
+</tr>
+<tr>
+  <td class="num">78</td>
+  <td>Sec2_1_L</td>
+  <td class="num">400</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">360</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">14</td>
+  <td class="num">137</td>
+  <td class="num">139</td>
+</tr>
+<tr>
+  <td class="num">79</td>
+  <td>Sec2_1_R</td>
+  <td class="num">400</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">360</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">14</td>
+  <td class="num">138</td>
+  <td class="num">140</td>
+</tr>
+<tr>
+  <td class="num">80</td>
+  <td>Sec2_H_L</td>
+  <td class="num">200</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">360</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">7</td>
+  <td class="num">141</td>
+  <td class="num">145</td>
+</tr>
+<tr>
+  <td class="num">81</td>
+  <td>Sec2_H_R</td>
+  <td class="num">200</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">360</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">7</td>
+  <td class="num">142</td>
+  <td class="num">146</td>
+</tr>
+<tr>
+  <td class="num">82</td>
+  <td>Sec2_H_Cross</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">360</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">6</td>
+  <td class="num">143</td>
+  <td class="num">144</td>
+</tr>
+<tr>
+  <td class="num">83</td>
+  <td>Sec2_2_L</td>
+  <td class="num">800</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">350</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">27</td>
+  <td class="num">145</td>
+  <td class="num">147</td>
+</tr>
+<tr>
+  <td class="num">84</td>
+  <td>Sec2_2_R</td>
+  <td class="num">800</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">350</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">27</td>
+  <td class="num">146</td>
+  <td class="num">148</td>
+</tr>
+<tr>
+  <td class="num">85</td>
+  <td>Muf_Adapter_L</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">350</td>
+  <td class="num">0.100</td>
+  <td class="num">30</td>
+  <td class="num">6</td>
+  <td class="num">147</td>
+  <td class="num">149</td>
+</tr>
+<tr>
+  <td class="num">86</td>
+  <td>Muf_Adapter_R</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">350</td>
+  <td class="num">0.100</td>
+  <td class="num">30</td>
+  <td class="num">6</td>
+  <td class="num">148</td>
+  <td class="num">150</td>
+</tr>
+<tr>
+  <td class="num">87</td>
+  <td>Tail_1</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">350</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">6</td>
+  <td class="num">151</td>
+  <td class="num">152</td>
+</tr>
+<tr>
+  <td class="num">88</td>
+  <td>Tail_2</td>
+  <td class="num">150</td>
+  <td class="num">60.0</td>
+  <td class="num">60.0</td>
+  <td class="num">350</td>
+  <td class="num">0.020</td>
+  <td class="num">30</td>
+  <td class="num">6</td>
+  <td class="num">153</td>
+  <td class="num">154</td>
+</tr>
+</table>
+</div>
+
+<!-- PLENUM TABLE -->
+<h2>🫧 Plenum Parameters (Complete)</h2>
+<div style="overflow-x: auto;">
+<table>
+<tr>
+  <th>ID</th><th>Label</th><th>Physical(cc)</th><th>Clamped(cc)</th>
+  <th>Ratio</th><th>T(K)</th><th>Status</th>
+</tr>
+<tr>
+  <td class="num">1</td>
+  <td>Ambient_Intake</td>
+  <td class="num">1000000000.0</td>
+  <td class="num">1000000000.0</td>
+  <td class="num">1:1</td>
+  <td class="num">300</td>
+  <td><span class="ok">OK</span></td>
+</tr>
+<tr>
+  <td class="num">2</td>
+  <td>Plenum_Main</td>
+  <td class="num">10500.0</td>
+  <td class="num">10500.0</td>
+  <td class="num">1:1</td>
+  <td class="num">313</td>
+  <td><span class="ok">OK</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">3</td>
+  <td>ITB_Junction_1</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">4</td>
+  <td>Split_Plenum_1</td>
+  <td class="num">2.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×25</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×25</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">5</td>
+  <td>ValvePocket_In_1_1</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">6</td>
+  <td>ValvePocket_In_1_2</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">7</td>
+  <td>ITB_Junction_2</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">8</td>
+  <td>Split_Plenum_2</td>
+  <td class="num">2.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×25</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×25</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">9</td>
+  <td>ValvePocket_In_2_1</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">10</td>
+  <td>ValvePocket_In_2_2</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">11</td>
+  <td>ITB_Junction_3</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">12</td>
+  <td>Split_Plenum_3</td>
+  <td class="num">2.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×25</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×25</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">13</td>
+  <td>ValvePocket_In_3_1</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">14</td>
+  <td>ValvePocket_In_3_2</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">15</td>
+  <td>ITB_Junction_4</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">16</td>
+  <td>Split_Plenum_4</td>
+  <td class="num">2.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×25</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×25</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">17</td>
+  <td>ValvePocket_In_4_1</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">18</td>
+  <td>ValvePocket_In_4_2</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">19</td>
+  <td>ITB_Junction_5</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">20</td>
+  <td>Split_Plenum_5</td>
+  <td class="num">2.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×25</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×25</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">21</td>
+  <td>ValvePocket_In_5_1</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">22</td>
+  <td>ValvePocket_In_5_2</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">23</td>
+  <td>ITB_Junction_6</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">24</td>
+  <td>Split_Plenum_6</td>
+  <td class="num">2.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×25</td>
+  <td class="num">313</td>
+  <td><span class="bad">CLAMPED ×25</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">25</td>
+  <td>ValvePocket_In_6_1</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">26</td>
+  <td>ValvePocket_In_6_2</td>
+  <td class="num">3.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×17</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×17</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">27</td>
+  <td>Port_Junct_1</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">28</td>
+  <td>ValvePocket_Ex_1_1</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">29</td>
+  <td>ValvePocket_Ex_1_2</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">30</td>
+  <td>Port_Junct_2</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">31</td>
+  <td>ValvePocket_Ex_2_1</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">32</td>
+  <td>ValvePocket_Ex_2_2</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">33</td>
+  <td>Port_Junct_3</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">34</td>
+  <td>ValvePocket_Ex_3_1</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">35</td>
+  <td>ValvePocket_Ex_3_2</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">36</td>
+  <td>Port_Junct_4</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">37</td>
+  <td>ValvePocket_Ex_4_1</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">38</td>
+  <td>ValvePocket_Ex_4_2</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">39</td>
+  <td>Port_Junct_5</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">40</td>
+  <td>ValvePocket_Ex_5_1</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">41</td>
+  <td>ValvePocket_Ex_5_2</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">42</td>
+  <td>Port_Junct_6</td>
+  <td class="num">1.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×50</td>
+  <td class="num">380</td>
+  <td><span class="bad">CLAMPED ×50</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">43</td>
+  <td>ValvePocket_Ex_6_1</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">44</td>
+  <td>ValvePocket_Ex_6_2</td>
+  <td class="num">5.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×10</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×10</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">45</td>
+  <td>H_Junc_L</td>
+  <td class="num">2.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×25</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×25</span></td>
+</tr>
+<tr class="clamped">
+  <td class="num">46</td>
+  <td>H_Junc_R</td>
+  <td class="num">2.0</td>
+  <td class="num">50.0</td>
+  <td class="num">×25</td>
+  <td class="num">360</td>
+  <td><span class="bad">CLAMPED ×25</span></td>
+</tr>
+<tr>
+  <td class="num">47</td>
+  <td>Muffler_Dual</td>
+  <td class="num">30000.0</td>
+  <td class="num">30000.0</td>
+  <td class="num">1:1</td>
+  <td class="num">400</td>
+  <td><span class="ok">OK</span></td>
+</tr>
+<tr>
+  <td class="num">48</td>
+  <td>Ambient_Exhaust</td>
+  <td class="num">1000000000.0</td>
+  <td class="num">1000000000.0</td>
+  <td class="num">1:1</td>
+  <td class="num">300</td>
+  <td><span class="ok">OK</span></td>
+</tr>
+</table>
+</div>
+
+<!-- ENGINEERING ISSUES -->
+<h2>⚠️ F1 Engineering Analysis — Problem Identification</h2>
+
+<div class="issue-card">
+  <div class="tag critical">CRITICAL — Root Cause of NaN Crash</div>
+  <p><b>50cc Volume Clamp — 全小型プレナムが10-50倍に膨張</b><br>
+  ITB_Junction (物理: 1cc → 強制: 50cc)、Split_Plenum (2cc→50cc)、ValvePocket (3-5cc→50cc)、Port_Junct (1cc→50cc)。
+  これにより、1気筒あたりのバルブ周辺に合計200cc（Split 50 + ValvePkt×2 100 + Port_Junct 50）の「仮想容積」が追加される。
+  6気筒合計で <b>1200cc = 1.2L</b> の非物理的容積が存在。
+  M54のストロークボリューム541cc/cylに対して37%に相当。</p>
+</div>
+
+<div class="issue-card">
+  <div class="tag critical">CRITICAL — 数値安定性 vs 物理精度のジレンマ</div>
+  <p><b>クランプ削減→即クラッシュ（1ccクランプでStudyInflowOutflowMass エラー）</b><br>
+  ボリュームクランプ50cc→1ccに下げると、プレナム内の気体質量が極小化し、
+  排気ブローダウン（4-6bar→1bar）または吸気バルブ閉鎖時の逆流衝撃波で質量がゼロ以下になる。
+  これがOpenWAMの <code>StudyInflowOutflowMass</code> エラーの直接原因。<br>
+  <b>解決策候補:</b> バルブ近傍プレナムの廃止（Type 12化 or パイプ統合）</p>
+</div>
+
+<div class="issue-card warn">
+  <div class="tag warning">WARNING — 排気ポートの解像度不足</div>
+  <p><b>Port_Ex_Pocket: L=27mm / dx=20mm → 2ノードのみ</b><br>
+  排気ポケットパイプはたった2ノードで離散化。排気ブローダウンの衝撃波（マッハ0.5-1.0）を
+  解像するには最低5-10ノード（dx=5mm）が必要。特にバルブ開直後の圧力勾配は1mm単位で変化する。
+  <br><b>Port_Ex_Main: L=63mm / dx=25mm → 3ノードのみ</b> — 同様に不足。</p>
+</div>
+
+<div class="issue-card warn">
+  <div class="tag warning">WARNING — Runner長が非現実的に短い</div>
+  <p><b>Runner: L=40mm / φ50→35mm</b><br>
+  S54のITBランナーは実際には120-180mm程度。40mmはほぼ存在しない短さで、
+  ランナー内の共鳴効果（Helmholtz共鳴 / ラム空気効果）が全く再現されない。
+  VE特性のRPM依存性に大きく影響する。</p>
+</div>
+
+<div class="issue-card warn">
+  <div class="tag warning">WARNING — ITB_Junction 50ccクランプの影響</div>
+  <p><b>Bellmouth (φ60→50mm) → [ITB Throttle] → ITB_Junction (50cc★) → Runner (φ50→35mm)</b><br>
+  ITB_JunctionはITBスロットルの下流（スロットルとランナーの間）に配置されている。
+  物理的にはITBバタフライ直下の小さな空間（~1cc）だが、50ccにクランプされることで
+  スロットル直後の真空形成が鈍化し、スロットル応答特性に影響する。</p>
+</div>
+
+<div class="issue-card warn">
+  <div class="tag warning">WARNING — CSL_Panel_Filter の異常摩擦</div>
+  <p><b>f = 0.800 (通常パイプの40倍)</b><br>
+  パイプ圧損 ∝ f·L/D·ρ·v²/2。ただし L=20mm, φ300mmなので実効圧損は極小。
+  フィルターのモデリングとしてはφ300mmの超短管 + 高摩擦よりも、
+  適切な圧損係数を持つオリフィスまたはCd制限の方が物理的に正確。</p>
+</div>
+
+<div class="issue-card warn">
+  <div class="tag warning">WARNING — Type 12 (Branch Junction) の安定性限界</div>
+  <p><b>Header 3本 + Col_Out 1本 = 4パイプ接続</b><br>
+  Type 12 (TCCRamificacion) はCollectorレベルでは安定動作するが、
+  バルブ直近（Split_Pl, Port_Junct）では NaN 不安定が発生した。
+  これは TCCRamificacion が特性線法の分岐計算で音速超えに対応できないことを示唆。
+  <b>Type 12 の適用はCollector合流点および下流のみに制限すべき。</b></p>
+</div>
+
+<div class="issue-card">
+  <div class="tag critical">CRITICAL — Muffler 30L の問題</div>
+  <p><b>Muffler_Dual: 30L = 30,000cc</b><br>
+  マフラー容量が30Lは妥当だが、排気系全体のバックプレッシャー応答を平準化する。
+  実マフラーの内部構造（バッフル、パンチングパイプ）はモデル化されていないため、
+  単なる大容量タンクとして機能し、排気干渉効果が消失する。</p>
+</div>
+
+</body>
+</html>

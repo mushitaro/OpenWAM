@@ -1,0 +1,1691 @@
+{
+  "summary": {
+    "total_pipes": 87,
+    "total_plenums": 48,
+    "total_connections": 155,
+    "type_12_count": 2,
+    "type_6_count": 13,
+    "type_11_count": 116
+  },
+  "pipes": {
+    "2": {
+      "label": "CSL_Intake_Pipe",
+      "length_mm": 350.0,
+      "dia_left_mm": 200.0,
+      "dia_right_mm": 200.0,
+      "temp_K": 300,
+      "cid_left": 0,
+      "cid_right": 1,
+      "friction": 0.05,
+      "dx_mesh_mm": 50.0,
+      "nodes": 7
+    },
+    "3": {
+      "label": "CSL_Panel_Filter",
+      "length_mm": 20.0,
+      "dia_left_mm": 300.0,
+      "dia_right_mm": 300.0,
+      "temp_K": 300,
+      "cid_left": 1,
+      "cid_right": 2,
+      "friction": 0.8,
+      "dx_mesh_mm": 10.0,
+      "nodes": 3
+    },
+    "4": {
+      "label": "Bellmouth_1",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 50.0,
+      "temp_K": 313,
+      "cid_left": 3,
+      "cid_right": 4,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 16
+    },
+    "5": {
+      "label": "Runner_1",
+      "length_mm": 40.0,
+      "dia_left_mm": 50.0,
+      "dia_right_mm": 35.0,
+      "temp_K": 313,
+      "cid_left": 5,
+      "cid_right": 6,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 5
+    },
+    "6": {
+      "label": "Port_In_Main_1_1",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 7,
+      "cid_right": 8,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "7": {
+      "label": "Port_In_Pocket_1_1",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 9,
+      "cid_right": 10,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "8": {
+      "label": "Port_In_Main_1_2",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 11,
+      "cid_right": 12,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "9": {
+      "label": "Port_In_Pocket_1_2",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 13,
+      "cid_right": 14,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "10": {
+      "label": "Bellmouth_2",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 50.0,
+      "temp_K": 313,
+      "cid_left": 15,
+      "cid_right": 16,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 16
+    },
+    "11": {
+      "label": "Runner_2",
+      "length_mm": 40.0,
+      "dia_left_mm": 50.0,
+      "dia_right_mm": 35.0,
+      "temp_K": 313,
+      "cid_left": 17,
+      "cid_right": 18,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 5
+    },
+    "12": {
+      "label": "Port_In_Main_2_1",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 19,
+      "cid_right": 20,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "13": {
+      "label": "Port_In_Pocket_2_1",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 21,
+      "cid_right": 22,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "14": {
+      "label": "Port_In_Main_2_2",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 23,
+      "cid_right": 24,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "15": {
+      "label": "Port_In_Pocket_2_2",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 25,
+      "cid_right": 26,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "16": {
+      "label": "Bellmouth_3",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 50.0,
+      "temp_K": 313,
+      "cid_left": 27,
+      "cid_right": 28,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 16
+    },
+    "17": {
+      "label": "Runner_3",
+      "length_mm": 40.0,
+      "dia_left_mm": 50.0,
+      "dia_right_mm": 35.0,
+      "temp_K": 313,
+      "cid_left": 29,
+      "cid_right": 30,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 5
+    },
+    "18": {
+      "label": "Port_In_Main_3_1",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 31,
+      "cid_right": 32,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "19": {
+      "label": "Port_In_Pocket_3_1",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 33,
+      "cid_right": 34,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "20": {
+      "label": "Port_In_Main_3_2",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 35,
+      "cid_right": 36,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "21": {
+      "label": "Port_In_Pocket_3_2",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 37,
+      "cid_right": 38,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "22": {
+      "label": "Bellmouth_4",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 50.0,
+      "temp_K": 313,
+      "cid_left": 39,
+      "cid_right": 40,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 16
+    },
+    "23": {
+      "label": "Runner_4",
+      "length_mm": 40.0,
+      "dia_left_mm": 50.0,
+      "dia_right_mm": 35.0,
+      "temp_K": 313,
+      "cid_left": 41,
+      "cid_right": 42,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 5
+    },
+    "24": {
+      "label": "Port_In_Main_4_1",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 43,
+      "cid_right": 44,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "25": {
+      "label": "Port_In_Pocket_4_1",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 45,
+      "cid_right": 46,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "26": {
+      "label": "Port_In_Main_4_2",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 47,
+      "cid_right": 48,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "27": {
+      "label": "Port_In_Pocket_4_2",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 49,
+      "cid_right": 50,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "28": {
+      "label": "Bellmouth_5",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 50.0,
+      "temp_K": 313,
+      "cid_left": 51,
+      "cid_right": 52,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 16
+    },
+    "29": {
+      "label": "Runner_5",
+      "length_mm": 40.0,
+      "dia_left_mm": 50.0,
+      "dia_right_mm": 35.0,
+      "temp_K": 313,
+      "cid_left": 53,
+      "cid_right": 54,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 5
+    },
+    "30": {
+      "label": "Port_In_Main_5_1",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 55,
+      "cid_right": 56,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "31": {
+      "label": "Port_In_Pocket_5_1",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 57,
+      "cid_right": 58,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "32": {
+      "label": "Port_In_Main_5_2",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 59,
+      "cid_right": 60,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "33": {
+      "label": "Port_In_Pocket_5_2",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 61,
+      "cid_right": 62,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "34": {
+      "label": "Bellmouth_6",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 50.0,
+      "temp_K": 313,
+      "cid_left": 63,
+      "cid_right": 64,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 16
+    },
+    "35": {
+      "label": "Runner_6",
+      "length_mm": 40.0,
+      "dia_left_mm": 50.0,
+      "dia_right_mm": 35.0,
+      "temp_K": 313,
+      "cid_left": 65,
+      "cid_right": 66,
+      "friction": 0.015,
+      "dx_mesh_mm": 10.0,
+      "nodes": 5
+    },
+    "36": {
+      "label": "Port_In_Main_6_1",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 67,
+      "cid_right": 68,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "37": {
+      "label": "Port_In_Pocket_6_1",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 69,
+      "cid_right": 70,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "38": {
+      "label": "Port_In_Main_6_2",
+      "length_mm": 73.5,
+      "dia_left_mm": 35.0,
+      "dia_right_mm": 33.25,
+      "temp_K": 400,
+      "cid_left": 71,
+      "cid_right": 72,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 8
+    },
+    "39": {
+      "label": "Port_In_Pocket_6_2",
+      "length_mm": 31.5,
+      "dia_left_mm": 33.25,
+      "dia_right_mm": 35.0,
+      "temp_K": 400,
+      "cid_left": 73,
+      "cid_right": 74,
+      "friction": 0.05,
+      "dx_mesh_mm": 10.0,
+      "nodes": 4
+    },
+    "40": {
+      "label": "Port_Ex_Pocket_1_1",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 77,
+      "cid_right": 78,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "41": {
+      "label": "Port_Ex_Main_1_1",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 79,
+      "cid_right": 80,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "42": {
+      "label": "Port_Ex_Pocket_1_2",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 81,
+      "cid_right": 82,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "43": {
+      "label": "Port_Ex_Main_1_2",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 83,
+      "cid_right": 84,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "44": {
+      "label": "Header_1",
+      "length_mm": 300.0,
+      "dia_left_mm": 40.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 400,
+      "cid_left": 85,
+      "cid_right": 75,
+      "friction": 0.02,
+      "dx_mesh_mm": 35.0,
+      "nodes": 9
+    },
+    "45": {
+      "label": "Port_Ex_Pocket_2_1",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 86,
+      "cid_right": 87,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "46": {
+      "label": "Port_Ex_Main_2_1",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 88,
+      "cid_right": 89,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "47": {
+      "label": "Port_Ex_Pocket_2_2",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 90,
+      "cid_right": 91,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "48": {
+      "label": "Port_Ex_Main_2_2",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 92,
+      "cid_right": 93,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "49": {
+      "label": "Header_2",
+      "length_mm": 300.0,
+      "dia_left_mm": 40.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 400,
+      "cid_left": 94,
+      "cid_right": 75,
+      "friction": 0.02,
+      "dx_mesh_mm": 35.0,
+      "nodes": 9
+    },
+    "50": {
+      "label": "Port_Ex_Pocket_3_1",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 95,
+      "cid_right": 96,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "51": {
+      "label": "Port_Ex_Main_3_1",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 97,
+      "cid_right": 98,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "52": {
+      "label": "Port_Ex_Pocket_3_2",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 99,
+      "cid_right": 100,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "53": {
+      "label": "Port_Ex_Main_3_2",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 101,
+      "cid_right": 102,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "54": {
+      "label": "Header_3",
+      "length_mm": 300.0,
+      "dia_left_mm": 40.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 400,
+      "cid_left": 103,
+      "cid_right": 75,
+      "friction": 0.02,
+      "dx_mesh_mm": 35.0,
+      "nodes": 9
+    },
+    "55": {
+      "label": "Port_Ex_Pocket_4_1",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 104,
+      "cid_right": 105,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "56": {
+      "label": "Port_Ex_Main_4_1",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 106,
+      "cid_right": 107,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "57": {
+      "label": "Port_Ex_Pocket_4_2",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 108,
+      "cid_right": 109,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "58": {
+      "label": "Port_Ex_Main_4_2",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 110,
+      "cid_right": 111,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "59": {
+      "label": "Header_4",
+      "length_mm": 300.0,
+      "dia_left_mm": 40.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 400,
+      "cid_left": 112,
+      "cid_right": 76,
+      "friction": 0.02,
+      "dx_mesh_mm": 35.0,
+      "nodes": 9
+    },
+    "60": {
+      "label": "Port_Ex_Pocket_5_1",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 113,
+      "cid_right": 114,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "61": {
+      "label": "Port_Ex_Main_5_1",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 115,
+      "cid_right": 116,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "62": {
+      "label": "Port_Ex_Pocket_5_2",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 117,
+      "cid_right": 118,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "63": {
+      "label": "Port_Ex_Main_5_2",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 119,
+      "cid_right": 120,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "64": {
+      "label": "Header_5",
+      "length_mm": 300.0,
+      "dia_left_mm": 40.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 400,
+      "cid_left": 121,
+      "cid_right": 76,
+      "friction": 0.02,
+      "dx_mesh_mm": 35.0,
+      "nodes": 9
+    },
+    "65": {
+      "label": "Port_Ex_Pocket_6_1",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 122,
+      "cid_right": 123,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "66": {
+      "label": "Port_Ex_Main_6_1",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 124,
+      "cid_right": 125,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "67": {
+      "label": "Port_Ex_Pocket_6_2",
+      "length_mm": 27.0,
+      "dia_left_mm": 30.0,
+      "dia_right_mm": 31.5,
+      "temp_K": 360,
+      "cid_left": 126,
+      "cid_right": 127,
+      "friction": 0.05,
+      "dx_mesh_mm": 20.0,
+      "nodes": 2
+    },
+    "68": {
+      "label": "Port_Ex_Main_6_2",
+      "length_mm": 63.0,
+      "dia_left_mm": 31.5,
+      "dia_right_mm": 30.0,
+      "temp_K": 370,
+      "cid_left": 128,
+      "cid_right": 129,
+      "friction": 0.05,
+      "dx_mesh_mm": 25.0,
+      "nodes": 3
+    },
+    "69": {
+      "label": "Header_6",
+      "length_mm": 300.0,
+      "dia_left_mm": 40.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 400,
+      "cid_left": 130,
+      "cid_right": 76,
+      "friction": 0.02,
+      "dx_mesh_mm": 35.0,
+      "nodes": 9
+    },
+    "70": {
+      "label": "Col_Out_L",
+      "length_mm": 500.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 400,
+      "cid_left": 75,
+      "cid_right": 131,
+      "friction": 0.02,
+      "dx_mesh_mm": 50.0,
+      "nodes": 11
+    },
+    "71": {
+      "label": "Col_Out_R",
+      "length_mm": 500.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 400,
+      "cid_left": 76,
+      "cid_right": 132,
+      "friction": 0.02,
+      "dx_mesh_mm": 50.0,
+      "nodes": 11
+    },
+    "72": {
+      "label": "Sec1_1_L",
+      "length_mm": 600.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 380,
+      "cid_left": 131,
+      "cid_right": 133,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 21
+    },
+    "73": {
+      "label": "Sec1_1_R",
+      "length_mm": 600.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 380,
+      "cid_left": 132,
+      "cid_right": 134,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 21
+    },
+    "74": {
+      "label": "FrontCat_L",
+      "length_mm": 200.0,
+      "dia_left_mm": 120.0,
+      "dia_right_mm": 120.0,
+      "temp_K": 600,
+      "cid_left": 133,
+      "cid_right": 135,
+      "friction": 0.03,
+      "dx_mesh_mm": 30.0,
+      "nodes": 7
+    },
+    "75": {
+      "label": "FrontCat_R",
+      "length_mm": 200.0,
+      "dia_left_mm": 120.0,
+      "dia_right_mm": 120.0,
+      "temp_K": 600,
+      "cid_left": 134,
+      "cid_right": 136,
+      "friction": 0.03,
+      "dx_mesh_mm": 30.0,
+      "nodes": 7
+    },
+    "76": {
+      "label": "Sec1_2_L",
+      "length_mm": 399.99999999999994,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 370,
+      "cid_left": 135,
+      "cid_right": 137,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 14
+    },
+    "77": {
+      "label": "Sec1_2_R",
+      "length_mm": 399.99999999999994,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 370,
+      "cid_left": 136,
+      "cid_right": 138,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 14
+    },
+    "78": {
+      "label": "Sec2_1_L",
+      "length_mm": 400.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 360,
+      "cid_left": 137,
+      "cid_right": 139,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 14
+    },
+    "79": {
+      "label": "Sec2_1_R",
+      "length_mm": 400.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 360,
+      "cid_left": 138,
+      "cid_right": 140,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 14
+    },
+    "80": {
+      "label": "Sec2_H_L",
+      "length_mm": 200.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 360,
+      "cid_left": 141,
+      "cid_right": 145,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 7
+    },
+    "81": {
+      "label": "Sec2_H_R",
+      "length_mm": 200.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 360,
+      "cid_left": 142,
+      "cid_right": 146,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 7
+    },
+    "82": {
+      "label": "Sec2_H_Cross",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 360,
+      "cid_left": 143,
+      "cid_right": 144,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 6
+    },
+    "83": {
+      "label": "Sec2_2_L",
+      "length_mm": 799.9999999999998,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 350,
+      "cid_left": 145,
+      "cid_right": 147,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 27
+    },
+    "84": {
+      "label": "Sec2_2_R",
+      "length_mm": 799.9999999999998,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 350,
+      "cid_left": 146,
+      "cid_right": 148,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 27
+    },
+    "85": {
+      "label": "Muf_Adapter_L",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 350,
+      "cid_left": 147,
+      "cid_right": 149,
+      "friction": 0.1,
+      "dx_mesh_mm": 30.0,
+      "nodes": 6
+    },
+    "86": {
+      "label": "Muf_Adapter_R",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 350,
+      "cid_left": 148,
+      "cid_right": 150,
+      "friction": 0.1,
+      "dx_mesh_mm": 30.0,
+      "nodes": 6
+    },
+    "87": {
+      "label": "Tail_1",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 350,
+      "cid_left": 151,
+      "cid_right": 152,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 6
+    },
+    "88": {
+      "label": "Tail_2",
+      "length_mm": 150.0,
+      "dia_left_mm": 60.0,
+      "dia_right_mm": 60.0,
+      "temp_K": 350,
+      "cid_left": 153,
+      "cid_right": 154,
+      "friction": 0.02,
+      "dx_mesh_mm": 30.0,
+      "nodes": 6
+    }
+  },
+  "plenums": {
+    "1": {
+      "label": "Ambient_Intake",
+      "vol_physical_cc": 1000000000.0,
+      "vol_clamped_cc": 1000000000.0,
+      "temp_K": 300,
+      "type": 0,
+      "is_clamped": false
+    },
+    "2": {
+      "label": "Plenum_Main",
+      "vol_physical_cc": 10500.0,
+      "vol_clamped_cc": 10500.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": false
+    },
+    "3": {
+      "label": "ITB_Junction_1",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "4": {
+      "label": "Split_Plenum_1",
+      "vol_physical_cc": 2.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "5": {
+      "label": "ValvePocket_In_1_1",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "6": {
+      "label": "ValvePocket_In_1_2",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "7": {
+      "label": "ITB_Junction_2",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "8": {
+      "label": "Split_Plenum_2",
+      "vol_physical_cc": 2.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "9": {
+      "label": "ValvePocket_In_2_1",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "10": {
+      "label": "ValvePocket_In_2_2",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "11": {
+      "label": "ITB_Junction_3",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "12": {
+      "label": "Split_Plenum_3",
+      "vol_physical_cc": 2.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "13": {
+      "label": "ValvePocket_In_3_1",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "14": {
+      "label": "ValvePocket_In_3_2",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "15": {
+      "label": "ITB_Junction_4",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "16": {
+      "label": "Split_Plenum_4",
+      "vol_physical_cc": 2.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "17": {
+      "label": "ValvePocket_In_4_1",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "18": {
+      "label": "ValvePocket_In_4_2",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "19": {
+      "label": "ITB_Junction_5",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "20": {
+      "label": "Split_Plenum_5",
+      "vol_physical_cc": 2.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "21": {
+      "label": "ValvePocket_In_5_1",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "22": {
+      "label": "ValvePocket_In_5_2",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "23": {
+      "label": "ITB_Junction_6",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "24": {
+      "label": "Split_Plenum_6",
+      "vol_physical_cc": 2.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 313,
+      "type": 0,
+      "is_clamped": true
+    },
+    "25": {
+      "label": "ValvePocket_In_6_1",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "26": {
+      "label": "ValvePocket_In_6_2",
+      "vol_physical_cc": 3.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "27": {
+      "label": "Port_Junct_1",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "28": {
+      "label": "ValvePocket_Ex_1_1",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "29": {
+      "label": "ValvePocket_Ex_1_2",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "30": {
+      "label": "Port_Junct_2",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "31": {
+      "label": "ValvePocket_Ex_2_1",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "32": {
+      "label": "ValvePocket_Ex_2_2",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "33": {
+      "label": "Port_Junct_3",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "34": {
+      "label": "ValvePocket_Ex_3_1",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "35": {
+      "label": "ValvePocket_Ex_3_2",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "36": {
+      "label": "Port_Junct_4",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "37": {
+      "label": "ValvePocket_Ex_4_1",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "38": {
+      "label": "ValvePocket_Ex_4_2",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "39": {
+      "label": "Port_Junct_5",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "40": {
+      "label": "ValvePocket_Ex_5_1",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "41": {
+      "label": "ValvePocket_Ex_5_2",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "42": {
+      "label": "Port_Junct_6",
+      "vol_physical_cc": 1.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 380,
+      "type": 0,
+      "is_clamped": true
+    },
+    "43": {
+      "label": "ValvePocket_Ex_6_1",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "44": {
+      "label": "ValvePocket_Ex_6_2",
+      "vol_physical_cc": 5.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "45": {
+      "label": "H_Junc_L",
+      "vol_physical_cc": 2.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "46": {
+      "label": "H_Junc_R",
+      "vol_physical_cc": 2.0,
+      "vol_clamped_cc": 50.0,
+      "temp_K": 360,
+      "type": 0,
+      "is_clamped": true
+    },
+    "47": {
+      "label": "Muffler_Dual",
+      "vol_physical_cc": 30000.0,
+      "vol_clamped_cc": 30000.0,
+      "temp_K": 400,
+      "type": 0,
+      "is_clamped": false
+    },
+    "48": {
+      "label": "Ambient_Exhaust",
+      "vol_physical_cc": 1000000000.0,
+      "vol_clamped_cc": 1000000000.0,
+      "temp_K": 300,
+      "type": 0,
+      "is_clamped": false
+    }
+  },
+  "type_12_junctions": {
+    "75": {
+      "type": 12,
+      "pipes": [
+        [
+          44,
+          "Header_1",
+          "right"
+        ],
+        [
+          49,
+          "Header_2",
+          "right"
+        ],
+        [
+          54,
+          "Header_3",
+          "right"
+        ],
+        [
+          70,
+          "Col_Out_L",
+          "left"
+        ]
+      ]
+    },
+    "76": {
+      "type": 12,
+      "pipes": [
+        [
+          59,
+          "Header_4",
+          "right"
+        ],
+        [
+          64,
+          "Header_5",
+          "right"
+        ],
+        [
+          69,
+          "Header_6",
+          "right"
+        ],
+        [
+          71,
+          "Col_Out_R",
+          "left"
+        ]
+      ]
+    }
+  },
+  "type_6_junctions": {
+    "1": {
+      "type": 6,
+      "pipes": [
+        [
+          2,
+          "CSL_Intake_Pipe",
+          "right"
+        ],
+        [
+          3,
+          "CSL_Panel_Filter",
+          "left"
+        ]
+      ]
+    },
+    "131": {
+      "type": 6,
+      "pipes": [
+        [
+          70,
+          "Col_Out_L",
+          "right"
+        ],
+        [
+          72,
+          "Sec1_1_L",
+          "left"
+        ]
+      ]
+    },
+    "132": {
+      "type": 6,
+      "pipes": [
+        [
+          71,
+          "Col_Out_R",
+          "right"
+        ],
+        [
+          73,
+          "Sec1_1_R",
+          "left"
+        ]
+      ]
+    },
+    "133": {
+      "type": 6,
+      "pipes": [
+        [
+          72,
+          "Sec1_1_L",
+          "right"
+        ],
+        [
+          74,
+          "FrontCat_L",
+          "left"
+        ]
+      ]
+    },
+    "134": {
+      "type": 6,
+      "pipes": [
+        [
+          73,
+          "Sec1_1_R",
+          "right"
+        ],
+        [
+          75,
+          "FrontCat_R",
+          "left"
+        ]
+      ]
+    },
+    "135": {
+      "type": 6,
+      "pipes": [
+        [
+          74,
+          "FrontCat_L",
+          "right"
+        ],
+        [
+          76,
+          "Sec1_2_L",
+          "left"
+        ]
+      ]
+    },
+    "136": {
+      "type": 6,
+      "pipes": [
+        [
+          75,
+          "FrontCat_R",
+          "right"
+        ],
+        [
+          77,
+          "Sec1_2_R",
+          "left"
+        ]
+      ]
+    },
+    "137": {
+      "type": 6,
+      "pipes": [
+        [
+          76,
+          "Sec1_2_L",
+          "right"
+        ],
+        [
+          78,
+          "Sec2_1_L",
+          "left"
+        ]
+      ]
+    },
+    "138": {
+      "type": 6,
+      "pipes": [
+        [
+          77,
+          "Sec1_2_R",
+          "right"
+        ],
+        [
+          79,
+          "Sec2_1_R",
+          "left"
+        ]
+      ]
+    },
+    "145": {
+      "type": 6,
+      "pipes": [
+        [
+          80,
+          "Sec2_H_L",
+          "right"
+        ],
+        [
+          83,
+          "Sec2_2_L",
+          "left"
+        ]
+      ]
+    },
+    "146": {
+      "type": 6,
+      "pipes": [
+        [
+          81,
+          "Sec2_H_R",
+          "right"
+        ],
+        [
+          84,
+          "Sec2_2_R",
+          "left"
+        ]
+      ]
+    },
+    "147": {
+      "type": 6,
+      "pipes": [
+        [
+          83,
+          "Sec2_2_L",
+          "right"
+        ],
+        [
+          85,
+          "Muf_Adapter_L",
+          "left"
+        ]
+      ]
+    },
+    "148": {
+      "type": 6,
+      "pipes": [
+        [
+          84,
+          "Sec2_2_R",
+          "right"
+        ],
+        [
+          86,
+          "Muf_Adapter_R",
+          "left"
+        ]
+      ]
+    }
+  }
+}
