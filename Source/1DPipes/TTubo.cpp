@@ -1217,10 +1217,14 @@ void TTubo::ActualizaPropiedadesGas() {
             CalculoSimpleCvMezcla(FTemperature[i], FFraccionMasicaEspecie[i][0],
                                   0, FCalculoGamma, nmMEP);
         FGammaN = CalculoSimpleGamma(FRMezcla[i], CvMezcla, FCalculoGamma);
-        if (abs(FGammaN - FGamma[i]) > 0.025) {
-          FGamma[i];
-        } else {
-          FGamma[i] = 0.9995 * FGamma[i] + 0.0005 * FGammaN;
+        {
+          double deltaGamma = FGammaN - FGamma[i];
+          double maxStep = 0.025;
+          if (fabs(deltaGamma) > maxStep) {
+            FGamma[i] += (deltaGamma > 0 ? maxStep : -maxStep);
+          } else {
+            FGamma[i] = 0.95 * FGamma[i] + 0.05 * FGammaN;
+          }
         }
       } else {
 
@@ -1253,10 +1257,14 @@ void TTubo::ActualizaPropiedadesGas() {
         double CpMezcla = CalculoCompletoCpMezcla(
             sp0, sp1, sp2, 0, FTemperature[i], FCalculoGamma, nmMEP);
         FGammaN = CalculoCompletoGamma(FRMezcla[i], CpMezcla, FCalculoGamma);
-        if (abs(FGammaN - FGamma[i]) > 0.025) {
-          FGamma[i];
-        } else {
-          FGamma[i] = 0.9995 * FGamma[i] + 0.0005 * FGammaN;
+        {
+          double deltaGamma = FGammaN - FGamma[i];
+          double maxStep = 0.025;
+          if (fabs(deltaGamma) > maxStep) {
+            FGamma[i] += (deltaGamma > 0 ? maxStep : -maxStep);
+          } else {
+            FGamma[i] = 0.95 * FGamma[i] + 0.05 * FGammaN;
+          }
         }
       }
 
@@ -1372,21 +1380,51 @@ void TTubo::Transforma2(double &v, double &a, double &p, double **U,
     }
 
     // Solucion del Transporte de Especies Quimicas.
-    // DEBUG: Check for problematic U[0][i] before division
+    // Fix 4: Recover U[0][i] if invalid, then clamp species fractions
     if (U[0][i] <= 0 || std::isnan(U[0][i]) || std::isinf(U[0][i])) {
-      printf("DEBUG PIPE SPECIES NaN Pipe %d Node %d: U[0][i]=%.6e (division "
-             "will cause NaN)\n",
+      printf("DEBUG PIPE SPECIES NaN Pipe %d Node %d: U[0][i]=%.6e -> "
+             "Recovering\n",
              FNumeroTubo, i, U[0][i]);
-      printf("  U[1][i]=%.6e U[2][i]=%.6e U[3][i]=%.6e\n", U[1][i], U[2][i],
-             U[3][i]);
+      // Attempt recovery from adjacent node
+      if (i > 0 && U[0][i - 1] > 0 && !std::isnan(U[0][i - 1])) {
+        U[0][i] = U[0][i - 1];
+        for (int k = 1; k < FNumEcuaciones; k++)
+          U[k][i] = U[k][i - 1];
+      } else if (i < FNin - 1 && U[0][i + 1] > 0 && !std::isnan(U[0][i + 1])) {
+        U[0][i] = U[0][i + 1];
+        for (int k = 1; k < FNumEcuaciones; k++)
+          U[k][i] = U[k][i + 1];
+      } else {
+        // Last resort: minimum density (atmospheric air at 300K)
+        U[0][i] = 1.177; // kg/m3
+        U[1][i] = 0.0;
+        U[2][i] = 101325.0 / FGamma1[i];
+      }
+      // Recalculate primitives from recovered conserved variables
+      v = U[1][i] / U[0][i] / __cons::ARef;
+      p = __units::PaToBar((U[2][i] - U[1][i] * U[1][i] / U[0][i] / 2.0) *
+                           FGamma1[i]);
+      a = sqrt(FGamma[i] * __units::BarToPa(p) / U[0][i] / __cons::ARef2);
     }
     for (int j = 0; j < FNumeroEspecies - 2; j++) {
       Yespecie[j] = U[j + 3][i] / U[0][i];
+      if (std::isnan(Yespecie[j]) || Yespecie[j] < 0.0)
+        Yespecie[j] = 0.0;
+      if (Yespecie[j] > 1.0)
+        Yespecie[j] = 1.0;
       fraccionmasicaacum += Yespecie[j];
     }
+    if (fraccionmasicaacum > 1.0)
+      fraccionmasicaacum = 1.0;
     Yespecie[FNumeroEspecies - 2] = 1. - fraccionmasicaacum;
-    if (FHayEGR)
+    if (FHayEGR) {
       Yespecie[FNumeroEspecies - 1] = U[FNumeroEspecies - 2 + 3][i] / U[0][i];
+      if (std::isnan(Yespecie[FNumeroEspecies - 1]) ||
+          Yespecie[FNumeroEspecies - 1] < 0.0)
+        Yespecie[FNumeroEspecies - 1] = 0.0;
+      if (Yespecie[FNumeroEspecies - 1] > 1.0)
+        Yespecie[FNumeroEspecies - 1] = 1.0;
+    }
 #ifdef usetry
   } catch (std::exception &N) {
     std::cout << "ERROR: TTubo::Transforma2 en el tubo: " << FNumeroTubo

@@ -107,7 +107,6 @@ class HeaderConfig(BaseModel):
     collector_vol: float = 1.5 # Liters
     collector_dia: float = 68.0 # mm
     wall_temp: float = 800.0 # K
-    wall_temp: float = 800.0 # K
     heat_coeff: float = 45.0
     header_friction: float = 0.02 # Stainless Smooth (was 0.5)
 

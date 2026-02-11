@@ -209,7 +209,14 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
     double DeltaT, MasaTotal = 0., g, m, FraccionMasicaAcum = 0.;
     // Necesarias para el calculo de especies en la BC.
 
-    sonido_supuesta_ad = 0.;
+    /* Fix 2a: Better initial guess from average of input characteristics */
+    sonido_supuesta_ad = 0.0;
+    for (int i = 0; i < FNumeroTubosCC; i++) {
+      sonido_supuesta_ad += *FCC[i];
+    }
+    sonido_supuesta_ad /= FNumeroTubosCC;
+    if (sonido_supuesta_ad <= 0.0 || std::isnan(sonido_supuesta_ad))
+      sonido_supuesta_ad = 1.0;
 
     FTiempoActual = Time;
     DeltaT = FTiempoActual - FTiempoAnterior;
@@ -236,16 +243,23 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
       FEntropia[i] = FTuboExtremo[i].Entropia;
     }
 
+    /* Fix 2b: Iteration-limited convergence with entropy/denominator guards */
+    int iter = 0;
+    const int MAX_ITER = 100;
     do {
       /* Determinacion de la velocidad del sonido en la ramificacion. */
       suma1 = 0.;
       suma2 = 0.;
       for (int i = 0; i < FNumeroTubosCC; i++) {
-        suma1 = suma1 + (*FCC[i]) * FSeccionTubo[i] / pow2(FEntropia[i]);
-        suma2 = suma2 +
-                FTuboExtremo[i].Entropia * FSeccionTubo[i] / pow2(FEntropia[i]);
+        double ent2 = pow2(FEntropia[i]);
+        if (ent2 < 1e-12 || std::isnan(ent2))
+          ent2 = 1.0;
+        suma1 = suma1 + (*FCC[i]) * FSeccionTubo[i] / ent2;
+        suma2 = suma2 + FTuboExtremo[i].Entropia * FSeccionTubo[i] / ent2;
       }
       sonido_ant_ad = sonido_supuesta_ad;
+      if (suma2 < 1e-12)
+        break; /* Degenerate: all entropy collapsed */
       sonido_supuesta_ad = suma1 / suma2;
 
       for (int i = 0; i < FNumeroTubosCC; i++) {
@@ -275,8 +289,10 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
           FEntropia[i] = entropia_entrante;
         }
       }
-    } while ((sonido_supuesta_ad - sonido_ant_ad) / (sonido_ant_ad + 0.01) >
-             1e-4);
+      iter++;
+    } while (iter < MAX_ITER && fabs(sonido_supuesta_ad - sonido_ant_ad) /
+                                        (fabs(sonido_ant_ad) + 0.01) >
+                                    1e-4);
 
     if (TuboCalculado != 10000) {
       corr_entropia =
@@ -304,18 +320,25 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
                   corr_entropia;
         *FCD[i] = *FCC[i] - FGamma1 * FVelocity[i];
         FTuboExtremo[i].Entropia = FEntropia[i];
-        double Machx =
-            fabs(*FCC[i] - *FCD[i]) / (*FCC[i] + *FCD[i]) * 2 / FGamma1;
+        /* Fix 3b: Guarded inline normal shock (same pattern as
+         * ReduceSubsonicFlow) */
+        double sum_cc = *FCC[i] + *FCD[i];
+        if (fabs(sum_cc) < 1e-12)
+          sum_cc = 1e-12;
+        double Machx = fabs(*FCC[i] - *FCD[i]) / fabs(sum_cc) * 2.0 / FGamma1;
         if (Machx > 1) {
           printf("Sonic condition in boundary: %d\n", FNumeroCC);
-          double Machy =
-              Machx / fabs(Machx) *
-              sqrt((pow2(Machx) + 2. / FGamma1) / (FGamma4 * pow2(Machx) - 1.));
-          double asonido = (*FCC[i] + *FCD[i]) / 2;
+          if (Machx < 1.001)
+            Machx = 1.001;
+          double denom_shock = FGamma4 * pow2(Machx) - 1.0;
+          if (denom_shock < 1e-6)
+            denom_shock = 1e-6;
+          double Machy = sqrt((pow2(Machx) + 2. / FGamma1) / denom_shock);
+          double asonido = fabs(sum_cc) / 2.0;
           double Sonidoy = asonido * sqrt((FGamma3 * pow2(Machx) + 1.) /
                                           (FGamma3 * pow2(Machy) + 1.));
-
-          double Velocidady = Sonidoy * Machy;
+          double sign_v = (*FCC[i] - *FCD[i] >= 0) ? 1.0 : -1.0;
+          double Velocidady = sign_v * Sonidoy * Machy;
           *FCC[i] = Sonidoy + FGamma3 * Velocidady;
           *FCD[i] = Sonidoy - FGamma3 * Velocidady;
         }

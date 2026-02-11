@@ -2091,13 +2091,17 @@ inline void GetName(const char *original, char *destination, const char *add) {
 };
 
 inline void ReduceSubsonicFlow(double &a, double &v, double g) {
-  double Machx = v / a;
-  double g3 = (g - 1) / 2;
-  double Machy = Machx / fabs(Machx) *
-                 sqrt((Machx * Machx + 1 / g3) / (g / g3 * pow(Machx, 2) - 1.));
+  double sign = (v >= 0) ? 1.0 : -1.0;
+  double Machx = fabs(v / a);
+  if (Machx < 1.001)
+    Machx = 1.001;
+  double g3 = (g - 1.0) / 2.0;
+  double denom = g / g3 * Machx * Machx - 1.0;
+  if (denom < 1e-6)
+    denom = 1e-6;
+  double Machy = sqrt((Machx * Machx + 1.0 / g3) / denom);
   a = a * sqrt((g3 * Machx * Machx + 1.) / (g3 * Machy * Machy + 1.));
-
-  v = a * Machy;
+  v = sign * a * Machy;
 };
 
 // int _matherr(struct _exception *a) {

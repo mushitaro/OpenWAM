@@ -665,7 +665,7 @@ class WAMGenerator:
                 self._add_con_valve_v2(pid_port, 0, cyl_idx, False, vid_global) 
                 
                 self._add_pipe(pid_port, f"Port_Ex_{cyl_idx}_{v+1}", port_len_ex,
-                               port_dia_ex, port_dia_ex, 400,
+                               port_dia_ex, port_dia_ex, 600,
                                cid_valve, cid_port_merge, friction=c.engine.head.port_friction, dx_mesh=0.010)
 
             # Header: Start connects to port merge junction (Type 12)
@@ -682,12 +682,12 @@ class WAMGenerator:
 
             self._add_pipe(pid_prim, f"Header_{cyl_idx}", header_len,
                            header_dia, col_dia, 
-                           400, cid_header_start, cid_col, friction=c.exhaust.headers.header_friction, dx_mesh=0.035)
+                           c.exhaust.headers.wall_temp, cid_header_start, cid_col, friction=c.exhaust.headers.header_friction, dx_mesh=0.035)
 
         # COLLECTOR OUTPUT PIPES
         # Col_Out left_node = same branch junction CID (Type 12)
         col_out_len = 0.500  # 500mm
-        col_out_dia = 0.060  # 60mm
+        col_out_dia = c.exhaust.headers.collector_dia / 1000.0  # Model default 68mm
         
         p_buf1 = self.pipe_counter; self.pipe_counter += 1
         p_buf2 = self.pipe_counter; self.pipe_counter += 1
@@ -700,8 +700,8 @@ class WAMGenerator:
         c_buf1_to_s11 = self._create_pipe_to_pipe_connection()
         c_buf2_to_s11 = self._create_pipe_to_pipe_connection()
         
-        self._add_pipe(p_buf1, "Col_Out_L", col_out_len, col_out_dia, col_out_dia, 400, c_buf1_start, c_buf1_to_s11, dx_mesh=0.050)
-        self._add_pipe(p_buf2, "Col_Out_R", col_out_len, col_out_dia, col_out_dia, 400, c_buf2_start, c_buf2_to_s11, dx_mesh=0.050)
+        self._add_pipe(p_buf1, "Col_Out_L", col_out_len, col_out_dia, col_out_dia, 700, c_buf1_start, c_buf1_to_s11, dx_mesh=0.050)
+        self._add_pipe(p_buf2, "Col_Out_R", col_out_len, col_out_dia, col_out_dia, 700, c_buf2_start, c_buf2_to_s11, dx_mesh=0.050)
 
         # --- SECTION 1: 3-Stage Split (Pipe -> Cat -> Pipe) ---
         # User Spec: 600mm -> 300mm Cat -> 300mm

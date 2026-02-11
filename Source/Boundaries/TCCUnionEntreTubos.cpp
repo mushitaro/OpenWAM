@@ -78,7 +78,8 @@ TCCUnionEntreTubos::~TCCUnionEntreTubos() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-void TCCUnionEntreTubos::ReadBoundaryData(std::istream &FileInput, int NumberOfPipes,
+void TCCUnionEntreTubos::ReadBoundaryData(
+    std::istream &FileInput, int NumberOfPipes,
     const std::vector<std::unique_ptr<TTubo>> &Pipe, int nDPF,
     const std::vector<std::unique_ptr<TDPF>> &DPF) {
   try {
@@ -203,15 +204,10 @@ void TCCUnionEntreTubos::ReadBoundaryData(std::istream &FileInput, int NumberOfP
           FTuboExtremo[0].Pipe->GetFraccionMasicaInicial(i);
     }
 
-    
-    // 
-    
+    //
 
     FileInput >> FEspesor >> FConductividad;
     /* Coeficiente de perdidas con signo positivo */
-
-    
-    
 
   } catch (std::exception &N) {
     std::cout << "ERROR: TCCUnionEntreTubos::LeeUnionEntreTubos en la "
@@ -266,8 +262,20 @@ void TCCUnionEntreTubos::CalculaCondicionContorno(double Time) {
     FGamma1 = __Gamma::G1(FGamma);
 
     /* Criterio para determinar el sentido el flujo */
-    flujo = (*FCC[1] / FTuboExtremo[1].Entropia) /
-            (*FCC[0] / FTuboExtremo[0].Entropia);
+    /* Guard: Prevent NaN from zero/NaN entropy */
+    double ent0 = FTuboExtremo[0].Entropia;
+    double ent1 = FTuboExtremo[1].Entropia;
+    if (ent0 < 1e-6 || std::isnan(ent0))
+      ent0 = 1.0;
+    if (ent1 < 1e-6 || std::isnan(ent1))
+      ent1 = 1.0;
+    double cc0_norm = *FCC[0] / ent0;
+    double cc1_norm = *FCC[1] / ent1;
+    if (fabs(cc0_norm) < 1e-12 || std::isnan(cc0_norm))
+      cc0_norm = 1.0;
+    flujo = cc1_norm / cc0_norm;
+    if (std::isnan(flujo) || std::isinf(flujo))
+      flujo = 1.0;          /* Stalled flow fallback */
     if (flujo < 0.999995) { /* Sentido del flujo: de 0(saliente (out)) a
                                1(entrante (in)) */
       rel_entropia = FTuboExtremo[0].Entropia / FTuboExtremo[1].Entropia;
