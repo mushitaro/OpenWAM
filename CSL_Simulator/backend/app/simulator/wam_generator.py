@@ -532,7 +532,8 @@ class WAMGenerator:
             itb_dia = 0.052                             # 52mm fixed
             bellmouth_entry_dia = 0.070                         # 70mm fixed entry
             bellmouth_len = 0.150                       # 150mm fixed
-            port_dia_in = 0.052                         # 52mm fixed
+            port_dia_in = c.engine.head.intake_port.diameter / 1000.0  # 52mm (runner side)
+            valve_dia_in = c.engine.head.intake_valve.diameter / 1000.0  # 35mm (valve side)
             
             # --- BELLMOUTH PIPE (Plenum → Bellmouth, φ70→φ52, 150mm) ---
             bellmouth_id = self.pipe_counter; self.pipe_counter += 1
@@ -586,7 +587,7 @@ class WAMGenerator:
                            itb_dia, itb_dia, 313,
                            cid_eq_branch, cid_port_split, friction=0.05, dx_mesh=0.010)
 
-            # --- INTAKE PORTS (2 per cyl, single pipe each, φ52, 105mm) ---
+            # --- INTAKE PORTS (2 per cyl, tapered φ52→φ35, 105mm) ---
             port_len_in = c.engine.head.intake_port.length / 1000.0  # 0.105m
             
             for v in range(2): 
@@ -598,8 +599,9 @@ class WAMGenerator:
                 cid_valve = self.connection_counter
                 self._add_con_valve_v2(pid_port, 1, cyl_idx, True, vid_global)
                 
+                # Taper: port_dia(T12 runner side) → valve_dia(T10 valve side)
                 self._add_pipe(pid_port, f"Port_In_{cyl_idx}_{v+1}", port_len_in,
-                               port_dia_in, port_dia_in, 400,
+                               port_dia_in, valve_dia_in, 400,
                                cid_port_split, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010)
 
     def _generate_simplified_exhaust(self, c):
@@ -633,7 +635,8 @@ class WAMGenerator:
     def _generate_full_exhaust(self, c):
         print("DEBUG: Generating FULL Exhaust (CSL 3-Stage Topology)")
         port_len_ex = c.engine.head.exhaust_port.length / 1000.0
-        port_dia_ex = c.engine.head.exhaust_port.diameter / 1000.0
+        port_dia_ex = c.engine.head.exhaust_port.diameter / 1000.0   # 48mm (header side)
+        valve_dia_ex = c.engine.head.exhaust_valve.diameter / 1000.0  # 30.5mm (valve side)
         
         # --- 1. COLLECTORS (Type 12: Direct Branch Junction) ---
         # Bank 1: Cyl 1-3 Headers + Col_Out_L share junction
@@ -654,7 +657,7 @@ class WAMGenerator:
             # Type 12 ③ : Port merge junction (Port1 + Port2 + Header)
             cid_port_merge = self._create_branch_junction()
 
-            # Exhaust Ports (2 per cyl, single pipe each, φ48, 90mm)
+            # Exhaust Ports (2 per cyl, tapered φ30.5→φ48, 90mm)
             for v in range(2):
                 vid_global = 12 + (i * 2) + v + 1
                 self.valves_exhaust.append(vid_global)
@@ -664,8 +667,9 @@ class WAMGenerator:
                 cid_valve = self.connection_counter
                 self._add_con_valve_v2(pid_port, 0, cyl_idx, False, vid_global) 
                 
+                # Taper: valve_dia(T10 valve side) → port_dia(T12 header side)
                 self._add_pipe(pid_port, f"Port_Ex_{cyl_idx}_{v+1}", port_len_ex,
-                               port_dia_ex, port_dia_ex, 600,
+                               valve_dia_ex, port_dia_ex, 600,
                                cid_valve, cid_port_merge, friction=c.engine.head.port_friction, dx_mesh=0.010)
 
             # Header: Start connects to port merge junction (Type 12)

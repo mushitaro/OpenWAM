@@ -69,7 +69,7 @@ class HeadConfig(BaseModel):
     valves_per_cyl: int = 4
     wall_temp: float = 450.0 # K
     intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0)
-    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=260.0)
+    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=260.0, diameter=30.5)
     intake_port: PortConfig = PortConfig(diameter=52.0, length=105.0) # S54 CSL Spec
     exhaust_port: PortConfig = PortConfig(diameter=48.0, length=90.0)  # S54 CSL Spec
     port_friction: float = 0.05 # F1-Spec Port Job (was 0.3-0.5)
