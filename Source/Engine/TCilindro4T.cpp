@@ -1228,6 +1228,31 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
     // << FTemperature << " (\260C)" << std::endl;
     // }
 
+    // Cold-start over-expansion guard. The same initial condition (P, M) is
+    // imposed on every cylinder irrespective of its crank position at t=0, so a
+    // cylinder that starts near TDC (very small volume) holds an unphysically
+    // cold charge; its first expansion drives the integrated temperature to a
+    // cryogenic near-vacuum (observed 0.1 bar / -82.8 C / ~190 K on cylinder 4,
+    // cycle 1). That seed then makes the exhaust-valve boundary draw the port
+    // node to negative density and cascades to NaN across the whole network. The
+    // next cycle is already healthy (+45 C), so floor the converged temperature
+    // to a physical minimum and let the lines below rebuild pressure and sound
+    // speed consistently from it. Real gas exchange (fresh charge >= ~290 K,
+    // exhaust far hotter) never approaches this floor, so steady operation is
+    // untouched. 250 K (-23.15 C) sits safely below any real in-cylinder gas
+    // temperature yet above the cold-start artifact.
+    const double TempMinDegC = -23.15; // 250 K
+    if (!(Temp1 > TempMinDegC)) {       // also catches NaN
+      // Startup-only event (cylinders are integrated serially here), so a plain
+      // bounded counter is sufficient just to keep the log readable.
+      static long coldStartWarn = 0;
+      if (++coldStartWarn <= 20)
+        printf("WARNING: floored cold-start cylinder %d temperature %.2f C -> "
+               "%.2f C (TCilindro4T)\n",
+               FNumeroCilindro, Temp1, TempMinDegC);
+      Temp1 = TempMinDegC;
+    }
+
     FTemperatura0 = FTemperature;
     FTemperature = Temp1;
 

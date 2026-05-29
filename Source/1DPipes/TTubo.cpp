@@ -1489,6 +1489,27 @@ void TTubo::Transforma2Area(double &v, double &a, double &p, double **U,
       U[2][i] = P / Gamma1 + U[1][i] * V / 2.0;
     }
 
+    // Consistency clamp: the density and pressure floors above fire
+    // independently, so a cell can end up with a tiny floored density yet a
+    // finite floored pressure. That pair is thermodynamically inconsistent (it
+    // implies a near-infinite temperature) and yields an astronomical sound
+    // speed a = sqrt(Gamma*P/rho), which collapses the CFL timestep to ~1e-13
+    // and aborts the run with "plenum n. N too small". Bound the density from
+    // below for the current pressure so the floored vacuum cell has a physical
+    // sound speed (<= a_max). Healthy cells have a ~ 1 (adimensional) and sit
+    // far above rho_min, so they are untouched. Species partial densities are
+    // scaled by the same factor to preserve the mass fractions.
+    const double a_max = 3.0; // adimensional (~1029 m/s), above any real exhaust
+    const double rho_min = Gamma * P / (a_max * a_max * __cons::ARef2);
+    if (U[0][i] < rho_min) {
+      const double scale = rho_min / U[0][i];
+      for (int j = 3; j < FNumEcuaciones; j++)
+        U[j][i] *= scale;
+      U[0][i] = rho_min;
+      V = U[1][i] / U[0][i];
+      U[2][i] = P / Gamma1 + U[1][i] * V / 2.0;
+    }
+
     v = V / __cons::ARef;
     p = __units::PaToBar(P) / area;
     a = sqrt(Gamma * P / U[0][i] / __cons::ARef2);
