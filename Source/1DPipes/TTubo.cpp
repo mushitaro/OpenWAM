@@ -1510,6 +1510,28 @@ void TTubo::Transforma2Area(double &v, double &a, double &p, double **U,
       U[2][i] = P / Gamma1 + U[1][i] * V / 2.0;
     }
 
+    // Velocity clamp: the density floor above only triggers on U[0] <= 0 (or
+    // non-finite), so a tiny-but-positive floored density next to a finite
+    // momentum yields an enormous V = U[1]/U[0]. That makes the TVD stability
+    // speed VTotalMax = |v| + a diverge and the global timestep
+    // dt = Courant * dx / VTotalMax collapse to exactly 0 -- a Zeno stall that
+    // freezes the run at one crank angle (observed at the cyl-3 exhaust port,
+    // Theta ~ 847 deg, dt -> 0 while the step counter spins). Bound |V| to a
+    // generous physical ceiling (Mach ~5 on the reference sound speed) and
+    // rebuild momentum and energy consistently. Real port flow is <= Mach 1, so
+    // healthy cells are never touched; only pathological vacuum cells are.
+    const double V_max = 5.0 * __cons::ARef;
+    if (!(fabs(V) <= V_max)) { // also catches NaN/Inf
+      static long s_vClampWarn = 0;
+      if (++s_vClampWarn <= 20)
+        printf("WARNING: clamped non-physical velocity in pipe %d node %d "
+               "V=%.3e -> +-%.3e (Transforma2Area)\n",
+               FNumeroTubo, i, V, V_max);
+      V = (V > 0.0) ? V_max : -V_max;
+      U[1][i] = U[0][i] * V;
+      U[2][i] = P / Gamma1 + U[1][i] * V / 2.0;
+    }
+
     v = V / __cons::ARef;
     p = __units::PaToBar(P) / area;
     a = sqrt(Gamma * P / U[0][i] / __cons::ARef2);

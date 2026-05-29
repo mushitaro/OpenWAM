@@ -2276,12 +2276,42 @@ int TOpenWAM::SelectPipe(const std::vector<std::unique_ptr<TTubo>> &LPipe,
 }
 
 void TOpenWAM::Progress() {
+  // Progress() is invoked once per main-loop iteration == once per global
+  // timestep, so this counts total solver steps for the rate diagnostic below.
+  static long dtdiag_steps = 0;
+  static long dtdiag_steps_prev = 0;
+  ++dtdiag_steps;
+  // Step-based dt trace (OPENWAM_DTSTEP=N): print dt/Theta every N steps,
+  // independent of the 1%-progress gate, to expose a timestep collapsing toward
+  // zero (a Zeno stall the per-1% trace cannot show because % stops advancing).
+  if (const char *ev = getenv("OPENWAM_DTSTEP")) {
+    long every = atol(ev);
+    if (every > 0 && (dtdiag_steps % every) == 0)
+      printf("DTSTEP: step=%ld dt=%.3e s Theta=%.4f deg pacing_pipe=%d\n",
+             dtdiag_steps, Run.TimeStep, Theta, JCurrent + 1);
+  }
   Percentage = (float)((Theta - ThetaIni) / (thmax - ThetaIni) * 100.);
   Increment = int(Percentage);
   if (Increment > Steps) {
     std::cout << std::endl;
     std::cout << "===================================" << std::endl;
     std::cout << "Progress : " << Percentage << "% " << std::endl;
+    // Opt-in rate diagnostic (OPENWAM_DTDIAG=1): report the current global
+    // timestep, which pipe is pacing it, and the wall-clock cost per step, so a
+    // slow run can be attributed to step COUNT (small dt) vs per-step COST.
+    // Printed once per 1% progress, so it cannot flood the log.
+    if (getenv("OPENWAM_DTDIAG")) {
+      struct timeb now;
+      ftime(&now);
+      double wall_ms = (now.time - begining.time) * 1000.0 +
+                       (now.millitm - begining.millitm);
+      long dsteps = dtdiag_steps - dtdiag_steps_prev;
+      dtdiag_steps_prev = dtdiag_steps;
+      printf("DTDIAG: dt=%.3e s  pacing_pipe=%d  Theta=%.1f deg  "
+             "steps=%ld  wall=%.1fs  ms/step=%.2f\n",
+             Run.TimeStep, JCurrent + 1, Theta, dtdiag_steps, wall_ms / 1000.0,
+             dsteps > 0 ? wall_ms / dtdiag_steps : 0.0);
+    }
     std::cout << "-----------------------------------" << std::endl;
 #ifdef gestorcom
     if (GestorWAM != NULL)
