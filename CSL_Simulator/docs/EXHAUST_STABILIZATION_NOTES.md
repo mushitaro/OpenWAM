@@ -120,6 +120,51 @@ normal shock) handle the 135 sonic events cleanly, and the seed fix removed the
 NaN that originally motivated the plenum. **Decision: default to plenumless
 Type-12** (`port_junction_vol = 0`).
 
+## Stage 5 (in progress): the runtime "hang" was a Zeno timestep collapse
+A step-resolved trace (`OPENWAM_DTSTEP=N`, commit `2cf2c97`) overturned the
+"slow run" assumption. The flow solver is fast (**0.28 ms/step single-thread,
+27 % of 2 cycles reached in 0.2 s wall**). The run then **freezes at one crank
+angle**: at the cyl-3 exhaust blowdown (**Theta ≈ 847 deg, pacing pipe =
+Port_Ex_3**) the global timestep `dt = Courant·dx/VTotalMax` collapses to
+**exactly 0** while the main loop spins (48 000+ steps at the same Theta, no
+wall-clock progress). Not slowness — a Zeno deadlock.
+
+### Cause chain (confirmed by gdb backtraces + warning trace)
+1. The **cyl-3 exhaust-valve boundary** (`TCCCilindro::FlujoSalienteCilindro`,
+   Type-8) emits a pathological characteristic pair (Landa/Beta) during the
+   supercritical blowdown. `TransformaContorno` turns the huge `(L−B)` into a
+   velocity of **Mach ~90 (V = 3–5e4 m/s)** at the port's valve-side node.
+2. `VTotalMax = |v| + a` diverges → `dt → 0`.
+3. The density floor in `Transforma2Area` only caught `U[0] ≤ 0`, so the tiny-
+   but-positive floored density next to finite momentum re-inflated `V`.
+
+### What the velocity clamp fixes (commit `2cf2c97`)
+Bounding `|V|` to Mach ~5 in `Transforma2Area` (rebuilding momentum+energy)
+**removes the `dt=0` freeze** — the run advances past Theta 847 again. But the
+**valve boundary still emits the bad state every blowdown** (the clamp fires
+~20×/cyl-3 event), so a residual remains:
+
+| topology (2-cycle, all guards) | NaN | abort | dt=0 freeze |
+|---|---|---|---|
+| plenumless Type-12 | 92 | 0 | broken, but NaN at cyl-3 junction |
+| small plenum 30 cc | **0** | **0** | still Zeno-frozen (~step 850) |
+| small plenum 50 cc | 0 | 1 | abort (StudyInflowOutflowMass) |
+
+The 30 cc plenum + velocity clamp reaches **zero NaN / zero abort**, but the
+underlying valve-boundary velocity explosion still stalls the timestep. **The
+true root cause is the exhaust-valve boundary (`TCCCilindro`) producing a
+supersonic / near-vacuum port state at cyl-3 blowdown** — every guard so far
+(`Transforma2Area` density/pressure/velocity floors) is downstream
+firefighting. Next: fix the seed in `FlujoSalienteCilindro` (bound the emitted
+characteristic / throat state to the physical post-shock solution), not the
+pipe cells.
+
+### Diagnostics added (`2cf2c97`, opt-in, zero cost when unset)
+- `OPENWAM_DTDIAG=1` — per-1%-progress: `dt`, pacing pipe, `ms/step`
+  (separates step-count from per-step cost).
+- `OPENWAM_DTSTEP=N` — every N steps: `dt`/`Theta`/pacing pipe, independent of
+  the progress gate, so a `dt→0` stall is visible even when % is frozen.
+
 ## Logging / safety
 - `TTubo::ComunicacionTubo_CC` BC-NaN `printf` is bounded by a **thread-safe
   `std::atomic<int>`** (cap 50 each for LEFT/RIGHT). The pipe loop is
