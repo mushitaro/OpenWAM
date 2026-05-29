@@ -104,8 +104,21 @@ because of the cold-start seed, which is now fixed.
 - `<= 0` → plenumless Type-12 (ports + header share one branch junction; plenum
   count returns 13→7).
 
-A/B validation of the two paths (NaN, abort, %/s, est. sweep wall-clock on an
-uncontended core) is the immediate next measurement before committing to one.
+### A/B result (4000 RPM/WOT, 6-cycle, seed fixed) — plenumless WINS
+| topology | NaN | Sonic | abort | failure |
+|---|---|---|---|---|
+| small plenum 20cc | 12 | 0 | **yes** | `StudyInflowOutflowMass` (cociente≥2) |
+| small plenum 50cc | 102 | 203 | no | timestep crawl (133 h/sweep) |
+| small plenum 100cc | 44 | 0 | no | timestep crawl (133 h/sweep) |
+| small plenum 200cc | **0** | 0 | **yes** | `StudyInflowOutflowMass` |
+| **plenumless Type-12** | **0** | 135 (all guarded) | **none** | — (stable) |
+
+The small-plenum approach aborts or crawls at *every* volume. Plenumless
+Type-12 is **stable with zero NaN and zero aborts** — the Stage-1
+`TCCRamificacion` guards (entropy-ratio fallback, sound-speed floor, guarded
+normal shock) handle the 135 sonic events cleanly, and the seed fix removed the
+NaN that originally motivated the plenum. **Decision: default to plenumless
+Type-12** (`port_junction_vol = 0`).
 
 ## Logging / safety
 - `TTubo::ComunicacionTubo_CC` BC-NaN `printf` is bounded by a **thread-safe

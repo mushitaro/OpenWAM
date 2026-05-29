@@ -159,11 +159,17 @@ class ExhaustConfig(BaseModel):
     section2: Section2Config = Section2Config()   # Merged Section (or Dual)
     section3: Section3Config = Section3Config()
     muffler_friction: float = 0.05 # Smooth Adapter (was 0.1)
-    # Small 0D plenum volume (cc) at each exhaust port-merge junction
-    # (2 ports + 1 header). Replaces the plenumless Type-12 junction that
-    # diverged to NaN under blowdown: small enough to preserve tuning
-    # waves, large enough to survive the blowdown shock.
-    port_junction_vol: float = 20.0
+    # Exhaust port-merge junction (2 ports + 1 header) topology selector, in cc:
+    #   > 0  : small 0D plenum of this volume per cylinder.
+    #   <= 0 : plenumless Type-12 Riemann junction (DEFAULT).
+    # A small plenum was tried first because the plenumless junction diverged to
+    # NaN under blowdown, but that divergence was driven by the cold-start
+    # cylinder seed (now floored in TCilindro4T). With the seed fixed, the
+    # plenumless Type-12 is stable with zero NaN and zero aborts, whereas every
+    # plenum volume either aborts (StudyInflowOutflowMass, cociente>=2) or
+    # collapses the timestep (projected 133 h for the 480-point sweep). See
+    # docs/EXHAUST_STABILIZATION_NOTES.md for the A/B data.
+    port_junction_vol: float = 0.0
 
 # Root Config
 class EnvironmentConfig(BaseModel):
