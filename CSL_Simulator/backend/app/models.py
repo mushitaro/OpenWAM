@@ -159,6 +159,11 @@ class ExhaustConfig(BaseModel):
     section2: Section2Config = Section2Config()   # Merged Section (or Dual)
     section3: Section3Config = Section3Config()
     muffler_friction: float = 0.05 # Smooth Adapter (was 0.1)
+    # Small 0D plenum volume (cc) at each exhaust port-merge junction
+    # (2 ports + 1 header). Replaces the plenumless Type-12 junction that
+    # diverged to NaN under blowdown: small enough to preserve tuning
+    # waves, large enough to survive the blowdown shock.
+    port_junction_vol: float = 20.0
 
 # Root Config
 class EnvironmentConfig(BaseModel):

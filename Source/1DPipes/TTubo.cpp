@@ -57,6 +57,7 @@ Valencia |    \\/   \//    M odel    |
 #include "TTubo.h"
 #include "../Boundaries/BoundaryFunctions.h"
 #include "TBloqueMotor.h"
+#include <atomic>
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -2485,17 +2486,19 @@ void TTubo::ActualizaValoresNuevos(
     TransformaContorno(LandaIzq, BetaIzq, EntropiaIzq, a, v, p, 1, FGamma1[0],
                        FGamma3[0], FGamma4[0], FGamma5[0]);
     // DEBUG (throttled): report the first NaN boundary states, then go silent.
-    // A divergent run can hit this every sub-step on every pipe, so an
-    // unbounded printf floods the log with hundreds of MB and stalls I/O.
-    static int nan_bc_reports_left = 0;
+    // The pipe loop is OpenMP-parallel, so a plain counter races and never
+    // converges; a divergent run then writes hundreds of MB and stalls I/O
+    // (one run hit 481 MB and OOM-degraded the host). A std::atomic bounds it.
     if (std::isnan(LandaIzq) || std::isnan(BetaIzq) ||
         std::isnan(EntropiaIzq) || std::isnan(a) || std::isnan(v) ||
         std::isnan(p)) {
-      if (nan_bc_reports_left < 50) {
+      static std::atomic<int> nanBcLeft{0};
+      int n = nanBcLeft.fetch_add(1);
+      if (n < 50) {
         printf("DEBUG BC NaN Pipe %d LEFT: Landa=%.6e Beta=%.6e Entropia=%.6e\n",
                FNumeroTubo, LandaIzq, BetaIzq, EntropiaIzq);
         printf("  After TransformaContorno: a=%.6e v=%.6e p=%.6e\n", a, v, p);
-        if (++nan_bc_reports_left == 50)
+        if (n == 49)
           printf("DEBUG BC NaN (LEFT): further reports suppressed.\n");
       }
     }
@@ -2527,16 +2530,17 @@ void TTubo::ActualizaValoresNuevos(
     TransformaContorno(LandaDer, BetaDer, EntropiaDer, a, v, p, 1,
                        FGamma1[FNin - 1], FGamma3[FNin - 1], FGamma4[FNin - 1],
                        FGamma5[FNin - 1]);
-    // DEBUG (throttled): report the first NaN boundary states, then go silent.
-    static int nan_bc_reports_right = 0;
+    // DEBUG (throttled): report the first NaN boundary states (see LEFT note).
     if (std::isnan(LandaDer) || std::isnan(BetaDer) ||
         std::isnan(EntropiaDer) || std::isnan(a) || std::isnan(v) ||
         std::isnan(p)) {
-      if (nan_bc_reports_right < 50) {
+      static std::atomic<int> nanBcRight{0};
+      int n = nanBcRight.fetch_add(1);
+      if (n < 50) {
         printf("DEBUG BC NaN Pipe %d RIGHT: Landa=%.6e Beta=%.6e Entropia=%.6e\n",
                FNumeroTubo, LandaDer, BetaDer, EntropiaDer);
         printf("  After TransformaContorno: a=%.6e v=%.6e p=%.6e\n", a, v, p);
-        if (++nan_bc_reports_right == 50)
+        if (n == 49)
           printf("DEBUG BC NaN (RIGHT): further reports suppressed.\n");
       }
     }

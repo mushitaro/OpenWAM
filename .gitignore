@@ -79,3 +79,10 @@ tmp.wam
 
 # Debug build tree (ASan/gdb)
 build_dbg/
+
+# OpenWAM CSL sweep/validation artifacts
+CSL_Simulator/backend/sp_*.wam
+CSL_Simulator/backend/sp_*.log
+CSL_Simulator/backend/baseline_*.wam
+CSL_Simulator/backend/*INS.DAT
+CSL_Simulator/backend/*AVG.DAT

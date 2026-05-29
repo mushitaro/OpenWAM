@@ -668,7 +668,15 @@ class WAMGenerator:
             target_col_cid = col_map.get(i, col1_branch_cid)
             
             # Type 12 ③ : Port merge junction (Port1 + Port2 + Header)
-            cid_port_merge = self._create_branch_junction()
+            # Port-merge junction implemented as a small 0D plenum. The
+            # plenumless Type-12 Riemann junction diverged to NaN here under
+            # exhaust blowdown (4-6 bar -> 1 bar shock at the 2-port + 1-header
+            # node). A small plenum buffers the shock while staying small enough
+            # to preserve tuning waves (volume from exhaust.port_junction_vol).
+            port_plenum_id = self.plenum_counter; self.plenum_counter += 1
+            self._add_plenum(port_plenum_id, f"PortJunc_Ex_{cyl_idx}",
+                             c.exhaust.port_junction_vol / 1.0e6, 600,
+                             allow_small=True)
 
             # Exhaust Ports (2 per cyl, tapered φ30.5→φ48, 90mm)
             for v in range(2):
@@ -683,7 +691,9 @@ class WAMGenerator:
                 # Taper: valve_dia(T10 valve side) → port_dia(T12 header side)
                 self._add_pipe(pid_port, f"Port_Ex_{cyl_idx}_{v+1}", port_len_ex,
                                valve_dia_ex, port_dia_ex, 600,
-                               cid_valve, cid_port_merge, friction=c.engine.head.port_friction, dx_mesh=0.010)
+                               cid_valve,
+                               self._add_con_plenum_pipe_v2(port_plenum_id, pid_port, 1),
+                               friction=c.engine.head.port_friction, dx_mesh=0.010)
 
             # Header: Start connects to port merge junction (Type 12)
             # End connects to collector branch junction (Type 12)
@@ -694,7 +704,7 @@ class WAMGenerator:
             pid_prim = self.pipe_counter; self.pipe_counter += 1 
             self.ids['headers'].append(pid_prim)
             
-            cid_header_start = cid_port_merge
+            cid_header_start = self._add_con_plenum_pipe_v2(port_plenum_id, pid_prim, 0)
             cid_col = target_col_cid
 
             self._add_pipe(pid_prim, f"Header_{cyl_idx}", header_len,
@@ -1510,7 +1520,7 @@ class WAMGenerator:
         # Controller ID
         self.wam_lines_valves.append(f"{ctrl_id}")
 
-    def _add_plenum(self, plid, label, vol, wall_temp, ptype=0):
+    def _add_plenum(self, plid, label, vol, wall_temp, ptype=0, allow_small=False):
         # Type 0: Constant Volume
         
         # Universal minimum volume clamp for numerical stability.
@@ -1534,9 +1544,15 @@ class WAMGenerator:
         #   H_Junc: 2cc → 50cc
         # Unaffected: Ambient (1e9), Plenum_Main (10.5L), Muffler (30L)
         
-        # Use configurable minimum volume (Strategy B: Low Vacuum Validation)
-        min_vol = getattr(self.config.intake, 'min_plenum_vol', 0.00005)
-        vol = max(vol, min_vol)
+        # Use configurable minimum volume (Strategy B: Low Vacuum Validation).
+        # allow_small bypasses the global clamp for purpose-built small junction
+        # plenums (e.g. the exhaust port-merge), which need ~tens of cc to keep
+        # wave dynamics. A small absolute floor still guards the RK solver.
+        if allow_small:
+            vol = max(vol, 1.0e-7)  # 0.1 cc absolute floor
+        else:
+            min_vol = getattr(self.config.intake, 'min_plenum_vol', 0.00005)
+            vol = max(vol, min_vol)
         
         self.wam_lines_plenums.append(f"{ptype}")
         self.wam_lines_plenums.append(self.air_comp)
@@ -1567,6 +1583,7 @@ class WAMGenerator:
         cid = self.connection_counter
         self.connections[cid] = (11, [f"0 {plid}", "25"])  # Type 11, plenum_id, valve index
         self.connection_counter += 1
+        return cid
 
     def _add_catalyst_section(self, node_left, node_right, cat_conf, label_prefix):
         """
