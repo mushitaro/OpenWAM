@@ -614,18 +614,37 @@ void TCilindro::AsignacionCC_Pointers(TCondicionContorno **BC, int numCC) {
 
     // Valor de alpha para el modelo de cortocircuito.
     if (FMotor->getEngineType() == nm4T) {
-      FAlphaEscape =
-          asin((dynamic_cast<TValvula4T *>(
-                    dynamic_cast<TCCCilindro *>(FCCValvulaEsc[0])->getValvula())
-                    ->getDiametro() /
-                2.) /
-               FMotor->getGeometria().DistanciaValvulas);
-      FAlphaAdmision =
-          asin((dynamic_cast<TValvula4T *>(
-                    dynamic_cast<TCCCilindro *>(FCCValvulaAdm[0])->getValvula())
-                    ->getDiametro() /
-                2.) /
-               FMotor->getGeometria().DistanciaValvulas);
+      double distVal = FMotor->getGeometria().DistanciaValvulas;
+      double rEsc = dynamic_cast<TValvula4T *>(
+                        dynamic_cast<TCCCilindro *>(FCCValvulaEsc[0])
+                            ->getValvula())
+                        ->getDiametro() /
+                    2.;
+      double rAdm = dynamic_cast<TValvula4T *>(
+                        dynamic_cast<TCCCilindro *>(FCCValvulaAdm[0])
+                            ->getValvula())
+                        ->getDiametro() /
+                    2.;
+      // asin() requires its argument in [-1, 1]. If the valve-centre distance
+      // is unset/zero (or smaller than the valve radius) the ratio leaves that
+      // range and asin() returns NaN, which then poisons the short-circuit
+      // scavenging mass (TCilindro*T.cpp) during valve overlap and propagates
+      // NaN out of the exhaust valve into the exhaust port pipe. Guard the
+      // domain: clamp the ratio, and disable the short-circuit term when the
+      // geometry is unspecified.
+      if (distVal > 0.0) {
+        double ratioEsc = rEsc / distVal;
+        double ratioAdm = rAdm / distVal;
+        if (ratioEsc > 1.0)
+          ratioEsc = 1.0;
+        if (ratioAdm > 1.0)
+          ratioAdm = 1.0;
+        FAlphaEscape = asin(ratioEsc);
+        FAlphaAdmision = asin(ratioAdm);
+      } else {
+        FAlphaEscape = 0.0;
+        FAlphaAdmision = 0.0;
+      }
     }
 
     if (FResInstantCilindro.MomentoAngularEsc) {

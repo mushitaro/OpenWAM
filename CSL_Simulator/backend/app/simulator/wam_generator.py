@@ -304,7 +304,20 @@ class WAMGenerator:
         rod = c.engine.geometry.rod_length / 1000.0
         stroke = c.engine.geometry.stroke / 1000.0
         cr = c.engine.geometry.compression_ratio
-        geom_line = f"{rod:.4f} {stroke:.4f} {bore:.4f} {cr:.2f} 0.0 0.0 0.0 0.0001 0.8 0.0 0.0 0.0 0.5 0.4 2.1e11 0.0"
+        # Distance between intake/exhaust valve centres (m). Field order in
+        # TBloqueMotor::Read: ... CR, DiametroBowl, AlturaBowl, DistanciaValvulas,
+        # AreaBlowBy, ... The previous hardcoded 0.0 here made the C++ solver
+        # compute asin(valve_radius / 0) = NaN for the short-circuit/scavenging
+        # model, which crashed the exhaust port. Estimate it from the valve
+        # diameters for the S54 pent-roof 4-valve head (centres ~ edge-to-edge
+        # plus a small bridge), guaranteeing a valid asin() argument.
+        d_in = c.engine.head.intake_valve.diameter / 1000.0
+        d_ex = c.engine.head.exhaust_valve.diameter / 1000.0
+        dist_valv = 0.5 * (d_in + d_ex) + 0.004
+        geom_line = (
+            f"{rod:.4f} {stroke:.4f} {bore:.4f} {cr:.2f} 0.0 0.0 "
+            f"{dist_valv:.5f} 0.0001 0.8 0.0 0.0 0.0 0.5 0.4 2.1e11 0.0"
+        )
         self._add(geom_line, "Geometry")
         
         # 11. Mechanical Losses

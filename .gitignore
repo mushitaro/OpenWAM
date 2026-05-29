@@ -76,3 +76,6 @@ Source/*.sln
 Source/ALL_BUILD.vcxproj*
 # OpenWAM runtime-cleaned input (CleanLabelsX)
 tmp.wam
+
+# Debug build tree (ASan/gdb)
+build_dbg/

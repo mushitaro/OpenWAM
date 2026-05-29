@@ -25,6 +25,10 @@ Valencia |   \\/   \//    M odel    |
  \*--------------------------------------------------------------------------------*/
 
 // ---------------------------------------------------------------------------
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
@@ -33,6 +37,11 @@ Valencia |   \\/   \//    M odel    |
 
 #include "TOpenWAM.h"
 #include "labels.hpp"
+
+#if defined(__linux__)
+#include <cfenv>
+#include <cstdlib>
+#endif
 
 // #include <tchar.h>
 // ---------------------------------------------------------------------------
@@ -53,6 +62,14 @@ Valencia |   \\/   \//    M odel    |
 TOpenWAM *Aplication = NULL;
 
 int main(int argc, char *argv[]) {
+
+#if defined(__linux__)
+  // Diagnostic aid (opt-in): set OPENWAM_FPTRAP=1 to trap the first
+  // NaN/Inf-producing floating-point op (SIGFPE) so its exact origin can be
+  // located under gdb. No effect on normal runs when the variable is unset.
+  if (getenv("OPENWAM_FPTRAP"))
+    feenableexcept(FE_INVALID | FE_DIVBYZERO);
+#endif
 
   init_labels();
 

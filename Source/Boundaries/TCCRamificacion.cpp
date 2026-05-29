@@ -297,6 +297,10 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
     if (TuboCalculado != 10000) {
       corr_entropia =
           FTuboExtremo[TuboCalculado].Entropia / FEntropia[TuboCalculado];
+      // A collapsed/NaN entropy ratio would poison the characteristics; fall
+      // back to "no correction" (ratio 1) when it is not physical.
+      if (!std::isfinite(corr_entropia) || corr_entropia <= 0.0)
+        corr_entropia = 1.0;
       *FCC[TuboCalculado] =
           (*FCC[TuboCalculado] +
            FGamma3 * FVelocity[TuboCalculado] * (corr_entropia - 1)) /
@@ -306,6 +310,14 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
       FTuboExtremo[TuboCalculado].Entropia = FEntropia[TuboCalculado];
 
       double ason = (*FCC[TuboCalculado] + *FCD[TuboCalculado]) / 2;
+      // Sound speed must be strictly positive. During violent choked blowdown
+      // the update above can make ason non-positive (or NaN); then
+      // Machx = |v|/ason comes out negative, the `Machx > 1` sonic test below
+      // is bypassed, and the unphysical state propagates into the connected
+      // pipe as NaN. Floor ason so the normal-shock reduction actually fires
+      // and returns a physical post-shock state.
+      if (!(ason > 0.0))
+        ason = 1e-4;
       double Machx = fabs(FVelocity[TuboCalculado]) / ason;
       if (Machx > 1) {
         printf("Sonic condition in boundary: %d\n", FNumeroCC);
@@ -316,6 +328,8 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
     } else {
       for (int i = 0; i < FNumeroTubosCC; i++) {
         corr_entropia = FTuboExtremo[i].Entropia / FEntropia[i];
+        if (!std::isfinite(corr_entropia) || corr_entropia <= 0.0)
+          corr_entropia = 1.0;
         *FCC[i] = (*FCC[i] + FGamma3 * FVelocity[i] * (corr_entropia - 1)) /
                   corr_entropia;
         *FCD[i] = *FCC[i] - FGamma1 * FVelocity[i];
@@ -351,8 +365,13 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
     }
     for (int i = 0; i < FNumeroTubosCC; i++) {
       if (FVelocity[i] > 0.) { // Flujo Saliente del tubo
-        FDensidad[i] =
-            pow(((*FCC[i] + *FCD[i]) / 2) / FTuboExtremo[i].Entropia, FGamma4);
+        // Guard the pow() base: (lambda+beta)/2 is the sound speed and must be
+        // >= 0; a non-finite/negative base would make pow(neg, FGamma4) NaN.
+        double dens_base =
+            ((*FCC[i] + *FCD[i]) / 2) / FTuboExtremo[i].Entropia;
+        if (!std::isfinite(dens_base) || dens_base < 0.0)
+          dens_base = 0.0;
+        FDensidad[i] = pow(dens_base, FGamma4);
         g = FDensidad[i] * FSeccionTubo[i] * FVelocity[i];
         m = g * DeltaT;
         MasaTotal += m;

@@ -224,14 +224,6 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
         FK = 2.0;
       if (FK < 0)
         FK = 0;
-
-      // Debug trace (occasional)
-      static int debug_counter = 0;
-      debug_counter++;
-      if (debug_counter % 5000 == 0) {
-        printf("[TCCPerdidadePresion] Time=%.5f ID=%d Cd=%.4f K=%.4f\n", Time,
-               FValveID, cd, FK);
-      }
     }
 
     if (FTuboActual == 10000) {

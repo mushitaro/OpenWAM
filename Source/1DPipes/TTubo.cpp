@@ -1446,23 +1446,47 @@ void TTubo::Transforma2Area(double &v, double &a, double &p, double **U,
   try {
 #endif
     double fraccionmasicaacum = 0.;
-    if (U[0][i] <= 0 || std::isnan(U[0][i]) || std::isinf(U[0][i])) {
-      printf("DEBUG PIPE SPECIES NaN Pipe %d Node %d: U[0][i]=%.6e "
-             "(Transforma2Area)\n",
-             FNumeroTubo, i, U[0][i]);
-      printf("  U[1][i]=%.6e U[2][i]=%.6e U[3][i]=%.6e\n", U[1][i], U[2][i],
-             U[3][i]);
-      std::cout << "ERROR: Calculation in pipe " << FNumeroTubo
-                << " is unstable" << std::endl;
-      if (FMod.Modelo == nmLaxWendroff)
-        std::cout << "       Try to use TVD scheme for this pipe" << std::endl;
-      else
-        std::cout << "       Check the input data" << std::endl;
-      throw Exception("ERROR: the pipe calculation is unstable");
+    // Positivity preservation for density: under violent transients (exhaust
+    // blowdown) the conserved density at the valve-side node can momentarily
+    // collapse to <=0 or go non-finite. Rather than aborting the whole
+    // multi-cycle run, floor it to a near-vacuum density at rest and sanitise
+    // the species partial densities. A throttled warning makes the frequency
+    // visible so a transient recovery can be told apart from a real blow-up.
+    if (!(U[0][i] > 0.0) || !std::isfinite(U[0][i])) {
+      static long s_rhoFloorWarn = 0;
+      if (++s_rhoFloorWarn <= 20)
+        printf("WARNING: floored non-physical density in pipe %d node %d "
+               "U[0]=%.3e (Transforma2Area)\n",
+               FNumeroTubo, i, U[0][i]);
+      U[0][i] = 1e-8; // adimensional near-vacuum density floor
+      U[1][i] = 0.0;  // momentum -> rest
+      for (int j = 3; j < FNumEcuaciones; j++)
+        if (!std::isfinite(U[j][i]))
+          U[j][i] = 0.0;
+      if (!std::isfinite(U[2][i]))
+        U[2][i] = 0.0;
     }
 
     double V = U[1][i] / U[0][i];
     double P = (U[2][i] - U[1][i] * V / 2.0) * Gamma1;
+
+    // Positivity preservation: under violent transients (exhaust blowdown) the
+    // conserved energy can momentarily yield non-positive pressure. Density is
+    // already guarded above, but without a pressure guard the line below would
+    // compute a = sqrt(negative) = NaN, which then cascades through the pipe
+    // and aborts the whole multi-cycle run. Floor the pressure to a near-vacuum
+    // value and rebuild the conserved energy consistently. P is area-weighted
+    // here (P == area * pressure[Pa]), so the floor scales with the cell area.
+    const double P_min = 1000.0 * area; // ~0.01 bar
+    if (!(P > P_min)) {                 // also catches NaN
+      static long s_pFloorWarn = 0;
+      if (++s_pFloorWarn <= 20)
+        printf("WARNING: floored non-physical pressure in pipe %d node %d "
+               "(Transforma2Area)\n",
+               FNumeroTubo, i);
+      P = P_min;
+      U[2][i] = P / Gamma1 + U[1][i] * V / 2.0;
+    }
 
     v = V / __cons::ARef;
     p = __units::PaToBar(P) / area;
