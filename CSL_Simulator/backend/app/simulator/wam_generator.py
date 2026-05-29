@@ -713,7 +713,8 @@ class WAMGenerator:
                                valve_dia_ex, port_dia_ex, 600,
                                cid_valve,
                                _port_node(pid_port),
-                               friction=c.engine.head.port_friction, dx_mesh=0.010)
+                               friction=c.engine.head.port_friction,
+                               dx_mesh=c.exhaust.exhaust_port_mesh)
 
             # Header: Start connects to port merge junction
             # End connects to collector branch junction (Type 12)

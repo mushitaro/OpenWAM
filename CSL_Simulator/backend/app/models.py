@@ -170,6 +170,13 @@ class ExhaustConfig(BaseModel):
     # collapses the timestep (projected 133 h for the 480-point sweep). See
     # docs/EXHAUST_STABILIZATION_NOTES.md for the A/B data.
     port_junction_vol: float = 0.0
+    # Exhaust-port pipe mesh size (m). Configurable for stability experiments.
+    # NOTE: a mesh sweep (10/20/30/45 mm) showed the cyl-3 blowdown NaN is
+    # mesh-INDEPENDENT (NaN ~92-102 at every size), so the port mesh is not the
+    # root cause; 20 mm only "finished" because the whole gas mass had gone to
+    # ~1e-77 g (a dead system that integrates instantly, not a valid solution).
+    # Kept at the original 10 mm. See docs/EXHAUST_STABILIZATION_NOTES.md.
+    exhaust_port_mesh: float = 0.010
 
 # Root Config
 class EnvironmentConfig(BaseModel):

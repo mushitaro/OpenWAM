@@ -41,6 +41,9 @@ Valencia
 #ifdef __BORLANDC__
 #include <vcl.h>
 #endif
+#include <atomic>
+#include <cmath>
+#include <cstdlib>
 #include "TTubo.h"
 
 #include "TValvula4T.h"
@@ -550,6 +553,24 @@ void TCCCilindro::FlujoSalienteCilindro() {
     }
     *FCD = FSonido + Ga3U;
     *FCC = FSonido - Ga3U;
+    // Diagnostic (OPENWAM_VLVDIAG=1): catch the moment the exhaust-valve
+    // boundary emits a supersonic outflow characteristic. The pipe velocity it
+    // implies is v = (FCD - FCC)/(2*Gamma3) = Ga3U/Gamma3 = FVelocity, so flag
+    // when |FVelocity| exceeds the cylinder sound speed by a wide margin (the
+    // physical post-throat flow is <= sonic). Throttled so it cannot flood.
+    if (getenv("OPENWAM_VLVDIAG")) {
+      double acyl = FCilindro->getSpeedsound() / __cons::ARef;
+      if (fabs(FVelocity) > 3.0 * acyl || FSonido <= 0. ||
+          !std::isfinite(FVelocity) || !std::isfinite(FSonido)) {
+        static std::atomic<int> vlvDiag{0};
+        int n = vlvDiag.fetch_add(1);
+        if (n < 40)
+          printf("VLVDIAG BC %d (cyl-exh): FVelocity=%.4e FSonido=%.4e "
+                 "a_cyl=%.4e Ad=%.4e Fk=%.4e Entropia=%.4e FCC=%.4e FCD=%.4e\n",
+                 FNumeroCC, FVelocity, FSonido, acyl, FAd, Fk,
+                 FTuboExtremo[0].Entropia, *FCC, *FCD);
+      }
+    }
     d1 = FSonido / (FTuboExtremo[0].Entropia * FAd);
     FRelacionPresionGarganta = pow(d1, FGamma4);
     FMachGarganta = FVelocidadGarganta / a1;
