@@ -662,53 +662,73 @@ class WAMGenerator:
         col_map = {0: col1_branch_cid, 1: col1_branch_cid, 2: col1_branch_cid,
                    3: col2_branch_cid, 4: col2_branch_cid, 5: col2_branch_cid}
         
+        # Port-merge junction topology is selectable via exhaust.port_junction_vol:
+        #   > 0  : small 0D plenum per cylinder (buffers the blowdown shock, but a
+        #          tiny plenum shrinks the 0D stability timestep and can abort with
+        #          StudyInflowOutflowMass "mass increment too big" / "plenum too
+        #          small" under high blowdown flux).
+        #   <= 0 : plenumless Type-12 Riemann junction (no mass-storage stability
+        #          limit, best wave fidelity). This originally diverged to NaN, but
+        #          that was driven by the cold-start cylinder seed (now floored in
+        #          TCilindro4T) -- with the seed fixed the Riemann junction is the
+        #          preferred path and avoids the small-plenum timestep penalty that
+        #          made the 480-point sweep impractical.
+        use_port_plenum = c.exhaust.port_junction_vol > 0.0
+
         # HEADER + PORT GENERATION
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
             target_col_cid = col_map.get(i, col1_branch_cid)
-            
-            # Type 12 ③ : Port merge junction (Port1 + Port2 + Header)
-            # Port-merge junction implemented as a small 0D plenum. The
-            # plenumless Type-12 Riemann junction diverged to NaN here under
-            # exhaust blowdown (4-6 bar -> 1 bar shock at the 2-port + 1-header
-            # node). A small plenum buffers the shock while staying small enough
-            # to preserve tuning waves (volume from exhaust.port_junction_vol).
-            port_plenum_id = self.plenum_counter; self.plenum_counter += 1
-            self._add_plenum(port_plenum_id, f"PortJunc_Ex_{cyl_idx}",
-                             c.exhaust.port_junction_vol / 1.0e6, 600,
-                             allow_small=True)
+
+            if use_port_plenum:
+                port_plenum_id = self.plenum_counter; self.plenum_counter += 1
+                self._add_plenum(port_plenum_id, f"PortJunc_Ex_{cyl_idx}",
+                                 c.exhaust.port_junction_vol / 1.0e6, 600,
+                                 allow_small=True)
+                # Port ends attach at plenum end 1, header start at end 0.
+                def _port_node(pid):
+                    return self._add_con_plenum_pipe_v2(port_plenum_id, pid, 1)
+                def _header_start_node(pid):
+                    return self._add_con_plenum_pipe_v2(port_plenum_id, pid, 0)
+            else:
+                # Plenumless Type-12: ports and header share one branch junction.
+                cid_port_merge = self._create_branch_junction()
+                def _port_node(pid, _c=cid_port_merge):
+                    return _c
+                def _header_start_node(pid, _c=cid_port_merge):
+                    return _c
 
             # Exhaust Ports (2 per cyl, tapered φ30.5→φ48, 90mm)
             for v in range(2):
                 vid_global = 12 + (i * 2) + v + 1
                 self.valves_exhaust.append(vid_global)
-                
+
                 pid_port = self.pipe_counter; self.pipe_counter += 1
-                
+
                 cid_valve = self.connection_counter
-                self._add_con_valve_v2(pid_port, 0, cyl_idx, False, vid_global) 
-                
+                self._add_con_valve_v2(pid_port, 0, cyl_idx, False, vid_global)
+
                 # Taper: valve_dia(T10 valve side) → port_dia(T12 header side)
                 self._add_pipe(pid_port, f"Port_Ex_{cyl_idx}_{v+1}", port_len_ex,
                                valve_dia_ex, port_dia_ex, 600,
                                cid_valve,
-                               self._add_con_plenum_pipe_v2(port_plenum_id, pid_port, 1),
+                               _port_node(pid_port),
                                friction=c.engine.head.port_friction, dx_mesh=0.010)
 
-            # Header: Start connects to port merge junction (Type 12)
+            # Header: Start connects to port merge junction
             # End connects to collector branch junction (Type 12)
             header_len = c.exhaust.headers.primary_length / 1000.0
             header_dia = c.exhaust.headers.primary_diameter / 1000.0
             col_dia = c.exhaust.headers.collector_dia / 1000.0
-            
-            pid_prim = self.pipe_counter; self.pipe_counter += 1 
+
+            pid_prim = self.pipe_counter; self.pipe_counter += 1
             self.ids['headers'].append(pid_prim)
-            
-            cid_header_start = self._add_con_plenum_pipe_v2(port_plenum_id, pid_prim, 0)
+
+            cid_header_start = _header_start_node(pid_prim)
             cid_col = target_col_cid
 
             self._add_pipe(pid_prim, f"Header_{cyl_idx}", header_len,
-                           header_dia, col_dia, 
+                           header_dia, col_dia,
                            c.exhaust.headers.wall_temp, cid_header_start, cid_col, friction=c.exhaust.headers.header_friction, dx_mesh=0.035)
 
         # COLLECTOR OUTPUT PIPES

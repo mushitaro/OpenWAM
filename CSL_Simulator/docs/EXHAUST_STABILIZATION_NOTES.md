@@ -51,27 +51,61 @@ Per-cylinder port-merge is now a small 0D plenum instead of a Type-12 junction.
   junction volume.
 - Plenums 7 → 13 (one per cylinder); pipes unchanged (75).
 
-## Next step (Stage 3): fix the seed, not the amplifier
-The remaining work is at the **cylinder→exhaust-valve boundary** (Type-8
-connection / `TCCCilindro` + the valve-side node of the `Port_Ex` pipe):
-1. Instrument `INFO: Calculated pressure/temperature at E.O.` — find why E.O.
-   yields 0.1 bar / −82 °C (likely an over-expansion in the cylinder blowdown
-   model or a bad initial port state).
-2. Check the exhaust-valve `Cd`/effective-area at very low lift just off the
-   seat during blowdown (a near-zero area with a large Δp can over-draw the
-   port node to negative density).
-3. Consider a small positivity/relaxation guard at the valve-side port node,
-   mirroring the existing `Transforma2Area` floors.
+## Stage 3 (DONE, partial): fixed the seed — `ae8fb14`
+Confirmed the seed and fixed it at the source. Two commits beyond Stage 2:
 
-## Runtime caveat for the 480-point VE sweep
-The extra small plenums shrink the 0D stability timestep, so the run is slow
-(reached only ~3–6 % within the test budget). Before the sweep:
-- decide the minimum `duration_cycles` that reaches quasi-steady;
-- confirm OpenMP threads are engaged for the 1-D solver;
-- keep `port_junction_vol = 20`.
-The wall-clock-per-point still needs measuring on an uncontended core (the scan
-above ran several sims concurrently, so its timings are not trustworthy — only
-the NaN/health counts are).
+### 3a. Cold-start cylinder over-expansion (the real seed)
+`INFO: Calculated ... at E.O.` instrumentation (4000 RPM/WOT, 6-cycle smoke)
+showed the cryogenic state is a **first-cycle startup artifact, not a steady
+defect**:
+- cyl 4, cycle 1: **0.100 bar / −82.8 °C (~190 K)** ← seed
+- cyl 1, cycle 2: **0.917 bar / +45 °C** ← already healthy
+
+Root cause: OpenWAM imposes one initial condition (`P=1.013 bar, M=0.6 g`) on
+**every** cylinder regardless of its crank angle at t=0. A cylinder starting
+near TDC (tiny volume) holds an unphysically cold charge; its first expansion
+integrates to a near-vacuum. Fix (`TCilindro4T::ActualizaPropiedades`): floor
+the converged cylinder temperature to **250 K** and let the existing lines
+rebuild `P` and sound speed consistently. Real gas exchange never approaches
+the floor, so steady operation is untouched.
+
+### 3b. Density/pressure consistency clamp (`TTubo::Transforma2Area`)
+The Stage-1 density and pressure floors fire **independently**, so a cell could
+end up with floored density `~1e-8` yet a finite floored pressure — a
+thermodynamically inconsistent pair (implies ~infinite T) giving an
+astronomical sound speed, which collapsed the CFL timestep to ~6e-14 and
+aborted with "plenum too small". Fix: bound density from below for the current
+pressure so a floored vacuum cell has a physical sound speed (≤ ~1029 m/s),
+scaling species partial densities to preserve mass fractions.
+
+### Measured effect (4000 RPM/WOT, 6-cycle smoke, `port_junction_vol=20`)
+| stage | BC-NaN | Sonic | abort timestep | failure mode |
+|---|---|---|---|---|
+| Stage 2 (seed unfixed) | 41 | 0 | — (timeout) | network-wide NaN incl. intake pipe 10 |
+| + 3a cold-start floor | 20 | 0 | 6.6e-14 | `plenum 7 too small` (CFL collapse) |
+| + 3b consistency clamp | **12** | 0 | **1.96e-7** | `StudyInflowOutflowMass` (cociente≥2) |
+
+The intake cascade is **gone**; remaining NaN are local to the exhaust port
+nodes (pipes 45/46) and the abort is no longer NaN/CFL but the **0D junction
+plenum mass-flux limit** (`StudyInflowOutflowMass`, `TOpenWAM.cpp:2526`:
+mass into the 20cc plenum > 2× its mass in one step).
+
+## Stage 4 (in progress): junction architecture — small-plenum vs plenumless
+The `cociente≥2` abort is intrinsic to a *tiny 0D plenum* absorbing blowdown
+flux; enlarging it hurts wave fidelity, and the small plenums also shrink the
+timestep so much the 480-point sweep was projected at **25–33 h @ 8×** (old
+pre-seed-fix data). A **plenumless Type-12 Riemann junction** has no
+mass-storage stability limit and no timestep penalty — it only diverged before
+because of the cold-start seed, which is now fixed.
+
+`wam_generator._generate_full_exhaust` now selects topology by
+`exhaust.port_junction_vol`:
+- `> 0`  → small 0D plenum per cylinder (Stage 2 behaviour);
+- `<= 0` → plenumless Type-12 (ports + header share one branch junction; plenum
+  count returns 13→7).
+
+A/B validation of the two paths (NaN, abort, %/s, est. sweep wall-clock on an
+uncontended core) is the immediate next measurement before committing to one.
 
 ## Logging / safety
 - `TTubo::ComunicacionTubo_CC` BC-NaN `printf` is bounded by a **thread-safe
