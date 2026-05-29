@@ -86,3 +86,7 @@ CSL_Simulator/backend/sp_*.log
 CSL_Simulator/backend/baseline_*.wam
 CSL_Simulator/backend/*INS.DAT
 CSL_Simulator/backend/*AVG.DAT
+# Generated valve-lift/Cd curves (rewritten by wam_generator every run;
+# canonical source profiles live in CSL_Simulator/backend/app/data/)
+CSL_Simulator/backend/intake.vlv
+CSL_Simulator/backend/exhaust.vlv
