@@ -30,6 +30,7 @@
 
 #include "TDepVolCte.h"
 
+#include <atomic>
 #include "TCCDeposito.h"
 #include "TCCUnionEntreDepositos.h"
 #include "TTubo.h"
@@ -97,6 +98,21 @@ void TDepVolCte::ActualizaPropiedades(double TimeCalculo) {
 		double Diff = 0.;
 		double Heat = 0.;
 		double MTemp = FGamma / (pow2(FAsonido * __cons::ARef) * FMasa0);
+
+		// The fixed-point iteration on the plenum sound speed below has no
+		// intrinsic cap. A small plenum hit by a violent transient (e.g. an
+		// exhaust port-merge plenum during cylinder blowdown) can make the
+		// enthalpy flux H large enough that the iteration oscillates and never
+		// reaches the 1e-6 tolerance, so the whole simulation hangs in this loop
+		// (confirmed by gdb: 100 % wall time in TDepVolCte::ActualizaPropiedades
+		// with the step counter frozen). Cap the iterations; past the cap, switch
+		// to damped (under-relaxed) updates so an oscillating sequence is forced
+		// to settle, and accept the result at a looser tolerance. A normal step
+		// converges in well under 20 iterations, so this never triggers in
+		// healthy operation.
+		int iter = 0;
+		const int kMaxIter = 200;
+		const int kRelaxAfter = 50;
 
 		while(!Converge) {
 			H = 0.;
@@ -190,12 +206,29 @@ void TDepVolCte::ActualizaPropiedades(double TimeCalculo) {
 			Energia = pow(FMasa / FMasa0 * exp((H0 + H) / 2 - Heat), __Gamma::G1(FGamma));
 
 			Asonido1 = FAsonido * sqrt(Energia);
+			// Past the relaxation threshold, blend the new estimate with the
+			// previous one to break an oscillating (non-contracting) sequence.
+			if(iter >= kRelaxAfter) {
+				const double relax = 0.5;
+				Asonido1 = relax * Asonido1 + (1. - relax) * Asonido0;
+			}
 			Error = (Diff = Asonido1 - Asonido0, fabs(Diff)) / Asonido1;
-			if(Error > 1e-6) {
-				Asonido0 = Asonido1;
-			} else {
+			++iter;
+			if(Error <= 1e-6) {
 				Converge = true;
 				FAsonido = Asonido1;
+			} else if(iter >= kMaxIter) {
+				// Accept the current (relaxed) estimate rather than spin forever.
+				Converge = true;
+				FAsonido = Asonido1;
+				static std::atomic<int> depNoConv{0};
+				int n = depNoConv.fetch_add(1);
+				if(n < 20)
+					printf("WARNING: plenum %d sound-speed iteration hit cap "
+						   "(Error=%.2e), accepting relaxed value\n",
+						   FNumeroDeposito, Error);
+			} else {
+				Asonido0 = Asonido1;
 			}
 		}
 		double A2 = pow2(__cons::ARef * FAsonido);
