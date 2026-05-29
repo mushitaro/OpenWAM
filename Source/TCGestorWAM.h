@@ -28,14 +28,18 @@
 #ifndef TCGestorWAMH
 #define TCGestorWAMH
 //---------------------------------------------------------------------------
-#endif
 
 //#include <Classes.hpp>
 //#include <stdio.h>
-#include <windows.h>
 //#include <iostream>
 //#include <sstream>
 #include "Globales.h"
+
+#ifdef _WIN32
+// Windows GUI bridge: communicates progress/results to the OpenWAM front-end
+// through a named pipe. This whole feature is additionally gated by the
+// `gestorcom` macro at the call sites in TOpenWAM.cpp.
+#include <windows.h>
 
 #define BUFSIZE 4096
 
@@ -59,3 +63,17 @@ class TCGestorWAM {
 	void FichResInstantActualizado();
 	void Terminar();
 };
+
+#else  // !_WIN32
+
+// On non-Windows platforms the named-pipe GUI bridge is unavailable. All usage
+// in TOpenWAM.cpp is compiled out via `#ifdef gestorcom`, so a complete but
+// empty stub is sufficient to satisfy the std::unique_ptr<TCGestorWAM> member.
+class TCGestorWAM {
+  public:
+	TCGestorWAM() {}
+};
+
+#endif  // _WIN32
+
+#endif  // TCGestorWAMH

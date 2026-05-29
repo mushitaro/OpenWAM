@@ -39,6 +39,8 @@ Valencia
 #include <cstdio>
 #include <iostream>
 #include <string.h>
+#include <memory>
+#include <vector>
 
 #ifdef __BORLANDC__
 #include <vcl.h>

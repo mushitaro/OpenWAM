@@ -38,8 +38,13 @@ add_executable(OpenWAM
   OpenWAM.cpp
   TOpenWAM.cpp
   TTimeControl.cpp
-  OpenWAM.rc
 )
+
+# The Windows resource (icon/version metadata) only applies to Windows builds.
+# Guard it so the project also builds on Linux/macOS (e.g. for ASan reproduction).
+if(WIN32)
+  target_sources(OpenWAM PRIVATE OpenWAM.rc)
+endif()
 
 if(OpenMP_CXX_FOUND)
   target_link_libraries(OpenWAM PRIVATE OpenMP::OpenMP_CXX)

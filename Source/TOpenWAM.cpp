@@ -398,6 +398,17 @@ void TOpenWAM::CleanLabelsX() {
     }
   }
   fetmp.close();
+
+  // The loop above consumed FileInput to EOF while producing the cleaned
+  // "tmp.wam". Re-point FileInput at that cleaned file so the rest of
+  // ReadInputData (version, flags, general data, ...) reads the cleaned
+  // content from the beginning. Without this, FileInput stays at EOF and
+  // `FileInput >> OpenWAMVersion` returns 0, aborting with a bogus
+  // "WAM VERSION IS NOT CORRECT" error. (Linux-only path; Windows skips
+  // CleanLabelsX and reads the original file directly.)
+  FileInput.close();
+  FileInput.clear();
+  FileInput.open(fileinput.c_str());
 }
 
 void TOpenWAM::CleanLabels() {
