@@ -1520,7 +1520,14 @@ void TTubo::Transforma2Area(double &v, double &a, double &p, double **U,
     // generous physical ceiling (Mach ~5 on the reference sound speed) and
     // rebuild momentum and energy consistently. Real port flow is <= Mach 1, so
     // healthy cells are never touched; only pathological vacuum cells are.
-    const double V_max = 5.0 * __cons::ARef;
+    // Mach ~1.5 on the reference sound speed: above any real port flow (<= Mach
+    // 1 choked) yet tight enough to limit how far a pathological vacuum cell can
+    // perturb the junction. A clamp sweep (Mach 1.2/1.5/2/5) showed tighter is
+    // strictly better for the cyl-3 blowdown (NaN 69/71/73/92), so prefer the
+    // physical ceiling. Env-overridable for experiments.
+    static const double V_max =
+        (getenv("OPENWAM_VMAX") ? atof(getenv("OPENWAM_VMAX")) : 1.5) *
+        __cons::ARef;
     if (!(fabs(V) <= V_max)) { // also catches NaN/Inf
       static long s_vClampWarn = 0;
       if (++s_vClampWarn <= 20)
