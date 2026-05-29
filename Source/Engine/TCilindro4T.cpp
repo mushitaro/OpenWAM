@@ -34,6 +34,7 @@ Valencia |   \\/   \//    M odel    |
 #include "TCCCilindro.h"
 #include "TTubo.h"
 #include "Constantes.h"
+#include <cstdlib>
 
 // #include <cmath>
 //  ---------------------------------------------------------------------------
@@ -1241,7 +1242,8 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
     // exhaust far hotter) never approaches this floor, so steady operation is
     // untouched. 250 K (-23.15 C) sits safely below any real in-cylinder gas
     // temperature yet above the cold-start artifact.
-    const double TempMinDegC = -23.15; // 250 K
+    const double TempMinDegC =
+        getenv("OPENWAM_TFLOOR") ? atof(getenv("OPENWAM_TFLOOR")) : -23.15;
     if (!(Temp1 > TempMinDegC)) {       // also catches NaN
       // Startup-only event (cylinders are integrated serially here), so a plain
       // bounded counter is sufficient just to keep the log readable.
