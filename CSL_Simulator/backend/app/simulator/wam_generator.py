@@ -1404,27 +1404,32 @@ class WAMGenerator:
 
     def _calculate_throttle_angle(self, ro: float) -> float:
         """
-        Non-linear DBW Logic for ITB (Individual Throttle Body).
-        Convert Relative Opening (0.0-1.0) to Physical Angle (deg).
-        
-        Formula: TP = Offset + (Max - Offset) * (RO ^ Gamma)
-        - Offset: 3.0 deg (ICV bypass angle at idle)
-        - Max: 90.0 deg
-        - Gamma: 0.4 (Non-linear: expands low-RO resolution)
-        
-        Gamma=0.4 effect:
-          RO=0.39% → 6.3deg (vs 3.3deg linear)
-          RO=1.0%  → 8.7deg (vs 3.9deg linear)
-          RO=10%   → 22.7deg (vs 11.7deg linear)
-          RO=100%  → 90.0deg (unchanged)
+        Map relative pedal/throttle opening (0..1) to physical butterfly blade
+        angle (deg), measured from fully closed.
+
+        Formula: TP = offset + (max - offset) * RO^gamma
+
+        gamma controls the progression:
+          - gamma < 1 opens the blade FAST at low pedal (the old gamma=0.4 sent
+            5% pedal to ~29 deg, Cd~0.55 -- a half-open throttle. The throttle
+            then could not meter air: measured VE was ~105% flat from 5% to 100%
+            throttle, i.e. the load axis did not bite at all);
+          - gamma > 1 is progressive: low pedal -> small angle -> small area,
+            which is how a real butterfly meters air. gamma=1.4 gives
+            10% pedal -> ~5.5 deg, 39% -> ~25 deg, 100% -> 90 deg, so the
+            flow tracks pedal instead of saturating.
+
+        idle_offset is the small always-open angle (idle bypass / blade-gap
+        leakage) so a "closed" throttle still flows the ~10-15% an ITB idles on.
+        Both gamma and the idle offset are env-tunable for calibration.
         """
-        # Clamp input
+        import os
         ro = max(0.0, min(1.0, ro))
-        
-        idle_offset = 3.0
+
+        idle_offset = float(os.environ.get("OPENWAM_THR_OFFSET", "2.0"))
         max_angle = 90.0
-        gamma = 0.4  # Non-linear: aggressive low-RO sensitivity
-        
+        gamma = float(os.environ.get("OPENWAM_THR_GAMMA", "1.4"))
+
         tp = idle_offset + (max_angle - idle_offset) * (ro ** gamma)
         return tp
 

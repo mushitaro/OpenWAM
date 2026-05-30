@@ -31,6 +31,7 @@ Valencia
 
 #include "TCCPerdidadePresion.h"
 #include <stdio.h>
+#include <cstdlib>
 
 // #include <cmath>
 #ifdef __BORLANDC__
@@ -214,14 +215,24 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
       } catch (...) {
         cd = 0.5; // Fallback on any error
       }
-      // Floor: Cd=0.05 → K=399 → clamped to 2.0. Prevents NaN at low angles.
-      if (cd < 0.05)
-        cd = 0.05;
+      // Floor on Cd: a near-closed butterfly has a tiny Cd (large K). The old
+      // code floored Cd at 0.05 AND clamped K at 2.0, which made the throttle
+      // unable to restrict flow at all -- at 5% pedal the loss was the same K=2
+      // as at ~30% (measured VE ~105% flat from 5% to 20% throttle). The K=2
+      // ceiling was a stability workaround, but the root-search interval already
+      // keeps the loss functor's b1 term non-negative, so a much larger K just
+      // chokes the flow toward zero (the intended behaviour). Raise the ceiling
+      // so part-throttle actually meters air; keep both knobs env-tunable for
+      // calibration. Cd floor 0.02 ~ real ITB blade-gap leakage.
+      double cd_floor = getenv("OPENWAM_CD_FLOOR")
+                            ? atof(getenv("OPENWAM_CD_FLOOR")) : 0.02;
+      double k_ceiling = getenv("OPENWAM_K_CEIL")
+                             ? atof(getenv("OPENWAM_K_CEIL")) : 50.0;
+      if (cd < cd_floor)
+        cd = cd_floor;
       FK = (1.0 / (cd * cd)) - 1.0;
-
-      // Ceiling: K=2.0 is the maximum stable pressure loss for 1D pipe solvers
-      if (FK > 2.0)
-        FK = 2.0;
+      if (FK > k_ceiling)
+        FK = k_ceiling;
       if (FK < 0)
         FK = 0;
     }
