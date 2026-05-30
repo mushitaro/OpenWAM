@@ -370,9 +370,15 @@ class WAMGenerator:
         # Extended simulation time: 2.0s for cycle stabilization (was 0.5s)
         # At 3000 RPM: 2.0s = ~50 cycles, sufficient for VE convergence
         self._add(f"2.0 {c.simulation.duration_cycles}", "dTheta Duration") 
-        # OpenWAM expects BAR for P_amb
+        # OpenWAM expects BAR for P_amb, and degC for T_amb: TOpenWAM reads
+        # AmbientTemperature and applies degCToK() everywhere (TBloqueMotor,
+        # TTubo atmosphere BC, ...). ambient_temp is stored in KELVIN, so it MUST
+        # be converted. Previously the raw 298 was written and read as 298 degC =
+        # 571 K, feeding ~571 K air into the intake and roughly halving the charge
+        # density -> the uniform VE ~50% under-fill.
         p_amb_bar = c.environment.ambient_pressure / 100000.0
-        self._add(f"{p_amb_bar:.5f} {c.environment.ambient_temp}", "P_amb T_amb")
+        t_amb_c = c.environment.ambient_temp - 273.15
+        self._add(f"{p_amb_bar:.5f} {t_amb_c:.2f}", "P_amb T_amb (degC)")
         
         # General Data
         self._add("1 2", "Species=Complete, Gamma=Comp+Temp")
@@ -504,7 +510,12 @@ class WAMGenerator:
         c_pipe_to_filter = self._create_pipe_to_pipe_connection()
         
         # Intake Pipe: Low friction (smooth carbon), D=200mm
-        self._add_pipe(intake_pipe_id, "CSL_Intake_Pipe", 0.350, 0.200, 0.200, 300, 
+        # NOTE: pipe wall temps are in degC (OpenWAM applies degCToK on read).
+        # The intake tract was authored in KELVIN by mistake (300/313/400), so
+        # OpenWAM saw 300/313/400 degC = 573/586/673 K walls that cooked the
+        # intake charge to ~600 K (VE ~50%). Corrected to the intended values in
+        # degC: snorkel/filter ~27 C, bellmouth/runners ~40 C, port ~127 C.
+        self._add_pipe(intake_pipe_id, "CSL_Intake_Pipe", 0.350, 0.200, 0.200, 27,
                        cid_amb, c_pipe_to_filter, friction=0.05, dx_mesh=0.05)
         
         # 3. Panel Filter (Between Pipe and Plenum)
@@ -525,7 +536,7 @@ class WAMGenerator:
         
         # Panel Filter: Short (20mm), Wide (300mm), High Friction (Filter Media)
         # Friction 0.5-1.0 typical for filter media in 1D
-        self._add_pipe(filter_id, "CSL_Panel_Filter", 0.020, 0.300, 0.300, 300,
+        self._add_pipe(filter_id, "CSL_Panel_Filter", 0.020, 0.300, 0.300, 27,
                        cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
 
 
@@ -588,7 +599,7 @@ class WAMGenerator:
             
             # Bellmouth pipe (taper: φ70 → φ52)
             self._add_pipe(bellmouth_id, f"Bellmouth_{cyl_idx}", bellmouth_len,
-                           bellmouth_entry_dia, itb_dia, 313,
+                           bellmouth_entry_dia, itb_dia, 40,
                            cid_bell_start, cid_bell_end, friction=0.015, dx_mesh=0.010)
             
             # --- RUNNER UPPER (Throttle → EqTube branch, φ52, 15mm) ---
@@ -602,7 +613,7 @@ class WAMGenerator:
             cid_eq_branch = self._create_branch_junction()
             
             self._add_pipe(runner_upper_id, f"Runner_Upper_{cyl_idx}", 0.015,
-                           itb_dia, itb_dia, 313,
+                           itb_dia, itb_dia, 40,
                            cid_run_upper_start, cid_eq_branch, friction=0.05, dx_mesh=0.0075,
                            init_p=intake_map_bar)
 
@@ -614,7 +625,7 @@ class WAMGenerator:
             self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
 
             self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", 0.075,
-                           eq_pipe_dia, eq_pipe_dia, 313,
+                           eq_pipe_dia, eq_pipe_dia, 40,
                            cid_eq_branch, cid_eq_end, friction=0.02, dx_mesh=0.025,
                            init_p=intake_map_bar)
 
@@ -625,7 +636,7 @@ class WAMGenerator:
             cid_port_split = self._create_branch_junction()
             
             self._add_pipe(runner_lower_id, f"Runner_Lower_{cyl_idx}", 0.025,
-                           itb_dia, itb_dia, 313,
+                           itb_dia, itb_dia, 40,
                            cid_eq_branch, cid_port_split, friction=0.05, dx_mesh=0.010,
                            init_p=intake_map_bar)
 
@@ -643,7 +654,7 @@ class WAMGenerator:
                 
                 # Taper: port_dia(T12 runner side) → valve_dia(T10 valve side)
                 self._add_pipe(pid_port, f"Port_In_{cyl_idx}_{v+1}", port_len_in,
-                               port_dia_in, valve_dia_in, 400,
+                               port_dia_in, valve_dia_in, 127,
                                cid_port_split, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010,
                                init_p=intake_map_bar)
 

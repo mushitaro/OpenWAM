@@ -670,3 +670,55 @@ was an **artifact of a single wrong static IVC** (90 deg ABDC, the old IVO=360),
 which sits far down the falling edge at *every* RPM. It is not a flat offset and
 not a physics limit: **intake-valve TIMING is the dominant VE lever**, confirming
 Stage 13's wave-tuning result with hard numbers.
+
+## Stage 15 — converged VE is physical, not the freeze: it's the hot intake charge
+
+With `OPENWAM_HLLC=1` the cyl-3 blowdown freeze is gone (NaN=0) and the run
+completes 10-20 cycles. This lets us read the *converged* (not first-cycle) VE
+for the first time, and it is sobering:
+
+- At 4000 RPM / IVO 330, the converged trapped mass plateaus at **~0.36 g
+  (~57% VE)**, oscillating 0.28-0.42 g. The Stage-14 "84-96%" was a **first-cycle
+  median inflated by the start-up overshoot** (0.7-0.9 g, then 2.7 g spike), not
+  the settled value. The ~0.4-0.5x under-fill is **real and physical**, exactly
+  as Stage 13 suspected — the freeze was only hiding it.
+
+### Bug found and fixed: intake temps were Kelvin-as-Celsius
+`OPENWAM_INTEMP` showed the whole intake tract (bellmouth pipe-3 *and* port
+pipe-7) sitting at **~600 K**, not ambient. Root cause: OpenWAM reads pipe wall
+temps and the atmosphere temp as **degC** (`degCToK()` everywhere —
+TTubo.cpp:1152/2518, TOpenWAM.cpp:623, TBloqueMotor.cpp:67), but the generator
+wrote them in **Kelvin**:
+- atmosphere `ambient_temp` 298 -> read as 298 degC = **571 K** inlet air;
+- intake walls 300/313/400 -> read as degC = **573/586/673 K**.
+(The exhaust 700/800 and the engine-block "60" were correctly authored in degC —
+800 degC = 1073 K is right for a WOT header — so the bug was intake-only.)
+
+Fix: write the atmosphere temp as `ambient_temp - 273.15` and the intake walls in
+degC (snorkel/filter 27, bellmouth/runners 40, port 127). This is a genuine
+correctness fix and lifted the converged VE **50% -> ~57%** — but did NOT cool the
+charge, because the heat is not coming from the walls.
+
+### Where the heat actually comes from (OPENWAM_VLVWIN)
+Mapping the cyl-1 intake valve over a converged cycle (Theta: 360 = gas-exchange
+TDC, 540 = BDC, IVC ~600) shows the real mechanism:
+
+| phase | Theta | dir | p_cyl | T_port |
+|---|---|---|---|---|
+| valve shut (prev-cycle residue) | 272-317 | -- | 1.6-1.8 | 650-855 K |
+| overlap, just after IVO | 347-362 | **SAL (back)** | 1.46->0.69 | 543-654 K |
+| intake stroke | 377-407 | ENT (fill) | low | -- |
+| wave reversals | 423-438, 513-528 | SAL | swinging | ~600 K |
+| late IVC | 589 | SAL (back) | 1.39 | 615 K |
+
+The chain: **the exhaust does not scavenge** — cylinder pressure is still
+**1.4-1.8 bar during the exhaust stroke** (high back-pressure, restrictive
+cat+H-pipe+dual-muffler). So at overlap the high-pressure, hot residual
+**back-flows into the intake port**, which then sits full of 600-800 K gas that
+never cools cycle-to-cycle. The next stroke ingests that hot gas -> charge
+~470-600 K -> low density -> ~57% VE.
+
+**Conclusion: the remaining VE gap is EXHAUST-SCAVENGING-driven, not intake.** The
+next lever is exhaust back-pressure / residual reduction (geometry restriction,
+EVO/EVC, blowdown), to be attacked next. Diagnostics used:
+`OPENWAM_HLLC`, `OPENWAM_INTEMP`, `OPENWAM_VLVWIN`.
