@@ -494,9 +494,14 @@ class WAMGenerator:
             self.ids['itbs'] = []
         if 'plenum_intake' not in self.ids: self.ids['plenum_intake'] = None
         
-        # 1. Ambient Plenum
+        # 1. Ambient Plenum -- this 1000 m3 reservoir IS the intake air SOURCE.
+        # Plenum temps are degC (TDeposito applies degCToK). It was 300 = read as
+        # 300 degC = 573 K, so the model fed ~573 K "outside air" into the whole
+        # intake -- the dominant reason the charge ran ~570 K (VE ~57%) even after
+        # the pipe walls were cooled. Use the real ambient (KELVIN) as degC.
         amb_in_id = self.plenum_counter; self.plenum_counter += 1
-        self._add_plenum(amb_in_id, "Ambient_Intake", 1000.0, 300, ptype=0) # Type 0 = Constant Volume
+        t_amb_c = c.environment.ambient_temp - 273.15
+        self._add_plenum(amb_in_id, "Ambient_Intake", 1000.0, t_amb_c, ptype=0) # Type 0 = Constant Volume
         
         # 2. CSL Intake Pipe (Snorkel)
         # Spec: D=200mm, Length Tapered 500mm-200mm -> Avg 350mm
@@ -528,7 +533,8 @@ class WAMGenerator:
         
         # Plenum
         plenum_id = self.plenum_counter; self.plenum_counter += 1
-        self._add_plenum(plenum_id, "Plenum_Main", c.intake.plenum_vol/1000.0, 313)
+        # degC: airbox sits in the engine bay, ~40 C (was 313 = read as 313 C = 586 K)
+        self._add_plenum(plenum_id, "Plenum_Main", c.intake.plenum_vol/1000.0, 40)
         self.ids['plenum_intake'] = plenum_id
         
         cid_plenum_in = self.connection_counter
@@ -565,7 +571,8 @@ class WAMGenerator:
         # convergence), so it is left at atmospheric.
         eq_tube_id = self.plenum_counter; self.plenum_counter += 1
         eq_tube_vol = math.pi * (0.010**2) * 0.450  # ~1.41e-4 m³ ≈ 141cc
-        self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 313)
+        # degC: intake-side equalization tube, ~40 C (was 313 = read as 313 C = 586 K)
+        self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 40)
         print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
 
         # The equalisation tube sits DOWNSTREAM of the per-cylinder throttles
@@ -666,7 +673,7 @@ class WAMGenerator:
         
         # Create one Ambient Exhaust Plenum
         amb_ex_id = self.plenum_counter; self.plenum_counter += 1
-        self._add_plenum(amb_ex_id, "Ambient_Exhaust", 1000.0, 300, ptype=0) # Type 0 = Constant Volume
+        self._add_plenum(amb_ex_id, "Ambient_Exhaust", 1000.0, 25, ptype=0) # degC outside air (was 300=573K)
         
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
@@ -961,7 +968,7 @@ class WAMGenerator:
 
         # Tailpipes
         amb_out_id = self.plenum_counter; self.plenum_counter += 1
-        self._add_plenum(amb_out_id, "Ambient_Exhaust", 1000.0, 300)
+        self._add_plenum(amb_out_id, "Ambient_Exhaust", 1000.0, 25)  # degC outside air (was 300=573K)
         tail_len = c.exhaust.section3.tailpipe_length / 1000.0
         tail_dia = c.exhaust.section3.diameter / 1000.0
         

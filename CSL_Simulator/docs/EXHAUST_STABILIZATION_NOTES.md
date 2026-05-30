@@ -711,14 +711,66 @@ TDC, 540 = BDC, IVC ~600) shows the real mechanism:
 | wave reversals | 423-438, 513-528 | SAL | swinging | ~600 K |
 | late IVC | 589 | SAL (back) | 1.39 | 615 K |
 
-The chain: **the exhaust does not scavenge** — cylinder pressure is still
-**1.4-1.8 bar during the exhaust stroke** (high back-pressure, restrictive
-cat+H-pipe+dual-muffler). So at overlap the high-pressure, hot residual
-**back-flows into the intake port**, which then sits full of 600-800 K gas that
-never cools cycle-to-cycle. The next stroke ingests that hot gas -> charge
-~470-600 K -> low density -> ~57% VE.
-
-**Conclusion: the remaining VE gap is EXHAUST-SCAVENGING-driven, not intake.** The
-next lever is exhaust back-pressure / residual reduction (geometry restriction,
-EVO/EVC, blowdown), to be attacked next. Diagnostics used:
+The VLVWIN snapshots show SAL (back-flow) into the port at overlap and late IVC,
+with the port at 600-800 K. **An early read of these snapshots (1.4-1.8 bar
+"back-pressure") was WRONG and is corrected in Stage 16** — those p_cyl values
+were instantaneous samples, not the exhaust-stroke mean. Diagnostics used:
 `OPENWAM_HLLC`, `OPENWAM_INTEMP`, `OPENWAM_VLVWIN`.
+
+## Stage 16 — it is NOT back-pressure: it's hot-gas recirculation through the valve
+
+Stage 15 guessed the hot charge came from a restrictive exhaust. A proper
+time-averaged measurement (`scripts/exhaust_backpressure_diag.py`, last converged
+cycle) **disproves that**:
+
+- **Exhaust-stroke cylinder pressure: mean 1.02 bar** (min 0.87, max 1.43) — a
+  perfectly normal back-pressure (real CSL WOT ~1.1-1.3 bar abs).
+- The exhaust static-pressure profile from port -> tail is **flat at ~1.01 bar**
+  (every component drop < 0.005 bar): **the exhaust is NOT restrictive**, there is
+  no localised loss artifact in the cat/muffler/junctions.
+
+Decomposing the trapped state at IVC (same INS.DAT):
+
+| quantity | value | reading |
+|---|---|---|
+| trapped P_cyl | 1.29 bar | healthy (slight ram, above MAP) |
+| trapped T | **574 K** | the problem |
+| trapped mass | 0.43 g | VE ~67% |
+| intake port mean P (fill) | 0.99 bar | manifold delivers fine, ~0.02 bar drop |
+| if same P but T=298 K | -- | VE would be ~130% |
+
+So the under-fill is **purely a charge-TEMPERATURE problem**: P and delivery are
+fine, but the trapped charge is ~574 K, almost exactly the residual/exhaust
+temperature (~563 K). **The cylinder is recirculating its own hot gas instead of
+exchanging it for fresh air.**
+
+### The thermal-boundary fixes do NOT move it (heat is gas-borne, not wall-borne)
+Two genuine Kelvin-as-degC bugs were found and fixed (OpenWAM reads pipe/plenum
+temps and the ambient temp as degC, `degCToK()`), but **neither cools the charge**:
+1. intake pipe walls + engine ambient (Stage 15 fix): 300/313/400 / 298 ->
+   573/586/673 / 571 K, corrected to 27/40/127 degC / ambient. VE 50% -> ~57%.
+2. **the intake air SOURCE plenums** (this stage): `Ambient_Intake` (the 1000 m3
+   reservoir feeding the intake) and `Plenum_Main` (10.5 L airbox) and the
+   `Equalization_Tube` were 300/313 = read as 573/586 K. Corrected to ambient /
+   40 degC. **VE unchanged (~52-57%), intake still ~570 K.**
+
+That the air source being 573 K vs 25 K changes nothing proves the ~570 K intake
+is **not** an init/boundary temperature — it is hot cylinder gas convected back
+through the intake valve during gas exchange and not flushed out by fresh air.
+(The plenum/source fixes are kept anyway: a 573 K air source is plainly wrong and
+will matter once the recirculation is cured.)
+
+### Where it comes from and the open question
+VLVWIN shows two back-flow events feeding the port: (a) overlap (IVO ~28 BTDC,
+EVC ~6 ATDC, ~34 deg overlap) pushing ~560 K residual into the port; (b) late IVC
+(60 deg ABDC) pushing already-compressing, heating charge back out. The port then
+re-ingests that hot gas, and it propagates upstream past the throttle to the
+bellmouth.
+
+**Open question for next session:** is this recirculation *over-stated physics*
+(too much overlap / too-late IVC for this engine -> fix via valve timing, i.e.
+the exhaust VANOS `kf_avan1_soll`+offset and a re-evaluated IVC) or a *numerical
+transport artifact* at the valve BC / Type-12 port junctions (species/energy not
+convecting fresh air in / hot gas out)? Decisive next test: sweep overlap/IVC and
+watch trapped T; if T tracks overlap, it is timing; if T stays ~570 K regardless,
+it is transport.
