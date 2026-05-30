@@ -248,6 +248,29 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
 
     FAd = pow(FCilindro->getPressure() / FPref, 1. / FGamma4);
     rel_CCon_Entropia = *FCC / FTuboExtremo[0].Entropia;
+    // Diagnostic (OPENWAM_VLVWIN=1): map the INTAKE valve open window & flow
+    // direction over a converged cycle to see when it actually admits charge.
+    if (getenv("OPENWAM_VLVWIN") && FTipoValv != nmValvEscape &&
+        FNumeroCC == 9 && FMotor->getCiclo() >= 4) {
+      // One specific cyl-1 intake valve BC, converged cycle. Use the CYLINDER's
+      // live angle (the BC's own FAnguloActual is stale). Print every ~15 deg.
+      double th = FCilindro->getAnguloActual();
+      static double s_lt = -1e9;
+      if (th < s_lt) s_lt = -1e9; // cycle wrapped
+      if (th - s_lt > 15.0) {
+        s_lt = th;
+        double ratio = rel_CCon_Entropia / FAd;
+        const char *dir = (ratio > 1.000005) ? "ENT(fill)"
+                          : (ratio < 0.999995) ? "SAL(back)" : "stop";
+        double p_port = FTuboExtremo[0].Pipe->GetPresion(FNodoFin);
+        double rho_port = FTuboExtremo[0].Pipe->GetDensidad(FNodoFin);
+        double T_port = __units::BarToPa(p_port) / (287.0 * rho_port);
+        printf("VLVWIN Theta=%.1f Vcyl=%.0fcc p_cyl=%.3f T_port=%.0fK "
+               "p_port=%.3f CdEnt=%.3f dir=%s\n",
+               th, FCilindro->getVolumen() * 1e6, FCilindro->getPressure(),
+               T_port, p_port, FValvula->getCDTubVol(), dir);
+      }
+    }
     if (rel_CCon_Entropia / FAd > 1.000005) { // Flujo entrante al cilindro
       FSentidoFlujo = nmEntrante;
       FValvula->GetCDin(FTime1);
@@ -259,16 +282,18 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
         // log the port vs cylinder state so a weak fill can be attributed to a
         // low port pressure/density (manifold not delivering) vs a small valve.
         if (getenv("OPENWAM_FILLDIAG") && FTipoValv != nmValvEscape &&
-            FGasto < -1e-4) {
-          static int s_fd = 0;
-          if (s_fd < 30) {
+            FNumeroCilindro == 1 && FMotor->getCiclo() >= 4) {
+          // Log the intake valve open-window: Cd>0 means open. Sample every
+          // ~15 deg over a converged cycle to map WHEN the valve flows.
+          static double s_lastT = -1e9;
+          if (fabs(FAnguloActual - s_lastT) > 15.0) {
+            s_lastT = FAnguloActual;
             double p_port = FTuboExtremo[0].Pipe->GetPresion(FNodoFin); // bar
             double rho_port = FTuboExtremo[0].Pipe->GetDensidad(FNodoFin);
-            printf("FILLDIAG BC %d cyl %d: p_port=%.3f bar rho_port=%.3f "
-                   "p_cyl=%.3f bar FGasto=%.4e CdEnt=%.3f Theta=%.1f\n",
-                   FNumeroCC, FNumeroCilindro, p_port, rho_port,
-                   FCilindro->getPressure(), FGasto, FCDEntrada, FAnguloActual);
-            ++s_fd;
+            printf("FILLDIAG cyl1 Theta=%.1f CdEnt=%.3f p_port=%.3f rho_port=%.3f "
+                   "p_cyl=%.3f FGasto=%.3e\n",
+                   FAnguloActual, FCDEntrada, p_port, rho_port,
+                   FCilindro->getPressure(), FGasto);
           }
         }
         /* CALCULO DEL MOMENTO ANGULAR ENTRANTE L */
