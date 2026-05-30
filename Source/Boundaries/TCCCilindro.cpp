@@ -255,6 +255,22 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
       if (FCDEntrada > 0.0001) { /* Abierto */
         FSeccionEficaz = FCDEntrada * FSeccionValvula;
         FlujoEntranteCilindro();
+        // Diagnostic (OPENWAM_FILLDIAG=1): for the INTAKE valve while filling,
+        // log the port vs cylinder state so a weak fill can be attributed to a
+        // low port pressure/density (manifold not delivering) vs a small valve.
+        if (getenv("OPENWAM_FILLDIAG") && FTipoValv != nmValvEscape &&
+            FGasto < -1e-4) {
+          static int s_fd = 0;
+          if (s_fd < 30) {
+            double p_port = FTuboExtremo[0].Pipe->GetPresion(FNodoFin); // bar
+            double rho_port = FTuboExtremo[0].Pipe->GetDensidad(FNodoFin);
+            printf("FILLDIAG BC %d cyl %d: p_port=%.3f bar rho_port=%.3f "
+                   "p_cyl=%.3f bar FGasto=%.4e CdEnt=%.3f Theta=%.1f\n",
+                   FNumeroCC, FNumeroCilindro, p_port, rho_port,
+                   FCilindro->getPressure(), FGasto, FCDEntrada, FAnguloActual);
+            ++s_fd;
+          }
+        }
         /* CALCULO DEL MOMENTO ANGULAR ENTRANTE L */
         if (FGasto < -1e-5) {
           FCTorbellino = FValvula->getCTorb();
