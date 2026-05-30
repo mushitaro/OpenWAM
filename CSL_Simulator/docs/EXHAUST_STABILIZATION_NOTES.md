@@ -576,3 +576,35 @@ Calibrating VE to the stock curve is therefore a multi-factor intake-tuning task
 (set the real S54 VANOS timing AND damp the over-resonant manifold), distinct
 from the now-finished stability work. `OPENWAM_IVO` / `OPENWAM_IN_DUR` expose the
 timing for that work.
+
+## Stage 13 — VE calibration: NOT over-resonance, NOT overlap; hot-charge feedback
+
+Systematic elimination of the uniform ~0.4x VE under-fill (all env-gated probes):
+
+1. **Over-resonance — RULED OUT.** At a FIXED realistic S54 cam
+   (IVO=348, dur=252 -> IVC=600) the converged VE is a SMOOTH 38-46% across
+   2000-7000 rpm (not jagged). The earlier wild swings (38% at IVC620 -> 203% at
+   IVC570) come only from moving IVC into specific backflow/ram troughs; at a
+   sensible fixed IVC the response is smooth and uniformly low.
+2. **Hot intake — CONFIRMED, system-wide.** Gas temperature is ~600-700 K not
+   only at the valve-side port (pipe 7) but also at the plenum-side bellmouth
+   (pipe 3), fed by the 10.5 L plenum initialised at 313 K. Air composition
+   (R=287), cold init (313 K) and geometry are all correct, so the gas genuinely
+   carries high energy (T = a^2/(gamma R) with correct R). The hot charge ->
+   ~0.4x ambient density at IVC -> ~0.4x VE.
+3. **Overlap backflow — RULED OUT.** Sweeping IVO to remove valve overlap
+   (IVO 360 -> 400, overlap +2 -> -38 deg) does NOT cool the intake or raise VE
+   (VE 46 -> 28%); later IVO just shortens the effective intake.
+
+### Remaining mechanism (the calibration frontier)
+The hot intake is a **charge-temperature feedback**: the late-ish IVC pushes
+warming charge back into the port during the intake stroke (VLVWIN SAL phases at
+513-543 and 589-634 deg), heating the runner; the next cycle draws that hot gas,
+and the cold 10.5 L plenum does not fully flush the small runner between events.
+The trapped charge stabilises hot (~565 K) -> uniform low VE.
+
+This is a genuine intake gas-dynamics calibration coupling cam timing, runner
+volume and backflow -- solvable but it needs tuning against real S54 data
+(actual VANOS map + a measured VE point), not a single code fix. The exhaust
+STABILITY mission is complete and unaffected; this is the accuracy work that the
+now-stable solver makes possible.
