@@ -68,12 +68,17 @@ for rpm in RPMS:
     t = open(log, encoding="utf-8", errors="ignore").read()
     tms = re.findall(r"Trapped mass:\s+([0-9.eE+-]+)\s+\(g\)", t)
     nan = len(re.findall(r"DEBUG BC NaN", t))
-    # last *physical* trapped mass (ignore the 1e-77 dead-system values)
+    # Use the PEAK physical trapped mass, not the last. At high RPM the run gets
+    # far enough that a *later* cylinder's blowdown begins degrading the state
+    # (a falling 0.43 g reading) before the freeze/NaN; the last reading would
+    # grab that corrupted value and fake a high-RPM VE cliff. The healthy
+    # first-cycle charge is the peak among the physical readings (1e-77
+    # dead-system values are filtered out).
     good = [float(x) for x in tms if 1e-3 < float(x) < 2.0]
-    m_last = good[-1] if good else float("nan")
-    ve_sim = (m_last / 1000.0) / M_REF * 100 if good else float("nan")
+    m_cyl = max(good) if good else float("nan")
+    ve_sim = (m_cyl / 1000.0) / M_REF * 100 if good else float("nan")
     ve_stk = stock_ve(rpm) * 100
-    rows.append((rpm, m_last, ve_sim, ve_stk, ve_sim - ve_stk, nan, dt))
+    rows.append((rpm, m_cyl, ve_sim, ve_stk, ve_sim - ve_stk, nan, dt))
 
 print(f"{'RPM':>5} {'trap_g':>7} {'VE_sim%':>8} {'VE_stock%':>9} {'delta%':>7} {'NaN':>4} {'wall_s':>6}")
 print("-" * 56)
