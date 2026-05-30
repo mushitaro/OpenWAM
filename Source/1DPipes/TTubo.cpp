@@ -1481,19 +1481,31 @@ void TTubo::Transforma2Area(double &v, double &a, double &p, double **U,
     // with U[0]. The ceiling is far above any real cell, so healthy flow is
     // untouched; this only ever fires on the numerical runaway.
     {
-      const double kRhoMax = 50.0; // ~50x ambient: unreachable physically
-      if (U[0][i] > kRhoMax) {
+      // Cap the PHYSICAL density rho = U[0]/area, not the area-weighted U[0].
+      // U[0] here is rho*area (adimensional); a small-area cell (e.g. the
+      // exhaust port) could hold a huge physical density while U[0] itself
+      // stayed below a fixed bound -- which is exactly how the valve boundary
+      // came to read Frho ~ 300 (the valve sizes its choked massflow from
+      // Frho = U[0]/area, so an area-weighted cap left it effectively uncapped
+      // and the cylinder mass ran away). Bound rho to ~50x ambient and rescale
+      // momentum/energy/species by the same factor, which preserves velocity
+      // and temperature (P scales with rho, so T = P/(rho*R) is unchanged) --
+      // a fully self-consistent state, so Frho/P/a derived downstream all agree
+      // and the valve sees one physical density. Real gas is far below this.
+      const double kRhoPhysMax = 50.0; // ~50x ambient (adimensional)
+      const double U0max = kRhoPhysMax * area;
+      if (U[0][i] > U0max) {
         static long s_rhoCeilWarn = 0;
         if (++s_rhoCeilWarn <= 20)
           printf("WARNING: capped runaway density in pipe %d node %d "
-                 "U[0]=%.3e -> %.1f (Transforma2Area)\n",
-                 FNumeroTubo, i, U[0][i], kRhoMax);
-        const double scale = kRhoMax / U[0][i];
+                 "rho=%.3e -> %.1f (Transforma2Area)\n",
+                 FNumeroTubo, i, U[0][i] / area, kRhoPhysMax);
+        const double scale = U0max / U[0][i];
         U[1][i] *= scale; // preserve velocity V = U[1]/U[0]
-        U[2][i] *= scale; // preserve specific energy
+        U[2][i] *= scale; // preserve T (P scales with rho)
         for (int j = 3; j < FNumEcuaciones; j++)
           U[j][i] *= scale;
-        U[0][i] = kRhoMax;
+        U[0][i] = U0max;
       }
     }
 
