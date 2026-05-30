@@ -538,10 +538,27 @@ class WAMGenerator:
         self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 313)
         print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
 
+        # Estimated manifold absolute pressure (MAP) downstream of the throttle.
+        # A part-throttle manifold settles to a vacuum; initialising those pipes
+        # at atmospheric makes the first cycle over-fill (the run currently only
+        # reaches ~1-2 cycles before the exhaust freeze, so cycle-1 IS the
+        # reported result). Approximate the steady pumping-down pressure from the
+        # throttle's discharge coefficient: a near-closed blade (small Cd) -> low
+        # MAP, WOT (Cd~0.96) -> ~atmospheric. Clamped to a sensible idle vacuum
+        # floor. This is a starting estimate, not a converged MAP; env-tunable.
+        thr_angle0 = self._calculate_throttle_angle(c.engine.throttle_position)
+        thr_cd0 = self._get_butterfly_cd(thr_angle0)
+        # MAP/Patm ~ Cd^p maps Cd(0.02..0.96) -> ~(0.3 .. 1.0) atm. p tunable.
+        import os as _os
+        _map_exp = float(_os.environ.get("OPENWAM_MAP_EXP", "0.35"))
+        map_frac = max(0.30, min(1.0, thr_cd0 ** _map_exp))
+        intake_map_bar = 1.01325 * map_frac
+        print(f"DEBUG: Throttle angle={thr_angle0:.1f} Cd={thr_cd0:.3f} -> intake MAP={intake_map_bar:.3f} bar")
+
         # 5. Per-Cylinder: Bellmouth → [Type 9 Throttle] → Runner_Upper → [Type 12] → Runner_Lower → [Type 12] → Ports
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
-            
+
             itb_dia = 0.052                             # 52mm fixed
             bellmouth_entry_dia = 0.070                         # 70mm fixed entry
             bellmouth_len = 0.150                       # 150mm fixed
@@ -577,7 +594,8 @@ class WAMGenerator:
             
             self._add_pipe(runner_upper_id, f"Runner_Upper_{cyl_idx}", 0.015,
                            itb_dia, itb_dia, 313,
-                           cid_run_upper_start, cid_eq_branch, friction=0.05, dx_mesh=0.0075)
+                           cid_run_upper_start, cid_eq_branch, friction=0.05, dx_mesh=0.0075,
+                           init_p=intake_map_bar)
 
             # --- EQUALIZATION TUBE STUB (φ10, 75mm) ---
             eq_pipe_id = self.pipe_counter; self.pipe_counter += 1
@@ -588,7 +606,8 @@ class WAMGenerator:
 
             self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", 0.075,
                            eq_pipe_dia, eq_pipe_dia, 313,
-                           cid_eq_branch, cid_eq_end, friction=0.02, dx_mesh=0.025)
+                           cid_eq_branch, cid_eq_end, friction=0.02, dx_mesh=0.025,
+                           init_p=intake_map_bar)
 
             # --- RUNNER LOWER (EqTube branch → Port split, φ52, 25mm) ---
             runner_lower_id = self.pipe_counter; self.pipe_counter += 1
@@ -598,7 +617,8 @@ class WAMGenerator:
             
             self._add_pipe(runner_lower_id, f"Runner_Lower_{cyl_idx}", 0.025,
                            itb_dia, itb_dia, 313,
-                           cid_eq_branch, cid_port_split, friction=0.05, dx_mesh=0.010)
+                           cid_eq_branch, cid_port_split, friction=0.05, dx_mesh=0.010,
+                           init_p=intake_map_bar)
 
             # --- INTAKE PORTS (2 per cyl, tapered φ52→φ35, 105mm) ---
             port_len_in = c.engine.head.intake_port.length / 1000.0  # 0.105m
@@ -615,7 +635,8 @@ class WAMGenerator:
                 # Taper: port_dia(T12 runner side) → valve_dia(T10 valve side)
                 self._add_pipe(pid_port, f"Port_In_{cyl_idx}_{v+1}", port_len_in,
                                port_dia_in, valve_dia_in, 400,
-                               cid_port_split, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010)
+                               cid_port_split, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010,
+                               init_p=intake_map_bar)
 
     def _generate_simplified_exhaust(self, c):
         print("DEBUG: Generating SIMPLIFIED Exhaust")
@@ -1143,11 +1164,13 @@ class WAMGenerator:
     def _add_h_pipe_junction(self, p1, p2, location_ratio):
         pass
 
-    def _add_pipe(self, pid, label, length, d_start, d_end, wall_temp, left_node=0, right_node=0, friction=0.01, dx_mesh=0.05):
+    def _add_pipe(self, pid, label, length, d_start, d_end, wall_temp, left_node=0, right_node=0, friction=0.01, dx_mesh=0.05, init_p=None):
         # Format: PipeID Label Length D_Start D_End T_Wall LeftNode RightNode Friction
         # NEW: dx_mesh (Mesh Size in meters) is the 4th value in the internal storage dict
-        # self.pipes[pid] = {'label': label, 'length': length, ...}
-        
+        # init_p: initial static pressure (bar). None -> atmospheric. For pipes
+        # downstream of the throttle this is set to the estimated manifold vacuum
+        # (MAP) so a part-throttle run starts near its steady operating pressure
+        # instead of atmospheric (which would over-fill the first cycle).
         self.pipes[pid] = {
             'label': label,
             'length': length, # restored key name 'length' (was 'len')
@@ -1157,7 +1180,8 @@ class WAMGenerator:
             'left_node': left_node,
             'right_node': right_node,
             'friction': friction,
-            'dx_mesh': dx_mesh # Store explicit mesh size
+            'dx_mesh': dx_mesh, # Store explicit mesh size
+            'init_p': init_p,
         }
 
     def _finalize_pipes(self):
@@ -1171,10 +1195,11 @@ class WAMGenerator:
             # Line 2: Friction
             self.wam_lines_pipes.append(f"{p['friction']}") 
             # Line 3: Wall Temp, Pressure, Velocity
-            # Line 3: Wall Temp, Pressure, Velocity
-            # [FIXED] Revert P to Bar (1.01325). TTubo.cpp converts BarToPa(FPini).
-            # Previous value 101325.0 was interpreted as 101325 Bar -> 10 GPa -> Explosion.
-            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} 1.01325 0.0")
+            # P in bar (TTubo.cpp converts BarToPa(FPini)). Default atmospheric;
+            # throttle-downstream pipes carry an estimated MAP so part-throttle
+            # starts near its steady manifold vacuum.
+            p_init = p.get('init_p') or 1.01325
+            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} {p_init:.5f} 0.0")
             # Line 4: Multipliers
             self.wam_lines_pipes.append(f"1 1.0 1.0") 
             # Line 5: Composition
