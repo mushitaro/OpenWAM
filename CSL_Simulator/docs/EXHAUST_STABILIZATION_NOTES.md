@@ -237,12 +237,27 @@ Origin: a near-vacuum port cell makes the Roe density ratio (`Rm`, and the
 `1/Amed`/`1/Amed2` eigenvector scaling) explode.
 
 **Fixes that do NOT work (all tested, all reverted):**
-- Capping `VTotalMax`, `Beta`, or the dimensional wave speeds so `dt > 0`:
-  the run *finishes* but the gas mass collapses to ~1e-77 g — the cell has **no
-  stable timestep**, so any larger dt violates CFL and blows up.
-- Flooring the Roe `Amed2`, capping `Rm`, or an absolute density floor (1% of
-  ambient): the freeze persists — the degeneracy is in the *ratio* across the
-  contact, not any single absolute value.
+- Capping `VTotalMax`, `Beta`, the dimensional wave speeds, an upper density
+  cap, or a first-order TVD fallback (zero `Beta` at the degenerate interface)
+  so `dt > 0`: the run *finishes* but the gas mass collapses to ~1e-77 g — by
+  the time the runaway is visible the domain is already corrupted, so any larger
+  dt just propagates the blow-up.
+- Flooring the Roe `Amed2`, capping `Rm`, an absolute density floor, or a naive
+  entropy floor: the freeze persists or the mass collapses.
+
+**The actual origin (found via a density probe at the frozen cell):** the
+conserved density at the cyl-3 port boundary node is **1e+97** (a runaway
+*spike*, not a vacuum) next to a 1e-6 neighbour. It comes from
+`Transforma1Area`: `rho = Gamma*area*P/(a*ARef)^2`, where the boundary sound
+speed `a = (Landa+Beta)/2` collapsed to ~0 because the **Type-12 junction
+(`TCCRamificacion`) Riemann solve emitted `Landa ≈ -Beta`** during the violent
+cyl-3 blowdown. So the seed is the *junction characteristic output* (a ~ 0),
+upstream of every cell/TVD guard tried — which is exactly why all of them only
+move the symptom. The remaining fix belongs in the junction Riemann solver
+(floor the emitted sound speed / guard the Landa+Beta degeneracy so the adjacent
+pipe density cannot blow up), not in `Transforma2Area` or the TVD scheme. That
+is a careful change with regression risk across every junction in the model, so
+it is left as the next deliberate step rather than another reactive guard.
 
 **Conclusion:** the cyl-3 first-blowdown drives the port cell into a state where
 the TVD Roe linearization is degenerate and has no stable timestep. This is a
