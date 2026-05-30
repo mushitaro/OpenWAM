@@ -165,6 +165,60 @@ pipe cells.
 - `OPENWAM_DTSTEP=N` — every N steps: `dt`/`Theta`/pacing pipe, independent of
   the progress gate, so a `dt→0` stall is visible even when % is frozen.
 
+## Stage 6 — corrections, the real hang, and where it stands
+
+Several Stage-5 hypotheses were **falsified by direct measurement** (recorded
+here so they are not re-tried):
+
+1. **Valve boundary is NOT the seed.** `OPENWAM_VLVDIAG=1` (probe in
+   `TCCCilindro::FlujoSalienteCilindro`) logged **zero** supersonic emissions —
+   the valve boundary's output characteristics are healthy (Mach < 3). The
+   Mach-90 velocity is at the first *internal* port cell, not the boundary.
+2. **Mesh is NOT the cause.** A 10/20/30/45 mm exhaust-port sweep gave NaN
+   ~92–102 at every size. 20 mm only "FINISHED CORRECTLY" because the gas mass
+   had collapsed to ~1e-77 g — a dead system that integrates instantly, not a
+   valid run.
+3. **Cylinder temperature floor is not the lone seed.** A 250/600/800 K floor
+   sweep (`OPENWAM_TFLOOR`) still hit NaN ~92–102; 600 K only "finished" with
+   the mass collapsed. Raising it just relocates the cascade.
+4. **An entropy-level floor in `TransformaContorno` made it worse** (NaN 5→90 at
+   2000 rpm): flooring `E` to 1e-6 corrupts the pressure of cells with a
+   legitimately small entropy. Reverted — do not reintroduce.
+
+### The real hang: unbounded plenum iteration (`b444abc`)
+gdb (single-thread, deterministic) caught the small-plenum "slow" run with
+**100 % wall time inside `TDepVolCte::ActualizaPropiedades` and the global step
+counter frozen** — not a NaN, not a Zeno `dt` collapse, a genuine
+**non-terminating loop**: the plenum sound-speed `while(!Converge)` fixed-point
+iteration (tol 1e-6) has no cap, and a small port-merge plenum hit by the
+blowdown enthalpy transient makes the sequence oscillate forever. Fixed by
+capping at 200 iters with under-relaxation past 50 (commit `b444abc`). This
+removes the **worst failure mode (unbounded hang)** for any small-plenum config.
+
+### Severity finding (RPM sweep, plenumless, single-thread)
+| RPM | BC-NaN | reaches | note |
+|---|---|---|---|
+| 2000 | **5** | 24 % | nearly clean; NaN at cyl-1 port, `Entropia→0 ⇒ Landa=inf` |
+| 3000 | 77 | 27 % | |
+| 4000 | 92 | 27 % | |
+
+The NaN count scales strongly with blowdown severity (RPM). The remaining seed
+at 2000 rpm is a near-zero Riemann entropy at the cyl-1 first blowdown
+(`p=(a/E)^Gamma4` overflows). A naive `E` floor backfired (#4); the correct fix
+must keep `a` and `E` thermodynamically consistent (as the density/pressure
+consistency clamp did for `Transforma2Area`), and belongs at the cell-state
+level, not the boundary transform.
+
+### Honest status
+- **Hang eliminated** (plenum iteration cap) — the single most important fix.
+- **Velocity clamp tightened to Mach 1.5** (`759f8f8`): strictly fewer NaN
+  (sweep 1.2/1.5/2/5 → 69/71/73/92).
+- No configuration yet **completes** a 2-cycle 4000 rpm/WOT run; the first-cycle
+  cold-manifold blowdown remains the hard transient. Lower RPM is close (NaN=5).
+- Next candidate: a cell-level entropy/sound-speed consistency clamp at the
+  port nodes (not a bare `E` floor), or a gentler first-cycle initialization
+  (warm manifold / motoring) so cycle-1 blowdown is never cold-seeded.
+
 ## Logging / safety
 - `TTubo::ComunicacionTubo_CC` BC-NaN `printf` is bounded by a **thread-safe
   `std::atomic<int>`** (cap 50 each for LEFT/RIGHT). The pipe loop is
