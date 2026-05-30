@@ -1277,6 +1277,20 @@ void TTubo::ActualizaPropiedadesGas() {
 
       Frho[i] = __units::BarToPa(FPresion0[i]) / FRMezcla[i] / FTemperature[i];
     }
+    // Diagnostic (OPENWAM_INTEMP=1): print the gas temperature along selected
+    // intake pipes (bellmouth=3 plenum-side, runner=4, port=7 valve-side) to
+    // localise where the intake gas is hot -- whole runner (init/boundary) vs
+    // only the port (overlap backflow). Sparse (every ~50 calls).
+    if (getenv("OPENWAM_INTEMP") &&
+        (FNumeroTubo == 3 || FNumeroTubo == 7)) {
+      static long s_n3 = 0, s_n7 = 0;
+      long &cnt = (FNumeroTubo == 3) ? s_n3 : s_n7;
+      if ((++cnt % 4000) == 0)
+        printf("INTEMP pipe%d: T[0]=%.0fK T[mid]=%.0fK T[end]=%.0fK "
+               "P[mid]=%.3fbar\n",
+               FNumeroTubo, FTemperature[0], FTemperature[FNin / 2],
+               FTemperature[FNin - 1], FPresion0[FNin / 2]);
+    }
 #ifdef usetry
   } catch (std::exception &N) {
     std::cout << "ERROR: TTubo::CalculoPropiedadesGas en el tubo: "
