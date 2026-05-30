@@ -403,6 +403,17 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
         }
         MasaAdmInstante += FMasaValvAdm;
         FMasa += FMasaValvAdm;
+        if (getenv("OPENWAM_MASSDIAG") && fabs(FMasaValvAdm) > 1.0e-4) {
+          static int s_mdadm = 0;
+          if (s_mdadm < 30) {
+            printf("MASSDIAG-ADM cyl %d: dMasa=%.4e g/step massflow=%.4e "
+                   "FMasa=%.4e g dt=%.3e Theta=%.1f\n",
+                   FNumeroCilindro, FMasaValvAdm * 1e3,
+                   dynamic_cast<TCCCilindro *>(FCCValvulaAdm[i])->getMassflow(),
+                   FMasa * 1e3, FDeltaT, FAnguloActual);
+            ++s_mdadm;
+          }
+        }
         /* SUMATORIO DE LA MASA QUE ATRAVIESA CADA UNA DE LAS VALVULAS DE
          * ADMISION */
         FAcumMasaPorAdm += FMasaValvAdm;
