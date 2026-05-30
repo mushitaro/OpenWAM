@@ -396,3 +396,34 @@ complete fix remains a positivity-preserving HLLC flux for the whole exhaust
 network; the Stage-8 layers are its foundation and already make the run
 complete with finite mass. Milder RPMs (gentler blowdown) are the candidate
 clean-running region for an interim VE sweep.
+
+## Stage 9 — HLLC Riemann flux (NaN eliminated; mass-coupling exposed)
+
+Implemented an HLLC approximate Riemann solver for the 3 gas equations
+(`TTubo::HLLCFlux`, opt-in `OPENWAM_HLLC=1`), replacing only the hyperbolic part
+of the TVD interface flux (source split + species advection unchanged). HLLC is
+positivity-preserving by construction.
+
+### Result (4000 RPM/WOT, tapered port, single thread)
+- **BC-NaN = 0 through the cyl-3 blowdown**, and the junction reset never fires
+  -- the gas state stays physical where every TVD variant produced NaN. This is
+  the qualitative breakthrough: HLLC cures the density runaway at the flux
+  level.
+- It is **slow** at the blowdown: the CFL timestep drops to ~5e-9 s (pacing the
+  exhaust ports) because HLLC resolves the genuine supersonic vent (sonic
+  events 754 -> 5107). A coarser exhaust port mesh (`exhaust_port_mesh=0.030`)
+  roughly doubles the reach per wall-second (31% -> 44%).
+- **New failure exposed:** with NaN gone, the cylinder trapped mass now
+  oscillates non-physically across cylinders during the overlap -- cyl4 0.70 g
+  (healthy), cyl1 0.42 g, cyl5 **3776 g** (rho ~ 7000 kg/m^3). The HLLC pipe
+  flux is conservative, but the **cylinder<->valve<->junction mass exchange**
+  (`TCilindro4T` FMasa += -massflow*dt) is not bounded: an extreme but finite
+  throat state makes the valve draw absurd mass into the cylinder.
+
+### Next (open)
+The remaining root is the **valve-boundary / cylinder mass coupling** under the
+(now finite) extreme blowdown, not the pipe flux. Candidates: bound the
+per-step valve mass exchange to a physical fraction of the cylinder/port mass;
+or make the cylinder<->valve solve use the HLLC contact state. HLLC itself is
+the correct foundation and should become the default for the exhaust once the
+mass-coupling bound is in. TVD remains default for now; `OPENWAM_HLLC=1` opts in.
