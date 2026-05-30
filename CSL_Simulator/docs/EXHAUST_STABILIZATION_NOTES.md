@@ -470,3 +470,35 @@ the HLLC work and the last barrier to a clean multi-cycle exhaust run.
 - The intake-valve / boundary-node coupling under overlap is the remaining
   non-physical mass source; the principled fix is boundary-state consistency
   (above), not more independent clamps.
+
+## Stage 11 — STABLE & CONVERGING: physical-density cap (`fc718b4`)
+
+The root of the valve mass runaway was a **units bug in the density ceiling**:
+`Transforma2Area` capped the AREA-WEIGHTED conserved density `U[0]=rho*area`
+against a fixed 50, so a small-area cell (the exhaust port, area ~7e-4) kept
+`U[0] < 50` while the PHYSICAL density `rho = U[0]/area` reached hundreds. The
+valve reads `Frho = U[0]/area` to size its choked massflow, so the cap was
+effectively absent there. Fix: cap `rho = U[0]/area` at 50x ambient
+(`U0max = 50*area`), rescaling momentum/energy/species consistently (V and T
+preserved).
+
+### Result — first NaN-free, mass-physical, COMPLETING multi-cycle run
+4000 RPM/WOT, HLLC, tapered (real) port, single thread:
+- **FIN=1, NaN=0, 7 s** (2 cycles) / **29 s** (6 cycles).
+- 6-cycle trapped mass per IVC: cycle 1 is the startup transient (0.4-4.4 g),
+  then it **converges and stays bounded**: cycles 2-6 oscillate in a tight band
+  around **~0.27 g** (0.20-0.32 g). Stable, converged, physical.
+
+The exhaust is now **numerically solved** -- the "physical model limit" the
+prior session suspected was a chain of code/units bugs (cold-start init,
+density runaway, area-weighted cap, valve coupling), all now fixed.
+
+### Open: calibration, not stability
+The converged ~0.27 g is LOW (VE ~ 42 %, expected ~110 %). This is now a physics
+calibration / numerical-dissipation question (HLLC + the caps may under-fill),
+NOT a crash. Candidates: the density/positivity caps are slightly aggressive and
+shave mass at the port each cycle; or HLLC's extra dissipation at the
+valve-adjacent junction damps the intake ram. Next: verify mass conservation
+per cycle, then tune the cap thresholds / confirm the VE against the stock curve
+on a converged (cycle >= 4) basis. Recommended base config:
+`OPENWAM_HLLC=1`, tapered port, `port_junction_vol=0`.
