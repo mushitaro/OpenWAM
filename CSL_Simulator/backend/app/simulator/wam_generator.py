@@ -1351,14 +1351,17 @@ class WAMGenerator:
         # VE.
         #
         # CALIBRATION (CSL 268 deg intake cam, scripts/ivo_sweep.py): with the
-        # corrected CSL duration, the old base=360 puts IVC at 90 deg ABDC, the
-        # WORST static choice (mid-RPM fill ~63%). Sweeping IVO showed the fill
-        # optimum is RPM-dependent (IVC ~50 ABDC at 2500 -> ~70 ABDC at 4000;
-        # flat at high RPM) -- i.e. it belongs in the VANOS schedule. As a static
-        # BASE we use 340 (IVC ~70 ABDC), the mid-RPM sweet spot (+6.7% VE at
-        # 4000) and neutral at high RPM. Env-tunable via OPENWAM_IVO.
+        # corrected CSL duration, the old base=360 (IVC 90 deg ABDC) is the WORST
+        # static choice (avg first-cycle VE 67% over 3000-7000). A clean 5-RPM x
+        # 5-IVO sweep shows a sharp inverted-U vs IVC at every RPM; the per-RPM
+        # optimum moves EARLIER with RPM (IVC ~70 ABDC @3000 -> 60 @4000 -> 50
+        # @5000-7000). Best SINGLE static base is knob 330 (IVC ~60 ABDC): top
+        # average VE (84%) and best worst-case (min 62% vs knob 320's 39% collapse
+        # at 3000). It wins 4000 outright and is 2nd at 5000-7000. The
+        # RPM-dependent optimum belongs in the VANOS schedule (kf_evan1_soll).
+        # Env-tunable via OPENWAM_IVO.
         import os as _os
-        base_open_intake = float(_os.environ.get("OPENWAM_IVO", "340.0"))
+        base_open_intake = float(_os.environ.get("OPENWAM_IVO", "330.0"))
         base_open_exhaust = 102.0  # 102° ATDC-combustion (was 130: 28° too late)
         vanos_bias = 0.0
 

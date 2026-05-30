@@ -625,21 +625,44 @@ plateaus (~0.40 g held over consecutive dumps) before the cyl-3 freeze degrades
 it. The **median** of the physical readings is robust to both the overshoot and
 the freeze tail and lands on the plateau; the sweep reports the median.
 
-### Result (WOT, 2-cycle, median trapped mass -> VE)
-Effective IVO = knob + 2 (the -2 offset). IVC in deg ABDC = effIVO + 268 - 540.
+### Result — first probe vs clean re-run
+An initial coarse probe suggested per-RPM optima reaching 96-102% VE. A cleaner,
+reproducible 5-RPM x 5-IVO sweep (`scripts/data/ivo_sweep_268cam.csv`, and
+independently re-run later) tempered that: the absolute fill is lower and noisier
+(the cyl-3 exhaust freeze still corrupts some points — e.g. 3000/knob-320
+collapses to 39%). The reproducible signal is the AVERAGE median-VE per static
+IVO base over 3000-7000 RPM.
 
-| RPM | best IVO knob | effIVO | IVC ABDC | VE_sim | VE_stock | dVE |
-|---|---|---|---|---|---|---|
-| 3000 | 320 | 322 | 50 | 102% | 98%  | +4 |
-| 4000 | 330 | 332 | 60 | 96%  | 102% | -6 |
-| 5000 | 340 | 342 | 70 | 102% | 107% | -5 |
-| 6000 | 340 | 342 | 70 | 102% | 109% | -7 |
+Effective IVO = knob + 2 (the -2 deg K_EVAN1 offset); IVC[deg ABDC] = effIVO + 268 - 540.
 
-Each RPM traces a clean inverted-U in IVC with a sharp optimum, and **at the
-optimum the model reaches 96-102% VE — within +/-7% of the stock CSL curve.**
-The optimal IVC **retards with RPM** (50->70 deg ABDC over 3000->6000), exactly
-the inertia/ram-filling physics. Healthier filling also ran longer before the
-freeze (25 s vs 5 s, fewer NaN), an independent confirmation it is real.
+| IVO knob | IVC ABDC | avg VE | per-RPM [3k,4k,5k,6k,7k] | worst |
+|---|---|---|---|---|
+| 320 | 50 | 81% | 39, 85, 92, 93, 98 | 39% (3k collapse) |
+| **330** | **60** | **84%** | 62, 96, 85, 91, 88 | **62%** |
+| 340 | 70 | 82% | 71, 90, 80, 84, 85 | 71% |
+| 350 | 80 | 75% | 67, 76, 76, 75, 80 | 67% |
+| 360 (old) | 90 | 67% | 62, 63, 66, 69, 75 | 62% |
+
+Every RPM still traces an inverted-U in IVC with the peak in the 50-70 ABDC band,
+i.e. **far** above the old IVO=360 (IVC 90 ABDC, the falling edge at every RPM).
+The best SINGLE static base is **knob 330 (IVC ~60 ABDC)**: highest average (84%)
+and best worst-case (62%, vs knob 320's 39% collapse at 3000). An independent
+re-run reproduced 4000/330 -> 96% to the digit.
+
+
+### What changed in code
+- Default `base_open_intake` 360 -> **330** (IVC ~60 ABDC), still env-tunable via
+  `OPENWAM_IVO`. This is the robust static centre; it does not encode a per-RPM
+  schedule.
+
+### Honest caveats
+- These are FIRST-CYCLE median VE (the exhaust freeze still caps the run), so the
+  absolute numbers are a trend, not converged VE. Residuals remain at every RPM
+  (avg 84% vs stock 95-109%); the unresolved induction-depression shortfall
+  (Stage 13) is the main remaining gap, not the IVO base.
+- The first-cycle noise does not reliably pin the RPM *direction* of the optimum,
+  so RPM-dependent IVC tuning stays in the VANOS map (`kf_evan1_soll`) as future
+  work, to be validated once the exhaust converges.
 
 ### This overturns Stage 12's framing
 Stage 12's "uniform ~0.4x under-fill, looks like a flat calibration constant"
@@ -647,12 +670,3 @@ was an **artifact of a single wrong static IVC** (90 deg ABDC, the old IVO=360),
 which sits far down the falling edge at *every* RPM. It is not a flat offset and
 not a physics limit: **intake-valve TIMING is the dominant VE lever**, confirming
 Stage 13's wave-tuning result with hard numbers.
-
-### What changed in code
-- Default `base_open_intake` 360 -> **340** (IVC ~70 ABDC): the best single
-  static center for a high-revving engine — never below 90% over 3000-6000,
-  peaks at high RPM. Still env-tunable via `OPENWAM_IVO`.
-- The RPM-dependent optimum belongs in the **VANOS schedule** (`kf_evan1_soll`):
-  the static base centers it, the map should advance IVC at low RPM toward
-  ~50 ABDC and hold ~70 ABDC up top. Next: drive the map through the controlled
-  path and check it tracks this optimum against a measured VE point.
