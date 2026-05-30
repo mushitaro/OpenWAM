@@ -1468,6 +1468,35 @@ void TTubo::Transforma2Area(double &v, double &a, double &p, double **U,
         U[2][i] = 0.0;
     }
 
+    // Upper density bound (adimensional, density is normalised by RhoRef ~ 1).
+    // The only existing guard catches U[0] <= 0 / non-finite, so a *finite but
+    // exploding* density sails through. At a strong exhaust-port area change the
+    // TVD area-source term Bvector[1] ~ rho*a^2*dArea forms a positive feedback
+    // that drives U[0] up by orders of magnitude each step (observed Frho ->
+    // 1e90+ at the cyl-3 port), which makes the Roe differences and Beta blow up
+    // and freezes the timestep. No real gas column exceeds a handful of times
+    // ambient density even at peak blowdown, so cap U[0] at a generous physical
+    // ceiling and rescale momentum/energy so velocity and pressure are
+    // preserved (only the runaway magnitude is removed). Species densities scale
+    // with U[0]. The ceiling is far above any real cell, so healthy flow is
+    // untouched; this only ever fires on the numerical runaway.
+    {
+      const double kRhoMax = 50.0; // ~50x ambient: unreachable physically
+      if (U[0][i] > kRhoMax) {
+        static long s_rhoCeilWarn = 0;
+        if (++s_rhoCeilWarn <= 20)
+          printf("WARNING: capped runaway density in pipe %d node %d "
+                 "U[0]=%.3e -> %.1f (Transforma2Area)\n",
+                 FNumeroTubo, i, U[0][i], kRhoMax);
+        const double scale = kRhoMax / U[0][i];
+        U[1][i] *= scale; // preserve velocity V = U[1]/U[0]
+        U[2][i] *= scale; // preserve specific energy
+        for (int j = 3; j < FNumEcuaciones; j++)
+          U[j][i] *= scale;
+        U[0][i] = kRhoMax;
+      }
+    }
+
     double V = U[1][i] / U[0][i];
     double P = (U[2][i] - U[1][i] * V / 2.0) * Gamma1;
 
@@ -5926,6 +5955,14 @@ void TTubo::TVD_Estabilidad() {
         printf("TVDDIAG pipe %d dt_tvd=%.3e VTotalMax=%.3e | Alpha_max=%.3e@(k%d,i%d) "
                "Beta_max=%.3e@(k%d,i%d)\n",
                FNumeroTubo, DeltaT_tvd, VTotalMax, amax, ka, ia, bmax, kb, ib);
+        if (ib >= 0) {
+          printf("  @(k%d,i%d): DeltaB=%.3e DeltaU=%.3e Bvec=[%.3e %.3e %.3e] "
+                 "Frho=[%.3e %.3e] U0=[%.3e %.3e] U1=[%.3e %.3e]\n",
+                 kb, ib, FTVD.DeltaB[kb][ib], FTVD.DeltaU[kb][ib],
+                 FTVD.Bvector[0][ib], FTVD.Bvector[1][ib], FTVD.Bvector[2][ib],
+                 Frho[ib], Frho[ib + 1], FU0[0][ib], FU0[0][ib + 1],
+                 FU0[1][ib], FU0[1][ib + 1]);
+        }
       }
     }
     if (DeltaT_tvd < FDeltaTime)

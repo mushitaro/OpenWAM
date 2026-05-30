@@ -738,9 +738,20 @@ class WAMGenerator:
                 cid_valve = self.connection_counter
                 self._add_con_valve_v2(pid_port, 0, cyl_idx, False, vid_global)
 
-                # Taper: valve_dia(T10 valve side) → port_dia(T12 header side)
+                # Taper: valve_dia(T10 valve side) → port_dia(T12 header side).
+                # The strong area change (30.5->48 mm over 90 mm) feeds the TVD
+                # area-source term (Bvector[1] ~ rho*a^2/gamma*dArea); under the
+                # cyl-3 blowdown that term drives an unbounded density runaway
+                # (Frho -> 1e90+) and freezes the timestep. OPENWAM_EX_PORT_STRAIGHT=1
+                # uses a constant-area port (mean diameter) to test/avoid that.
+                import os as _os
+                if _os.environ.get("OPENWAM_EX_PORT_STRAIGHT") == "1":
+                    _d = 0.5 * (valve_dia_ex + port_dia_ex)
+                    _ds, _de = _d, _d
+                else:
+                    _ds, _de = valve_dia_ex, port_dia_ex
                 self._add_pipe(pid_port, f"Port_Ex_{cyl_idx}_{v+1}", port_len_ex,
-                               valve_dia_ex, port_dia_ex, 600,
+                               _ds, _de, 600,
                                cid_valve,
                                _port_node(pid_port),
                                friction=c.engine.head.port_friction,
