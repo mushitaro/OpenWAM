@@ -356,3 +356,43 @@ configuration found and the recommended base for that work.
   and that cell's `DeltaB/DeltaU/Bvector/Frho/U0/U1`.
 - `OPENWAM_EX_PORT_STRAIGHT=1` — constant-area exhaust ports.
 - `OPENWAM_THRDIAG=1` — runtime throttle Cd/K (intake side).
+
+## Stage 8 — positivity-preserving limiter (interior + boundary + junction)
+
+Implemented a-posteriori positivity preservation at the three layers where the
+density runaway / NaN originates (commit in this stage):
+
+- **Interior** (`TVD_Limitador`): any cell whose updated density is
+  non-positive / non-finite / >50x ambient is recomputed with the 1st-order
+  pure-upwind (HLL-like) flux. Positivity-preserving under CFL; high-order kept
+  elsewhere.
+- **Boundary** (`ActualizaValoresNuevos`): a non-physical junction-supplied
+  (a,v,p) falls back to the adjacent interior cell (zeroth-order extrapolation).
+- **Junction** (`TCCRamificacion`): the real root. A Type-12 Riemann junction
+  under sustained supersonic/reversing flow leaves a non-finite Landa/Beta in a
+  connected pipe end; reset it to a quiescent positivity-preserving state
+  (a=|incident|, v=0). This drops BC-NaN from 102 -> 0 through the first
+  blowdown.
+
+### Measured (4000 RPM/WOT, single thread)
+| config | reach | NaN | trapped mass |
+|---|---|---|---|
+| taper, pre-stage-8 | 29% (freeze) | — | (frozen) |
+| taper + all layers | 31%, **NaN=0 to 30%** | 102 @ 31% | 0.71 -> 0.42 g |
+| **straight + all layers** | **99% (completes)** | **51** (was 102) | 0.35-0.45 g (NOT drained to 1e-77) |
+
+Straight ports + the full positivity stack is the first config that both
+**completes and keeps finite physical mass**. The first NaN has moved from
+cycle-1/3% all the way to **cycle-2/83%**, now originating at the cyl-2
+exhaust-valve boundary (`TCCCilindro` "Calculating outflow" error, boundary
+52/53) rather than the junction — i.e. each layer pushed the failure
+downstream/later.
+
+### Still open
+A fully clean (NaN=0 throughout) multi-cycle run at 4000 RPM/WOT is not yet
+achieved; the residual is a distributed instability during the multi-cylinder
+blowdown overlap, surfacing at whichever valve/junction is most stressed. The
+complete fix remains a positivity-preserving HLLC flux for the whole exhaust
+network; the Stage-8 layers are its foundation and already make the run
+complete with finite mass. Milder RPMs (gentler blowdown) are the candidate
+clean-running region for an interim VE sweep.
