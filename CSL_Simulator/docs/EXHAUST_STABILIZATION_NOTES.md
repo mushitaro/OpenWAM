@@ -760,17 +760,44 @@ through the intake valve during gas exchange and not flushed out by fresh air.
 (The plenum/source fixes are kept anyway: a 573 K air source is plainly wrong and
 will matter once the recirculation is cured.)
 
-### Where it comes from and the open question
-VLVWIN shows two back-flow events feeding the port: (a) overlap (IVO ~28 BTDC,
-EVC ~6 ATDC, ~34 deg overlap) pushing ~560 K residual into the port; (b) late IVC
-(60 deg ABDC) pushing already-compressing, heating charge back out. The port then
-re-ingests that hot gas, and it propagates upstream past the throttle to the
-bellmouth.
+### RESOLVED: it is a numerical artifact, not valve timing or any physics
 
-**Open question for next session:** is this recirculation *over-stated physics*
-(too much overlap / too-late IVC for this engine -> fix via valve timing, i.e.
-the exhaust VANOS `kf_avan1_soll`+offset and a re-evaluated IVC) or a *numerical
-transport artifact* at the valve BC / Type-12 port junctions (species/energy not
-convecting fresh air in / hot gas out)? Decisive next test: sweep overlap/IVC and
-watch trapped T; if T tracks overlap, it is timing; if T stays ~570 K regardless,
-it is transport.
+Two decisive tests settle it:
+
+**1. Overlap/IVC sweep (trapped T vs timing).** Sweeping the IVO base over a huge
+range and reading the *converged* trapped state:
+
+| IVO knob | overlap | IVC ABDC | trapped P | trapped T | VE |
+|---|---|---|---|---|---|
+| 300 | 64 deg | 30 | 1.23 | 569 K | 68% |
+| 330 | 34 deg | 60 | 1.28 | 570 K | 69% |
+| 360 | 4 deg  | 90 | 1.43 | 594 K | 67% |
+| 380 | 0 deg  | 110 | 1.27 | 590 K | 67% |
+
+Trapped T and VE are **flat (~570 K, ~67%) across overlap 0-64 deg and IVC
+30-110 deg ABDC**. With *zero overlap* (IVO 380) the charge is still 590 K. So it
+is **not** overlap back-flow and **not** late-IVC back-flow. (This also retires
+the Stage-14 IVO sensitivity as a first-cycle/freeze artifact: the converged VE
+is ~67% regardless of IVO.)
+
+**2. Combustion OFF (zero fuel LHV).** With no combustion — no physical heat
+source anywhere — the intake is **still ~550-595 K** (bellmouth and port) and VE
+still ~57%. A bellmouth surrounded by a 25 degC air source, 40 degC walls and a
+40 degC plenum **cannot** sit at 570 K in steady state without a heat source:
+this is thermodynamically impossible physically.
+
+**Conclusion: the ~570 K intake charge — and therefore the entire ~57-67% VE
+ceiling — is a NUMERICAL ARTIFACT in the solver's intake gas handling**, not
+back-pressure, not valve timing, not scavenging, not boundary temps, not
+combustion residual. The solver is spuriously raising the intake gas internal
+energy (or the intake-pipe density/temperature, T=P/(rho*R), is being driven low
+by a mass-handling error). All converged runs used `OPENWAM_HLLC=1`; whether the
+artifact is HLLC-specific could not be isolated because the non-HLLC scheme
+freezes before converging.
+
+**Next session starts here:** instrument the intake energy balance — is internal
+energy gained with no heat input (energy-equation / flux source-term bug) or is
+intake mass lost (density driven low -> high T at fixed P)? Suspects: the HLLC
+flux energy term, the Type-12 intake junctions, and the intake-valve BC. Repro:
+sweep `OPENWAM_IVO` watching trapped T (flat = not timing); zero the fuel LHV in
+the .wam ("0.98 44000000 750" -> "0.98 1 750") and check the intake is still hot.
