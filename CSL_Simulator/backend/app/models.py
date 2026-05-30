@@ -54,9 +54,13 @@ class CombustionConfig(BaseModel):
     mass_burned_b: float = 0.5 # 50% mass burned location roughly
 
 class ValveConfig(BaseModel):
-    lift_profile: str = "Stock CSL"
+    lift_profile: str = "S54 CSL"
     max_lift: float = 11.8 # mm
-    duration: float = 260.0 # deg
+    # Geometric cosine-lift window (deg). NOTE: the E46 M3 *CSL* uses the
+    # asymmetric 268°(intake)/264°(exhaust) camshafts, NOT the 260°/260° of the
+    # standard S54B32. HeadConfig sets the per-side CSL values below; this
+    # class default stays at the standard S54 figure for any bare ValveConfig().
+    duration: float = 260.0 # deg (standard S54; CSL overrides to 268/264)
     diameter: float = 35.0 # mm
     flow_coeff_map: str = "S54_Stock_Port" # Reference to flowbench data
 
@@ -68,8 +72,11 @@ class HeadConfig(BaseModel):
     port_flow_coeff: float = 1.0 # Scalar modifier (Stable Baseline)
     valves_per_cyl: int = 4
     wall_temp: float = 450.0 # K
-    intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0)
-    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=260.0, diameter=30.5)
+    # CSL camshafts: 268° intake / 264° exhaust (asymmetric, intake-biased).
+    # The standard E46 M3 S54B32 runs 260°/260°; the CSL fitted slightly larger,
+    # intake-favoured cams — the dominant mechanical difference of the CSL spec.
+    intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=268.0)
+    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=264.0, diameter=30.5)
     intake_port: PortConfig = PortConfig(diameter=52.0, length=105.0) # S54 CSL Spec
     exhaust_port: PortConfig = PortConfig(diameter=48.0, length=90.0)  # S54 CSL Spec
     port_friction: float = 0.05 # F1-Spec Port Job (was 0.3-0.5)
@@ -95,8 +102,19 @@ class EngineConfig(BaseModel):
     friction: FrictionConfig = FrictionConfig()
     combustion: CombustionConfig = CombustionConfig()
     heat_transfer: HeatTransferConfig = HeatTransferConfig()
-    vanos_intake_bias: float = 0.0 # deg
-    vanos_exhaust_bias: float = 0.0 # deg
+    vanos_intake_bias: float = 0.0 # deg (dynamic target from kf_evan1_soll map)
+    vanos_exhaust_bias: float = 0.0 # deg (dynamic target from kf_avan1_soll map)
+
+    # MSS54 DME VANOS reference offsets — K_EVAN1_OFFSET / K_AVAN1_OFFSET.
+    # Unit on the DME is "W" = Winkel (German "angle") = °KW (degrees crankshaft).
+    # These are the fixed mechanical VANOS *zero-reference* trims read from the
+    # CSL DME: they shift where the cam actually sits for a given commanded map
+    # target, correcting cam-vs-crank sensor mounting error. The effective cam
+    # phase is therefore (map target ± offset). Applied on top of vanos_*_bias
+    # using the same sign convention (positive = advance) in WAMGenerator.
+    # Values below are the CSL-spec settings read from the uploaded MSS54 binary.
+    vanos_intake_offset: float = -2.0  # K_EVAN1_OFFSET (CSL): -2° KW
+    vanos_exhaust_offset: float = 1.0  # K_AVAN1_OFFSET (CSL): +1° KW
 
 # 3. Exhaust System (Modular Toplogy)
 class HeaderConfig(BaseModel):

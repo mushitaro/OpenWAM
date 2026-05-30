@@ -1353,7 +1353,14 @@ class WAMGenerator:
         base_open_intake = float(_os.environ.get("OPENWAM_IVO", "360.0"))
         base_open_exhaust = 102.0  # 102° ATDC-combustion (was 130: 28° too late)
         vanos_bias = 0.0
-        
+
+        # MSS54 VANOS mechanical reference offset (K_EVAN1/K_AVAN1_OFFSET, °KW).
+        # This is a FIXED reference trim, present in both static and controlled
+        # modes (it is not the dynamic map target). Same sign as vanos_bias:
+        # positive = advance (earlier opening, smaller open_angle).
+        vanos_offset = (self.config.engine.vanos_intake_offset if is_intake
+                        else self.config.engine.vanos_exhaust_offset)
+
         # If controlled, we don't apply static bias here (Controller handles it dynamically)
         # BUT, standard OpenWAM logic adds "Angle0" + Gap.
         # Angle0 usually comes from 'open_angle' in file.
@@ -1363,15 +1370,17 @@ class WAMGenerator:
             if is_intake:
                 vanos_bias = self.config.engine.vanos_intake_bias
                 self._validate_valve_config(valve_conf, vanos_bias)
-                open_angle = base_open_intake - vanos_bias
+                open_angle = base_open_intake - (vanos_bias + vanos_offset)
             else:
                 vanos_bias = self.config.engine.vanos_exhaust_bias
                 self._validate_valve_config(valve_conf, vanos_bias)
-                open_angle = base_open_exhaust - vanos_bias
+                open_angle = base_open_exhaust - (vanos_bias + vanos_offset)
         else:
-             # Simulation with control: Set Base Angle. Controller outputs Bias (Gap).
+             # Simulation with control: Set Base Angle (trimmed by the fixed
+             # mechanical offset). Controller outputs the dynamic Bias (Gap).
              # open_angle = Angle0
-             open_angle = base_open_intake if is_intake else base_open_exhaust
+             base_open = base_open_intake if is_intake else base_open_exhaust
+             open_angle = base_open - vanos_offset
             
         self.wam_lines_valves.append("1")
         # Dynamic Duration Logic
