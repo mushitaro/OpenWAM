@@ -608,3 +608,51 @@ volume and backflow -- solvable but it needs tuning against real S54 data
 (actual VANOS map + a measured VE point), not a single code fix. The exhaust
 STABILITY mission is complete and unaffected; this is the accuracy work that the
 now-stable solver makes possible.
+
+## Stage 14 — CSL 268deg cam + IVO/IVC sweep: timing IS the lever, VE ~ stock
+
+Two corrections landed together: (1) the cam base was set to the true **CSL
+hardware** — 268deg intake / 264deg exhaust (the standard S54B32 is 260/260),
+and (2) the **MSS54 VANOS reference offsets** (`K_EVAN1_OFFSET=-2`,
+`K_AVAN1_OFFSET=+1` deg KW, DME unit "W"=Winkel) were wired into
+`_add_valve_def`. Because IVC = IVO + duration, the +8deg intake bump pushes IVC
+later, so the IVO base was re-swept (`scripts/ivo_sweep.py`).
+
+### Metric fix
+`ve_first_cycle_sweep.py` took the *peak* trapped mass, which is a START-UP
+overshoot (e.g. 0.67 g at t=5 ms) — not the settled value. The mass then
+plateaus (~0.40 g held over consecutive dumps) before the cyl-3 freeze degrades
+it. The **median** of the physical readings is robust to both the overshoot and
+the freeze tail and lands on the plateau; the sweep reports the median.
+
+### Result (WOT, 2-cycle, median trapped mass -> VE)
+Effective IVO = knob + 2 (the -2 offset). IVC in deg ABDC = effIVO + 268 - 540.
+
+| RPM | best IVO knob | effIVO | IVC ABDC | VE_sim | VE_stock | dVE |
+|---|---|---|---|---|---|---|
+| 3000 | 320 | 322 | 50 | 102% | 98%  | +4 |
+| 4000 | 330 | 332 | 60 | 96%  | 102% | -6 |
+| 5000 | 340 | 342 | 70 | 102% | 107% | -5 |
+| 6000 | 340 | 342 | 70 | 102% | 109% | -7 |
+
+Each RPM traces a clean inverted-U in IVC with a sharp optimum, and **at the
+optimum the model reaches 96-102% VE — within +/-7% of the stock CSL curve.**
+The optimal IVC **retards with RPM** (50->70 deg ABDC over 3000->6000), exactly
+the inertia/ram-filling physics. Healthier filling also ran longer before the
+freeze (25 s vs 5 s, fewer NaN), an independent confirmation it is real.
+
+### This overturns Stage 12's framing
+Stage 12's "uniform ~0.4x under-fill, looks like a flat calibration constant"
+was an **artifact of a single wrong static IVC** (90 deg ABDC, the old IVO=360),
+which sits far down the falling edge at *every* RPM. It is not a flat offset and
+not a physics limit: **intake-valve TIMING is the dominant VE lever**, confirming
+Stage 13's wave-tuning result with hard numbers.
+
+### What changed in code
+- Default `base_open_intake` 360 -> **340** (IVC ~70 ABDC): the best single
+  static center for a high-revving engine — never below 90% over 3000-6000,
+  peaks at high RPM. Still env-tunable via `OPENWAM_IVO`.
+- The RPM-dependent optimum belongs in the **VANOS schedule** (`kf_evan1_soll`):
+  the static base centers it, the map should advance IVC at low RPM toward
+  ~50 ABDC and hold ~70 ABDC up top. Next: drive the map through the controlled
+  path and check it tracks this optimum against a measured VE point.

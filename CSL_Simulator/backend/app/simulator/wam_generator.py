@@ -1348,9 +1348,17 @@ class WAMGenerator:
         # which kept the intake valve open far into compression: VLVWIN showed
         # the cylinder pushing hot charge BACK into the runner (SAL) for ~90 deg,
         # contaminating the intake with 600-870 K gas and giving a uniform ~0.4x
-        # VE. Env-tunable for calibration.
+        # VE.
+        #
+        # CALIBRATION (CSL 268 deg intake cam, scripts/ivo_sweep.py): with the
+        # corrected CSL duration, the old base=360 puts IVC at 90 deg ABDC, the
+        # WORST static choice (mid-RPM fill ~63%). Sweeping IVO showed the fill
+        # optimum is RPM-dependent (IVC ~50 ABDC at 2500 -> ~70 ABDC at 4000;
+        # flat at high RPM) -- i.e. it belongs in the VANOS schedule. As a static
+        # BASE we use 340 (IVC ~70 ABDC), the mid-RPM sweet spot (+6.7% VE at
+        # 4000) and neutral at high RPM. Env-tunable via OPENWAM_IVO.
         import os as _os
-        base_open_intake = float(_os.environ.get("OPENWAM_IVO", "360.0"))
+        base_open_intake = float(_os.environ.get("OPENWAM_IVO", "340.0"))
         base_open_exhaust = 102.0  # 102° ATDC-combustion (was 130: 28° too late)
         vanos_bias = 0.0
 
