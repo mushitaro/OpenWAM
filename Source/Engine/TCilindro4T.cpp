@@ -442,6 +442,21 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
         MasaEscInstante += masavalesc;
         FMasa += masavalesc;
         FAcumMasaPorEsc += masavalesc;
+        // Diagnostic (OPENWAM_MASSDIAG=1): catch a non-physical exhaust-valve
+        // mass exchange. masavalesc per step should be a small fraction of the
+        // cylinder charge; a huge value means the valve boundary returned a
+        // runaway massflow (throat rho*A*v) during the blowdown.
+        if (getenv("OPENWAM_MASSDIAG") && fabs(masavalesc) > 1.0e-4) {
+          static int s_md = 0;
+          if (s_md < 30) {
+            printf("MASSDIAG cyl %d: masavalesc=%.4e g/step massflow=%.4e "
+                   "FMasa=%.4e g dt=%.3e Theta=%.1f\n",
+                   FNumeroCilindro, masavalesc * 1e3,
+                   dynamic_cast<TCCCilindro *>(FCCValvulaEsc[i])->getMassflow(),
+                   FMasa * 1e3, FDeltaT, FAnguloActual);
+            ++s_md;
+          }
+        }
 
         /* Transporte de especies quimicas */
         for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
