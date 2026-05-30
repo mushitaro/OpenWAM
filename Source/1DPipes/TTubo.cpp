@@ -6009,6 +6009,93 @@ void TTubo::TVD_Estabilidad() {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
+void TTubo::HLLCFlux(int i, double *g) {
+  // HLLC approximate Riemann flux (Toro, "Riemann Solvers and Numerical Methods
+  // for Fluid Dynamics", ch.10) for the Euler equations at the face between
+  // cells i (left, L) and i+1 (right, R). The OpenWAM conserved/flux vectors are
+  // AREA-WEIGHTED and DIMENSIONAL: FTVD.W = [rho*u*A, (rho*u^2+p)*A,
+  // u*(rho*E+p)*A]. We build the HLLC flux from the physical (per-area) state
+  // and multiply by the face area once at the end, so it is consistent with the
+  // central FTVD.W used everywhere else.
+  //
+  // HLLC is positivity-preserving for density and internal energy under the CFL
+  // condition: it is the targeted, principled cure for the exhaust-port density
+  // runaway that the linearised-Roe TVD flux could not contain.
+  const double Aface = FArea12[i];
+
+  // Left / right primitive states (dimensional SI: kg/m^3, m/s, Pa, m/s).
+  double rL = Frho[i], rR = Frho[i + 1];
+  double uL = FVelocidadDim[i], uR = FVelocidadDim[i + 1];
+  double aL = FAsonidoDim[i], aR = FAsonidoDim[i + 1];
+  double pL = __units::BarToPa(FPresion0[i]);
+  double pR = __units::BarToPa(FPresion0[i + 1]);
+  double gL = FGamma[i], gR = FGamma[i + 1];
+
+  // Positivity floors so the solver never forms a NaN even from a poisoned
+  // neighbour; these only bite on already-degenerate cells.
+  const double rfloor = 1.0e-4, pfloor = 1.0e-1, afloor = 1.0;
+  if (!(rL > rfloor) || !std::isfinite(rL)) rL = rfloor;
+  if (!(rR > rfloor) || !std::isfinite(rR)) rR = rfloor;
+  if (!(pL > pfloor) || !std::isfinite(pL)) pL = pfloor;
+  if (!(pR > pfloor) || !std::isfinite(pR)) pR = pfloor;
+  if (!(aL > afloor) || !std::isfinite(aL)) aL = sqrt(gL * pL / rL);
+  if (!(aR > afloor) || !std::isfinite(aR)) aR = sqrt(gR * pR / rR);
+  if (!std::isfinite(uL)) uL = 0.0;
+  if (!std::isfinite(uR)) uR = 0.0;
+
+  // Total energy per unit volume: rho*E = p/(g-1) + 0.5*rho*u^2.
+  double EL = pL / (gL - 1.0) + 0.5 * rL * uL * uL;
+  double ER = pR / (gR - 1.0) + 0.5 * rR * uR * uR;
+
+  // Wave-speed estimates (Davis / direct): SL, SR bracket the fan.
+  double SL = std::min(uL - aL, uR - aR);
+  double SR = std::max(uL + aL, uR + aR);
+
+  // Contact (star) speed, Toro eq. (10.37).
+  double denom = rL * (SL - uL) - rR * (SR - uR);
+  double Sstar;
+  if (fabs(denom) < 1.0e-30)
+    Sstar = 0.5 * (uL + uR);
+  else
+    Sstar = (pR - pL + rL * uL * (SL - uL) - rR * uR * (SR - uR)) / denom;
+
+  // Conserved (per-area) left/right vectors for the 3 gas equations.
+  double UL[3] = {rL, rL * uL, EL};
+  double UR[3] = {rR, rR * uR, ER};
+  // Physical fluxes F(U).
+  double FL[3] = {rL * uL, rL * uL * uL + pL, uL * (EL + pL)};
+  double FR[3] = {rR * uR, rR * uR * uR + pR, uR * (ER + pR)};
+
+  double Fg[3];
+  if (SL >= 0.0) {
+    for (int k = 0; k < 3; ++k) Fg[k] = FL[k];
+  } else if (SR <= 0.0) {
+    for (int k = 0; k < 3; ++k) Fg[k] = FR[k];
+  } else if (Sstar >= 0.0) {
+    // Left star state, Toro eq. (10.38)-(10.39).
+    double fac = rL * (SL - uL) / (SL - Sstar);
+    double Ustar[3];
+    Ustar[0] = fac * 1.0;
+    Ustar[1] = fac * Sstar;
+    Ustar[2] = fac * (EL / rL + (Sstar - uL) * (Sstar + pL / (rL * (SL - uL))));
+    for (int k = 0; k < 3; ++k) Fg[k] = FL[k] + SL * (Ustar[k] - UL[k]);
+  } else {
+    // Right star state.
+    double fac = rR * (SR - uR) / (SR - Sstar);
+    double Ustar[3];
+    Ustar[0] = fac * 1.0;
+    Ustar[1] = fac * Sstar;
+    Ustar[2] = fac * (ER / rR + (Sstar - uR) * (Sstar + pR / (rR * (SR - uR))));
+    for (int k = 0; k < 3; ++k) Fg[k] = FR[k] + SR * (Ustar[k] - UR[k]);
+  }
+
+  // Area-weight to match FTVD.W convention.
+  for (int k = 0; k < 3; ++k) g[k] = Fg[k] * Aface;
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+
 void TTubo::TVD_Limitador() {
 #ifdef usetry
   try {
@@ -6068,15 +6155,30 @@ void TTubo::TVD_Limitador() {
       }
     }
 
+    static const bool useHLLC = (getenv("OPENWAM_HLLC") != NULL);
     for (int i = 0; i < FNin - 1; ++i) {
-      for (int k = 0; k < 3; ++k) {
-        FTVD.gflux[k][i] =
-            0.5 *
-            (FTVD.W[k][i] + FTVD.W[k][i + 1] - FTVD.Bmas[k][i] +
-             FTVD.Bmen[k][i + 1] -
-             (FTVD.Pmatrix[k][0][i] * FTVD.Phi[0][i] * FTVD.DeltaW[0][i] +
-              FTVD.Pmatrix[k][1][i] * FTVD.Phi[1][i] * FTVD.DeltaW[1][i] +
-              FTVD.Pmatrix[k][2][i] * FTVD.Phi[2][i] * FTVD.DeltaW[2][i]));
+      if (useHLLC) {
+        // Replace ONLY the hyperbolic part of the interface flux with HLLC,
+        // keeping the original source-term split 0.5*(-Bmas[i]+Bmen[i+1]) so the
+        // quasi-1D area/friction/heat source handling in the update below is
+        // byte-identical to the TVD path. The original gflux is
+        //   0.5*(W[i]+W[i+1] - antidiffusion)        <- hyperbolic (-> HLLC)
+        // + 0.5*(-Bmas[i] + Bmen[i+1])               <- source split (kept)
+        double gh[3];
+        HLLCFlux(i, gh);
+        for (int k = 0; k < 3; ++k)
+          FTVD.gflux[k][i] =
+              gh[k] + 0.5 * (-FTVD.Bmas[k][i] + FTVD.Bmen[k][i + 1]);
+      } else {
+        for (int k = 0; k < 3; ++k) {
+          FTVD.gflux[k][i] =
+              0.5 *
+              (FTVD.W[k][i] + FTVD.W[k][i + 1] - FTVD.Bmas[k][i] +
+               FTVD.Bmen[k][i + 1] -
+               (FTVD.Pmatrix[k][0][i] * FTVD.Phi[0][i] * FTVD.DeltaW[0][i] +
+                FTVD.Pmatrix[k][1][i] * FTVD.Phi[1][i] * FTVD.DeltaW[1][i] +
+                FTVD.Pmatrix[k][2][i] * FTVD.Phi[2][i] * FTVD.DeltaW[2][i]));
+        }
       }
       for (int k = 3; k < FNumEcuaciones; k++) {
         FTVD.gflux[k][i] =

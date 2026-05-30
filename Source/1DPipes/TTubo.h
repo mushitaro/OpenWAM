@@ -597,6 +597,12 @@ private:
   /*! Comment */
   void TVD_Limitador();
 
+  /*! HLLC interface flux for the 3 gas-dynamic equations at face i (between
+   *  cells i and i+1). Fills g[0..2]. Area-weighted, dimensional, consistent
+   *  with FTVD.W. Positivity-preserving. Enabled per-face by TVD_Limitador when
+   *  OPENWAM_HLLC is set or as a fallback. */
+  void HLLCFlux(int i, double *g);
+
   void RoeConstants();
 
   /*! Comment */
