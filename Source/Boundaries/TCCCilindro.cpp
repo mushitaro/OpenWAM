@@ -408,6 +408,26 @@ void TCCCilindro::FlujoEntranteCilindro() {
     FMachGarganta = -velocidad_garganta /
                     vel_son_garganta; // Negativo por ser flujo entrante
     FVelocidadGarganta = velocidad_garganta;
+
+    // Choked-flow ceiling on the valve massflow (inflow / backflow into the
+    // cylinder; FGasto is negative here). Physically the mass that can pass a
+    // valve in one step is at most the sonic flux through the effective area,
+    // ~ Cd*A_valve * rho_up * a_up. Under the (now NaN-free, HLLC) extreme
+    // blowdown the throat formula above can still return an enormous backflow
+    // (observed cylinder mass running away to thousands of g), which is a
+    // mass-conservation break, not a NaN. Clamp |FGasto| to the sonic flux of
+    // the upstream PORT state so the cylinder cannot draw an unphysical mass
+    // back in. Real flow is at or below this, so normal operation is untouched.
+    {
+      double rho_up = FTuboExtremo[0].Pipe->GetDensidad(FNodoFin); // kg/m^3
+      double a_up = FTuboExtremo[0].Pipe->GetAsonido(FNodoFin) * __cons::ARef; // m/s
+      if (std::isfinite(rho_up) && std::isfinite(a_up) && rho_up > 0. &&
+          a_up > 0.) {
+        double gasto_max = FCDEntrada * FSeccionValvula * rho_up * a_up;
+        if (FGasto < -gasto_max)
+          FGasto = -gasto_max;
+      }
+    }
   }
 
   catch (std::exception &N) {
@@ -576,6 +596,22 @@ void TCCCilindro::FlujoSalienteCilindro() {
     FMachGarganta = FVelocidadGarganta / a1;
     // FMachGarganta = FVelocidadGarganta/a1; // Positivo por ser flujo saliente
     FGastoGarganta = FGasto / (FCDSalida * FSeccionValvula);
+
+    // Choked-flow ceiling on the valve massflow (outflow from the cylinder;
+    // FGasto positive). Mirror of the inflow clamp: bound the vented mass to the
+    // sonic flux of the upstream CYLINDER state, ~ Cd*A_valve * rho_cyl * a_cyl,
+    // so the throat formula above cannot vent an unphysical amount during the
+    // extreme blowdown. Cylinder density is exact: rho_cyl = m_cyl / V_cyl.
+    {
+      double Vcyl = FCilindro->getVolumen();
+      double a_cyl = FCilindro->getSpeedsound();
+      if (Vcyl > 0. && std::isfinite(a_cyl) && a_cyl > 0.) {
+        double rho_cyl = FCilindro->getMasa() / Vcyl;
+        double gasto_max = FCDSalida * FSeccionValvula * rho_cyl * a_cyl;
+        if (std::isfinite(gasto_max) && gasto_max > 0. && FGasto > gasto_max)
+          FGasto = gasto_max;
+      }
+    }
   }
 
   catch (std::exception &N) {
