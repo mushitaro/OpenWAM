@@ -2366,23 +2366,24 @@ void TCilindro::IniciaVariables() {
                   << " Ang:" << FAnguloActual << " Vol:" << FVolumen
                   << " P:" << FPressure << " Mass:" << FMasa << std::endl;
 
-        // [MODIFIED] Force Initial Pressure (Stop Adiabatic Compression at t=0)
-        FPressure = FMotor->getPresionInicial();
-
-        // FMasa = FMotor->getMasaInicial();
-        // FMasa calculated from Current Volume to ensure P=1Bar at t=0
-        FMasa = __units::BarToPa(FMotor->getPresionInicial()) * FVolumen /
+        // Closed-cycle initial state by isentropic compression from the
+        // intake-valve-close (RCA) reference, restoring the original OpenWAM
+        // behaviour. A prior modification ("[ANTIGRAVITY] Force Initial
+        // Pressure") forced P = Pinit (1 bar) on every closed-cycle cylinder
+        // and derived the mass from the *current* (possibly near-TDC) volume.
+        // For a cylinder sitting in the combustion/expansion window at t=0 that
+        // is unphysical: it holds a near-TDC charge at only 1 bar, so the first
+        // expansion over-expands to a cryogenic near-vacuum (E.O. ~0.1 bar /
+        // -82 C), which seeds the exhaust-port NaN cascade. The physical state
+        // is the full RCA charge (mass from FVolumenCA) compressed
+        // isentropically to the current volume: P = Pinit*(Vrca/V)^gamma. This
+        // gives a hot, pressurised charge near TDC instead of a cold vacuum.
+        FPressure =
+            FMotor->getPresionInicial() * pow((FVolumenCA / FVolumen), FGamma);
+        FMasa = __units::BarToPa(FMotor->getPresionInicial()) * FVolumenCA /
                 __units::degCToK(60) / FRMezcla;
         FMasaAtrapada = FMasa;
 
-        // [DEBUG ANTIGRAVITY]
-        std::cout << "[DEBUG_INIT] Cyl:" << FNumeroCilindro
-                  << " Ang:" << FAnguloActual << " Vol:" << FVolumen
-                  << " P:" << FPressure << " Mass:" << FMasa << std::endl;
-
-        for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
-          FMasaEspecie[j] = FMasa * FFraccionMasicaEspecie[j];
-        }
         for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
           FMasaEspecie[j] = FMasa * FFraccionMasicaEspecie[j];
         }
