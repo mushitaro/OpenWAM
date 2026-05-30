@@ -537,3 +537,42 @@ trapped-mass sampling angle, and whether HLLC's port dissipation damps the
 intake ram. The exhaust stability mission (the original "physical model limit")
 is COMPLETE: the run is NaN-free, mass-physical, and converges across the full
 RPM range.
+
+## Stage 13 — VE calibration: it's intake VALVE-TIMING / wave-tuning, not a flat offset
+
+The "uniform ~0.4x VE" turned out NOT to be a numerical dissipation constant.
+VLVWIN traced the intake valve over a converged cycle and found:
+- the intake port gas is **600-870 K all cycle** (not ~313 K), so the cylinder
+  fills with hot gas (IVC ~565 K) -> low density -> low VE;
+- the hot intake comes from **backflow**: the intake valve goes SAL (cylinder ->
+  runner) for ~90 deg around BDC because IVC was at **620 deg (80 deg after
+  BDC)**, pushing hot compressed charge back into the runner and contaminating
+  it cycle-after-cycle.
+
+### Intake-timing sweep (4000 RPM/WOT, HLLC, converged) — huge, wave-tuned effect
+| IVO / dur -> IVC | VE % |
+|---|---|
+| 360 / 260 -> 620 (old default) | 38 |
+| 340 / 230 -> 570 | **203** |
+| 345 / 200 -> 545 | 81 |
+| 350 / 195 -> 545 | 38 |
+| 350 / 205 -> 555 | 81 |
+| 345 / 210 -> 555 | 46 |
+| 355 / 195 -> 550 | 51 |
+
+VE swings 37 -> 203 % with valve timing, and is **non-monotonic** (same IVC,
+very different VE depending on IVO/duration) -- i.e. the model has real intake
+wave-tuning behaviour, and the old default timing sat in a bad trough.
+
+### Interpretation & open question
+Two things are now clear:
+1. The exhaust stability work is complete and correct -- VE responds to physics.
+2. The VE sensitivity to timing is **larger than a real engine** (2x from a
+   5-10 deg shift), which suggests the intake wave dynamics are under-damped /
+   resonating more strongly than reality (manifold/equalisation-tube model, port
+   friction, or HLLC's low numerical dissipation amplifying the ram wave).
+
+Calibrating VE to the stock curve is therefore a multi-factor intake-tuning task
+(set the real S54 VANOS timing AND damp the over-resonant manifold), distinct
+from the now-finished stability work. `OPENWAM_IVO` / `OPENWAM_IN_DUR` expose the
+timing for that work.
