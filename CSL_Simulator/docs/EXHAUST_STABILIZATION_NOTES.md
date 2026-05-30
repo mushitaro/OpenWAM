@@ -427,3 +427,46 @@ per-step valve mass exchange to a physical fraction of the cylinder/port mass;
 or make the cylinder<->valve solve use the HLLC contact state. HLLC itself is
 the correct foundation and should become the default for the exhaust once the
 mass-coupling bound is in. TVD remains default for now; `OPENWAM_HLLC=1` opts in.
+
+## Stage 10 — valve↔cylinder mass coupling (partial; the new frontier)
+
+With HLLC making the pipe flux NaN-free, the remaining failure is the
+cylinder↔valve mass exchange running away during the valve-overlap blowdown.
+Localised with MASSDIAG / MASSDIAG-ADM / PATHDIAG / CHOKEDIAG:
+
+- The spike is **intake-side** (cyl mass -> 3776 g is `Intake mass 3822 g`, not
+  exhaust): during overlap a cylinder draws a non-physical backflow through the
+  intake valve, FMasa climbing 7 -> 30 -> hundreds of g at a near-frozen Theta
+  (dt ~ 2e-8, tiny steps each adding ~0.1 g).
+- The valve sizes its choked massflow from the **boundary-node density**
+  `Frho[FNodoFin]`, which reaches ~300 kg/m^3 there. That node is a *boundary*
+  node, NOT covered by the interior TVD positivity limiter (cells 1..FNin-2) nor
+  the `Transforma2Area` cap, so it is the uncapped state feeding the valve.
+
+### What helped (committed)
+- Choked-flow ceiling on the exhaust valve (`Cd*A*rho*a`) -- bounds the exhaust
+  backflow (PATHDIAG: exhaust FGasto held at the growing sonic ceiling).
+
+### What did NOT work (reverted)
+- **Hard cylinder-mass cap** (rho_cyl <= 60): discarding the "excess" mass
+  breaks conservation -> reintroduces NaN.
+- **Boundary-node `Frho` cap** (in `ActualizaPropiedadesGas`): desyncs `Frho`
+  from the conserved `FU0`/`FPresion0` the same node also exposes, so the valve
+  and the pipe see inconsistent states -> NaN.
+
+### The real fix (open)
+The valve↔cylinder↔junction states must be made **mutually consistent** rather
+than clamped independently: either (a) cap the boundary-node CONSERVED state
+(U0/energy) so `Frho`, `P`, `a` all stay consistent and the valve sees one
+physical state, or (b) give the cylinder boundary (`TCCCilindro`) the HLLC
+contact-state massflow instead of the characteristic-throat formula, which
+over-predicts under the extreme port state. This is the natural continuation of
+the HLLC work and the last barrier to a clean multi-cycle exhaust run.
+
+### Net position after Stage 9-10
+- HLLC (`OPENWAM_HLLC=1`): pipe flux is NaN-free through the cyl-3 blowdown that
+  froze every TVD variant -- the density-runaway root is cured.
+- Exhaust valve massflow is choked-bounded.
+- The intake-valve / boundary-node coupling under overlap is the remaining
+  non-physical mass source; the principled fix is boundary-state consistency
+  (above), not more independent clamps.
