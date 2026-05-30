@@ -235,6 +235,16 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
         FK = k_ceiling;
       if (FK < 0)
         FK = 0;
+      // Diagnostic (OPENWAM_THRDIAG=1): confirm the throttle is actually using
+      // the restrictive Cd/K at runtime (first 12 evaluations).
+      if (getenv("OPENWAM_THRDIAG")) {
+        static int thrDiag = 0;
+        if (thrDiag < 12) {
+          printf("THRDIAG CC %d: valveID=%d cd=%.4f -> FK=%.2f\n",
+                 FNumeroCC, FValveID, cd, FK);
+          ++thrDiag;
+        }
+      }
     }
 
     if (FTuboActual == 10000) {

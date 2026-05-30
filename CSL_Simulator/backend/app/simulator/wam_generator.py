@@ -529,15 +529,6 @@ class WAMGenerator:
                        cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
 
 
-        # 4. Equalization Tube (等圧管 / Gleichdruckrohr)
-        # S54 physical component: φ20mm × 450mm tube connecting all runners
-        # Provides inter-cylinder pressure equalization
-        # Volume: π × (10mm)² × 450mm ≈ 141cc
-        eq_tube_id = self.plenum_counter; self.plenum_counter += 1
-        eq_tube_vol = math.pi * (0.010**2) * 0.450  # ~1.41e-4 m³ ≈ 141cc
-        self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 313)
-        print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
-
         # Estimated manifold absolute pressure (MAP) downstream of the throttle.
         # A part-throttle manifold settles to a vacuum; initialising those pipes
         # at atmospheric makes the first cycle over-fill (the run currently only
@@ -554,6 +545,24 @@ class WAMGenerator:
         map_frac = max(0.30, min(1.0, thr_cd0 ** _map_exp))
         intake_map_bar = 1.01325 * map_frac
         print(f"DEBUG: Throttle angle={thr_angle0:.1f} Cd={thr_cd0:.3f} -> intake MAP={intake_map_bar:.3f} bar")
+
+        # 4. Equalization Tube (等圧管 / Gleichdruckrohr)
+        # S54 physical component: φ20mm × 450mm tube connecting all runners.
+        # NOTE: it sits downstream of the per-cylinder throttles, but initialising
+        # it at MAP was measured to add NaN at WOT with no VE benefit (the cycle-1
+        # fill is not throttle-limited regardless -- that needs multi-cycle
+        # convergence), so it is left at atmospheric.
+        eq_tube_id = self.plenum_counter; self.plenum_counter += 1
+        eq_tube_vol = math.pi * (0.010**2) * 0.450  # ~1.41e-4 m³ ≈ 141cc
+        self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 313)
+        print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
+
+        # The equalisation tube sits DOWNSTREAM of the per-cylinder throttles
+        # (it cross-connects the runners), so it must also start at MAP -- if it
+        # is left at atmospheric it is a downstream reservoir that refills the
+        # cylinder past the throttle, defeating the restriction. Re-init it here
+        # now that the MAP estimate is known. (Plenum_Main and the ambient plenum
+        # stay atmospheric: they are UPSTREAM of the throttle.)
 
         # 5. Per-Cylinder: Bellmouth → [Type 9 Throttle] → Runner_Upper → [Type 12] → Runner_Lower → [Type 12] → Ports
         for i in range(c.engine.cylinders):
@@ -1571,8 +1580,8 @@ class WAMGenerator:
         # Controller ID
         self.wam_lines_valves.append(f"{ctrl_id}")
 
-    def _add_plenum(self, plid, label, vol, wall_temp, ptype=0, allow_small=False):
-        # Type 0: Constant Volume
+    def _add_plenum(self, plid, label, vol, wall_temp, ptype=0, allow_small=False, init_p=None):
+        # Type 0: Constant Volume. init_p: initial pressure (bar); None -> atm.
         
         # Universal minimum volume clamp for numerical stability.
         # Unit is m3. 0.00005 m3 = 50cc.
@@ -1608,10 +1617,10 @@ class WAMGenerator:
         self.wam_lines_plenums.append(f"{ptype}")
         self.wam_lines_plenums.append(self.air_comp)
         
-        # Line 3: Vol P T
-        # [FIXED] Revert P to Bar (1.01325). TDeposito.cpp converts BarToPa(FPressure).
-        # Previous value 101325.0 was interpreted as 101325 Bar -> 10 GPa -> Exhaust Explosion.
-        self.wam_lines_plenums.append(f"{vol:.5f} 1.01325 {wall_temp:.2f}")
+        # Line 3: Vol P T. P in bar (TDeposito.cpp converts BarToPa(FPressure)).
+        # Default atmospheric; throttle-downstream plenums carry an estimated MAP.
+        p_init = init_p if init_p else 1.01325
+        self.wam_lines_plenums.append(f"{vol:.5f} {p_init:.5f} {wall_temp:.2f}")
         
         self.plenum_ids.add(plid)
 
