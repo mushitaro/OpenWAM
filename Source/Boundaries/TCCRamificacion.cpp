@@ -32,6 +32,8 @@ Valencia
 
 #include "TCCRamificacion.h"
 // #include <cmath>
+#include <atomic>
+#include <cmath>
 #include <iostream>
 #include <vector>
 #include <memory>
@@ -355,6 +357,44 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
           double Velocidady = sign_v * Sonidoy * Machy;
           *FCC[i] = Sonidoy + FGamma3 * Velocidady;
           *FCD[i] = Sonidoy - FGamma3 * Velocidady;
+        }
+      }
+    }
+
+    // Final positivity / finiteness guard on the junction characteristics.
+    // A Type-12 Riemann junction (port-merge, intake equalisation, collector)
+    // under sustained supersonic / reversing blowdown can leave a non-finite or
+    // non-physical (Landa, Beta, Entropia) in a connected pipe end. That NaN is
+    // then read straight into the pipe's boundary cell and poisons the whole
+    // network -- it is THE residual exhaust/intake freeze source. For any pipe
+    // end whose stored state is non-finite, or whose implied sound speed
+    // (Landa+Beta)/2 is non-positive, reset it to a quiescent state built from
+    // that pipe's own incident characteristic (sound speed = |incident|, zero
+    // velocity), which is positivity-preserving and lets the solve continue
+    // instead of diverging. Healthy junctions (a ~ 1) never enter this branch.
+    {
+      static std::atomic<int> s_juncWarn{0};
+      for (int i = 0; i < FNumeroTubosCC; i++) {
+        double L = *FCD[i]; // Landa stored via FCD/FCC aliases per end type
+        double B = *FCC[i];
+        double E = FTuboExtremo[i].Entropia;
+        double ason = 0.5 * (L + B);
+        if (!std::isfinite(L) || !std::isfinite(B) || !std::isfinite(E) ||
+            !(E > 1.0e-6) || !(ason > 1.0e-4)) {
+          // Incident characteristic from the pipe (Landa at this end), floored.
+          double inc = FTuboExtremo[i].Landa;
+          if (!std::isfinite(inc) || inc < 1.0e-3)
+            inc = 1.0e-3;
+          // Quiescent reset: a = inc, v = 0  ->  Landa = Beta = inc.
+          *FCC[i] = inc;
+          *FCD[i] = inc;
+          if (!std::isfinite(E) || E < 1.0e-6)
+            FTuboExtremo[i].Entropia = 1.0;
+          FVelocity[i] = 0.0;
+          int n = s_juncWarn.fetch_add(1);
+          if (n < 20)
+            printf("WARNING: junction %d pipe-end %d non-physical state reset "
+                   "(L=%.2e B=%.2e E=%.2e)\n", FNumeroCC, i, L, B, E);
         }
       }
     }

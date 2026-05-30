@@ -2581,6 +2581,23 @@ void TTubo::ActualizaValoresNuevos(
           printf("DEBUG BC NaN (LEFT): further reports suppressed.\n");
       }
     }
+    // Boundary positivity guard (LEFT node 0). The junction (TCCRamificacion)
+    // can hand back a non-finite or non-physical (a,v,p) under sustained
+    // supersonic blowdown; writing it into the boundary cell seeds the NaN that
+    // the interior positivity limiter cannot reach. When that happens, fall back
+    // to the adjacent interior cell's primitive state (zeroth-order
+    // extrapolation), which is positivity-preserving and lets the solve proceed
+    // instead of poisoning the network. Real boundary states (a ~ 1) are
+    // untouched.
+    if (!(a > 1.0e-4) || !std::isfinite(a) || !std::isfinite(v) ||
+        !(p > 0.0) || !std::isfinite(p)) {
+      a = FAsonido0[1];
+      v = FVelocidad0[1];
+      p = FPresion0[1];
+      if (!(a > 1.0e-4) || !std::isfinite(a)) a = 1.0e-3;
+      if (!std::isfinite(v)) v = 0.0;
+      if (!(p > 0.0) || !std::isfinite(p)) p = 1.0e-3;
+    }
     if (BC[FNodoIzq - 1]->getTipoCC() == nmBranch) {
       if (v < 0.) {
         for (int i = 0; i < FNumeroEspecies - FIntEGR; i++) {
@@ -2622,6 +2639,18 @@ void TTubo::ActualizaValoresNuevos(
         if (n == 49)
           printf("DEBUG BC NaN (RIGHT): further reports suppressed.\n");
       }
+    }
+    // Boundary positivity guard (RIGHT node FNin-1); see LEFT note. Fall back to
+    // the adjacent interior cell (FNin-2) when the junction returns a
+    // non-physical state.
+    if (!(a > 1.0e-4) || !std::isfinite(a) || !std::isfinite(v) ||
+        !(p > 0.0) || !std::isfinite(p)) {
+      a = FAsonido0[FNin - 2];
+      v = FVelocidad0[FNin - 2];
+      p = FPresion0[FNin - 2];
+      if (!(a > 1.0e-4) || !std::isfinite(a)) a = 1.0e-3;
+      if (!std::isfinite(v)) v = 0.0;
+      if (!(p > 0.0) || !std::isfinite(p)) p = 1.0e-3;
     }
     if (BC[FNodoDer - 1]->getTipoCC() == nmBranch) {
       if (v > 0.) {
@@ -6064,6 +6093,59 @@ void TTubo::TVD_Limitador() {
         FU1[k][i] =
             FU0[k][i] - dtdx * ((FTVD.gflux[k][i] - FTVD.gflux[k][i - 1]) +
                                 (FTVD.Bmen[k][i] + FTVD.Bmas[k][i]));
+      }
+    }
+
+    // Positivity-preserving a-posteriori limiter (MOOD-style). The 2nd-order
+    // antidiffusive flux above (the Pmatrix*Phi*DeltaW term) can overshoot at a
+    // strong gradient -- e.g. the exhaust-port blowdown next to the Type-12
+    // junction -- and drive the updated density U1[0] negative or into the
+    // runaway that froze the timestep (Frho -> 1e90). Detect any cell whose new
+    // density is non-positive / non-finite / absurdly large, and recompute THAT
+    // cell with the 1st-order (pure-upwind, maximally dissipative ~ HLL) flux,
+    // which is provably positivity-preserving under the CFL condition. The
+    // 1st-order numerical flux at face i is the central term with the full
+    // upwind correction (Phi replaced by hLandaD, i.e. no R-limiter
+    // antidiffusion). Healthy cells keep the high-order solution untouched.
+    {
+      const double kRhoLo = 0.0;     // density must stay > 0
+      const double kRhoHi = 50.0;    // 50x ambient: runaway guard (adimensional)
+      static std::atomic<long> s_ppWarn{0};
+      for (int i = 1; i < FNin - 1; ++i) {
+        double rho = FU1[0][i];
+        if (rho > kRhoLo && std::isfinite(rho) && rho <= kRhoHi)
+          continue; // healthy cell: keep high-order update
+
+        // First-order numerical flux at the two faces (i-1, i) of cell i.
+        // gflux1(face) = 0.5*(W_L + W_R - Bmas + Bmen_next
+        //                     - sum_m Pmatrix_m * hLandaD_m * DeltaW_m)
+        // (same form as gflux but with Phi -> hLandaD: full upwind, no limiter).
+        std::vector<double> g1_lo(FNumEcuaciones), g1_hi(FNumEcuaciones);
+        for (int face = 0; face < 2; ++face) {
+          int fi = i - 1 + face; // face index: i-1 then i
+          double *G = (face == 0) ? g1_lo.data() : g1_hi.data();
+          for (int k = 0; k < 3; ++k) {
+            double upwind =
+                FTVD.Pmatrix[k][0][fi] * (double)FTVD.hLandaD[0][fi] * FTVD.DeltaW[0][fi] +
+                FTVD.Pmatrix[k][1][fi] * (double)FTVD.hLandaD[1][fi] * FTVD.DeltaW[1][fi] +
+                FTVD.Pmatrix[k][2][fi] * (double)FTVD.hLandaD[2][fi] * FTVD.DeltaW[2][fi];
+            G[k] = 0.5 * (FTVD.W[k][fi] + FTVD.W[k][fi + 1] - FTVD.Bmas[k][fi] +
+                          FTVD.Bmen[k][fi + 1] - upwind);
+          }
+          for (int k = 3; k < FNumEcuaciones; k++) {
+            G[k] = 0.5 * (FTVD.W[k][fi] + FTVD.W[k][fi + 1] -
+                          (double)FTVD.hLandaD[k][fi] *
+                              (FTVD.W[k][fi + 1] - FTVD.W[k][fi]));
+          }
+        }
+        for (int k = 0; k < FNumEcuaciones; k++) {
+          FU1[k][i] = FU0[k][i] - dtdx * ((g1_hi[k] - g1_lo[k]) +
+                                          (FTVD.Bmen[k][i] + FTVD.Bmas[k][i]));
+        }
+        long n = s_ppWarn.fetch_add(1);
+        if (n < 20)
+          printf("WARNING: positivity fallback to 1st-order in pipe %d cell %d "
+                 "(rho was %.3e)\n", FNumeroTubo, i, rho);
       }
     }
 #ifdef usetry
