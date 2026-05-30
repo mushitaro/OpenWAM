@@ -209,15 +209,58 @@ must keep `a` and `E` thermodynamically consistent (as the density/pressure
 consistency clamp did for `Transforma2Area`), and belongs at the cell-state
 level, not the boundary transform.
 
-### Honest status
-- **Hang eliminated** (plenum iteration cap) — the single most important fix.
-- **Velocity clamp tightened to Mach 1.5** (`759f8f8`): strictly fewer NaN
-  (sweep 1.2/1.5/2/5 → 69/71/73/92).
-- No configuration yet **completes** a 2-cycle 4000 rpm/WOT run; the first-cycle
-  cold-manifold blowdown remains the hard transient. Lower RPM is close (NaN=5).
-- Next candidate: a cell-level entropy/sound-speed consistency clamp at the
-  port nodes (not a bare `E` floor), or a gentler first-cycle initialization
-  (warm manifold / motoring) so cycle-1 blowdown is never cold-seeded.
+## Stage 7 — the NaN seed FIXED at source; the freeze fully characterized
+
+### ✅ Root-cause fix: isentropic cylinder init (`b6f955c`) — NaN 92 → 0
+The cold-start seed was traced to a prior `[ANTIGRAVITY]` modification in
+`TCilindro::IniciaVariables` that forced **every closed-cycle cylinder to
+P = 1 bar / 60 C at t=0** and took its mass from the *current* volume. A
+cylinder sitting in the combustion/expansion window at t=0 then held a near-TDC
+charge at only 1 bar, so its first expansion over-expanded to a cryogenic
+near-vacuum (E.O. ~0.1 bar / -82.8 C) — the seed for the whole exhaust-port NaN
+cascade. Restoring OpenWAM's original isentropic init (full RCA charge,
+`P = Pinit*(Vrca/V)^gamma`) makes a near-TDC cylinder start hot and pressurised.
+
+Measured (4000 rpm/WOT, plenumless, single thread): **BC-NaN 92 → 0**,
+E.O. pressure **0.10 → 0.74 bar**. The NaN cascade is gone at the hardest point.
+The trapped mass is now healthy and monotonic across the map (0.64 → 0.70 g for
+1500 → 4000 rpm).
+
+### ⚠️ Remaining: a dt→0 freeze at the cyl-3 first blowdown (no NaN)
+With the NaN gone, the run is stable but **freezes** (dt = 0) at one cell — the
+cyl-3 exhaust port (`Port_Ex_3`, pipe 45/46) at Theta ~860 deg, *after*
+cylinders 4 and 1 have completed clean gas exchange. `OPENWAM_TVDDIAG` localized
+it exactly: the true eigenvalue `|Alpha|` stays healthy (~1.5e3 m/s) but the TVD
+source-projection `Beta = DeltaB/DeltaU` blows up to **~1e21**, making
+`VTotalMax = |Alpha|+|Beta|` non-finite and `dt = Courant*dx/VTotalMax = 0`.
+Origin: a near-vacuum port cell makes the Roe density ratio (`Rm`, and the
+`1/Amed`/`1/Amed2` eigenvector scaling) explode.
+
+**Fixes that do NOT work (all tested, all reverted):**
+- Capping `VTotalMax`, `Beta`, or the dimensional wave speeds so `dt > 0`:
+  the run *finishes* but the gas mass collapses to ~1e-77 g — the cell has **no
+  stable timestep**, so any larger dt violates CFL and blows up.
+- Flooring the Roe `Amed2`, capping `Rm`, or an absolute density floor (1% of
+  ambient): the freeze persists — the degeneracy is in the *ratio* across the
+  contact, not any single absolute value.
+
+**Conclusion:** the cyl-3 first-blowdown drives the port cell into a state where
+the TVD Roe linearization is degenerate and has no stable timestep. This is a
+scheme-level limitation for this extreme cold-manifold transient, not a simple
+bug. Resolving it needs either a proper conservative cell-state repair (replace
+the degenerate cell with a neighbour-consistent quiescent state *before* the
+Roe projection) or a HLL/HLLC-style flux at near-vacuum interfaces — a larger
+change than a guard. Kept defensive: the Roe `sqrt` guards (`b39e09a`) prevent
+a real latent NaN; `OPENWAM_TVDDIAG` pinpoints any recurrence.
+
+### Data-usability note for the VE sweep
+At the freeze the state is healthy (NaN=0, mass ~0.70 g) and the **first-cycle
+trapped mass is already recorded**, so a sweep can still harvest a (first-cycle,
+not multi-cycle-converged) trapped mass per point by reading the last
+`INFO: Trapped mass:` before the timeout. The load (TPS) axis, however, is still
+not differentiating (0.30 vs 1.00 give nearly the same mass) — the intake/
+throttle boundary flow-limiting bug (Stage-4 todo) is the next functional issue
+once the run completes.
 
 ## Logging / safety
 - `TTubo::ComunicacionTubo_CC` BC-NaN `printf` is bounded by a **thread-safe
