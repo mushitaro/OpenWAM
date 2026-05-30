@@ -298,3 +298,61 @@ once the run completes.
 - Do **not** batch dependent steps in one parallel tool block: if any command
   in the block exits non-zero, all siblings are cancelled (this repeatedly
   wiped out edits/commits during development).
+
+## Stage 6-7 — the freeze is a density runaway; junction is the last root
+
+After the cold-start seed fix (Stage 3) removed the cylinder-side seed, the
+4000 RPM/WOT run no longer NaNs immediately but **freezes** at the cyl-3
+blowdown (Theta ~847 deg, ~29 % of 2 cycles). A step-resolved trace
+(`OPENWAM_DTSTEP`, `OPENWAM_TVDDIAG` extended to dump raw cell state) pinned the
+mechanism precisely:
+
+1. The plenum 0D solver had an **uncapped fixed-point loop**
+   (`TDepVolCte::ActualizaPropiedades`) that could spin forever on a small
+   port-junction plenum — a true hang, not slowness. Fixed with an iteration
+   cap + under-relaxation (`b444abc`).
+2. With plenumless Type-12, the freeze is a **density runaway**: at the exhaust-
+   port area change the TVD area-source term `Bvector[1] ~ rho*a^2*dArea` forms
+   a positive feedback — high rho -> large source -> higher rho next step. The
+   conserved density `U[0]` grows by orders of magnitude per step
+   (`Frho -> 1e90+`), which blows up the Roe differences and the antidiffusion
+   `Beta = DeltaB/DeltaU -> 1e21`, so `VTotalMax = |Alpha|+|Beta| -> inf` and
+   `dt = Courant*dx/VTotalMax -> 0`. The pre-existing density guard only floored
+   the LOW end.
+
+### What helped (committed)
+- **Upper density ceiling** in `Transforma2Area` (50x ambient, rescaling
+  momentum/energy) — breaks the `U[0]` runaway. Alone: reach 29 % -> 34 %.
+- **Straight (constant-area) exhaust port** option
+  (`OPENWAM_EX_PORT_STRAIGHT=1`) — removes the area-source driver. Standalone
+  29 % -> 51 %; with the density ceiling, **reaches 99 %**.
+
+### What did NOT help
+- Bounding `rhomed`/`Amed` at the 3 TVD source-term sites (`CalculaB/Bmas/Bmen`)
+  — no benefit, slight regression; reverted.
+- A `VTotalMax`/`dt` ceiling — let an unstable dt through and blew the run up
+  (mass -> 1e-77 "dead-system" finish); reverted.
+- Raising the throttle K ceiling for the freeze — unrelated (intake side).
+
+### Remaining root (open)
+Even straight ports + density ceiling do **not** yield a *physically valid*
+multi-cycle run: a residual NaN still appears at the **Type-12 port-merge
+junction** (`TCCRamificacion`, boundary 46/51) under sustained supersonic
+blowdown. The first NaN is `Landa=Beta=-nan` with finite entropy — i.e. the
+**pipe** feeds an already-NaN characteristic into the junction, which
+propagates it. The density ceiling fires *after* the W-update has already
+consumed runaway intermediate values, so it cannot fully prevent the cascade.
+With enough NaN the gas mass drains to ~0 and the run "completes" dead.
+
+This is a robustness limit of the Lax-Wendroff/TVD scheme with strong source
+terms at a valve-adjacent Riemann junction under extreme blowdown. The
+defensible next step is a more dissipative, positivity-preserving flux at the
+exhaust ports/junction (HLL/HLLC-style) rather than more post-hoc clamps.
+`OPENWAM_EX_PORT_STRAIGHT=1` + the density ceiling is the most stable
+configuration found and the recommended base for that work.
+
+### Diagnostics added this stage (opt-in, env-gated)
+- `OPENWAM_TVDDIAG=1` — on `dt < 1e-9`, dump pacing pipe, max Alpha/Beta cell,
+  and that cell's `DeltaB/DeltaU/Bvector/Frho/U0/U1`.
+- `OPENWAM_EX_PORT_STRAIGHT=1` — constant-area exhaust ports.
+- `OPENWAM_THRDIAG=1` — runtime throttle Cd/K (intake side).
