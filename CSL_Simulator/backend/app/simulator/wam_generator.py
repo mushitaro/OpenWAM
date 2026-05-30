@@ -1342,7 +1342,15 @@ class WAMGenerator:
         # With bias system: open_angle = base_open - bias
         #   intake_bias = 130 - raw → open = 360 - (130 - raw) = 230 + raw ✓
         #   exhaust_bias = raw - 128 → open = 102 - (raw - 128) = 230 - raw ✓
-        base_open_intake = 360.0   # TDC-GE (was 350: 10° too early)
+        # Intake valve open angle (crank deg, gas-exchange TDC = 360). With the
+        # cosine lift over `duration`, IVC = base_open + duration. The previous
+        # base_open_intake=360 + duration 260 gave IVC=620 (80 deg after BDC),
+        # which kept the intake valve open far into compression: VLVWIN showed
+        # the cylinder pushing hot charge BACK into the runner (SAL) for ~90 deg,
+        # contaminating the intake with 600-870 K gas and giving a uniform ~0.4x
+        # VE. Env-tunable for calibration.
+        import os as _os
+        base_open_intake = float(_os.environ.get("OPENWAM_IVO", "360.0"))
         base_open_exhaust = 102.0  # 102° ATDC-combustion (was 130: 28° too late)
         vanos_bias = 0.0
         
@@ -1365,10 +1373,12 @@ class WAMGenerator:
              # open_angle = Angle0
              open_angle = base_open_intake if is_intake else base_open_exhaust
             
-        self.wam_lines_valves.append("1") 
+        self.wam_lines_valves.append("1")
         # Dynamic Duration Logic
         step = 1.0 # High resolution for stability (was 5.0)
         duration = valve_conf.duration
+        if is_intake and _os.environ.get("OPENWAM_IN_DUR"):
+            duration = float(_os.environ["OPENWAM_IN_DUR"])
         num_lev = int(duration / step) + 1
         
         # Ensure we cover the full duration
