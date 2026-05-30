@@ -5518,7 +5518,12 @@ void TTubo::CalculaB() {
           H2 = 0.5 * FVelocidadDim[i + 1] * FVelocidadDim[i + 1] +
                FAsonidoDim[i + 1] * FAsonidoDim[i + 1] / gamma1;
           Hmed = (Rm * H2 + H1) / Rm1;
-          Amed = sqrt(gamma1 * (Hmed - 0.5 * Vmed * Vmed));
+          // Roe sound-speed guard (see CalculaBmas): avoid sqrt of a negative
+          // radicand from a high-speed-vs-vacuum cell pair.
+          double AmedArg = gamma1 * (Hmed - 0.5 * Vmed * Vmed);
+          if (!(AmedArg > 0.0) || !std::isfinite(AmedArg))
+            AmedArg = 1.0e-6;
+          Amed = sqrt(AmedArg);
           rhomed = sqrt(Frho[i] * Frho[i + 1]);
         }
         if (FCoefAjusFric != 0 || FCoefAjusTC != 0) {
@@ -5606,7 +5611,12 @@ void TTubo::CalculaBmen() {
           H2 = 0.5 * FVelocidadDim[i - 1] * FVelocidadDim[i - 1] +
                FAsonidoDim[i - 1] * FAsonidoDim[i - 1] / gamma1;
           Hmed = (Rm * H1 + H2) / Rm1;
-          Amed = sqrt(gamma1 * (Hmed - 0.5 * Vmed * Vmed));
+          // Same Roe sound-speed guard as CalculaBmas: prevent a negative/NaN
+          // radicand from a high-speed-vs-vacuum cell pair zeroing the timestep.
+          double AmedArg = gamma1 * (Hmed - 0.5 * Vmed * Vmed);
+          if (!(AmedArg > 0.0) || !std::isfinite(AmedArg))
+            AmedArg = 1.0e-6;
+          Amed = sqrt(AmedArg);
           rhomed = sqrt(Frho[i] * sqrt(Frho[i] * Frho[i - 1]));
         }
         if (FCoefAjusFric != 0 || FCoefAjusTC != 0) {
@@ -5695,7 +5705,11 @@ void TTubo::CalculaBmas() {
           H2 = 0.5 * FVelocidadDim[i + 1] * FVelocidadDim[i + 1] +
                FAsonidoDim[i + 1] * FAsonidoDim[i + 1] / gamma1;
           Hmed = (Rm * H1 + H2) / Rm1;
-          Amed = sqrt(gamma1 * (Hmed - 0.5 * Vmed * Vmed));
+          // Roe sound-speed guard (see CalculaBmas).
+          double AmedArg = gamma1 * (Hmed - 0.5 * Vmed * Vmed);
+          if (!(AmedArg > 0.0) || !std::isfinite(AmedArg))
+            AmedArg = 1.0e-6;
+          Amed = sqrt(AmedArg);
           rhomed = sqrt(Frho[i] * sqrt(Frho[i] * Frho[i + 1]));
         }
         if (FCoefAjusFric != 0 || FCoefAjusTC != 0) {
@@ -5776,6 +5790,20 @@ void TTubo::CalculaMatrizJacobiana() {
       Vmed2 = Vmed * Vmed;
       Hmed = (Rmed * H2 + H1) / Rmed1;
       Amed2 = gamma1 * (Hmed - 0.5 * Vmed2);
+      // Roe-averaged sound speed squared (DIMENSIONAL, m^2/s^2). For a high-speed
+      // cell next to a floored near-vacuum cell, Hmed and 0.5*Vmed2 are both
+      // large and cancel to a negative/NaN value, so sqrt(Amed2) is NaN. Worse,
+      // the right-eigenvector matrix Qmatrix scales as 1/Amed and 1/Amed2, so a
+      // *tiny* Amed (even if positive) makes Qmatrix ~ 1e6, the source-term
+      // projection DeltaB ~ 1e18, and Beta = DeltaB/DeltaU ~ 1e21 -- the TVD
+      // VTotalMax then blows up and the timestep collapses to ~0, freezing the
+      // solver at the cyl-3 exhaust-port blowdown. Floor Amed2 to a *physical*
+      // minimum sound speed (20 m/s)^2, not an epsilon, so both the sqrt and the
+      // 1/Amed eigenvector scaling stay bounded. A real gas column is far above
+      // this (a >= ~300 m/s), so healthy cells are untouched.
+      const double Amed2_min = 400.0; // (20 m/s)^2
+      if (!(Amed2 > Amed2_min) || !std::isfinite(Amed2))
+        Amed2 = Amed2_min;
       Amed = sqrt(Amed2);
       for (int j = 0; j < FNumeroEspecies - 1 - FIntEGR; j++) {
         Ymed[j] = (Rmed * FFraccionMasicaEspecie[i + 1][j] +
@@ -5881,6 +5909,25 @@ void TTubo::TVD_Estabilidad() {
       }
     }
     DeltaT_tvd = FCourant * FXref / VTotalMax;
+    // Diagnostic (OPENWAM_TVDDIAG=1): when the TVD wave speed explodes (tiny
+    // dt), report which cell/eigenvalue is responsible so the dt-collapse can be
+    // attributed. Throttled.
+    if (getenv("OPENWAM_TVDDIAG") && DeltaT_tvd < 1.0e-9) {
+      static std::atomic<int> tvdDiag{0};
+      int n = tvdDiag.fetch_add(1);
+      if (n < 30) {
+        double amax = 0., bmax = 0.;
+        int ia = -1, ib = -1, ka = -1, kb = -1;
+        for (int i = 0; i < FNin - 1; i++)
+          for (int k = 0; k < 3; k++) {
+            if (fabs(FTVD.Alpha[k][i]) > amax) { amax = fabs(FTVD.Alpha[k][i]); ia = i; ka = k; }
+            if (fabs(FTVD.Beta[k][i]) > bmax) { bmax = fabs(FTVD.Beta[k][i]); ib = i; kb = k; }
+          }
+        printf("TVDDIAG pipe %d dt_tvd=%.3e VTotalMax=%.3e | Alpha_max=%.3e@(k%d,i%d) "
+               "Beta_max=%.3e@(k%d,i%d)\n",
+               FNumeroTubo, DeltaT_tvd, VTotalMax, amax, ka, ia, bmax, kb, ib);
+      }
+    }
     if (DeltaT_tvd < FDeltaTime)
       FDeltaTime = DeltaT_tvd;
 #ifdef usetry
