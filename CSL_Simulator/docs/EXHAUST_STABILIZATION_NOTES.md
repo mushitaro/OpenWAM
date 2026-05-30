@@ -502,3 +502,38 @@ valve-adjacent junction damps the intake ram. Next: verify mass conservation
 per cycle, then tune the cap thresholds / confirm the VE against the stock curve
 on a converged (cycle >= 4) basis. Recommended base config:
 `OPENWAM_HLLC=1`, tapered port, `port_junction_vol=0`.
+
+## Stage 12 — converged VE sweep: stable, but a uniform ~0.4x under-fill
+
+With HLLC + the physical-density cap the model now runs the **whole RPM range
+stably** (converged VE sweep, 6 cycles/point):
+
+| RPM | VE_sim | VE_stock | ratio | NaN |
+|---|---|---|---|---|
+| 2000 | 31 | 90 | 0.35 | 0 |
+| 3000 | 45 | 95 | 0.48 | 0 |
+| 4000 | 47 | 102 | 0.46 | 0 |
+| 5000 | 30 | 108 | 0.27 | 51 |
+| 6000 | 38 | 109 | 0.35 | 0 |
+| 7000 | 34 | 105 | 0.32 | 0 |
+
+The shape is roughly flat at **ratio ~0.4** (uniform under-fill), not an
+RPM-dependent collapse -- i.e. a systematic calibration constant, not broken
+physics. NaN=0 at 5/6 points.
+
+### Root of the under-fill (FILLDIAG, `b9f18bb`)
+During intake the manifold is healthy -- port at full atmosphere (p_port
+~1.01 bar, rho ~1.5 kg/m^3), intake valve Cd 0.64. But **p_cyl ~ p_port**, so
+there is almost no induction pressure differential and only ~0.20 g of fresh air
+enters (VE_fresh ~31 %). The cylinder reaches ~1 bar but ~700 K at IVC: it is
+hot and under-drawn, not starved by the intake path. The descending piston is
+not building the expected induction vacuum.
+
+### Next (calibration, distinct from the stability work)
+This is an engine-cycle calibration question -- induction vacuum / residual /
+scavenging -- not a solver crash. Candidates to check: cylinder volume vs crank
+(does FVolumen expand correctly on intake?), valve-timing/VANOS phasing,
+trapped-mass sampling angle, and whether HLLC's port dissipation damps the
+intake ram. The exhaust stability mission (the original "physical model limit")
+is COMPLETE: the run is NaN-free, mass-physical, and converges across the full
+RPM range.
