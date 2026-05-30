@@ -694,6 +694,23 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
 
     FVolumen0 = FVolumen;
     FVolumen = CalculaVolumen(FAnguloActual);
+    // Diagnostic (OPENWAM_VOLDIAG=1): trace cyl-1 volume/pressure/mass over the
+    // intake stroke (Theta 360..600 in the 720 cycle) to check the piston is
+    // building induction vacuum and the volume expands to V_BDC.
+    if (getenv("OPENWAM_VOLDIAG") && FNumeroCilindro == 1 &&
+        FAnguloActual > 360. && FAnguloActual < 600.) {
+      // Sample sparsely (every ~10 deg) and only after enough cycles have run,
+      // so the trace spans a CONVERGED intake stroke, not the cycle-1 startup.
+      static long s_calls = 0;
+      ++s_calls;
+      static double s_lastTheta = -1e9;
+      if (s_calls > 400000 && fabs(FAnguloActual - s_lastTheta) > 10.0) {
+        s_lastTheta = FAnguloActual;
+        printf("VOLDIAG cyl1 Theta=%.1f V=%.1f cc P=%.3f bar T=%.0f K m=%.4f g\n",
+               FAnguloActual, FVolumen * 1e6, FPressure,
+               __units::degCToK(FTemperature), FMasa * 1e3);
+      }
+    }
 
     // CALCULO DE LA TRANSMISION DE CALOR
 
