@@ -343,6 +343,22 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
       // La composicion se mantiene, al estar el flujo parado.
     }
     FValvula->AcumulaCDMedio(Time);
+    // Diagnostic (OPENWAM_PATHDIAG=1): for a runaway valve massflow, report the
+    // flow branch taken and the final FGasto, to localise which path leaks.
+    if (getenv("OPENWAM_PATHDIAG") && fabs(FGasto) > 100.0) {
+      static int s_pd = 0;
+      if (s_pd < 20) {
+        const char *br = (FSentidoFlujo == nmEntrante) ? "ENTRANTE"
+                         : (FSentidoFlujo == nmSaliente) ? "SALIENTE"
+                                                         : "PARADO";
+        printf("PATHDIAG BC %d (cyl %d, %s valve): branch=%s FGasto=%.4e "
+               "FCDEntrada=%.3e FCDSalida=%.3e\n",
+               FNumeroCC, FNumeroCilindro,
+               (FTipoValv == nmValvEscape) ? "EXH" : "INT", br, FGasto,
+               FCDEntrada, FCDSalida);
+        ++s_pd;
+      }
+    }
   } catch (std::exception &N) {
     std::cout << "ERROR: TCCCilindro::CalculaCondicionContorno en la condicion "
                  "de contorno: "
@@ -424,6 +440,16 @@ void TCCCilindro::FlujoEntranteCilindro() {
       if (std::isfinite(rho_up) && std::isfinite(a_up) && rho_up > 0. &&
           a_up > 0.) {
         double gasto_max = FCDEntrada * FSeccionValvula * rho_up * a_up;
+        if (getenv("OPENWAM_MASSDIAG") && FGasto < -10.0) {
+          static int s_cd = 0;
+          if (s_cd < 10) {
+            printf("CHOKEDIAG-IN BC %d: FGasto=%.3e gasto_max=%.3e rho_up=%.3e "
+                   "a_up=%.3e CdEnt=%.3e A=%.3e\n",
+                   FNumeroCC, FGasto, gasto_max, rho_up, a_up, FCDEntrada,
+                   FSeccionValvula);
+            ++s_cd;
+          }
+        }
         if (FGasto < -gasto_max)
           FGasto = -gasto_max;
       }
