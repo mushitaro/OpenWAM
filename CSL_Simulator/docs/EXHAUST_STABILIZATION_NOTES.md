@@ -1245,3 +1245,56 @@ backflow question -- not heat rejection, not the wall material -- is the path to
 
 ### Assets
 - `OPENWAM_IN_HMULT=<x>` -- multiply intake-pipe wall heat-transfer (FCoefAjusTC).
+
+## Stage 23 — fabricated VE table + binary endianness bug found and fixed (user was right)
+
+The user flagged that the "stock VE table" looked wrong (recalling the real CSL is
+LOW at 2000-4500 rpm then >110% higher up) and suspected a prior AI had fabricated
+tables "all over the place." Verified directly against the MSS54 binary -- correct
+on both counts.
+
+### Root causes
+1. **Endianness bug in `binary_service.py`:** it read the MSS54 binary
+   LITTLE-endian (`<H`). The binary is BIG-endian. LE decoded the RPM axis to
+   non-monotonic garbage (22530, 26115, 19460, 5125, ...) and a `160/65535`
+   scaling, yielding a fake VE curve. Reading `>H` and dividing the raw word by
+   1000 reproduces `csl_ecu_maps.json` `kf_rf_soll` EXACTLY across the full 24x20
+   map (verified True). Real WOT target (kf_rf_soll last row, rl ratio):
+   ```
+   1300rpm 67%  1400 78%  1600 95%  2100 93%  2200 88%  2400 87%  (the 2000-2400 dip)
+   2700 104%  3100 104%  3900 116%(peak)  4600 111%  5300 110% ... 7900 102%
+   ```
+   This is PEAKY exactly as the user described -- not the smooth curve I had been
+   using as "target."
+2. **Fabricated `stock_csl_ve.json`:** a smooth monotonic curve
+   (2000:90 3000:95 4000:102 5500:110-peak ...) with NO dip -- does not match the
+   real ECU target at all. A prior AI (Gemini 3.1 Pro lineage) appears to have
+   generated it. Several scripts + `calibration_service.load_target_data()` used
+   it as "stock."
+3. **Silent Gaussian fallback** in `mock_data_generator.get_stock_ve`
+   (`0.85 + 0.15*exp(-((rpm-5500)^2)/2000^2)`) -- another fabricated smooth curve
+   that masked missing data.
+
+### Fixes (user decision: "make the binary the single source of truth")
+- `binary_service.py`: `ENDIAN=">"`, all `read_axis`/`read_table_generic`/
+  `read_table_16x16_uint16` use big-endian; `VE_FACTOR = 1/1000` (rl ratio, was
+  160/65535). 1-byte VANOS tables unchanged (endianness irrelevant); VANOS
+  16x16 read/write round-trip verified stable.
+- `stock_csl_ve.json`: regenerated from the binary `kf_rf_soll` WOT row (now
+  carries the real dip+peak). Fabricated original backed up to
+  `/tmp/stock_csl_ve.fabricated.bak.json`.
+- `mock_data_generator.get_stock_ve`: the Gaussian fallback now RAISES instead of
+  fabricating a curve (the real comparison path reads kf_rf_soll).
+
+### Verified
+- VE map (fixed binary) == csl_ecu_maps.json across full 24x20: True.
+- VANOS intake x_axis (fixed binary) == json: True.
+- stock_csl_ve.json[1300]=0.67 (dip), [3900]=1.157 (peak): correct.
+
+### Impact on the VE investigation
+The "4000 rpm should be ~102%" premise came from the fabricated smooth table; the
+REAL target there is ~116% (3900) / ~111% (4600) -- still high, so the converged
+collapse to ~47-62% (hot-recirculation feedback, Stages 16-22) remains a real
+defect. But ALL prior sim-vs-"stock" deltas were computed against fabricated
+numbers and must be recomputed against the corrected stock_csl_ve.json. The low
+2000-2400 rpm dip is now expected behaviour, not a fault to chase.

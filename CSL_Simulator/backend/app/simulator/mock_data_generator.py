@@ -35,9 +35,14 @@ class MockDataGenerator:
         Interpolates stock VE from kf_rf_soll (Alpha-N) at 100% TPS (Last Row).
         """
         if not self.ecu_maps or "kf_rf_soll" not in self.ecu_maps:
-             # Fallback
-             return 0.85 + 0.15 * np.exp(-((rpm - 5500)**2) / (2000**2))
-             
+             # No silent fabrication: the stock VE target must come from the real
+             # MSS54 binary (kf_rf_soll). A previous synthetic Gaussian fallback
+             # (0.85 + 0.15*exp(...)) masked missing data with a smooth curve that
+             # did NOT match the real, peaky CSL target -- raise instead.
+             raise RuntimeError(
+                 "kf_rf_soll not loaded from csl_ecu_maps.json / binary; "
+                 "cannot return stock VE (refusing to fabricate a curve).")
+
         map_data = self.ecu_maps["kf_rf_soll"]
         x_axis = map_data["x_axis"] # RPM
         # Assume 100% TPS is the last row for maximum VE

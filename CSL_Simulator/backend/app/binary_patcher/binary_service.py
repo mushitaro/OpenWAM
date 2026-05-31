@@ -14,13 +14,19 @@ class BinaryService:
     ADDR_EXHAUST_AXIS_X = 0x1BF6   # Columns (from image)
     ADDR_EXHAUST_AXIS_Y = 0x1C16   # Rows (from image)
     
-    # VE Map (Alpha-N for CSL)
+    # VE Map (Alpha-N for CSL) = KF_RF_SOLL (relative-charge target, 24 rows x 20 cols)
     ADDR_VE_MAP = 0xD356
     ADDR_VE_AXIS_RPM = 0xD2FE  # 20 Columns
     ADDR_VE_AXIS_LOAD = 0xD326 # 24 Rows
-    
-    # Conversion Factor: 0-65535 -> 0-160% (Typical MSS54 VE Scale)
-    VE_FACTOR = 160.0 / 65535.0
+
+    # The MSS54 binary is BIG-ENDIAN. Reading it little-endian (the previous bug)
+    # decoded the RPM axis to non-monotonic garbage (22530, 26115, 19460, ...) and
+    # produced a fabricated VE curve. Verified: reading >H and dividing the raw
+    # 16-bit word by 1000 reproduces csl_ecu_maps.json kf_rf_soll exactly across
+    # the full 24x20 map (rl ratio, ~0.67..1.20 = 67..120 % at WOT). This is the
+    # ground-truth CSL target; do not reintroduce the 160/65535 scaling.
+    ENDIAN = ">"  # MSS54 = big-endian
+    VE_FACTOR = 1.0 / 1000.0  # raw word -> rl ratio (1.000 = 100 % charge)
 
     def __init__(self):
         pass
@@ -36,18 +42,18 @@ class BinaryService:
             f.write(data)
 
     def read_axis(self, binary_data, address, length):
-        """Reads a 1D axis of 16-bit unsigned integers."""
+        """Reads a 1D axis of 16-bit unsigned integers (big-endian)."""
         axis = []
         offset = address
         for _ in range(length):
-            val = struct.unpack_from('<H', binary_data, offset)[0]
+            val = struct.unpack_from(self.ENDIAN + 'H', binary_data, offset)[0]
             axis.append(val)
             offset += 2
         return axis
 
     def read_table_generic(self, binary_data, address, rows, cols, factor=1.0):
         """
-        Reads a Rows x Cols table of 16-bit unsigned integers.
+        Reads a Rows x Cols table of 16-bit unsigned integers (big-endian).
         Apply factor to convert raw values.
         Returns list of lists (rows).
         """
@@ -56,7 +62,7 @@ class BinaryService:
         for r in range(rows):
             row_data = []
             for c in range(cols):
-                val = struct.unpack_from('<H', binary_data, offset)[0]
+                val = struct.unpack_from(self.ENDIAN + 'H', binary_data, offset)[0]
                 row_data.append(val * factor)
                 offset += 2
             table.append(row_data)
@@ -72,8 +78,8 @@ class BinaryService:
         for row in range(16):
             row_data = []
             for col in range(16):
-                # Read 1 byte, signed
-                val = struct.unpack_from('<b', binary_data, offset)[0]
+                # Read 1 byte, signed (endianness is irrelevant for 1-byte values)
+                val = struct.unpack_from('b', binary_data, offset)[0]
                 row_data.append(val)
                 offset += 1
             table.append(row_data)
@@ -81,14 +87,14 @@ class BinaryService:
 
     def read_table_16x16_uint16(self, binary_data, address):
         """
-        Reads a 16x16 table of 16-bit unsigned integers (Common for VE).
+        Reads a 16x16 table of 16-bit unsigned integers (big-endian).
         """
         table = []
         offset = address
         for row in range(16):
             row_data = []
             for col in range(16):
-                val = struct.unpack_from('<H', binary_data, offset)[0]
+                val = struct.unpack_from(self.ENDIAN + 'H', binary_data, offset)[0]
                 row_data.append(val)
                 offset += 2
             table.append(row_data)

@@ -9,6 +9,23 @@ first, then `docs/EXHAUST_STABILIZATION_NOTES.md` Stage 15-16 for the detail.
 
 ---
 
+## ⟶ UPDATE 5 (Stage 23): the "stock VE target" was FABRICATED; binary endianness bug fixed
+
+Before trusting ANY sim-vs-stock delta below, note: the smooth `stock_csl_ve.json`
+(4000≈102 %) used as "target" throughout Stages 1-22 was **fabricated** (likely a
+prior AI). The REAL CSL target is the MSS54 binary `kf_rf_soll`, which was being
+mis-read little-endian. Fixed in Stage 23: `binary_service` now reads big-endian
+with `VE_FACTOR=1/1000`, reproducing `csl_ecu_maps.json` exactly. Real WOT target
+is PEAKY: **dip ~67-95 % at 1300-1600 rpm, ~87-93 % at 2100-2400, then 104 %@2700,
+116 %@3900 (peak), 111 %@4600, ~102-110 % to redline.** `stock_csl_ve.json`
+regenerated from the binary; the Gaussian fallback now raises instead of faking a
+curve. **Action for next session: recompute all VE deltas against the corrected
+table; the low 2000-2400 dip is now expected, not a fault.** The converged collapse
+to ~47-62 % (hot-recirculation feedback) is still real. Detail: EXHAUST notes
+Stage 23.
+
+---
+
 ## ⟶ UPDATE (Stage 16 cont.): the A-vs-B question is ANSWERED — it's (A) energy gain
 
 The Stage-16 "next step" (instrument the intake energy/mass balance) is **done**.
