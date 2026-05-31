@@ -236,6 +236,59 @@ void TDepVolCte::ActualizaPropiedades(double TimeCalculo) {
 		FPresionIsen = pow(FPressure / FPresRef, __Gamma::G5(FGamma));
 		FTemperature = __units::KTodegC(A2 / FGamma / FRMezcla);
 		FTime = TimeCalculo;
+
+		// Diagnostic (OPENWAM_PLENDIAG=<dep>): plenum energy-balance audit. For the
+		// target deposit (default 2 = Plenum_Main) accumulate, per window, the
+		// mass-flux-weighted INFLOW temperature from every connection and compare
+		// it to the plenum's own temperature. By conservation a wall-cooled plenum
+		// must satisfy <T_in> >= T_plenum (it loses heat to the walls); if instead
+		// the plenum runs HOTTER than every stream feeding it, that is energy
+		// creation at the plenum mixing -- the surviving Stage-20 candidate.
+		if(getenv("OPENWAM_PLENDIAG")) {
+			int target = atoi(getenv("OPENWAM_PLENDIAG"));
+			if(target <= 1) target = 2;
+			if(FNumeroDeposito == target) {
+				const double R = 287.0;
+				static double s_dt = 0., s_Tplen = 0.;
+				static double s_min[16] = {0}, s_mT[16] = {0}, s_mTin = 0., s_min_tot = 0.;
+				static long s_n = 0;
+				double Tplen = __units::degCToK(FTemperature);
+				s_Tplen += Tplen * DeltaT; s_dt += DeltaT;
+				for(int i = 0; i < FNumeroUniones && i < 16; i++) {
+					if(FCCDeposito[i]->getTipoCC() == nmPipeToPlenumConnection) {
+						int sf = (dynamic_cast<TCCDeposito*>(FCCDeposito[i])->getSentidoFlujo()
+								  == nmEntrante) ? 1 : -1;
+						double gg = -dynamic_cast<TCCDeposito*>(FCCDeposito[i])->getMassflow();
+						double mm = gg * DeltaT
+								* FCCDeposito[i]->GetTuboExtremo(0).Pipe->getNumeroConductos();
+						double vv = sf * dynamic_cast<TCCDeposito*>(FCCDeposito[i])->getVelocity();
+						double aa = dynamic_cast<TCCDeposito*>(FCCDeposito[i])->getSpeedSound();
+						double gam = FCCDeposito[i]->getGamma();
+						double Tin = pow2(aa * __cons::ARef) / (gam * R);
+						if(vv > 0. && mm > 0. && std::isfinite(Tin)) {
+							s_min[i] += mm; s_mT[i] += mm * Tin;
+							s_min_tot += mm; s_mTin += mm * Tin;
+						}
+					}
+				}
+				if((++s_n % 4000) == 0) {
+					double Tin_avg = s_min_tot > 0 ? s_mTin / s_min_tot : 0.;
+					double Tplen_avg = s_dt > 0 ? s_Tplen / s_dt : 0.;
+					printf("PLENDIAG dep%d: T_plenum=%.0fK  <T_in>(massflux-wtd)=%.0fK  "
+						   "=> %s by %.0fK", FNumeroDeposito, Tplen_avg, Tin_avg,
+						   (Tplen_avg > Tin_avg) ? "PLENUM HOTTER (energy gain!)" : "inflow hotter (ok)",
+						   fabs(Tplen_avg - Tin_avg));
+					for(int i = 0; i < FNumeroUniones && i < 16; i++) {
+						if(s_min[i] > 0)
+							printf(" | con%d:%.0fK(m%.0f%%)", i, s_mT[i] / s_min[i],
+								   100. * s_min[i] / (s_min_tot > 0 ? s_min_tot : 1.));
+					}
+					printf("\n");
+					s_dt = s_Tplen = s_mTin = s_min_tot = 0.;
+					for(int i = 0; i < 16; i++) { s_min[i] = 0.; s_mT[i] = 0.; }
+				}
+			}
+		}
 	} catch (std::exception & N) {
 		std::cout << "ERROR: TDepVolCte::ActualizaPropiedades en el deposito: " << FNumeroDeposito << std::endl;
 		std::cout << "Tipo de error: " << N.what() << std::endl;

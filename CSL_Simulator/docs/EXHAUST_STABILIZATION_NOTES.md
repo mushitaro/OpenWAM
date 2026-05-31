@@ -1146,3 +1146,56 @@ the next target; residual/scavenging/cylinder-heat-rejection are eliminated.
 ### Assets
 - `OPENWAM_CYLDIAG=1` -- full-cycle (0-720) cyl-1 T/m/P/V trace + per-cycle
   residual estimate (minM, its T, trapped mass, residual fraction).
+
+## Stage 21 — plenum EXONERATED: it's a hot recirculation loop, no local energy source found
+
+`OPENWAM_PLENDIAG=<dep>` audits a plenum's energy balance: per window it compares
+the plenum's own T to the mass-flux-weighted INFLOW T from every connection.
+
+### Result (Plenum_Main = dep 2, combustion-OFF, converged)
+```
+T_plenum = 573 K   <T_in>(massflux-wtd) = 579-580 K   => inflow hotter by 6-7 K (OK)
+con1..con6 (6 bellmouths): ~579-580 K each, ~17% of inflow each
+con0 (filter): ~0% of the plenum inflow
+```
+- **No energy creation at the plenum:** converged, the plenum is ~6-7 K COOLER
+  than its inflow -- exactly conservation with a small wall loss. (The startup
+  windows showed "plenum hotter"; that is the transient, gone by convergence.)
+- **The plenum inflow is dominated by hot bellmouth backflow (~580 K, all six
+  cylinders ~equally); fresh filter air is a negligible fraction of the inflow.**
+  The intake is a hot recirculation loop that barely exchanges with the 25 C
+  source -- which is precisely why earlier work found the source temperature
+  irrelevant to the converged intake T.
+
+### Where this leaves the hunt (suspects eliminated, no single-line bug)
+Every localisable element has now been checked and **none creates energy**:
+- pipes: conservative finite-volume (conserve mass & energy by construction);
+- Type-9 throttle + Type-12 junctions: conserve enthalpy flux AND entropy (St.18);
+- plenum: conservative, slightly wall-cooled (this stage);
+- cylinder: scavenges well (~9% residual), peaks 1206 K then sheds to walls, and
+  net-COOLS the through-flow (exhaust ~500 K < intake ~560 K) (St.20);
+- intake valve: net-cools the port (St.17).
+Yet the recirculating intake sits at ~570-580 K. The only consistent reading is
+the Stage-18 synthesis: this is a **system-level emergent equilibrium** -- the
+near-closed intake recirculation traps the cylinder's pumping/compression heat
+because the fresh-air throughflow is too weak to flush it -- not a single-component
+bug. The forced-cool test (St.19) is the actionable counterpart: hold the intake
+cold and VE is ~88-92 % (geometry sound); release and it re-heats in ~3 cycles.
+
+### Practical options for VE (since there is no single line to fix)
+1. **Enhance flushing / break the recirculation** so fresh air actually displaces
+   the hot intake gas: stronger intake-pipe wall heat rejection toward ambient
+   (a real radiator effect the 0-D/1-D walls under-model), or a cooler/larger
+   effective fresh-air path, or revisiting the bellmouth<->plenum backflow that
+   dominates the plenum inflow (why so much backflow vs net forward draw?).
+2. **Reduce the irreversible heat generation** of the gas-exchange (valve/junction
+   throttling under the strong oscillation) -- e.g. a less oscillatory intake
+   model -- so the trapped heat is smaller.
+3. **Accept it as a model-fidelity limit and calibrate empirically** -- apply an
+   intake-charge-temperature correction (or a VE multiplier) tuned to the stock
+   curve, documenting it as a known 1-D gas-exchange limitation, and proceed to
+   the ECU-calibration work that the (otherwise sound) model enables.
+
+### Assets
+- `OPENWAM_PLENDIAG=<dep>` -- per-window plenum T vs mass-flux-weighted inflow T,
+  with a per-connection breakdown (which stream feeds the plenum, and how hot).
