@@ -1078,3 +1078,24 @@ high VE should flush the heat out and keep it cold. Tested next via
 ### Assets
 - `OPENWAM_TPIN=<K>` -- pin intake pipes to T=K at constant p (forced cool-start).
 - `OPENWAM_TPIN_STEPS=<N>` -- release the pin after N steps (attractor test).
+
+### Timed-release (OPENWAM_TPIN_STEPS): the hot state is NOT a breakable attractor
+Pinned cold for ~6 cycles then released, the intake **re-heats to ~560 K within
+~3 cycles** and VE collapses back to ~62%:
+```
+cyc5=319K(pinned)  cyc6=345  cyc7=509  cyc8=552  cyc9=565  ... cyc14=549K
+```
+So it is **not** merely trapped start-up heat (H1) and **not** a bistable state you
+can break once: there is a **genuine, fast per-cycle heat source** that
+regenerates the hot intake. The source is hot cylinder/residual gas convected back
+into the intake during gas exchange -- the motored cylinder runs hot (~540 K at the
+intake event, vs ~330 K expected) and leaks that heat upstream faster than it is
+swept out. Curing the VE therefore requires reducing that cylinder->intake heat
+leak (motored cylinder running too hot / over-strong backflow heating), after
+which -- per Stage 19 -- the sound geometry should deliver ~88-92 % VE.
+
+**Net for next session:** geometry is sound (Stage 19); the one fault is a real
+per-cycle cylinder->intake heat leak that pins the intake at ~560 K (this stage).
+Target it directly: why is the motored cylinder ~540 K at IVC and why does that
+heat reach the intake (residual fraction / scavenging / overlap backflow / cylinder
+heat rejection), not the intake plumbing.

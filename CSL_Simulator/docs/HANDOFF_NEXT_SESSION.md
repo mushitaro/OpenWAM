@@ -100,9 +100,32 @@ question is "why is first-pass VE low before the thermal feedback locks in." Try
 3. Intake-wave phasing into the cylinder and the residual-gas fraction/scavenging.
 4. Still-valid secondary: the φ52:φ10 `TCCRamificacion` stub runaway / φ10→φ20.
 
+## ⟶ UPDATE 4 (Stage 19): geometry is SOUND (cold→88% VE); the fault is a per-cycle cylinder→intake heat leak
+
+The forced cool-start (`OPENWAM_TPIN=<K>`) settles it (detail in EXHAUST notes
+"Stage 19"):
+- **Pin the intake to 310 K (constant p, correct ambient density) → VE jumps
+  62% → ~88%** (~92% scaled to 298 K), right at the stock 95–109% band, and the
+  backflow halves. So **the breathing geometry is sound — no major real component
+  is missing/mis-sized.** The ~57–67% ceiling is dominantly the ~570 K hot charge.
+- **Release the pin → the intake re-heats to ~560 K in ~3 cycles** and VE collapses
+  back to ~62%. So the hot state is **not** trapped start-up heat and **not** a
+  break-once attractor: there is a **genuine, fast per-cycle heat source** = hot
+  cylinder/residual gas convected back into the intake during gas exchange (the
+  motored cylinder runs ~540 K at IVC vs ~330 K expected).
+
+**NEXT SESSION target (final form): kill the cylinder→intake heat leak.** Not the
+intake plumbing (sound) — the gas-exchange heat path. Investigate, in order:
+(a) why the motored cylinder is ~540 K at IVC (residual-gas fraction / scavenging /
+cylinder heat rejection); (b) the cylinder→port backflow heating during overlap/
+early intake; (c) whether exhaust gas (600–800 K) reaches the intake through the
+cylinder during overlap. Cure that and the sound geometry gives ~88–92% VE → then
+resume the VE-vs-RPM calibration.
+
 New diagnostic assets (cumulative): `OPENWAM_ENBAL[/_MAX/_WIN]` (now also
 flux-weighted entropy `sflux`), `OPENWAM_NO_EQTUBE`, `OPENWAM_EQ_DIA`,
-`OPENWAM_VLVENE[/_CYL]`, `OPENWAM_IN_FRIC`, `scripts/intake_energy_balance.py`.
+`OPENWAM_VLVENE[/_CYL]`, `OPENWAM_IN_FRIC`, `OPENWAM_TPIN[/_STEPS]`,
+`scripts/intake_energy_balance.py`.
 
 ---
 
