@@ -1352,3 +1352,60 @@ at the real breakpoints.
 - `scripts/ve_breakpoint_compare.py` (modes init|cold|conv; per-run working dir).
 - `scripts/ve_breakpoint_summary.py` (overlay + shape correlation vs target).
 - Diagnosis logs: /tmp/div/divc.log (sonic ordering), TFLOOR sweep.
+
+## Stage 25 — the startup shock does NOT bias the converged VE (decisive A/B)
+
+Following the user's approved "kill the startup shock" direction, three
+initial-state-consistency levers were implemented and tested at 4000 rpm WOT:
+
+1. `OPENWAM_IN_VINIT` — seed intake pipes with a small forward mean velocity
+   (area-scaled toward the cylinders). Sweep 0/10/30/60 m/s: over-fill UNCHANGED
+   (1.03->3.30 g at the 5th IVC); 10 m/s made sonic WORSE (85k vs 62k). Not the
+   driver. (Knob retained, default 0 = no change.)
+2. Cylinder closed-cycle init vacuum bug — FIXED in TCilindro.cpp (separate commit):
+   cyls 4 & 5 were seeded at 0.057 bar / 177 K (a 491 cc volume holding a 62 cc
+   RCA charge). After the fix they seed at 1.013 bar / 333 K / 0.731 g. Correct,
+   but the over-fill/sonic transient PERSISTED -> the vacuum seed was not the root.
+3. `OPENWAM_EXH_TGAS` — exhaust pipes were seeded with HOT gas (gas temp = wall
+   temp = 600-800 C) while the cylinders are at 60 C, a ~540 K thermal step at the
+   first exhaust-valve opening (and the hot gas has a high sound speed ~590 m/s).
+   Cold-seeding (40 C) cut sonic 62k->54k but DEEPENED the over-fill (3.3->9.5 g):
+   denser cold exhaust backflows harder. Default kept "wall" (opt-in diagnostic).
+
+### The decisive experiment
+Run 12 cycles for EXH_TGAS=40 (sonic 54k, over-fill 9.5 g) vs EXH_TGAS=wall
+(sonic 62k, over-fill 3.3 g) and compare the CONVERGED trapped mass:
+```
+EXH_TGAS=40    converged last6 (g): 0.336 0.340 0.318 0.311 0.347 0.336
+EXH_TGAS=wall  converged last6 (g): 0.284 0.373 0.368 0.350 0.319 0.310
+```
+Two startups differing by ~3x in over-fill and ~15% in sonic count converge to the
+SAME limit cycle (~0.33 g). => The startup shock is a decaying transient; it does
+NOT bias the converged state. The Stage 15-23 converged VE numbers are numerically
+trustworthy.
+
+### What this reframes
+- The original worry ("is the converged VE corrupted by the startup shock?") is
+  answered: NO. Converged VE is startup-independent.
+- The over-fill is driven by a PRESSURE transient (9 g in ~560 cc => ~15 bar at
+  IVC), i.e. a wave slams the port and rams gas in. It is robust to every
+  initial-state lever tried, because the limit cycle forgets the initial state.
+- Consequence for the init/cold/converged comparison the user wanted: there is NO
+  clean first-cycle ("init") VE available -- the first 3 trapped-mass prints are
+  just initial conditions of mid-cycle cylinders, and from the 4th IVC the over-fill
+  corrupts it. A clean "init VE" would require suppressing the over-fill, which the
+  limit cycle is indifferent to.
+- The real open question is now PHYSICAL, not numerical: the converged VE is
+  ~0.33 g ~= 54% (vs ~120% for a cold atmospheric fill of 541 cc). That ~2x
+  suppression is the "feedback / hot recirculation" effect, and it lives in the
+  (trustworthy) converged state -- so it can be characterised directly.
+
+### Recommended next step
+Measure the CONVERGED VE at the real kf_rf_soll breakpoints (it is trustworthy) and
+look at the rpm SHAPE: is it peaky (intake/exhaust tuning surviving) or flat
+(suppressed)? This tests the user's hypothesis using the measurement we can trust,
+without needing a clean first-cycle VE.
+
+### Assets
+- Knobs: OPENWAM_IN_VINIT (intake seed velocity), OPENWAM_EXH_TGAS (exhaust gas
+  seed temp), OPENWAM_INITDIAG (true post-init cylinder state probe).

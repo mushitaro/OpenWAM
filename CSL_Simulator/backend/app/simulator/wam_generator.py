@@ -1277,7 +1277,29 @@ class WAMGenerator:
                     A_pipe = _m.pi * ((p['d_start'] + p['d_end']) / 4.0) ** 2
                     v_init = v_ref * (A_throat / A_pipe) if A_pipe > 0 else 0.0
                     v_init *= p.get('flow_sign', 1.0)               # +toward cylinder
-            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} {p_init:.5f} {v_init:.4f}")
+            # Initial GAS temperature (Line 3, field 2). TTubo reads this as FTini
+            # and seeds FTemperature[i]=degCToK(FTini) in every cell. Historically
+            # we wrote the WALL temperature here, so the EXHAUST pipes start full of
+            # 600-800 C gas while the cylinders are at ~60 C. At the first exhaust-
+            # valve opening that ~540 K thermal step (plus the high sound speed of
+            # the hot gas, ~590 m/s) makes the port column ring supersonic and seeds
+            # the startup shock / over-fill (Stage 25). At a genuine cold start the
+            # exhaust gas is at ambient, not glowing; the WALL boundary then heats it
+            # to its steady value over the first cycles, so seeding ambient gas
+            # converges to the same limit cycle without the startup shock.
+            # OPENWAM_EXH_TGAS = cold-start gas temp (C) for exhaust pipes (id>=39).
+            # Default "wall" = legacy behaviour (gas seeded at the hot wall temp).
+            # A decisive A/B (Stage 25) showed cold-seeding the exhaust gas reduces
+            # the sonic-event COUNT but does NOT remove the startup over-fill (it
+            # actually deepens it: denser cold exhaust backflows harder), and the
+            # CONVERGED limit cycle is identical either way (~0.33 g trapped). So
+            # this stays an opt-in diagnostic, not a behaviour change.
+            t_wall = p['wall_temp']
+            t_gas = t_wall
+            if pid >= 39:
+                tg = os.environ.get("OPENWAM_EXH_TGAS", "wall")
+                t_gas = t_wall if tg == "wall" else float(tg)
+            self.wam_lines_pipes.append(f"{t_wall} {t_gas} {p_init:.5f} {v_init:.4f}")
             # Line 4: Multipliers  (TipTC  FCoefAjusTC  FCoefAjusFric)
             # FCoefAjusTC scales the gas<->wall heat flux (TTubo CalculaFuente2).
             # Diagnostic (OPENWAM_IN_HMULT=<x>): boost the INTAKE-pipe (id<39)
