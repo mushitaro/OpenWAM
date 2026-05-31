@@ -1409,3 +1409,57 @@ without needing a clean first-cycle VE.
 ### Assets
 - Knobs: OPENWAM_IN_VINIT (intake seed velocity), OPENWAM_EXH_TGAS (exhaust gas
   seed temp), OPENWAM_INITDIAG (true post-init cylinder state probe).
+
+## Stage 26 — converged VE vs RPM at the real breakpoints: FLAT and ~half the target
+
+Using the (trustworthy, startup-independent) converged state, VE was measured at all
+15 real kf_rf_soll breakpoints (1600-7900 rpm, no interpolation), 10 cycles, last
+full cycle, magnitude-filtered. 3 workers, per-run working dir.
+Asset: docs/analysis/converged_ve_vs_rpm_breakpoints.{png,csv}.
+
+Result (11 NaN-free points; 1600/3100/3900/4600 had boundary-NaN events and are
+marked unreliable -- 3900 in particular reads a spurious 104% from a NaN transient):
+```
+sim VE:    mean 52.4%   range 45-58%   CV 8%
+target VE: mean 101.1%  range 87-110%  CV 8%
+shape Pearson r (sim vs target) = +0.36   mean ratio sim/target = 0.52
+```
+
+Two distinct findings:
+1. MAGNITUDE: the converged sim breathes at ~52% of the target across the WHOLE rpm
+   range -- a roughly uniform ~2x VE deficit, not an rpm-localised error.
+2. SHAPE: the sim does NOT reproduce the target's tuning. The target is peaky (dip
+   to 87% at 2200-2400, broad peak ~116% at 3900, staying 100-110% up top); the sim
+   is essentially flat ~52%. The two normalised shapes barely correlate (r=0.36) and
+   the sim's own wiggle (peak at 2700, dip at 6300) does not line up with the real
+   intake/exhaust resonance peaks.
+
+Interpretation. This reframes the user's hypothesis. The hypothesis was "peaky
+tuning exists in the breathing but the hot-recirculation feedback flattens it in the
+converged state." Stage 25 showed the converged state is startup-independent and
+trustworthy, and there is no clean first-cycle VE to compare against. Stage 26 shows
+the converged breathing is BOTH suppressed (~2x) AND de-tuned (flat). So either:
+  (a) the hot recirculation / residual-gas feedback is strong enough to both halve
+      the charge AND wash out the acoustic tuning, or
+  (b) the breathing model is missing the tuning independently of the feedback (port
+      areas / valve Cd / runner lengths / exhaust pulse tuning not resonating), and
+      the ~2x deficit is a separate, roughly-constant restriction.
+A ~uniform 2x deficit that is flat in rpm smells more like (b)-type steady
+restriction (e.g. an effective flow area / Cd / a persistent back-pressure or
+residual fraction) than like rpm-selective acoustic detuning, because real tuning
+losses are rpm-dependent (bad between peaks, good on a peak) -- here even the target
+PEAK rpms (1800, 3900) are suppressed to ~50%.
+
+### Recommended next step
+Decompose the ~2x deficit at one mid-rpm peak (e.g. 3900, the target's max) into its
+contributors, in the converged state: residual-gas fraction (trapped burned mass /
+total), mean intake-port pressure during induction (is the manifold pulling vacuum?),
+and exhaust back-pressure during overlap. That isolates whether the charge is short
+because (i) fresh air never arrives (intake restriction / no ram) or (ii) it arrives
+but is displaced by hot residuals / back-pressure (the feedback). That single
+decomposition decides between (a) and (b) and points at the specific lever.
+
+### Assets
+- scripts/ve_breakpoint_conv_parallel.py (parallel converged sweep, per-run wd)
+- scripts/ve_breakpoint_plot.py (overlay + normalized-shape + stats)
+- docs/analysis/converged_ve_vs_rpm_breakpoints.{png,csv}
