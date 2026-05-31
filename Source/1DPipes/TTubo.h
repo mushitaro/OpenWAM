@@ -329,6 +329,23 @@ private:
   stSensoresTubo *Sensor; //!< (not used)
   int FNumDistSensores;   //!< (not used)
 
+  // --- OPENWAM_ENBAL diagnostic (env-gated, off by default) -----------------
+  // Per-pipe energy/mass-flux balance, accumulated over a crank-angle window.
+  // Decides whether the spurious intake heating is an energy-creation bug (A,
+  // enthalpy carried out > carried in + wall heat) or a mass-loss bug (B,
+  // time-averaged mass flux in != out). Each pipe touches only its own slot so
+  // this is OpenMP-safe. See TTubo::CalculaResultadosMedios.
+  double FEnbTheta0;  //!< crank angle at window start (-1 = not started)
+  double FEnbTacc;    //!< accumulated time in the window [s]
+  double FEnbMassInL; //!< time-integral of mass flux at the LEFT end (+x) [kg]
+  double FEnbMassInR; //!< time-integral of mass flux at the RIGHT end (+x) [kg]
+  double FEnbEneInL;  //!< time-integral of total-enthalpy flux, LEFT end [J]
+  double FEnbEneInR;  //!< time-integral of total-enthalpy flux, RIGHT end [J]
+  double FEnbTwL;     //!< time-integral of T at left end weighted by |massflux|
+  double FEnbTwR;     //!< time-integral of T at right end weighted by |massflux|
+  double FEnbAbsML;   //!< time-integral of |mass flux| at left end (for T avg)
+  double FEnbAbsMR;   //!< time-integral of |mass flux| at right end (for T avg)
+
   double FAnguloTotalCiclo; //!< Total angle of the engine cycle
   double FRegimenFicticio;  //!< Ficticios engine speed to use when there is not
                             //!< an engine in the model calculated.

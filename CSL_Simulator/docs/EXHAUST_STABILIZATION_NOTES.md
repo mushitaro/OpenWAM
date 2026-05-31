@@ -801,3 +801,100 @@ intake mass lost (density driven low -> high T at fixed P)? Suspects: the HLLC
 flux energy term, the Type-12 intake junctions, and the intake-valve BC. Repro:
 sweep `OPENWAM_IVO` watching trapped T (flat = not timing); zero the fuel LHV in
 the .wam ("0.98 44000000 750" -> "0.98 1 750") and check the intake is still hot.
+
+## Stage 16 (cont.) — answer: it's energy GAIN (A), localised to the cylinder/valve→airbox, NOT a pipe mass-leak (B)
+
+The Stage-16 next-step instrumentation is done. A per-pipe energy/mass-flux
+balance probe (`OPENWAM_ENBAL`, see below) was added and run on the
+combustion-OFF deck (the decisive artifact case). The result settles the A-vs-B
+question and localises the heat source.
+
+### The probe
+`OPENWAM_ENBAL=1` makes every pipe (id ≤ `OPENWAM_ENBAL_MAX`, default 16) print,
+once per crank-angle window (`OPENWAM_ENBAL_WIN` deg, default 720), the
+time-averaged mass flux and total-enthalpy flux carried by the gas at BOTH ends:
+`mdot = rho*u*A` [kg/s] and `Hdot = mdot*(cp*T + u^2/2)` [W], plus the
+flux-weighted end temperatures. In a converged steady state mass is conserved
+(`<mdotL> == <mdotR>`) and the net advected enthalpy gain (`<HdotL> - <HdotR>`)
+must equal the wall heat (~0 for 40 °C walls). Across a Type-12 junction the
+downstream pipe's `<HdotL>` should match the upstream pipe's `<HdotR>`; a step
+there localises a junction defect. Implemented in
+`TTubo::CalculaResultadosMedios` (per-pipe member accumulators, OpenMP-safe).
+
+### Finding 1 — the φ10 eq-tube stub blows up at the Type-12 junction (a SEPARATE, real defect)
+With the eq-tube ENABLED (default), `EqTube_Stub` (a φ10 pipe) carries, at its
+**junction-side** node, **2.76 kg/s at 2771 K and a 10 MW enthalpy flux**, with
+gross mass non-conservation (ΔM ≈ −2.76 kg/s sustained over a full 720° window).
+That is ~4× the *entire* engine's airflow through one φ10 stub — physically
+impossible, and combustion is OFF so 2771 K cannot be physical. The neighbouring
+φ52 runners balance to a few %. This is the **small-area-at-junction density
+runaway** (same class as the Stage-10 exhaust port): the Benson constant-pressure
+junction (`TCCRamificacion`) weights the common sound speed by section area
+(`FSeccionTubo`), so the φ52 runners (27× the stub area) dominate and the φ10
+stub is driven into the 50× density cap.
+
+**Confirmation (`OPENWAM_EQ_DIA=0.052`, enlarge the stub to the runner diameter):**
+the stub flux collapses 2.76 → ~2e-4 kg/s and 10 MW → ~hundreds of W — the
+runaway is gone, proving it is an area-mismatch effect. (Aside: the generated
+stub is φ10 while the comment and the eq-tube volume both say the real S54
+component is φ20 — a modelling inconsistency worth fixing.)
+
+### Finding 2 — but the eq-tube is NOT the root of the hot intake
+Enlarging the stub (`EQ_DIA=0.052`) did **not** cool the intake (it got hotter),
+and **removing the eq-tube entirely** (`OPENWAM_NO_EQTUBE=1`: skip the eq-tube
+plenum + φ10 stubs, junction ① auto-reduces to a clean 2-pipe Runner_Upper↔
+Runner_Lower pass-through) leaves the intake still hot. So the stub runaway is a
+*symptom amplifier* (it spreads contamination further upstream), not the source.
+
+### Finding 3 — the heat localises to the AIRBOX PLENUM, fed by cylinder backflow
+With the eq-tube removed the temperature profile is clean and the jump is sharp:
+
+| pipe | location | flux-weighted T |
+|---|---|---|
+| 1 (CSL_Intake_Pipe) | touches 25 °C ambient reservoir | **~290 K (cold ✓)** |
+| 2 (Panel_Filter) | filter | ~280–450 K |
+| — **Plenum_Main** (10.5 L airbox) — | | **← T jumps here** |
+| 3 (Bellmouth) | plenum side | **~570–706 K (hot)** |
+| 4–7 (runners/ports) | | ~560–680 K |
+
+The pipes themselves nearly conserve mass and energy (ΔM, ΔH are a few % of the
+through-flux). The 0-D plenum energy equation (`TDepVolCte::ActualizaPropiedades`
+/ `TDeposito::EntalpiaEntrada`) is the standard well-mixed Benson form (inflow
+enthalpy relative to the plenum state, outflow implicit) and is **correct** — it
+is simply being *fed* hot gas. The hot gas enters the plenum as **backflow from
+the cylinders** convected through the (WOT-open) throttle and the bellmouths.
+
+### Conclusion: hypothesis (A), at the gas-exchange boundary
+- **Mass-leak (B) is ruled out at the pipe level** (every intake pipe conserves
+  mass to a few %; the gross ΔM was only the φ10 stub area artifact).
+- **Energy is being gained (A):** with combustion OFF a motoring cycle must
+  *return* its compression work, so the intake should stay cool. Instead net
+  positive enthalpy is deposited in the airbox every cycle (hot cylinder gas
+  recirculated into the intake and not balanced by the cold fresh charge),
+  driving the trapped charge to ≈ the residual temperature (~570 K) → low
+  density → the ~57–67 % VE ceiling. This is **system-level energy
+  non-conservation at the cylinder↔intake-valve gas exchange**, not a pipe or
+  plenum bug.
+
+### Next session starts here (revised target)
+1. **Primary:** the intake-valve BC `TCCCilindro::FlujoSalienteCilindro` (cyl→
+   port backflow) / `FlujoEntranteCilindro` (fill) and the cylinder energy
+   accounting (`TCilindro4T`). Instrument the **per-cycle net enthalpy** the
+   intake valve exchanges with the cylinder (motoring should integrate to ≈ the
+   wall-heat loss, not a positive deposit). A positive net deposit per cycle is
+   the spurious energy. Watch whether it is HLLC-specific (it should not be — the
+   valve BC is the Benson characteristic method, independent of the pipe flux).
+2. **Secondary, concrete:** the `TCCRamificacion` area-weighted constant-pressure
+   junction is unsafe at large area ratios (φ52:φ10). Either fix the small-area
+   branch handling (energy/mass-consistent junction) or, minimally, correct the
+   stub geometry (φ10 → φ20, matching the real component and the eq-tube volume).
+
+### Reusable assets added this session
+- `OPENWAM_ENBAL` / `OPENWAM_ENBAL_MAX` / `OPENWAM_ENBAL_WIN` — per-pipe energy/
+  mass-flux balance (TTubo.cpp).
+- `OPENWAM_NO_EQTUBE=1` — generate the deck without the equalization tube
+  (isolates the eq-tube/stub) (`wam_generator.py`).
+- `OPENWAM_EQ_DIA=<m>` — override the eq-tube stub diameter (area-mismatch test)
+  (`wam_generator.py`).
+- `scripts/intake_energy_balance.py` — runs the combustion-OFF ENBAL case
+  (baseline / no-eqtube / big-stub) and prints the localisation table.

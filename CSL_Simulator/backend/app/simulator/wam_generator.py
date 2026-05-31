@@ -569,11 +569,22 @@ class WAMGenerator:
         # it at MAP was measured to add NaN at WOT with no VE benefit (the cycle-1
         # fill is not throttle-limited regardless -- that needs multi-cycle
         # convergence), so it is left at atmospheric.
-        eq_tube_id = self.plenum_counter; self.plenum_counter += 1
+        # Diagnostic (OPENWAM_NO_EQTUBE=1): skip the equalization-tube plenum and
+        # its per-cylinder φ10 stubs entirely. The Type-12 branch junction ① then
+        # auto-discovers only Runner_Upper + Runner_Lower (a 2-pipe pass-through),
+        # isolating whether the spurious intake heating originates at the
+        # small-area φ10 stub / eq-tube junction (ENBAL Stage-17 finding).
+        self._skip_eqtube = bool(os.environ.get("OPENWAM_NO_EQTUBE"))
+        if self._skip_eqtube:
+            print("DEBUG: OPENWAM_NO_EQTUBE=1 -> equalization tube DISABLED")
+            eq_tube_id = None  # do NOT consume a plenum id: keep ids contiguous
+        else:
+            eq_tube_id = self.plenum_counter; self.plenum_counter += 1
         eq_tube_vol = math.pi * (0.010**2) * 0.450  # ~1.41e-4 m³ ≈ 141cc
         # degC: intake-side equalization tube, ~40 C (was 313 = read as 313 C = 586 K)
-        self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 40)
-        print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
+        if not self._skip_eqtube:
+            self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 40)
+            print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
 
         # The equalisation tube sits DOWNSTREAM of the per-cylinder throttles
         # (it cross-connects the runners), so it must also start at MAP -- if it
@@ -625,16 +636,20 @@ class WAMGenerator:
                            init_p=intake_map_bar)
 
             # --- EQUALIZATION TUBE STUB (φ10, 75mm) ---
-            eq_pipe_id = self.pipe_counter; self.pipe_counter += 1
-            eq_pipe_dia = 0.010  # 10mm diameter stub
+            if not self._skip_eqtube:
+                eq_pipe_id = self.pipe_counter; self.pipe_counter += 1
+                # Diagnostic (OPENWAM_EQ_DIA=<m>): override the stub diameter to
+                # test the small-area-at-junction density-runaway hypothesis
+                # (set e.g. 0.052 to match the φ52 runners; default 0.010).
+                eq_pipe_dia = float(os.environ.get("OPENWAM_EQ_DIA", "0.010"))
 
-            cid_eq_end = self.connection_counter
-            self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
+                cid_eq_end = self.connection_counter
+                self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
 
-            self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", 0.075,
-                           eq_pipe_dia, eq_pipe_dia, 40,
-                           cid_eq_branch, cid_eq_end, friction=0.02, dx_mesh=0.025,
-                           init_p=intake_map_bar)
+                self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", 0.075,
+                               eq_pipe_dia, eq_pipe_dia, 40,
+                               cid_eq_branch, cid_eq_end, friction=0.02, dx_mesh=0.025,
+                               init_p=intake_map_bar)
 
             # --- RUNNER LOWER (EqTube branch → Port split, φ52, 25mm) ---
             runner_lower_id = self.pipe_counter; self.pipe_counter += 1

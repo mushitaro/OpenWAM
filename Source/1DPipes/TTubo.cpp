@@ -91,6 +91,14 @@ TTubo::TTubo(int SpeciesNumber, int j, double SimulationDuration,
   FCicloTubo = 0;
   FNumeroTubo = j + 1;
 
+  // OPENWAM_ENBAL energy/mass-flux balance accumulators (env-gated diagnostic).
+  FEnbTheta0 = -1.0;
+  FEnbTacc = 0.0;
+  FEnbMassInL = FEnbMassInR = 0.0;
+  FEnbEneInL = FEnbEneInR = 0.0;
+  FEnbTwL = FEnbTwR = 0.0;
+  FEnbAbsML = FEnbAbsMR = 0.0;
+
   FNumeroEspecies = SpeciesNumber;
   FCalculoEspecies = SpeciesModel;
   FCalculoGamma = GammaCalculation;
@@ -3563,6 +3571,67 @@ void TTubo::CalculaResultadosMedios(double Theta) {
       }
       FTiempoMedSUM = 0.;
       FControlResMed = FControlResMed + 1.;
+    }
+
+    // --- OPENWAM_ENBAL: per-pipe energy/mass-flux balance (env-gated) --------
+    // Separates the two candidate root causes of the spurious ~570 K intake:
+    //   (A) energy created  -- net enthalpy carried OUT > carried IN (no heat),
+    //   (B) mass lost        -- time-averaged mass flux IN != OUT.
+    // At each pipe end the gas carries, in the +x sense,
+    //   mass flux     mdot = rho*u*A              [kg/s]
+    //   total-enth.   Hdot = mdot*(cp*T + u^2/2)  [W]
+    // integrated over a crank-angle window (default one 720 deg cycle). In a
+    // converged steady state <mdotL> == <mdotR> (mass) and <HdotL> - <HdotR>
+    // equals the wall heat (~0 for 40 degC walls). Across a Type-12 junction,
+    // the downstream pipe's <HdotL> should match the upstream pipe's <HdotR>:
+    // a step there localises the energy bug to the junction.
+    if (getenv("OPENWAM_ENBAL")) {
+      static const int s_maxPipe =
+          getenv("OPENWAM_ENBAL_MAX") ? atoi(getenv("OPENWAM_ENBAL_MAX")) : 16;
+      if (FNumeroTubo <= s_maxPipe) {
+        const int L = 0, R = FNin - 1;
+        double cpL = FGamma[L] * FRMezcla[L] / (FGamma[L] - 1.0);
+        double cpR = FGamma[R] * FRMezcla[R] / (FGamma[R] - 1.0);
+        double mdotL = Frho[L] * FVelocidadDim[L] * FArea[L];
+        double mdotR = Frho[R] * FVelocidadDim[R] * FArea[R];
+        double hL =
+            cpL * FTemperature[L] + 0.5 * FVelocidadDim[L] * FVelocidadDim[L];
+        double hR =
+            cpR * FTemperature[R] + 0.5 * FVelocidadDim[R] * FVelocidadDim[R];
+        if (FEnbTheta0 < 0.0)
+          FEnbTheta0 = Theta;
+        FEnbTacc += FDeltaTime;
+        FEnbMassInL += mdotL * FDeltaTime;
+        FEnbMassInR += mdotR * FDeltaTime;
+        FEnbEneInL += mdotL * hL * FDeltaTime;
+        FEnbEneInR += mdotR * hR * FDeltaTime;
+        FEnbAbsML += fabs(mdotL) * FDeltaTime;
+        FEnbAbsMR += fabs(mdotR) * FDeltaTime;
+        FEnbTwL += fabs(mdotL) * FTemperature[L] * FDeltaTime;
+        FEnbTwR += fabs(mdotR) * FTemperature[R] * FDeltaTime;
+        double window = getenv("OPENWAM_ENBAL_WIN")
+                            ? atof(getenv("OPENWAM_ENBAL_WIN"))
+                            : 720.0;
+        if (Theta - FEnbTheta0 >= window && FEnbTacc > 0.0) {
+          double mL = FEnbMassInL / FEnbTacc; // <mdot> left  [kg/s]
+          double mR = FEnbMassInR / FEnbTacc; // <mdot> right [kg/s]
+          double HL = FEnbEneInL / FEnbTacc;  // <Hdot> left  [W]
+          double HR = FEnbEneInR / FEnbTacc;  // <Hdot> right [W]
+          double TL = FEnbAbsML > 0 ? FEnbTwL / FEnbAbsML : 0.0;
+          double TR = FEnbAbsMR > 0 ? FEnbTwR / FEnbAbsMR : 0.0;
+          printf("ENBAL pipe%d Th=%.0f-%.0f mdot[L,R]=% .4e % .4e kg/s "
+                 "dM=% .2e Hdot[L,R]=% .3e % .3e W dH(in-out)=% .3e W "
+                 "Tflux[L,R]=%.0f %.0f K\n",
+                 FNumeroTubo, FEnbTheta0, Theta, mL, mR, mL - mR, HL, HR,
+                 HL - HR, TL, TR);
+          FEnbTheta0 = Theta;
+          FEnbTacc = 0.0;
+          FEnbMassInL = FEnbMassInR = 0.0;
+          FEnbEneInL = FEnbEneInR = 0.0;
+          FEnbTwL = FEnbTwR = 0.0;
+          FEnbAbsML = FEnbAbsMR = 0.0;
+        }
+      }
     }
 #ifdef usetry
   } catch (std::exception &N) {

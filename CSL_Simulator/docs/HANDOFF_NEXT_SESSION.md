@@ -1,11 +1,53 @@
 # Handoff — VE under-fill root cause (for the next session)
 
-**Branch:** `claude/serene-hamilton-1qUlf`  **PR:** #10 (draft, base `e46m3csl-sim`)
-**Last commit at handoff:** `c841b96`
+**Branch:** `claude/serene-hamilton-1qUlf` (PR #10) → continued on
+`claude/admiring-carson-slqOr` (stacked draft PR, base `serene-hamilton`).
 **Date:** 2026-05-31
 
 This is a continuation note so a fresh session can pick up immediately. Read this
 first, then `docs/EXHAUST_STABILIZATION_NOTES.md` Stage 15-16 for the detail.
+
+---
+
+## ⟶ UPDATE (Stage 16 cont.): the A-vs-B question is ANSWERED — it's (A) energy gain
+
+The Stage-16 "next step" (instrument the intake energy/mass balance) is **done**.
+A per-pipe energy/mass-flux balance probe (`OPENWAM_ENBAL`) was added and run on
+the combustion-OFF deck. Conclusions (full detail in EXHAUST notes "Stage 16
+(cont.)"):
+
+1. **It is energy GAIN (A), not a pipe mass-leak (B).** Every intake *pipe*
+   conserves mass and energy to a few %. The heat **localises to the airbox
+   plenum** (`Plenum_Main`): the temperature jumps from ~290–450 K at the
+   filter to ~570–700 K at the bellmouth, i.e. across the plenum. The plenum
+   energy equation is the correct well-mixed Benson form — it is simply *fed*
+   hot gas **backflowing from the cylinders** through the WOT-open throttle.
+   With combustion OFF a motoring cycle must return its compression work, so
+   the steady positive enthalpy deposited in the airbox each cycle is the
+   spurious energy → ≈570 K trapped charge → low density → the ~57–67 % VE
+   ceiling. **It is energy non-conservation at the cylinder↔intake-valve gas
+   exchange**, not the pipes or the plenum.
+
+2. **Separate concrete defect found:** the φ10 `EqTube_Stub` blows up at its
+   Type-12 junction (2.76 kg/s, 2771 K, 10 MW, gross non-conservation) — a
+   small-area-at-junction density runaway (`TCCRamificacion` area-weights the
+   common sound speed; the φ52 runners are 27× the stub). Enlarging the stub
+   (`OPENWAM_EQ_DIA=0.052`) kills the runaway; **removing the eq-tube entirely**
+   (`OPENWAM_NO_EQTUBE=1`) does **not** cool the intake, so the stub is a
+   *symptom amplifier*, not the root.
+
+**NEXT SESSION revised target (supersedes §3 below):**
+- **Primary:** instrument the **per-cycle net enthalpy** the intake valve
+  (`TCCCilindro::FlujoSalienteCilindro`/`FlujoEntranteCilindro`) exchanges with
+  the cylinder (`TCilindro4T`). Motoring should integrate to ≈ the wall heat
+  loss, not a positive deposit; a positive per-cycle deposit is the bug. It
+  should NOT be HLLC-specific (the valve BC is the Benson characteristic method).
+- **Secondary:** make `TCCRamificacion` mass/energy-consistent at large area
+  ratios, or at minimum fix the stub geometry φ10 → φ20 (the comment and the
+  eq-tube volume both say φ20).
+
+New diagnostic assets: `OPENWAM_ENBAL[/_MAX/_WIN]`, `OPENWAM_NO_EQTUBE`,
+`OPENWAM_EQ_DIA`, and `scripts/intake_energy_balance.py`.
 
 ---
 
@@ -55,6 +97,13 @@ exhaust freeze.**
   ceiling persists with the freeze gone, so the freeze was only hiding it.
 
 ## 3. NEXT STEP (start here)
+
+> **SUPERSEDED by the UPDATE banner at the top.** This step (instrument the
+> energy/mass balance) is DONE: the answer is (A) energy gain, localised to the
+> cylinder↔intake-valve gas exchange (suspect #3 below), with the Type-12 eq-tube
+> junction (#2) a separate symptom amplifier. The HLLC suspect (#1) is unlikely
+> (the valve BC is the Benson characteristic method, scheme-independent). Kept
+> below for the original reasoning.
 
 Instrument the **intake energy/mass balance** in the C++ solver and decide:
 **(A) energy is gained with no heat input** (energy-equation / flux source-term
@@ -123,8 +172,15 @@ then run with `OPENWAM_INTEMP=1` and read the `INTEMP pipe3:`/`pipe7:` lines.
 | `OPENWAM_VOLDIAG=1` | cyl-1 volume/P/mass trace | TCilindro4T.cpp:697 |
 | `OPENWAM_IVO=<deg>` | intake-valve-open base angle (gas-exch TDC=360); default 330 | wam_generator.py:1364 |
 | `OPENWAM_IN_DUR=<deg>` | override intake cam duration | wam_generator.py |
+| `OPENWAM_ENBAL=1` | per-pipe mass+enthalpy flux balance at both ends, per crank window (the A-vs-B probe) | TTubo.cpp (CalculaResultadosMedios) |
+| `OPENWAM_ENBAL_MAX=<id>` | highest pipe id ENBAL prints (default 16) | TTubo.cpp |
+| `OPENWAM_ENBAL_WIN=<deg>` | ENBAL averaging window (default 720) | TTubo.cpp |
+| `OPENWAM_NO_EQTUBE=1` | generate deck WITHOUT the equalization tube (isolates it) | wam_generator.py |
+| `OPENWAM_EQ_DIA=<m>` | override eq-tube stub diameter (area-mismatch test; default 0.010) | wam_generator.py |
 
 Reusable scripts in `CSL_Simulator/backend/scripts/`:
+- `intake_energy_balance.py` — runs the combustion-OFF ENBAL case (baseline /
+  noeq / bigstub) and prints the per-pipe balance + localisation table. **Start here.**
 - `ivo_sweep.py` — IVO sweep (first-cycle; NOTE converged VE is flat vs IVO).
 - `exhaust_backpressure_diag.py` — exhaust pressure profile (proves back-pressure normal).
 - `ve_first_cycle_sweep.py` — first-cycle VE vs RPM (interim; inflated by overshoot).
