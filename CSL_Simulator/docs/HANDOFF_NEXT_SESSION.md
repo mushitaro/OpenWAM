@@ -116,16 +116,26 @@ The forced cool-start (`OPENWAM_TPIN=<K>`) settles it (detail in EXHAUST notes
 
 **NEXT SESSION target (final form): kill the cylinder→intake heat leak.** Not the
 intake plumbing (sound) — the gas-exchange heat path. Investigate, in order:
-(a) why the motored cylinder is ~540 K at IVC (residual-gas fraction / scavenging /
-cylinder heat rejection); (b) the cylinder→port backflow heating during overlap/
-early intake; (c) whether exhaust gas (600–800 K) reaches the intake through the
-cylinder during overlap. Cure that and the sound geometry gives ~88–92% VE → then
-resume the VE-vs-RPM calibration.
+(a) why the motored cylinder is ~540 K at IVC; (b) the cylinder→port backflow
+heating during overlap/early intake; (c) whether exhaust gas reaches the intake.
+
+**⟶ Stage 20 CLOSED target (a):** residual/scavenging/cylinder-heat-rejection is
+NOT the cause. Full-cycle `OPENWAM_CYLDIAG` shows the cylinder scavenges well
+(**residual fraction ~9%**, mass clears to 0.037 g), peaks at 1206 K (motored
+compression) and sheds heat to walls; it is ~570 K at IVC **only because it fills
+with the ~560 K hot port gas**. So the cylinder inherits the hot intake — the root
+is in the intake gas. Since the intake ends up hotter than EVERY stream feeding it
+(300 K ambient in; ≤530 K cylinder backflow) while each element conserves
+enthalpy-flux & entropy, the remaining candidate is a **genuine energy
+non-conservation at the gas-exchange boundaries (valve BC / multi-cylinder plenum
+mixing) under oscillating flow** — the net-flux/entropy checks balance advected
+fluxes but not the transient direction-correlated boundary work. **That boundary
+energy audit (b/c + the plenum mixing) is the next target.**
 
 New diagnostic assets (cumulative): `OPENWAM_ENBAL[/_MAX/_WIN]` (now also
 flux-weighted entropy `sflux`), `OPENWAM_NO_EQTUBE`, `OPENWAM_EQ_DIA`,
 `OPENWAM_VLVENE[/_CYL]`, `OPENWAM_IN_FRIC`, `OPENWAM_TPIN[/_STEPS]`,
-`scripts/intake_energy_balance.py`.
+`OPENWAM_CYLDIAG`, `scripts/intake_energy_balance.py`.
 
 ---
 

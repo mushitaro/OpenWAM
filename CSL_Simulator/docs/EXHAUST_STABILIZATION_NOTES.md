@@ -1099,3 +1099,50 @@ per-cycle cylinder->intake heat leak that pins the intake at ~560 K (this stage)
 Target it directly: why is the motored cylinder ~540 K at IVC and why does that
 heat reach the intake (residual fraction / scavenging / overlap backflow / cylinder
 heat rejection), not the intake plumbing.
+
+## Stage 20 — residual/scavenging REFUTED: residual ~9%, the cylinder is hot only because the intake is
+
+Target (1) from Stage 19 was the residual-gas fraction / scavenging. A full-cycle
+cyl-1 trace (`OPENWAM_CYLDIAG`, combustion-OFF, converged) rules it out.
+
+### Full converged cycle (Theta: 360 = gas-exch TDC, ~600 IVC, 720/0 = compression TDC)
+| phase | Theta | T (K) | m (g) |
+|---|---|---|---|
+| compression TDC | 0 | **1206** | 0.39 |
+| expansion -> BDC | 181 | 502 | 0.43 |
+| exhaust stroke | 200-340 | 480-520 | 0.43 -> 0.05 |
+| **gas-exch TDC / EVC** | 362 | 505 | **0.037** |
+| intake fill | 400-520 | 450-560 | 0.04 -> 0.43 |
+| late-IVC backflow | 523-543 | 485-526 | 0.41 -> 0.31 |
+| IVC trapped | ~600 | **~570** | 0.39 |
+
+### Findings
+- **Scavenging is good and the residual fraction is LOW (~9 %)**: the cylinder
+  mass clears to ~0.037 g every exhaust stroke (minM 0.034-0.037 g vs trapped
+  ~0.39 g). The residual is ~467 K, not extreme. So a high / hot residual is NOT
+  why the charge is hot.
+- The cylinder **peaks at 1206 K at TDC** (pure motored compression, CR~11.5,
+  no combustion) and **sheds heat to the 333 K walls** on the way down; the
+  exhaust-stroke gas is ~480-520 K.
+- **The cylinder is ~570 K at IVC simply because it FILLS with the ~560 K hot
+  port gas** (fill T climbs 538->563 K over Theta 483-523). It is not an
+  independent cylinder/residual heat problem.
+
+### Net: the root is back in the intake gas, and target (1) is closed
+The cylinder does not independently run hot from poor breathing; it inherits the
+hot intake. Residual/scavenging (Stage-19 target 1) is therefore NOT the lever.
+Combined with: intake pipes/junctions/throttle conserve enthalpy flux AND entropy
+(Stage 18); forcing the intake cold gives 88 % VE and good fill (Stage 19);
+releasing re-heats in ~3 cycles (genuine per-cycle source). The surviving,
+thermodynamically-consistent reading is that the intake gas is heated **above the
+temperature of every stream that feeds it** (300 K ambient in; <=530 K cylinder
+backflow), which can only be a **genuine energy non-conservation at the
+cylinder/intake gas-exchange boundaries (valve BC / multi-cylinder plenum mixing)
+under the oscillating flow** -- a subtlety the per-element enthalpy-flux/entropy
+checks do not capture (they balance the net advected fluxes but not necessarily
+the transient, direction-correlated boundary work). That boundary energy audit is
+the next target; residual/scavenging/cylinder-heat-rejection are eliminated.
+
+### Assets
+- `OPENWAM_CYLDIAG=1` -- full-cycle (0-720) cyl-1 T/m/P/V trace + per-cycle
+  residual estimate (minM, its T, trapped mass, residual fraction).

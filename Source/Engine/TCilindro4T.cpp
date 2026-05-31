@@ -710,6 +710,42 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
       }
     }
 
+    // Diagnostic (OPENWAM_CYLDIAG=1): FULL-cycle (0..720) trace of cyl-1 to see
+    // WHY the motored charge is ~540 K at IVC. Prints T/m/P/V every ~20 deg, and
+    // once per cycle the residual estimate: the minimum in-cylinder mass over the
+    // cycle (gas left at the overlap/EVC, i.e. the hot residual) and its T, vs the
+    // trapped mass/T at IVC -> residual fraction. (Convention: 360 = gas-exchange
+    // TDC, 360-540 intake, ~600 IVC, 720/0 firing TDC, 180-360 exhaust.)
+    if (getenv("OPENWAM_CYLDIAG") && FNumeroCilindro == 1 &&
+        FMotor->getCiclo() >= 6) {
+      double Tk = __units::degCToK(FTemperature);
+      static int s_cyc = -1;
+      static double s_minM = 1e9, s_minM_T = 0.0, s_minM_Th = 0.0;
+      static double s_lastTh = -1e9;
+      int cyc = FMotor->getCiclo();
+      if (cyc != s_cyc) {
+        if (s_cyc >= 0 && s_minM < 1e8) {
+          printf("CYLDIAG cyl1 cyc%d RESIDUAL: minM=%.4f g @Theta=%.0f T=%.0fK | "
+                 "trapped(IVC)=%.4f g T~ | resid_frac=%.2f\n",
+                 s_cyc, s_minM * 1e3, s_minM_Th, s_minM_T, FMasaAtrapada * 1e3,
+                 FMasaAtrapada > 0 ? s_minM / FMasaAtrapada : 0.0);
+        }
+        s_cyc = cyc;
+        s_minM = 1e9;
+        s_lastTh = -1e9;
+      }
+      if (FMasa < s_minM) {
+        s_minM = FMasa;
+        s_minM_T = Tk;
+        s_minM_Th = FAnguloActual;
+      }
+      if (fabs(FAnguloActual - s_lastTh) > 20.0) {
+        s_lastTh = FAnguloActual;
+        printf("CYLDIAG cyl1 cyc%d Theta=%.0f V=%.1fcc P=%.3f T=%.0fK m=%.4fg\n",
+               cyc, FAnguloActual, FVolumen * 1e6, FPressure, Tk, FMasa * 1e3);
+      }
+    }
+
     // CALCULO DE LA TRANSMISION DE CALOR
 
     if (FAnguloActual >= 0. && FAnguloActual <= 180.) {
