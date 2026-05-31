@@ -2367,21 +2367,34 @@ void TCilindro::IniciaVariables() {
                   << " P:" << FPressure << " Mass:" << FMasa << std::endl;
 
         // Closed-cycle initial state by isentropic compression from the
-        // intake-valve-close (RCA) reference, restoring the original OpenWAM
-        // behaviour. A prior modification ("[ANTIGRAVITY] Force Initial
-        // Pressure") forced P = Pinit (1 bar) on every closed-cycle cylinder
-        // and derived the mass from the *current* (possibly near-TDC) volume.
-        // For a cylinder sitting in the combustion/expansion window at t=0 that
-        // is unphysical: it holds a near-TDC charge at only 1 bar, so the first
-        // expansion over-expands to a cryogenic near-vacuum (E.O. ~0.1 bar /
-        // -82 C), which seeds the exhaust-port NaN cascade. The physical state
-        // is the full RCA charge (mass from FVolumenCA) compressed
-        // isentropically to the current volume: P = Pinit*(Vrca/V)^gamma. This
-        // gives a hot, pressurised charge near TDC instead of a cold vacuum.
-        FPressure =
-            FMotor->getPresionInicial() * pow((FVolumenCA / FVolumen), FGamma);
-        FMasa = __units::BarToPa(FMotor->getPresionInicial()) * FVolumenCA /
-                __units::degCToK(60) / FRMezcla;
+        // intake-valve-close (RCA) reference. The full RCA charge (mass from
+        // FVolumenCA at Pinit, ~333 K) is compressed/expanded isentropically to
+        // the current volume: P = Pinit*(Vrca/V)^gamma, M = Pinit*Vrca/(R*T_rca).
+        //
+        // Startup over-fill fix (Stage 25): the closed-cycle window here is
+        // (Ang<180 || Ang>540), which ALSO catches cylinders that at t=0 sit deep
+        // in the expansion/exhaust stroke at a LARGE volume (e.g. Ang=120 and 600
+        // -> V~491 cc, near BDC) while FVolumenCA is the near-TDC RCA volume
+        // (~62 cc). For those, Vrca/V << 1 drives P to a cryogenic near-vacuum
+        // (observed 0.057 bar / 177 K on cyl 4 & 5), and that low-density seed
+        // makes the first gas exchange over-fill (cyl trapped mass 3.3 g ~515% VE)
+        // and rings the whole intake network supersonic (Stage 24). The isentropic
+        // model is only valid while the charge is actually trapped and being
+        // compressed (V <= Vrca, i.e. between RCA and the firing TDC). When the
+        // current volume already EXCEEDS the RCA volume the cylinder has expanded
+        // past trap, so fall back to a quiescent in-cylinder fill at Pinit and the
+        // current volume (same treatment as the open-cycle branch) instead of
+        // extrapolating into vacuum.
+        if (FVolumen <= FVolumenCA) {
+          FPressure =
+              FMotor->getPresionInicial() * pow((FVolumenCA / FVolumen), FGamma);
+          FMasa = __units::BarToPa(FMotor->getPresionInicial()) * FVolumenCA /
+                  __units::degCToK(60) / FRMezcla;
+        } else {
+          FPressure = FMotor->getPresionInicial();
+          FMasa = __units::BarToPa(FPressure) * FVolumen /
+                  __units::degCToK(60) / FRMezcla;
+        }
         FMasaAtrapada = FMasa;
 
         for (int j = 0; j < FMotor->getSpeciesNumber() - FIntEGR; j++) {
@@ -2441,6 +2454,17 @@ void TCilindro::IniciaVariables() {
     FPresion0 = FPressure;
     FTemperatura0 = FTemperature;
     FAsonido0 = FAsonido;
+
+    // Diagnostic (OPENWAM_INITDIAG=1): print the ACTUAL seeded cylinder state
+    // AFTER all init assignments (the earlier [DEBUG_INIT] prints before the
+    // closed-cycle P/M are set, so it shows stale 0/garbage values). Used to find
+    // the startup over-fill seed (Stage 25).
+    if (getenv("OPENWAM_INITDIAG")) {
+      printf("INITDIAG Cyl:%d Ang:%.1f Vol:%.2fcc closed:%d P:%.4f bar "
+             "T:%.1f K M:%.5f g\n",
+             FNumeroCilindro, FAnguloActual, FVolumen * 1e6, (int)FCicloCerrado,
+             FPressure, __units::degCToK(FTemperature), FMasa * 1e3);
+    }
 
     if (FMotor->getCombustible() == nmMEC) {
       FMasaFuel = FMotor->getMasaFuel();

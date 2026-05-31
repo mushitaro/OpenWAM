@@ -1259,7 +1259,25 @@ class WAMGenerator:
             # throttle-downstream pipes carry an estimated MAP so part-throttle
             # starts near its steady manifold vacuum.
             p_init = p.get('init_p') or 1.01325
-            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} {p_init:.5f} 0.0")
+            # Startup-shock fix (Stage 25): the intake pipes start at rest (v=0),
+            # so the first valve openings hit a quiescent column and set up a
+            # network-wide supersonic transient that over-fills cyls 4-6 of cycle 1
+            # (Stage 24). Seed the INTAKE pipes (id<39) with a small FORWARD mean
+            # velocity (toward the cylinders) consistent with the steady induction
+            # draw, so the first induction is a perturbation rather than a step.
+            # OPENWAM_IN_VINIT = mean port velocity (m/s) at the 35 mm valve throat;
+            # each pipe is scaled by area (A_ref/A_pipe) for rough continuity, and
+            # signed +/- so the flow points from the airbox toward the cylinders.
+            v_init = 0.0
+            if pid < 39:
+                v_ref = float(os.environ.get("OPENWAM_IN_VINIT", "0.0"))
+                if v_ref != 0.0:
+                    import math as _m
+                    A_throat = _m.pi * (0.035 / 2.0) ** 2          # 35 mm valve
+                    A_pipe = _m.pi * ((p['d_start'] + p['d_end']) / 4.0) ** 2
+                    v_init = v_ref * (A_throat / A_pipe) if A_pipe > 0 else 0.0
+                    v_init *= p.get('flow_sign', 1.0)               # +toward cylinder
+            self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} {p_init:.5f} {v_init:.4f}")
             # Line 4: Multipliers  (TipTC  FCoefAjusTC  FCoefAjusFric)
             # FCoefAjusTC scales the gas<->wall heat flux (TTubo CalculaFuente2).
             # Diagnostic (OPENWAM_IN_HMULT=<x>): boost the INTAKE-pipe (id<39)
