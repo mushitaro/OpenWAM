@@ -1298,3 +1298,57 @@ collapse to ~47-62% (hot-recirculation feedback, Stages 16-22) remains a real
 defect. But ALL prior sim-vs-"stock" deltas were computed against fabricated
 numbers and must be recomputed against the corrected stock_csl_ve.json. The low
 2000-2400 rpm dip is now expected behaviour, not a fault to chase.
+
+## Stage 24 — the VE measurement is corrupted by a STARTUP shock, not (only) thermal feedback
+
+Per the user's request to (a) measure VE at the REAL kf_rf_soll breakpoints with NO
+interpolation, and (b) compare initial / cold-pinned / converged VE, a per-breakpoint
+sweep (`ve_breakpoint_compare.py`, working-dir-isolated for parallel safety) was
+built. It exposed a more fundamental problem than the thermal feedback.
+
+### The first cycle already diverges at the 4th cylinder to fill
+At EVERY rpm the trapped mass per IVC (firing order 1-5-3-6-2-4) is:
+```
+cyl(IVC order):  0.73  0.84  0.77 | 1.03  3.30  2.76  1.86 ...
+                 (healthy 1-3)    | (4th fill onward EXPLODES to 3.3 g = ~515% VE)
+```
+So the "initial VE" I was about to trust is itself corrupted from the 4th fill of
+cycle 1. The earlier first-cycle CSVs (clean 100-123%) only looked clean because
+they sampled the first 6 IVCs and the explosion starts at the 4th-6th.
+
+### Root cause: a startup over-speed shock in the intake network, not cylinder init
+- Ordering proof: `Sonic condition in boundary` messages start at the very first
+  steps (687 sonic events BEFORE the 4th IVC), then 7450 during the over-fill.
+  The intake network goes supersonic at startup FIRST; the cylinder over-fill is a
+  CONSEQUENCE. Many boundaries choke simultaneously (13, 27, 6, 34, 20, 41, 51 ...),
+  i.e. it is network-wide, not one valve.
+- It is NOT the cold-start cylinder-temperature artifact: sweeping the existing
+  `OPENWAM_TFLOOR` (-23 / +20 / +60 C) leaves the 1.03->3.30 g over-fill unchanged.
+  The existing floor fixes T but the problem is MASS (over-fill), driven by the
+  supersonic intake transient.
+- The `[DEBUG_INIT]` line prints P=0.057 bar at cyl4 TDC, but that is printed BEFORE
+  the isentropic-init assignment below it, so it is not the live seed.
+
+### Why this matters for the whole VE investigation
+Every VE number in Stages 15-23 (converged ~50-57%, "flat across rpm") was measured
+on a network that takes a supersonic startup shock and an internal over-fill spike
+each run. The "flat ~55%" and the "hot recirculation" may be partly the system
+ringing down from that shock rather than a pure physical steady state. The user's
+hypothesis (peaky tuning exists in the breathing; feedback flattens it) CANNOT be
+cleanly tested until the startup shock is removed so a clean limit cycle is reached.
+
+### Next: kill the startup supersonic shock (user-approved direction)
+Candidate levers, in order of likely payoff:
+1. Initialise the intake/plenum pipes at the correct steady MAP and a small forward
+   velocity instead of quiescent 1 atm / v=0, so the first valve openings don't set
+   up a shock. (The pipes currently start at rest; the first induction is a step.)
+2. Ramp the engine speed / valve action over the first cycle (soft-start) instead
+   of full 4000 rpm gas exchange from t=0.
+3. A gentler boundary Cd ramp on the ITB/valve BCs for the first cycle.
+The goal is a clean limit cycle so init/cold/converged VE can finally be compared
+at the real breakpoints.
+
+### Assets
+- `scripts/ve_breakpoint_compare.py` (modes init|cold|conv; per-run working dir).
+- `scripts/ve_breakpoint_summary.py` (overlay + shape correlation vs target).
+- Diagnosis logs: /tmp/div/divc.log (sonic ordering), TFLOOR sweep.
