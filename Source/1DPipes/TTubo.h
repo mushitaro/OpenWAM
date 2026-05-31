@@ -347,6 +347,7 @@ private:
   double FEnbAbsMR;   //!< time-integral of |mass flux| at right end (for T avg)
   double FEnbSwL;     //!< time-integral of specific entropy s at L, |massflux|-wtd
   double FEnbSwR;     //!< time-integral of specific entropy s at R, |massflux|-wtd
+  long FTpinN;        //!< OPENWAM_TPIN call counter (for timed-release test)
 
   double FAnguloTotalCiclo; //!< Total angle of the engine cycle
   double FRegimenFicticio;  //!< Ficticios engine speed to use when there is not

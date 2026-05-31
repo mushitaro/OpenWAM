@@ -1035,3 +1035,46 @@ limitation vs code defect.
 ### Assets added this stage
 - `OPENWAM_ENBAL` now also reports flux-weighted specific entropy at each pipe end
   (`sflux[L,R]`), for locating irreversible entropy generation across elements.
+
+## Stage 19 — forced cool-start: the breathing geometry is SOUND (VE 62% -> 88% when cold)
+
+Decisive test of "missing/wrong real component vs solver heating". `OPENWAM_TPIN=<K>`
+pins the INTAKE pipes (id<=38) to a cold target T at **constant pressure** each
+step (so density rises to the correct ambient value) and rebuilds the conserved
+state + primitives consistently. It answers: with properly-cool, ambient-density
+charge at the port, can the breathing fill the cylinder?
+
+### Result (combustion-OFF, 4000 RPM WOT, intake pinned to 310 K)
+| case | net fill / intake valve | VE | back/fill |
+|---|---|---|---|
+| baseline (hot ~560 K) | 0.198 g | **~62%** | 0.23 |
+| **TPIN=310 K** | **0.282 g** | **~88%** | **0.10** |
+
+INTEMP confirms the intake holds 310 K everywhere under the pin. VE jumps
+62% -> ~88% (and would be ~92% scaled to 298 K), i.e. **most of the deficit is the
+hot charge, not the geometry**. Cooling the intake also roughly halves the
+backflow (less thermal expansion pushing back).
+
+### Conclusion (answers "did the model omit a real component?")
+**No major breathing component is missing or mis-sized.** Given proper-density
+cool air, the existing valve/port/runner/ITB/airbox geometry fills the cylinder to
+~88-92 % VE -- right at the stock CSL target band (95-109 %). So:
+- The ~57-67 % VE ceiling is **dominantly the ~570 K hot-charge artifact**, not a
+  flow restriction or a component omission.
+- A residual ~10-20 % gap remains under the cold pin -- attributable to the minor
+  dimension items (exhaust valve 30.5 vs ~28 mm; eq-tube stub phi10 vs phi20),
+  intake-wave tuning, and the small remaining backflow -- i.e. ordinary
+  calibration, NOT the headline fault.
+
+### Therefore the fix is to stop the spurious intake heating (not to add parts)
+Combined with Stage 18 (the heat is the loop's own trapped pumping heat under poor
+flushing), and the fact that a cold intake gives ~88 % VE -> good flushing, the
+hot state may be a **breakable feedback attractor**: break it once (cold) and the
+high VE should flush the heat out and keep it cold. Tested next via
+`OPENWAM_TPIN_STEPS=<N>` (pin cold for N steps, then release): does it stay cold
+(attractor broken -> fixable by initialisation / a transient cooler) or re-heat
+(a genuine per-cycle source remains)?
+
+### Assets
+- `OPENWAM_TPIN=<K>` -- pin intake pipes to T=K at constant p (forced cool-start).
+- `OPENWAM_TPIN_STEPS=<N>` -- release the pin after N steps (attractor test).

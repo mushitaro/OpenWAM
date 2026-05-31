@@ -99,6 +99,7 @@ TTubo::TTubo(int SpeciesNumber, int j, double SimulationDuration,
   FEnbTwL = FEnbTwR = 0.0;
   FEnbAbsML = FEnbAbsMR = 0.0;
   FEnbSwL = FEnbSwR = 0.0;
+  FTpinN = 0;
 
   FNumeroEspecies = SpeciesNumber;
   FCalculoEspecies = SpeciesModel;
@@ -1286,6 +1287,58 @@ void TTubo::ActualizaPropiedadesGas() {
 
       Frho[i] = __units::BarToPa(FPresion0[i]) / FRMezcla[i] / FTemperature[i];
     }
+
+    // Diagnostic (OPENWAM_TPIN=<K>): forced cool-start thermostat. For the INTAKE
+    // pipes (id <= 38; exhaust starts at the port pipes >= 39) pin the gas to a
+    // cold target T at CONSTANT pressure -- so the density rises to the correct
+    // ambient value -- and rebuild the conserved state (FU0/FU1) and primitives
+    // consistently each step. This answers the Stage-18 question: with properly
+    // cool, ambient-density charge available at the port, does the breathing fill
+    // the cylinder to ~100% VE (=> geometry is fine, the ~570 K is the only fault)
+    // or does VE stay low (=> a real flow/geometry restriction)? Velocity and
+    // composition are preserved; only T (hence rho and energy) is reset.
+    if (getenv("OPENWAM_TPIN") && FNumeroTubo <= 38) {
+      double Tpin = atof(getenv("OPENWAM_TPIN"));
+      // OPENWAM_TPIN_STEPS=<N>: release the pin after N steps (per pipe) so the
+      // loop runs free afterwards -- tests whether the cold/high-VE state is a
+      // breakable attractor (stays cold => fixable by init) or re-heats (genuine
+      // per-cycle source). Unset/0 => pin for the whole run.
+      long releaseAt =
+          getenv("OPENWAM_TPIN_STEPS") ? atol(getenv("OPENWAM_TPIN_STEPS")) : 0;
+      ++FTpinN;
+      bool active = (releaseAt <= 0) || (FTpinN <= releaseAt);
+      if (active && Tpin > 50.0) {
+        bool conArea = (FMod.FormulacionLeyes == nmConArea);
+        for (int i = 0; i < FNin; i++) {
+          double pPa = __units::BarToPa(FPresion0[i]);
+          if (!(pPa > 0.0) || !std::isfinite(pPa))
+            continue;
+          double rhoNew = pPa / (FRMezcla[i] / 1.0) / Tpin; // p/(R*T)
+          if (!(rhoNew > 0.0) || !std::isfinite(rhoNew))
+            continue;
+          double v = FVelocidadDim[i];
+          double A = conArea ? FArea[i] : 1.0;
+          double rhoOld0 = FU0[0][i]; // rho*A (conArea) or rho (sinArea)
+          // species partial densities scale with the new density
+          double scale = (rhoOld0 != 0.0) ? (rhoNew * A) / rhoOld0 : 1.0;
+          FU0[0][i] = rhoNew * A;
+          FU0[1][i] = FU0[0][i] * v;
+          FU0[2][i] = A * pPa / FGamma1[i] + 0.5 * FU0[1][i] * v;
+          for (int k = 3; k < FNumEcuaciones; k++)
+            FU0[k][i] *= scale;
+          FU1[0][i] = FU0[0][i];
+          FU1[1][i] = FU0[1][i];
+          FU1[2][i] = FU0[2][i];
+          for (int k = 3; k < FNumEcuaciones; k++)
+            FU1[k][i] = FU0[k][i];
+          FTemperature[i] = Tpin;
+          Frho[i] = rhoNew;
+          FAsonidoDim[i] = sqrt(FGamma[i] * FRMezcla[i] * Tpin);
+          FAsonido0[i] = FAsonidoDim[i] / __cons::ARef;
+        }
+      }
+    }
+
     // Diagnostic (OPENWAM_INTEMP=1): print the gas temperature along selected
     // intake pipes (bellmouth=3 plenum-side, runner=4, port=7 valve-side) to
     // localise where the intake gas is hot -- whole runner (init/boundary) vs
