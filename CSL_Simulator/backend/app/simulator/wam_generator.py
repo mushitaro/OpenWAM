@@ -1260,8 +1260,19 @@ class WAMGenerator:
             # starts near its steady manifold vacuum.
             p_init = p.get('init_p') or 1.01325
             self.wam_lines_pipes.append(f"{p['wall_temp']} {p['wall_temp']} {p_init:.5f} 0.0")
-            # Line 4: Multipliers
-            self.wam_lines_pipes.append(f"1 1.0 1.0") 
+            # Line 4: Multipliers  (TipTC  FCoefAjusTC  FCoefAjusFric)
+            # FCoefAjusTC scales the gas<->wall heat flux (TTubo CalculaFuente2).
+            # Diagnostic (OPENWAM_IN_HMULT=<x>): boost the INTAKE-pipe (id<39)
+            # wall heat rejection -- the walls are held at a fixed 40 C (constant-T
+            # mode), i.e. an ideal aluminium-to-ambient sink, but at the default
+            # x1 the Reynolds-based film coefficient removes heat too slowly to
+            # overcome the hot recirculation. Cranking this tests whether stronger
+            # (more realistic, pulsating-flow) intake heat rejection cools the
+            # charge and recovers VE. Default 1.0 (unchanged).
+            htc = 1.0
+            if pid < 39:
+                htc = float(os.environ.get("OPENWAM_IN_HMULT", "1.0"))
+            self.wam_lines_pipes.append(f"1 {htc} 1.0")
             # Line 5: Composition
             self.wam_lines_pipes.append(f"{self.air_comp}")
             # Line 6: Mesh & Thermal Model

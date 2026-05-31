@@ -1199,3 +1199,49 @@ cold and VE is ~88-92 % (geometry sound); release and it re-heats in ~3 cycles.
 ### Assets
 - `OPENWAM_PLENDIAG=<dep>` -- per-window plenum T vs mass-flux-weighted inflow T,
   with a per-connection breakdown (which stream feeds the plenum, and how hot).
+
+## Stage 22 — intake wall heat rejection does NOT recover VE (it depressurises the closed recirculation)
+
+Per the user's real-hardware note (aluminium bellmouths = heat sink, carbon airbox
+= insulator, silicone bellmouth-throttle joint = insulator), tested the intake
+wall heat-rejection lever.
+
+### First: what the model already does with the walls
+The generator writes the pipe thermal flag `FTctpt=2` => `nmTempConstante`: the
+intake-pipe walls are held at a FIXED temperature (40 C). So the wall **material
+is not represented** and currently does not matter -- the wall is already an
+ideal "aluminium-to-ambient" cold sink, and the gas is cooled toward 40 C at the
+rate set by the per-pipe heat-transfer coefficient `FCoefAjusTC` (default 1.0,
+the `1 1.0 1.0` multiplier line) x the Reynolds film coefficient. (The carbon
+airbox being an insulator is consistent with the 0-D plenum having no wall heat
+loss; the silicone joint likewise.)
+
+### Test: boost intake wall heat rejection (`OPENWAM_IN_HMULT=<x>` -> FCoefAjusTC)
+| x | bellmouth T | port T | port P | VE | stable? |
+|---|---|---|---|---|---|
+| 1 (base) | ~560 K | ~560 K | ~1.0 bar | ~62% | yes |
+| 5 | ~400 K | ~370-450 K | **0.45-0.83 bar** | **~56%** | marginal (20 fallbacks) |
+| 20 | ~320 K | **6808 K / vacuum** | 0.01 bar | broken | NO (port blows up) |
+
+- Cooling **drops the intake PRESSURE with the temperature** (0.45-0.83 bar at
+  x5): density rho = p/RT barely changes, so **VE does not improve** (it is
+  slightly worse). Heat removal contracts/depressurises the gas rather than
+  densifying it.
+- Aggressive cooling (x20) **destabilises the small port pipes** (vacuum / 6808 K
+  cells, positivity fallbacks) -- the same fragility the stability work fought.
+
+### Why cooling fails -- it ties Stage 19 + Stage 21 together
+The intake is a **near-closed hot recirculation** that excludes fresh air
+(Stage 21: the plenum inflow is ~all bellmouth backflow, ~0% filter). So when you
+cool that trapped gas, the atmosphere **cannot refill it to keep pressure up** --
+it just goes to vacuum. The Stage-19 forced-cool gave 88 % VE only because it held
+PRESSURE constant (it injected the mass to reach ambient density); real heat
+rejection cannot do that against a closed loop. **=> wall material / heat rejection
+will NOT recover VE; the root is the recirculation / poor fresh-air flushing.**
+
+### So the lever is breaking the recirculation (why do the bellmouths back-flow so
+much into the plenum instead of drawing forward at WOT?). That intake-wave / valve
+backflow question -- not heat rejection, not the wall material -- is the path to VE.
+
+### Assets
+- `OPENWAM_IN_HMULT=<x>` -- multiply intake-pipe wall heat-transfer (FCoefAjusTC).
