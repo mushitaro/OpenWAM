@@ -345,6 +345,8 @@ private:
   double FEnbTwR;     //!< time-integral of T at right end weighted by |massflux|
   double FEnbAbsML;   //!< time-integral of |mass flux| at left end (for T avg)
   double FEnbAbsMR;   //!< time-integral of |mass flux| at right end (for T avg)
+  double FEnbSwL;     //!< time-integral of specific entropy s at L, |massflux|-wtd
+  double FEnbSwR;     //!< time-integral of specific entropy s at R, |massflux|-wtd
 
   double FAnguloTotalCiclo; //!< Total angle of the engine cycle
   double FRegimenFicticio;  //!< Ficticios engine speed to use when there is not

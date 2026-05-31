@@ -60,23 +60,49 @@ Also ruled out: eq-tube (`NO_EQTUBE` doesn't cool), intake friction
 heat source (`FHeatPower=0`). Every intake pipe is conservative and the
 junctions/throttle balance `<HdotL> ≈ <HdotR>` (enthalpy FLUX is conserved).
 
-**NEXT SESSION target (supersedes everything above):** enthalpy-flux conservation
-does NOT preclude **entropy generation**. The irreversible intake elements — the
-Type-9 throttle (`TCCPerdidadePresion`) and the Type-12 constant-pressure
-junctions (`TCCRamificacion`) — can pass gas at conserved total enthalpy while
-raising entropy (T↑, p↓). Under the oscillating intake the gas re-traverses them
-many times/cycle and the irreversible heat only leaves through the weak
-intake-pipe walls, so the near-closed recirculation equilibrates hot (~560 K).
+> **NB: the entropy/H1-vs-H2 plan below was RESOLVED by Stage 18 — see UPDATE 3.**
+
+The Stage-17 plan was to hunt entropy generation at the throttle/junctions and
+decide H1 vs H2:
 - Instrument entropy `s = cv·ln(p/ρ^γ)` generation across the throttle and each
   junction (which element sources it, and how much per cycle).
-- Decide **H1** (startup-transient heat trapped in a slow loop — does a ≥60-cycle
-  run keep cooling?) vs **H2** (steady distributed entropy source).
-- Secondary, still valid: `TCCRamificacion` is unsafe at large area ratios
-  (φ52:φ10 stub runaway); fix the small-area branch or the stub geometry φ10→φ20.
+- Decide **H1** (startup-transient heat trapped in a slow loop) vs **H2** (steady
+  distributed source).
+- Secondary: `TCCRamificacion` is unsafe at large area ratios (φ52:φ10 stub
+  runaway); fix the small-area branch or the stub geometry φ10→φ20.
 
-New diagnostic assets (cumulative): `OPENWAM_ENBAL[/_MAX/_WIN]`,
-`OPENWAM_NO_EQTUBE`, `OPENWAM_EQ_DIA`, `OPENWAM_VLVENE[/_CYL]`, `OPENWAM_IN_FRIC`,
-and `scripts/intake_energy_balance.py`.
+## ⟶ UPDATE 3 (Stage 18): not a localisable element — a low-VE / trapped-pumping-heat equilibrium
+
+The entropy probe and longer runs resolved the Stage-17 plan (detail in EXHAUST
+notes "Stage 18"):
+- **H2 confirmed:** a 60-cycle combustion-OFF run holds ~557–574 K from cycle 8
+  to 27 (flat) — a steady equilibrium, not slow decay.
+- **The throttle and junctions do NOT generate the entropy** (`Δs≈0` across each;
+  the whole post-plenum intake is at uniform `s`). So there is **no single
+  irreversible element** to fix.
+- **The exhaust is hot (600–800 K)** and carries heat away correctly; the whole
+  engine runs hot (intake ~560, cyl ~540, exh 600–800 K).
+- **Mechanism:** combustion-OFF, the only net energy input is the piston **pumping
+  work** (~3–4 kW ≈ the 116 J/cycle/valve measured). A real engine sweeps that out
+  with the exhaust because the intake is **flushed** by fresh charge (high VE).
+  Here VE is low, the intake is poorly flushed, so the pumping heat accumulates in
+  the recirculating intake → hot charge → lower VE → self-consistent hot loop. The
+  heat is the **loop's own trapped pumping heat, distributed** — not a local bug.
+
+**NEXT SESSION target (revised again): break the low-VE flushing feedback.** The
+question is "why is first-pass VE low before the thermal feedback locks in." Try:
+1. **Force the trapped charge cold (or VE high) for a few cycles** and watch:
+   does the loop then STAY cool (flushing wins → the fix is whatever sets the cold
+   start / better init) or RE-HEAT (a genuine per-cycle source remains)?
+2. **Audit the intake-valve effective flow** Cd×area actually applied at full lift
+   (`TValvula4T`/`docs/valve_discharge_coefficient_theory.md`) — a too-small
+   effective area throttles the fill and starves flushing.
+3. Intake-wave phasing into the cylinder and the residual-gas fraction/scavenging.
+4. Still-valid secondary: the φ52:φ10 `TCCRamificacion` stub runaway / φ10→φ20.
+
+New diagnostic assets (cumulative): `OPENWAM_ENBAL[/_MAX/_WIN]` (now also
+flux-weighted entropy `sflux`), `OPENWAM_NO_EQTUBE`, `OPENWAM_EQ_DIA`,
+`OPENWAM_VLVENE[/_CYL]`, `OPENWAM_IN_FRIC`, `scripts/intake_energy_balance.py`.
 
 ---
 

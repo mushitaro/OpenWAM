@@ -972,3 +972,66 @@ weak thermal dissipation.
   inflow choked-clamp fires.
 - `OPENWAM_IN_FRIC=<x>` — multiply intake-pipe friction (damping test)
   (`wam_generator.py`).
+
+## Stage 18 — H2 confirmed; the whole engine runs hot; a trapped-pumping-heat equilibrium
+
+Continuing Stage 17 with an entropy probe and longer runs.
+
+### Entropy probe (`OPENWAM_ENBAL` now also prints flux-weighted s = cv*ln(p/rho^gamma))
+Along the (no-eqtube) intake path the specific entropy is:
+```
+pipe1 L7146 R8154 | pipe2 L8154 R8461 | [PLENUM] | pipe3 L9425 R9415
+[throttle] pipe4 L9415 R9417 | [junc1] pipe5 L9417 R9425 | [junc2] pipe6/7 L9425 R9382
+```
+- Across the **throttle** (pipe3.R->pipe4.L) and **both junctions** the entropy is
+  **flat (ds~0)** -- they are NOT the entropy-generation site. The whole
+  post-plenum intake sits at a **uniform** s~9420: the gas is already hot/
+  high-entropy when it leaves the plenum and just advects unchanged.
+- The big jump is across the **plenum** (cold 352 K filter gas meeting the hot
+  reservoir) -- a consequence of the plenum being hot, not a localised generator.
+
+### H2 confirmed (not a slow transient)
+A 60-cycle combustion-OFF run holds ~557-574 K from cycle 8 through cycle 27
+(flat, no downward drift) => the ~560 K intake is a **steady equilibrium**, not
+startup heat slowly decaying (H1 rejected).
+
+### The exhaust IS carrying the heat away (correctly)
+Exhaust ports/headers run **600-800 K** (hotter than the intake) combustion-OFF,
+so heat does leave via the exhaust. The whole engine is hot: intake ~560 K,
+cylinder ~540 K, exhaust ~600-800 K. A real *motored* engine has a ~310 K intake
+and an only-modestly-warm exhaust; here everything is 200-400 K too hot.
+
+### Synthesis -- the mechanism (why the single-element hunts kept failing)
+With combustion OFF the only net energy input to the closed engine loop is the
+**piston pumping work** (gas-exchange losses, ~3-4 kW here, ~ the 116 J/cycle/
+valve measured at the intake). In a real engine that heat leaves almost entirely
+with the exhaust because the intake is **flushed** by fresh charge (high VE).
+Here VE is low (~57-67 %), so the intake is **poorly flushed**: the pumping/
+irreversible heat accumulates in the recirculating intake instead of being swept
+through, the intake equilibrates hot, the hot charge lowers density, VE drops
+further -- a self-consistent hot recirculation equilibrium. No single pipe,
+junction, throttle, valve or the cylinder is "the" source (each conserves
+enthalpy flux, and the junctions/throttle conserve entropy too); the heat is the
+**loop's own trapped pumping heat**, distributed.
+
+### Therefore the real lever is intake FLUSHING (breaking the low-VE feedback)
+The question collapses back to "why is fresh-charge flushing poor" -- why the
+first-pass VE is low before the thermal feedback locks in. Candidates not yet
+closed: the intake-valve effective flow (Cd x area at lift, see
+`docs/valve_discharge_coefficient_theory.md`), the intake-wave phasing into the
+cylinder, and the residual-gas fraction / scavenging. A productive next attempt:
+force the trapped charge cold (or VE high) for a few cycles and see whether the
+loop then *stays* cool (flushing wins) or re-heats (a real per-cycle source);
+and audit the intake-valve Cd x area actually applied at full lift.
+
+### Honest status
+The artifact is now thoroughly characterised and many suspects are eliminated
+with data, but it has NOT been reduced to a single fixable line -- it behaves like
+an emergent low-VE/hot-intake feedback of the whole gas-exchange model, not a
+local bug. VE is unchanged (~57-67 %). Next session: pursue the flushing lever
+above, or validate the gas-exchange against reference data to decide model
+limitation vs code defect.
+
+### Assets added this stage
+- `OPENWAM_ENBAL` now also reports flux-weighted specific entropy at each pipe end
+  (`sflux[L,R]`), for locating irreversible entropy generation across elements.

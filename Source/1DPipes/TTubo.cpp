@@ -98,6 +98,7 @@ TTubo::TTubo(int SpeciesNumber, int j, double SimulationDuration,
   FEnbEneInL = FEnbEneInR = 0.0;
   FEnbTwL = FEnbTwR = 0.0;
   FEnbAbsML = FEnbAbsMR = 0.0;
+  FEnbSwL = FEnbSwR = 0.0;
 
   FNumeroEspecies = SpeciesNumber;
   FCalculoEspecies = SpeciesModel;
@@ -3598,6 +3599,16 @@ void TTubo::CalculaResultadosMedios(double Theta) {
             cpL * FTemperature[L] + 0.5 * FVelocidadDim[L] * FVelocidadDim[L];
         double hR =
             cpR * FTemperature[R] + 0.5 * FVelocidadDim[R] * FVelocidadDim[R];
+        // Specific entropy s = cv*ln(p/rho^gamma) (+const). Used to localise
+        // irreversible entropy generation: across an adiabatic element s can
+        // only rise. A throttle raises s at ~constant T (the T probe is blind to
+        // it), so compare <s> across the throttle and each junction.
+        double cvL = FRMezcla[L] / FGamma1[L];
+        double cvR = FRMezcla[R] / FGamma1[R];
+        double sL = cvL * log(__units::BarToPa(FPresion0[L]) /
+                              pow(Frho[L], FGamma[L]));
+        double sR = cvR * log(__units::BarToPa(FPresion0[R]) /
+                              pow(Frho[R], FGamma[R]));
         if (FEnbTheta0 < 0.0)
           FEnbTheta0 = Theta;
         FEnbTacc += FDeltaTime;
@@ -3609,6 +3620,10 @@ void TTubo::CalculaResultadosMedios(double Theta) {
         FEnbAbsMR += fabs(mdotR) * FDeltaTime;
         FEnbTwL += fabs(mdotL) * FTemperature[L] * FDeltaTime;
         FEnbTwR += fabs(mdotR) * FTemperature[R] * FDeltaTime;
+        if (std::isfinite(sL))
+          FEnbSwL += fabs(mdotL) * sL * FDeltaTime;
+        if (std::isfinite(sR))
+          FEnbSwR += fabs(mdotR) * sR * FDeltaTime;
         double window = getenv("OPENWAM_ENBAL_WIN")
                             ? atof(getenv("OPENWAM_ENBAL_WIN"))
                             : 720.0;
@@ -3619,17 +3634,20 @@ void TTubo::CalculaResultadosMedios(double Theta) {
           double HR = FEnbEneInR / FEnbTacc;  // <Hdot> right [W]
           double TL = FEnbAbsML > 0 ? FEnbTwL / FEnbAbsML : 0.0;
           double TR = FEnbAbsMR > 0 ? FEnbTwR / FEnbAbsMR : 0.0;
+          double sL = FEnbAbsML > 0 ? FEnbSwL / FEnbAbsML : 0.0;
+          double sR = FEnbAbsMR > 0 ? FEnbSwR / FEnbAbsMR : 0.0;
           printf("ENBAL pipe%d Th=%.0f-%.0f mdot[L,R]=% .4e % .4e kg/s "
                  "dM=% .2e Hdot[L,R]=% .3e % .3e W dH(in-out)=% .3e W "
-                 "Tflux[L,R]=%.0f %.0f K\n",
+                 "Tflux[L,R]=%.0f %.0f K sflux[L,R]=%.1f %.1f J/kgK\n",
                  FNumeroTubo, FEnbTheta0, Theta, mL, mR, mL - mR, HL, HR,
-                 HL - HR, TL, TR);
+                 HL - HR, TL, TR, sL, sR);
           FEnbTheta0 = Theta;
           FEnbTacc = 0.0;
           FEnbMassInL = FEnbMassInR = 0.0;
           FEnbEneInL = FEnbEneInR = 0.0;
           FEnbTwL = FEnbTwR = 0.0;
           FEnbAbsML = FEnbAbsMR = 0.0;
+          FEnbSwL = FEnbSwR = 0.0;
         }
       }
     }
