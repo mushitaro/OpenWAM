@@ -44,6 +44,7 @@ Valencia
 #include <atomic>
 #include <cmath>
 #include <cstdlib>
+#include <map>
 #include "TTubo.h"
 
 #include "TValvula4T.h"
@@ -228,6 +229,7 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
 
     FTime0 = FTime1;
     FTime1 = Time;
+    FInflowClamped = false; // reset the per-step inflow-clamp diagnostic flag
 
     FGamma = FTuboExtremo[0].Pipe->GetGamma(FNodoFin);
     // DEBUG: Check if pipe Gamma is NaN (comes from species fractions)
@@ -400,6 +402,75 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
         ++s_pd;
       }
     }
+
+    // Diagnostic (OPENWAM_VLVENE=1): per-cycle INTAKE-valve mass & enthalpy
+    // balance. Quantifies the spurious intake heating mechanism (Stage 16
+    // cont.): how much hot gas backflows cyl->port vs cold gas fills port->cyl,
+    // and the NET enthalpy the valve deposits in the port each cycle. In a
+    // motoring (combustion-OFF) steady state a correct valve should NOT deposit
+    // net positive enthalpy in the intake. Also reports the net mass actually
+    // admitted (VE proxy). Single-thread diagnostic (run with OMP_NUM_THREADS=1).
+    if (getenv("OPENWAM_VLVENE") && FTipoValv != nmValvEscape) {
+      static const int s_maxCyl =
+          getenv("OPENWAM_VLVENE_CYL") ? atoi(getenv("OPENWAM_VLVENE_CYL")) : 1;
+      if (FNumeroCilindro <= s_maxCyl) {
+        struct VABal {
+          int cycle = -1;
+          double mFill = 0, mBack = 0, hFill = 0, hBack = 0;
+          double TfillW = 0, TbackW = 0; // |mass|-weighted T sums
+          long clampHits = 0, fillSteps = 0;
+        };
+        static std::map<int, VABal> s_bal;
+        VABal &b = s_bal[FNumeroCC];
+        int cyc = FMotor->getCiclo();
+        double dt = FTime1 - FTime0;
+        double R = 287.0;
+        double cp = FGamma * R / FGamma1;
+        // Cylinder & port static temperatures from the ideal gas law.
+        double Vcyl = FCilindro->getVolumen();
+        double mcyl = FCilindro->getMasa();
+        double Tcyl = (mcyl > 0 && Vcyl > 0)
+                          ? __units::BarToPa(FCilindro->getPressure()) * Vcyl /
+                                (mcyl * R)
+                          : 0.0;
+        double p_port = FTuboExtremo[0].Pipe->GetPresion(FNodoFin);
+        double rho_port = FTuboExtremo[0].Pipe->GetDensidad(FNodoFin);
+        double Tport =
+            rho_port > 0 ? __units::BarToPa(p_port) / (R * rho_port) : 0.0;
+        if (dt > 0) {
+          if (FGasto < 0.0) { // fill: port -> cylinder (FGasto negative)
+            double m = -FGasto * dt;
+            b.mFill += m;
+            b.hFill += m * cp * Tport;
+            b.TfillW += m * Tport;
+            b.fillSteps++;
+            if (FInflowClamped)
+              b.clampHits++;
+          } else if (FGasto > 0.0) { // backflow: cylinder -> port
+            double m = FGasto * dt;
+            b.mBack += m;
+            b.hBack += m * cp * Tcyl;
+            b.TbackW += m * Tcyl;
+          }
+        }
+        if (b.cycle < 0)
+          b.cycle = cyc;
+        if (cyc != b.cycle) { // cycle boundary: report and reset
+          double mNet = b.mFill - b.mBack;     // net mass admitted [kg]
+          double hPort = b.hBack - b.hFill;    // net enthalpy into port [J]
+          double Tf = b.mFill > 0 ? b.TfillW / b.mFill : 0.0;
+          double Tb = b.mBack > 0 ? b.TbackW / b.mBack : 0.0;
+          printf("VLVENE BC%d cyc%d: fill=%.4g g back=%.4g g net=%.4g g "
+                 "(back/fill=%.2f) | Hin_port(back)=%.3g J Hout_port(fill)=%.3g J "
+                 "netH->port=%.3g J | Tfill=%.0fK Tback=%.0fK | inflowClampHits=%ld/%ld\n",
+                 FNumeroCC, b.cycle, b.mFill * 1e3, b.mBack * 1e3, mNet * 1e3,
+                 b.mFill > 0 ? b.mBack / b.mFill : 0.0, b.hBack, b.hFill, hPort,
+                 Tf, Tb, b.clampHits, b.fillSteps);
+          b = VABal();
+          b.cycle = cyc;
+        }
+      }
+    }
   } catch (std::exception &N) {
     std::cout << "ERROR: TCCCilindro::CalculaCondicionContorno en la condicion "
                  "de contorno: "
@@ -491,8 +562,10 @@ void TCCCilindro::FlujoEntranteCilindro() {
             ++s_cd;
           }
         }
-        if (FGasto < -gasto_max)
+        if (FGasto < -gasto_max) {
           FGasto = -gasto_max;
+          FInflowClamped = true; // OPENWAM_VLVENE: clamp limited the fill
+        }
       }
     }
   }

@@ -58,6 +58,9 @@ private:
   double FCDSalida;    // Coeficiente de descarga a la salida
   double FCTorbellino; // Coeficiente de torbellino
 
+  bool FInflowClamped = false; // OPENWAM_VLVENE diag: inflow choked-clamp fired
+                               // this step (set in FlujoEntranteCilindro)
+
   double FSeccionEficaz; // Seccion eficaz de la valvula
   double FGasto;         // Massflow en el extremo del tubo.
   double FMomento;

@@ -36,18 +36,47 @@ the combustion-OFF deck. Conclusions (full detail in EXHAUST notes "Stage 16
    (`OPENWAM_NO_EQTUBE=1`) does **not** cool the intake, so the stub is a
    *symptom amplifier*, not the root.
 
-**NEXT SESSION revised target (supersedes §3 below):**
-- **Primary:** instrument the **per-cycle net enthalpy** the intake valve
-  (`TCCCilindro::FlujoSalienteCilindro`/`FlujoEntranteCilindro`) exchanges with
-  the cylinder (`TCilindro4T`). Motoring should integrate to ≈ the wall heat
-  loss, not a positive deposit; a positive per-cycle deposit is the bug. It
-  should NOT be HLLC-specific (the valve BC is the Benson characteristic method).
-- **Secondary:** make `TCCRamificacion` mass/energy-consistent at large area
-  ratios, or at minimum fix the stub geometry φ10 → φ20 (the comment and the
-  eq-tube volume both say φ20).
+> **NB: point 1 above (cylinder↔valve) was OVERTURNED by Stage 17 — see below.**
 
-New diagnostic assets: `OPENWAM_ENBAL[/_MAX/_WIN]`, `OPENWAM_NO_EQTUBE`,
-`OPENWAM_EQ_DIA`, and `scripts/intake_energy_balance.py`.
+## ⟶ UPDATE 2 (Stage 17): the cylinder/valve is EXONERATED; heat is in the intake tract
+
+Deeper instrumentation (`OPENWAM_VLVENE`, per-cycle intake-valve mass/enthalpy
+balance) plus two decisive tests revise the target again (full detail in EXHAUST
+notes "Stage 17"):
+
+1. **The intake valve NET COOLS the port** (−116 J/cycle converged): it removes
+   more cold-fill enthalpy than it deposits as hot backflow. Backflow is modest
+   (back/fill ≈ 0.23) and the Stage-10 inflow clamp never fires. **Not the valve.**
+2. **It is a genuine hot equilibrium, not an unconverged transient:** a 40-cycle
+   combustion-OFF run plateaus at ~556–562 K from cycle ~8 (flat, no drift).
+   (Startup is violent — cycle 1 fills 10.2 g at 2468 K, a ~16× overfill spike.)
+3. **10× cylinder heat rejection cools the cylinder (Tback 540→440 K) but NOT the
+   intake** (bellmouth still ~560 K, VE unchanged). The intake gas is hotter than
+   both the cylinder AND the 300 K inlet → **the heat source is in the intake
+   tract, independent of the cylinder.**
+
+Also ruled out: eq-tube (`NO_EQTUBE` doesn't cool), intake friction
+(`IN_FRIC=10` doesn't cool — friction ADDS irreversible heat), a literal plenum
+heat source (`FHeatPower=0`). Every intake pipe is conservative and the
+junctions/throttle balance `<HdotL> ≈ <HdotR>` (enthalpy FLUX is conserved).
+
+**NEXT SESSION target (supersedes everything above):** enthalpy-flux conservation
+does NOT preclude **entropy generation**. The irreversible intake elements — the
+Type-9 throttle (`TCCPerdidadePresion`) and the Type-12 constant-pressure
+junctions (`TCCRamificacion`) — can pass gas at conserved total enthalpy while
+raising entropy (T↑, p↓). Under the oscillating intake the gas re-traverses them
+many times/cycle and the irreversible heat only leaves through the weak
+intake-pipe walls, so the near-closed recirculation equilibrates hot (~560 K).
+- Instrument entropy `s = cv·ln(p/ρ^γ)` generation across the throttle and each
+  junction (which element sources it, and how much per cycle).
+- Decide **H1** (startup-transient heat trapped in a slow loop — does a ≥60-cycle
+  run keep cooling?) vs **H2** (steady distributed entropy source).
+- Secondary, still valid: `TCCRamificacion` is unsafe at large area ratios
+  (φ52:φ10 stub runaway); fix the small-area branch or the stub geometry φ10→φ20.
+
+New diagnostic assets (cumulative): `OPENWAM_ENBAL[/_MAX/_WIN]`,
+`OPENWAM_NO_EQTUBE`, `OPENWAM_EQ_DIA`, `OPENWAM_VLVENE[/_CYL]`, `OPENWAM_IN_FRIC`,
+and `scripts/intake_energy_balance.py`.
 
 ---
 

@@ -1246,7 +1246,14 @@ class WAMGenerator:
             # Line 1: Connectivity (N1 N2 NCells NumDucts)
             self.wam_lines_pipes.append(f"{p['left_node'] + 1} {p['right_node'] + 1} 1 1")
             # Line 2: Friction
-            self.wam_lines_pipes.append(f"{p['friction']}") 
+            # Diagnostic (OPENWAM_IN_FRIC=<x>): multiply the INTAKE-pipe friction
+            # (ids < 39; exhaust starts at the port pipes >=39) to test whether
+            # damping the over-resonant intake oscillation suppresses the spurious
+            # junction-entropy heating (Stage 16 cont.). Default 1.0 (no change).
+            fric = p['friction']
+            if pid < 39:
+                fric *= float(os.environ.get("OPENWAM_IN_FRIC", "1.0"))
+            self.wam_lines_pipes.append(f"{fric}")
             # Line 3: Wall Temp, Pressure, Velocity
             # P in bar (TTubo.cpp converts BarToPa(FPini)). Default atmospheric;
             # throttle-downstream pipes carry an estimated MAP so part-throttle

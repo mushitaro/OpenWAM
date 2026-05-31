@@ -898,3 +898,77 @@ the cylinders** convected through the (WOT-open) throttle and the bellmouths.
   (`wam_generator.py`).
 - `scripts/intake_energy_balance.py` — runs the combustion-OFF ENBAL case
   (baseline / no-eqtube / big-stub) and prints the localisation table.
+
+## Stage 17 — it is NOT the cylinder/valve: the heat lives in the intake tract itself
+
+Stage 16 (cont.) concluded the spurious energy entered "at the cylinder<->intake-
+valve gas exchange". Deeper instrumentation this stage **overturns that** and
+exonerates the cylinder and the valve. Three decisive measurements:
+
+### Probe: per-cycle intake-valve mass & enthalpy balance (`OPENWAM_VLVENE`)
+For the cyl-1 intake valve it sums, each cycle, the fill mass (port->cyl) and the
+backflow mass (cyl->port) and the enthalpy each carries (`m*cp*T`), giving the
+NET enthalpy the valve deposits in the port. Converged combustion-OFF cycle:
+```
+fill=0.257 g  back=0.059 g  net=0.198 g  (back/fill=0.23)
+Hin_port(back)=33 J  Hout_port(fill)=149 J  netH->port = -116 J
+Tfill=562 K  Tback=539 K   inflowClampHits=0/1032
+```
+- The intake valve **NET COOLS the port** (-116 J/cycle): it removes more
+  enthalpy as cold-side fill than it deposits as hot backflow. So the valve is
+  NOT the port's heat source.
+- Backflow is modest (back/fill 0.23), not the dominant "sloshing" imagined.
+- The Stage-10 inflow choked-clamp **never fires** during normal fill (0 hits),
+  so it is not throttling the charge.
+
+### Test 1 — it is a genuine hot equilibrium, NOT an unconverged transient
+A 40-cycle combustion-OFF run: the port temperature plateaus at ~556-562 K from
+cycle ~8 onward (cyc8 563, cyc12 557, cyc16 574, cyc19 559 — flat, oscillating,
+no downward drift). 10-20 cycles was enough; the ~560 K is the steady state.
+(Startup is violent: cycle 1 fills 10.2 g at 2468 K — a ~16x overfill spike that
+dumps a large amount of heat into the intake very early.)
+
+### Test 2 — 10x cylinder heat rejection cools the CYLINDER but not the intake
+With combustion OFF and Woschni cw1 and the intake/exhaust HT adjust both x10,
+the cylinder cools sharply (Tback 540 -> 440 K) but the **intake barely moves**
+(port ~530-543 K, bellmouth still ~560 K) and VE is unchanged. The bellmouth sits
+at 560 K while the cylinder is 440 K and the filtered inlet is ~300 K — i.e. the
+intake gas is hotter than BOTH the cylinder and the inlet. **The heat source is
+in the intake tract, independent of the cylinder temperature.**
+
+### What is ruled out now (with data)
+- the intake valve / cylinder (net-cools the port; 10x cylinder cooling doesn't
+  cool the intake);
+- the equalization tube (`OPENWAM_NO_EQTUBE=1` doesn't cool the intake);
+- intake oscillation magnitude via friction (`OPENWAM_IN_FRIC=10` doesn't cool —
+  friction ADDS irreversible heat, it doesn't damp the source);
+- a literal plenum heat source (`FHeatPower=0`, not set by the deck);
+- per-component enthalpy-flux non-conservation: every intake pipe is conservative
+  (finite-volume) and the junctions/throttle balance `<HdotL> ~ <HdotR>`.
+
+### The remaining mechanism (next session)
+Enthalpy-FLUX conservation does NOT preclude **entropy generation**: an
+irreversible element (the Type-9 throttle `TCCPerdidadePresion`, the Type-12
+constant-pressure junctions `TCCRamificacion`) can pass the gas at conserved
+total enthalpy while raising its entropy (T up, p down). Under the oscillating
+intake the gas traverses these elements many times per cycle, and the
+irreversible heat has nowhere to leave except the weak intake-pipe walls, so the
+nearly-closed recirculation equilibrates hot (~560 K). Two candidate readings,
+to be settled next:
+- **(H1) startup-transient heat trapped in a slow-dissipating loop** — the 10 g/
+  2468 K cycle-1 spike injects the heat and the weak wall cooling bleeds it off
+  over many cycles. Test: a long (>=60-cycle) run — does the intake keep cooling?
+- **(H2) steady distributed entropy generation** — the irreversible elements
+  source heat every cycle at steady state. Test: instrument entropy
+  (s = cv*ln(p/rho^gamma)) generation across the throttle and each junction.
+
+Either way the target has moved OFF the cylinder/valve and ONTO the intake
+irreversible elements (throttle + constant-pressure junctions) and the loop's
+weak thermal dissipation.
+
+### Assets added this stage
+- `OPENWAM_VLVENE` (+`_CYL`) — per-cycle intake-valve mass/enthalpy balance
+  (`TCCCilindro`); reports fill/back mass, net enthalpy to port, and whether the
+  inflow choked-clamp fires.
+- `OPENWAM_IN_FRIC=<x>` — multiply intake-pipe friction (damping test)
+  (`wam_generator.py`).
