@@ -1519,3 +1519,53 @@ the valve boundary (should be ~wall heat ~0 in a converged motoring cycle).
 ### Assets
 - OPENWAM_VEDIAG: trapped-state probe (T, P_IC, mass, fresh/residual) at IVC.
 - (existing) OPENWAM_ENBAL, OPENWAM_EQ_DIA, OPENWAM_NO_EQTUBE.
+
+## Stage 28 — proof the deficit is removable heat, and where the heat is NOT
+
+Two independent "remove the intake heat" levers both recover VE toward the target,
+proving the geometry/breathing is sound and the ~570 K charge is the entire fault:
+
+| intake thermal treatment            | charge T | VE   |
+|-------------------------------------|----------|------|
+| baseline (default wall HT)          | 567 K    | 57%  |
+| OPENWAM_IN_HMULT=10 (10x wall HT)   | 479 K    | 76%  |
+| OPENWAM_TPIN=313 (pin gas to 313 K) | 342 K    | ~99% (5/6 cyl) |
+
+(IN_HMULT=50 destabilises -- the intake goes sonic; not pursued.)
+
+So the spurious heat is fully REMOVABLE: pin/cool the intake and VE -> ~100%, exactly
+matching the target level. This rules out any flow/geometry restriction.
+
+Where the heat enters -- localisation via OPENWAM_VLVENE (per-cycle intake-valve mass
+& enthalpy balance, cyl 1, converged, combustion OFF):
+```
+fill (port->cyl) 0.243 g @ Tfill=571 K  carries 143 J OUT of the port
+back (cyl->port) 0.047 g @ Tback=581 K  carries  28 J INTO the port
+net mass admitted 0.196 g | net enthalpy to port = -114 J  (valve COOLS the port)
+```
+Key: at convergence the intake valve net-REMOVES enthalpy from the port (-114 J/cyc),
+and the gas FILLING the cylinder is already 571 K. So the steady hot intake is NOT
+sustained by hot valve backflow -- the port is already hot upstream of the valve. The
+heat source is therefore in the intake interior (junctions / open end), not the valve
+gas exchange, and the default wall heat transfer is too weak to remove it (hence the
+equilibrium ABOVE wall temp: a per-cycle source balances wall loss at 567 K; 10x wall
+HT drops the balance to 479 K; the source is numerical -- combustion-OFF identical).
+
+Eliminations recap (Stages 27-28): not throttle, not tuning, not residuals
+(resid~0%), not intake restriction (P_IC~1 atm), not combustion (LHV->1 identical),
+not the EqTube stub (remove/widen no change), not the intake valve backflow (net
+cools the port). Remaining suspects for the per-cycle numerical source: the Type-12
+junctions (TCCRamificacion: the phi10 stub there hits 2771 K / 10 MW) other than the
+EqTube one, and the open-end atmosphere BC (re-inducting hot expelled air instead of
+flushing ambient).
+
+### Decision point
+The deficit is one numerical heat source in the intake interior. Fixing it properly
+(junction / open-end energy conservation) is a deep MoC task; alternatively a
+physically-motivated intake wall heat-rejection model (the real aluminium manifold
+sinks far more heat than the default film coefficient) removes the heat and recovers
+VE now. Both are viable; this is a strategy choice for the user.
+
+### Assets
+- OPENWAM_VLVENE (intake-valve per-cycle mass/enthalpy balance), OPENWAM_VEDIAG,
+  OPENWAM_IN_HMULT, OPENWAM_TPIN, OPENWAM_ENBAL.
