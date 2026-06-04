@@ -684,6 +684,21 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
       // << std::endl;
       std::cout << "INFO: Pressure at I.C.:    " << FPresionRCA << " (bar)"
                 << std::endl;
+      // VE-deficit decomposition (OPENWAM_VEDIAG=1): the converged charge is ~52%
+      // of an atmospheric fill across all rpm. Decide WHY -- hot low-density charge
+      // vs vacuum under-fill vs residual displacement -- by printing the trapped
+      // state at IVC: in-cylinder T, the IVC pressure (already above), and the
+      // closed-cycle composition (Comp[0]=burned/residual, [2]=fresh air). The
+      // fresh-air mass is what actually sets VE; residual mass just displaces it.
+      if (getenv("OPENWAM_VEDIAG")) {
+        double resF = FComposicionCicloCerrado[0]; // burned/residual mass fraction
+        double airF = FComposicionCicloCerrado[2]; // fresh-air mass fraction
+        double mAir = FMasaAtrapada * airF;
+        printf("VEDIAG Cyl:%d Ttrap:%.1f K P_IC:%.4f bar Mtrap:%.4f g "
+               "fresh:%.0f%% resid:%.0f%% Mair:%.4f g\n",
+               FNumeroCilindro, __units::degCToK(FTemperature), FPresionRCA,
+               FMasaAtrapada * 1e3, airF * 100.0, resF * 100.0, mAir * 1e3);
+      }
       // std::cout << "____________________________________________________" <<
       // std::endl;
     }

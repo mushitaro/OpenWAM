@@ -1463,3 +1463,59 @@ decomposition decides between (a) and (b) and points at the specific lever.
 - scripts/ve_breakpoint_conv_parallel.py (parallel converged sweep, per-run wd)
 - scripts/ve_breakpoint_plot.py (overlay + normalized-shape + stats)
 - docs/analysis/converged_ve_vs_rpm_breakpoints.{png,csv}
+
+## Stage 27 — the ~2x VE deficit IS the spurious ~560 K charge (numerical, not combustion)
+
+Decomposed the flat ~52% converged VE at clean breakpoints (5300 & 2900 rpm, FIN=1,
+NaN=0) with a new probe OPENWAM_VEDIAG (prints the trapped state at the end of gas
+exchange: in-cylinder T, IVC pressure, trapped mass, fresh/residual split).
+
+Trapped state (mean over the converged cycle, 5300 rpm):
+```
+Ttrap ~ 567 K     <- HOT (a normal fresh charge is ~320-350 K)
+P_IC  ~ 1.26 bar  <- ~atmospheric (NOT a vacuum -> intake is NOT choked/restricted)
+Mtrap ~ 0.37 g    <- ~58% of the 0.64 g atmospheric reference
+residual ~ 0%     <- the charge is fresh, not displaced by burned gas
+```
+
+Decisive arithmetic. m = P V / (R T). With P, V fixed and residuals ~0, the ONLY
+reason Mtrap is half is that T is ~1.7x too high:
+  567 K / 330 K = 1.72  ->  58% x 1.72 = ~100% == the ~110% target.
+So the entire rpm-flat 2x VE deficit is exactly the charge sitting at ~567 K instead
+of ~330 K. Not intake restriction (P is fine), not residual dilution (resid ~0).
+
+Where the heat comes from -- three eliminations:
+1. The air ARRIVES hot. ENBAL flux-weighted temperatures show the WHOLE intake tree
+   (pipes 1-38, atmosphere inlet through the ports) sits at ~555-580 K. The cylinder
+   is filled with already-hot manifold air; it does not heat cold air internally.
+2. NOT the EqTube stub runaway. The phi10 EqTube_Stub pipes (5,11,17,23,29,35) do go
+   berserk in ENBAL (-2.78 kg/s, 2771 K, -10 MW each) but widening them to phi52
+   (OPENWAM_EQ_DIA=0.052) or removing them (OPENWAM_NO_EQTUBE=1) leaves the charge at
+   ~550-571 K and VE unchanged. The stub is a local symptom confined to its branch,
+   not the bulk-intake heat source (confirms the PR #11 read).
+3. NOT combustion. With the fuel LHV zeroed (44000000 -> 1, deck verified) the
+   converged trapped state is BYTE-IDENTICAL (567 K, same Mtrap, same IVC pressure).
+   No chemical energy is entering, yet the intake still sustains ~567 K -> the heat
+   is a NUMERICAL energy-generation artifact in the gas-exchange bookkeeping.
+
+Conclusion. The flat ~52% VE (independently reproduced in the user's Gemini trials,
+and unmoved there by butterfly->venturi throttle swaps and small-opening tuning) is
+NOT a tuning/throttle problem and NOT a feedback/residual problem. It is one bug: the
+gas exchange creates enthalpy out of nothing, the manifold equilibrates ~240 K too
+hot, the charge density drops ~1.7x, and VE halves uniformly across rpm. Fixing the
+spurious enthalpy should drop the charge to ~330 K and lift VE to ~100-110%, matching
+the target shape's level (the tuning shape is a second-order question on top).
+
+### Fix target (next)
+The energy must be created at a BOUNDARY, not inside the pipes: ENBAL shows each
+intake pipe conserves enthalpy internally (dH(in-out) ~ few kW) except the stubs.
+The suspect is the intake-valve / cylinder gas-exchange flux -- TCCCilindro (or the
+valve boundary in TCC*) FlujoEntranteCilindro / FlujoSalienteCilindro -- where hot
+cylinder gas backflows into the port during overlap/early intake and the enthalpy
+carried out vs back in does not balance over a cycle. Localise by running ENBAL on
+the port pipe immediately at the valve and checking the per-cycle net enthalpy across
+the valve boundary (should be ~wall heat ~0 in a converged motoring cycle).
+
+### Assets
+- OPENWAM_VEDIAG: trapped-state probe (T, P_IC, mass, fresh/residual) at IVC.
+- (existing) OPENWAM_ENBAL, OPENWAM_EQ_DIA, OPENWAM_NO_EQTUBE.
