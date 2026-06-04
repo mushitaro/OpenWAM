@@ -258,8 +258,10 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
       // live angle (the BC's own FAnguloActual is stale). Print every ~15 deg.
       double th = FCilindro->getAnguloActual();
       static double s_lt = -1e9;
+      double vwStep = getenv("OPENWAM_VLVWIN_STEP")
+                          ? atof(getenv("OPENWAM_VLVWIN_STEP")) : 15.0;
       if (th < s_lt) s_lt = -1e9; // cycle wrapped
-      if (th - s_lt > 15.0) {
+      if (th - s_lt > vwStep) {
         s_lt = th;
         double ratio = rel_CCon_Entropia / FAd;
         const char *dir = (ratio > 1.000005) ? "ENT(fill)"

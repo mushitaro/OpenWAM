@@ -1623,3 +1623,63 @@ trend.
 ### Assets
 - OPENWAM_JUNCENE (per-junction energy balance, TCCRamificacion).
 - OPENWAM_NO_THROTTLE (lossless-union throttle test).
+
+## Stage 30 — the backflow IS significant; it traces to high cylinder pressure at gas-exchange TDC (exhaust back-pressure)
+
+Per the user's choice to check whether the ~19% backflow is too large, mapped the
+intake-valve flow crank-by-crank (OPENWAM_VLVWIN, now OPENWAM_VLVWIN_STEP for finer
+resolution) and swept IVO at 5300 rpm WOT converged.
+
+Crank-resolved intake valve (cyl 1, IVO=330/30 BTDC-gx, EVC=366):
+```
+Theta  p_cyl  p_port  T_port  dir
+333    1.16   1.17    514K    fill   intake cracks open near gx-TDC
+348    1.46   1.60    635K    fill   port spikes to 1.6 bar, 635 K
+359    1.62   1.63    640K    fill   gas-exchange TDC, Vcyl=52 cc
+364    1.45   1.46    579K    BACK   just after TDC: cylinder pushes into port
+574-598 1.26  1.20    ~585K   BACK   late-IVC: compression pushes into port
+```
+Two backflow events: a short reversion just after gas-exchange TDC, and a late-IVC
+reversion during early compression.
+
+IVO sweep (overlap = 366 - IVO):
+```
+IVO=330  (+36 deg overlap):  Ttrap 567 K  VE 57%
+IVO=366  ( 0 deg overlap):   Ttrap 603 K  VE 46%   <- worse
+IVO=390  (-24 deg overlap):  Ttrap 424 K  VE 68%   <- much cooler
+```
+Non-monotonic: removing overlap (366) is WORSE, but opening the intake LATE (390,
+into the descending-piston vacuum) is much cooler. So the heater is not "overlap"
+per se -- it is opening the intake valve while the cylinder still holds hot,
+PRESSURISED residual gas near gas-exchange TDC, which drives that gas into the port.
+Opening into the intake-stroke vacuum (IVO=390) avoids it.
+
+Root of the high near-TDC cylinder pressure: at gas-exchange TDC the cylinder sits at
+~1.6 bar (VLVWIN p_cyl=1.62 at Theta=359), not the ~1.0-1.1 bar of a well-scavenged
+cylinder. The exhaust valve is still open (EVC=366), so cyl ~ exhaust-port pressure:
+the exhaust is NOT providing a scavenging vacuum, it is holding the cylinder at
+~1.6 bar of back-pressure. The trapped hot residuals at 1.6 bar / ~640 K then expand
+into the intake the moment the intake valve opens.
+
+So the chain is: exhaust back-pressure -> cylinder ~1.6 bar at gas-exchange TDC ->
+hot (~640 K) residual reversion into the intake port -> hot intake manifold ->
+~1.7x low charge density -> the rpm-flat 2x VE deficit. This finally connects the
+intake VE deficit back to the EXHAUST back-pressure (the Stage 1-16 subject).
+
+Partial fixes (none reaches the TPIN ideal of 342 K / ~99%):
+  IVO=390 alone           424 K / 68%
+  IN_HMULT=10 alone        479 K / 76%
+  IVO=390 + IN_HMULT=10    446 K / 61%  (no better -- within cyl-to-cyl scatter)
+The timing/wall levers each remove part of the heat but cannot fully fix it because
+the heat keeps being re-injected each cycle by the back-pressure-driven reversion.
+
+### Recommended next step
+Attack the exhaust back-pressure at gas-exchange TDC so the cylinder scavenges down to
+~1 bar (then there is no hot pressurised residual to reverse into the intake). Measure
+the exhaust-port pressure through the overlap window and find why it sits ~1.6 bar
+(collector/Riemann-junction reflection, exhaust runner length/tuning, or the
+port-merge model). This is the same exhaust back-pressure thread from the earlier
+stages, now with a direct VE payoff target.
+
+### Assets
+- OPENWAM_VLVWIN_STEP (finer crank resolution for the valve-window probe).
