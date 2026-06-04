@@ -275,6 +275,32 @@ void TCCCilindro::CalculaCondicionContorno(double Time) {
                T_port, p_port, FValvula->getCDTubVol(), dir);
       }
     }
+    // Diagnostic (OPENWAM_EXHWIN=1): map the EXHAUST valve open window & port
+    // pressure over a converged cycle, to see the exhaust-port pressure through
+    // the overlap window (Stage 31): is the cylinder held at ~1.6 bar at
+    // gas-exchange TDC by a steady back-pressure or by a returning compression
+    // wave? Cyl-1 exhaust valve only.
+    if (getenv("OPENWAM_EXHWIN") && FTipoValv == nmValvEscape &&
+        FNumeroCilindro == 1 && FMotor->getCiclo() >= 4) {
+      double th = FCilindro->getAnguloActual();
+      static double s_lte = -1e9;
+      double ewStep = getenv("OPENWAM_VLVWIN_STEP")
+                          ? atof(getenv("OPENWAM_VLVWIN_STEP")) : 15.0;
+      if (th < s_lte) s_lte = -1e9;
+      if (th - s_lte > ewStep) {
+        s_lte = th;
+        double ratio = rel_CCon_Entropia / FAd;
+        const char *dir = (ratio > 1.000005) ? "ENT(revert)"
+                          : (ratio < 0.999995) ? "SAL(blow)" : "stop";
+        double p_port = FTuboExtremo[0].Pipe->GetPresion(FNodoFin);
+        double rho_port = FTuboExtremo[0].Pipe->GetDensidad(FNodoFin);
+        double T_port = __units::BarToPa(p_port) / (287.0 * rho_port);
+        printf("EXHWIN Theta=%.1f Vcyl=%.0fcc p_cyl=%.3f p_export=%.3f "
+               "T_export=%.0fK CdEx=%.3f dir=%s\n",
+               th, FCilindro->getVolumen() * 1e6, FCilindro->getPressure(),
+               p_port, T_port, FValvula->getCDTubVol(), dir);
+      }
+    }
     if (rel_CCon_Entropia / FAd > 1.000005) { // Flujo entrante al cilindro
       FSentidoFlujo = nmEntrante;
       FValvula->GetCDin(FTime1);

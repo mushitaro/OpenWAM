@@ -1683,3 +1683,56 @@ stages, now with a direct VE payoff target.
 
 ### Assets
 - OPENWAM_VLVWIN_STEP (finer crank resolution for the valve-window probe).
+
+## Stage 31 — CORRECTION: it is not exhaust back-pressure, and exhaust pipe length does not matter
+
+Measured the EXHAUST-valve window crank-by-crank (new OPENWAM_EXHWIN) and swept the
+exhaust primary length, per the user's request to check the exhaust pipe system.
+
+EXHAUST-port pressure through the overlap window (cyl 1, 5300 rpm WOT, converged):
+```
+Theta  p_cyl  p_export  T_export
+334    1.15   1.06      502 K
+344    1.30   1.08      526 K
+354    1.61   1.03      586 K   <- cylinder spikes to 1.6 bar, port stays ~1.0 bar
+364    1.46   0.92      579 K
+```
+=> The EXHAUST PORT is at ~0.9-1.1 bar through overlap (near atmospheric), NOT a high
+back-pressure. The Stage-30 "exhaust back-pressure holds the cylinder at 1.6 bar"
+reading was WRONG. The cylinder 1.6 bar at gas-exchange TDC is the piston adiabatically
+compressing the 52 cc clearance volume of hot (~615 K) residual gas (65->52 cc,
+1.25^1.4 = 1.37x) faster than the nearly-closed exhaust valve (EVC=366, low lift near
+TDC) can vent it. It is a clearance-gas / valve-lift effect, not a pipe back-pressure.
+
+Exhaust primary (port+header) length sweep @5300 rpm WOT:
+```
+total primary 240 mm: Ttrap 581 K  VE 58%
+              390 mm: Ttrap 567 K  VE 57%   (baseline)
+              590 mm: Ttrap 575 K  VE 58%
+              790 mm: Ttrap 561 K  VE 55%
+```
+=> Tripling the primary length moves the charge temp by <20 K and VE by <3 pp. The
+exhaust pipe length is NOT a lever for this VE deficit, consistent with the exhaust
+port already sitting at ~1 atm during overlap (no wave tuning to exploit here).
+
+Corrected mechanism. The hot intake is hot RESIDUAL gas reverting into the intake
+port: at gas-exchange TDC the small clearance volume holds ~615 K residual compressed
+to ~1.6 bar; if the intake valve is open then (IVO=330, 30 deg BTDC) that hot gas
+pushes into the port. It is governed by the INTAKE valve timing (IVO=390 opens into
+the post-TDC vacuum and is ~140 K cooler) and removed by intake wall heat transfer --
+NOT by the exhaust system. Exhaust back-pressure and exhaust pipe length are not the
+cause.
+
+### Where this leaves the VE deficit
+Levers, by measured effect at 5300 rpm (TPIN ideal = 342 K / ~99%):
+  IVO=390 (open into vacuum)     424 K / 68%
+  IN_HMULT=10 (realistic walls)  479 K / 76%
+  exhaust length                 no effect
+None alone reaches ~100%; the residual reversion keeps re-injecting heat each cycle.
+The remaining true levers are (1) intake valve timing (VANOS schedule -- the per-rpm
+optimum already noted), (2) realistic intake-port/runner wall heat rejection, and
+possibly (3) reducing the clearance-gas reversion at the source (exhaust valve able to
+vent the clearance gas near TDC -- a valve-flow/lift question, not a pipe-length one).
+
+### Assets
+- OPENWAM_EXHWIN (+ OPENWAM_VLVWIN_STEP): crank-resolved exhaust-valve/port window.
