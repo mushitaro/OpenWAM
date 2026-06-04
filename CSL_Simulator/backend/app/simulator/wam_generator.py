@@ -612,7 +612,16 @@ class WAMGenerator:
             # --- THROTTLE VALVE (ITB) - STRATEGY A: PIPE-TO-PIPE ---
             vid_throttle = 26 + i
             self.throttle_valves.append(vid_throttle)
-            cid_throttle = self._create_pipe_to_pipe_throttle(vid_throttle)
+            # Diagnostic (OPENWAM_NO_THROTTLE=1): replace the Type-10 quadratic
+            # pressure-loss throttle BC (TCCPerdidadePresion) with a lossless
+            # Type-12 2-pipe union, to test whether the throttle BC is the spurious
+            # intake heat source (Stage 29: heat is numerical, not in the Type-12
+            # junctions or the valve). At WOT the throttle is ~fully open so a
+            # lossless union is the right physical limit for this test.
+            if os.environ.get("OPENWAM_NO_THROTTLE") == "1":
+                cid_throttle = self._create_branch_junction()
+            else:
+                cid_throttle = self._create_pipe_to_pipe_throttle(vid_throttle)
             cid_bell_end = cid_throttle
             
             # Bellmouth pipe (taper: φ70 → φ52)

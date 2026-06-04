@@ -1569,3 +1569,57 @@ VE now. Both are viable; this is a strategy choice for the user.
 ### Assets
 - OPENWAM_VLVENE (intake-valve per-cycle mass/enthalpy balance), OPENWAM_VEDIAG,
   OPENWAM_IN_HMULT, OPENWAM_TPIN, OPENWAM_ENBAL.
+
+## Stage 29 — the "junction/open-end energy bug" hypothesis is FALSIFIED by direct measurement
+
+Per the user's choice to fix the root cause in the junctions / open end, instrumented
+the branch junctions and tested the throttle directly. The discrete intake elements
+do NOT create the energy.
+
+Direct junction energy balance (new OPENWAM_JUNCENE probe in TCCRamificacion:
+per-junction net mass & enthalpy flux summed over all connected pipe ends over a
+window; net != 0 => the junction creates/destroys energy):
+- All EXHAUST junctions (CC 46-63): net ~+/-0.1 kW out of ~30-180 kW throughput
+  (<0.5%). Clean -- the core Riemann-junction numerics conserve energy.
+- INTAKE port-split junctions (CC 8,15,22,29,36,43): net ~-0.6 kW. Clean.
+- INTAKE EqTube-stub junctions (CC 6,13,20,27,34,41): the probe reads a huge
+  ~141 MW, BUT this is a MEASUREMENT artifact of the phi10 stub runaway: removing
+  the stub (OPENWAM_NO_EQTUBE) makes every junction clean (<2 kW) AND leaves the
+  charge just as hot (~570 K). So the stub "creation" is not the real source.
+
+Throttle test (new OPENWAM_NO_THROTTLE: replace the Type-10 quadratic-loss throttle
+BC with a lossless Type-12 union): charge 602 K / VE 57% -- NOT cooler. The throttle
+BC is not the source either.
+
+Eliminations now: not throttle, not tuning, not residuals, not intake restriction,
+not combustion, not the EqTube stub, not the intake-valve backflow (net cools the
+port), not the Type-12 junctions, not the throttle BC. The SAME junction/pipe code
+conserves energy perfectly on the exhaust side -> the core scheme is sound.
+
+What remains. A rough global balance at 5300 rpm: the valve takes ~+114 J/cyc net
+enthalpy FROM each port (VLVENE), so the cylinders draw ~684 J/cycle from the intake;
+the ambient reservoir supplies the net fresh charge (~1.18 g/cyc) at 300 K ~= 355 J;
+the ~330 J/cycle (~15 kW) shortfall is what keeps the manifold hot. It is not created
+in any discrete BC we can probe, and the intake wall heat transfer at default is too
+weak to remove it (IN_HMULT=10 drops the equilibrium 567->479 K; the source is
+balanced by wall loss ABOVE wall temp, so a finite per-cycle source exists).
+
+Reinterpretation. The hot intake behaves like PHYSICAL hot backflow (motoring
+compression heats the charge to ~830 K at TDC; ~19% of the fill backflows into the
+port at ~580 K during overlap) that the unrealistically weak default intake-wall heat
+transfer fails to remove, so the airbox/runners equilibrate hot and re-heat the
+incoming fresh air. The two working fixes (IN_HMULT, TPIN) both REMOVE heat. There is
+no localizable junction/open-end "energy creation" bug to delete -- the discrete
+elements conserve energy.
+
+### Recommended re-scope (needs a user decision)
+The root-cause-in-the-junctions premise did not hold. The tractable, physically
+grounded levers are: (a) realistic intake-wall heat rejection (the default film
+coefficient is far too low for an aluminium manifold venting to ambient), and/or
+(b) check whether the ~19% overlap backflow is itself too large (valve overlap /
+timing / port volume). (a) is the smaller, safer change and already shows the right
+trend.
+
+### Assets
+- OPENWAM_JUNCENE (per-junction energy balance, TCCRamificacion).
+- OPENWAM_NO_THROTTLE (lossless-union throttle test).

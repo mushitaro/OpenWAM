@@ -35,6 +35,7 @@ Valencia
 #include <atomic>
 #include <cmath>
 #include <iostream>
+#include <map>
 #include <vector>
 #include <memory>
 #include "TTubo.h"
@@ -431,6 +432,58 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
       if (FHayEGR)
         FFraccionMasicaEspecie[FNumeroEspecies - 1] =
             FMasaEspecie[FNumeroEspecies - 1] / MasaTotal;
+    }
+
+    // Junction energy-conservation probe (OPENWAM_JUNCENE=1). The intake heats to
+    // a spurious ~570 K from a NUMERICAL energy source in the manifold interior
+    // (Stage 27-28). An adiabatic branch junction must conserve mass and enthalpy:
+    // summed over all its pipe ends, <net mass flux INTO junction> and <net
+    // enthalpy flux INTO junction> are both ~0 in a converged cycle. A junction
+    // that CREATES enthalpy shows net enthalpy flux != 0. Accumulate per junction
+    // over a time window using the junction's own imposed velocities and the
+    // connected pipe states; report the net rates. Single-thread diagnostic.
+    if (getenv("OPENWAM_JUNCENE")) {
+      struct JBal { double t = 0, mIn = 0, hIn = 0, absM = 0, hAbs = 0; };
+      static std::map<int, JBal> s_jb;
+      JBal &jb = s_jb[FNumeroCC];
+      const double R = 287.0;
+      const double cp = FGamma * R / FGamma1;
+      // Accumulate the dimensional flux INTO the junction from each connected pipe
+      // end (FVelocity>0 = out of the pipe = into the junction). The main solver
+      // calls this BC once per step in all-tubes mode (TuboCalculado==10000), so
+      // sum over ALL tubes here; in the per-tube call path sum only the current
+      // tube and pro-rate the window time.
+      int lo = 0, hi = FNumeroTubosCC;
+      bool allTubes = (TuboCalculado == 10000);
+      if (!allTubes) { lo = TuboCalculado; hi = TuboCalculado + 1; }
+      for (int i = lo; i < hi; i++) {
+        double vdim = FVelocity[i] * __cons::ARef;            // m/s, +into junction
+        double rho = FTuboExtremo[i].Pipe->GetDensidad(FNodoFin[i]); // kg/m^3
+        double p = __units::BarToPa(FTuboExtremo[i].Pipe->GetPresion(FNodoFin[i]));
+        double T = (rho > 0.0) ? p / (rho * R) : 0.0;
+        if (std::isfinite(vdim) && std::isfinite(rho) && rho > 0.0 &&
+            std::isfinite(T)) {
+          double mdot = rho * FSeccionTubo[i] * vdim;          // kg/s into junction
+          double hdot = mdot * (cp * T + 0.5 * vdim * vdim);   // W into junction
+          jb.mIn += mdot * DeltaT;
+          jb.hIn += hdot * DeltaT;
+          jb.absM += fabs(mdot) * DeltaT;
+          jb.hAbs += fabs(hdot) * DeltaT;
+        }
+      }
+      jb.t += allTubes ? DeltaT : (DeltaT / FNumeroTubosCC);
+      double win = getenv("OPENWAM_JUNCENE_WIN")
+                       ? atof(getenv("OPENWAM_JUNCENE_WIN")) : 0.02;
+      if (jb.t >= win && jb.t > 0.0) {
+        // netHdot > 0 means net enthalpy flows INTO the junction and is destroyed;
+        // netHdot < 0 means the junction emits more enthalpy than it receives, i.e.
+        // it CREATES enthalpy. Report the created power = -netHdot.
+        printf("JUNCENE CC%d: netMdot=% .3e kg/s netHdot=% .3e W "
+               "(|M|=% .3e |H|=% .3e) creates=%+.2f kW\n",
+               FNumeroCC, jb.mIn / jb.t, jb.hIn / jb.t, jb.absM / jb.t,
+               jb.hAbs / jb.t, -(jb.hIn / jb.t) / 1000.0);
+        jb = JBal();
+      }
     }
 
   } catch (std::exception &N) {
