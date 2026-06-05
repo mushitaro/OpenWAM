@@ -1891,3 +1891,61 @@ per-rpm VANOS, ~76-80% VE.
 - Levers: OPENWAM_IN_HMULT, INTAKE_HSINK/TAMB, IVO/EX_DUR/IN_DUR, EXH_TGAS, IN_VINIT,
   NO_THROTTLE, NO_EQTUBE/EQ_DIA, TPIN.
 - Correctness fix kept: closed-cycle init vacuum bug (TCilindro.cpp, Stage 25).
+
+## Stage 35 — ROOT CAUSE FOUND & FIXED: the φ10 equalization-tube stub was a numerical mass+energy source
+
+The investigation (validate the gas exchange, find where the charge temperature
+diverges) paid off. Probing the intake spatial profile (OPENWAM_INTEMP, now pipes
+1-7) showed the snorkel AND filter -- the tract's coldest, most-upstream pipes, fed
+directly by the 1000 m3 ambient reservoir -- sitting at ~560-680 K with a NET OUTWARD
+velocity (-20 to -55 m/s). A converged engine cannot expel hot air out its own air
+filter unless mass is being CREATED downstream.
+
+OPENWAM_ENBAL (cycle-averaged mass/energy flux per pipe) localised it exactly. Every
+intake pipe conserved (dM ~ 1e-4 kg/s) EXCEPT the per-cylinder equalization-tube stub:
+```
+ENBAL pipe5 (EqTube_Stub_1): mdot[L]=-2.78 kg/s  dM=-2.78 kg/s
+                              Hdot[L]=-1.03e7 W (-10.3 MW!)  Tflux=2771 K
+```
+The stub injects 2.78 kg/s and 10.3 MW at a 2771 K flux temperature into the runner
+junction every cycle -- a spurious mass+energy SOURCE. φ10 through that area implies a
+hypersonic ~59000 m/s throat: a density runaway at the Type-12 branch junction that
+ties the φ52 runner to the tiny φ10 stub (area ratio 27:1). This created mass+heat is
+what cooked the whole intake to ~567 K, drove the snorkel net-outflow, and halved VE.
+
+Diameter sweep @5300 rpm WOT (100% VE = 0.6408 g):
+```
+φ10  567 K / 57%   stub -10 MW   (sonic-boundary warnings; baseline default)
+φ15  612 K / 63%   stub -23 MW   CRASHES (FIN=0)
+φ20  597 K / 67%   stub -39 MW   CRASHES   <- nominal S54 tube size, unusable
+φ25  368 K / 83%   stub clean    uniform 0.517-0.548 g
+φ30  375 K / 82%   stub +73 W    uniform 0.501-0.544 g   <- chosen default
+φ35  372 K / 83%   stub clean    uniform 0.525-0.542 g
+φ52  535 K / 66%   stub clean    over-cross-talks the runners
+```
+The blow-up grows with stub area until the runner:stub area ratio drops to ~3:1, then
+clears completely. φ30 is the smallest stable diameter; it removes the source (snorkel
+back to ~300 K, charge ~370 K) AND lets the eq-tube perform its real pressure-
+equalisation, which is worth ~+12% VE over deleting it (NO_EQTUBE = 442 K / 70%).
+
+Cross-rpm confirmation (φ10 -> φ30):
+```
+3000 rpm  570 K / 58% (sonic warnings)  ->  357 K / 86%  (uniform 0.547-0.556 g)
+5300 rpm  567 K / 57%                    ->  375 K / 82%  (uniform 0.501-0.544 g)
+7000 rpm  560 K / 55%                    ->  367 K / 90%  (uniform 0.569-0.584 g)
+```
+
+### The fix
+wam_generator.py: the EqTube stub default diameter OPENWAM_EQ_DIA 0.010 -> 0.030.
+The DEFAULT deck (no env overrides) now converges at 375 K / 82% VE @5300 rpm, up from
+567 K / 57%. This is a genuine root-cause correction (a numerical instability in the
+deck topology), NOT a post-hoc thermostat -- the VE is recovered by the gas dynamics
+themselves once the spurious source is removed. Charge temperature ~357-375 K and VE
+~82-90% are now in the physically realistic band for this NA engine; the residual gap
+to ~100% is ordinary tuning (port-wall heat, overlap backflow), no longer a 2x bug.
+
+### Note on the earlier NO_EQTUBE test
+Earlier stages reported NO_EQTUBE "did not cool the intake". Re-tested cleanly here it
+clearly DOES (442 K / 70%); the earlier negative was from confounded builds/metrics.
+The decisive new tool was ENBAL's per-pipe dM/Hdot, which pinned the source to the
+single stub pipe rather than to junctions/throttle/valve in aggregate.

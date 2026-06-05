@@ -644,13 +644,27 @@ class WAMGenerator:
                            cid_run_upper_start, cid_eq_branch, friction=0.05, dx_mesh=0.0075,
                            init_p=intake_map_bar)
 
-            # --- EQUALIZATION TUBE STUB (φ10, 75mm) ---
+            # --- EQUALIZATION TUBE STUB (φ30, 75mm) ---
+            # ROOT-CAUSE FIX (Stage 35). The eq-tube stub was modelled at the
+            # nominal φ10 (and the S54 tube is φ20), but the Type-12 branch
+            # junction that ties the φ52 runner to this small-area stub is
+            # NUMERICALLY UNSTABLE once the area ratio exceeds ~5:1: the stub end
+            # runs away to a hypersonic density spike. ENBAL measured the φ10 stub
+            # injecting -2.78 kg/s and -10 MW at a 2771 K flux temperature into the
+            # runner junction every cycle -- a spurious mass+energy SOURCE that
+            # heated the whole intake tract to ~567 K (snorkel included), drove a
+            # net OUTWARD snorkel flow, and halved VE to ~57%. The blow-up grows
+            # with stub area (φ15 -> -23 MW and crashes, φ20 -> -39 MW and crashes)
+            # and only clears once the area ratio drops to ~3:1. φ30 is the
+            # smallest stable diameter; it removes the source (snorkel back to
+            # ambient ~300 K, charge ~370 K) AND lets the eq-tube do its real
+            # pressure-equalisation job, recovering VE to ~82-90% across 3000-7000
+            # rpm with uniform per-cylinder trapping (vs ~55-58% and sonic-boundary
+            # warnings at φ10). φ25-φ35 are all within ~1% VE; φ52 over-cross-talks
+            # (back to ~535 K / 66%). Override with OPENWAM_EQ_DIA=<m> for studies.
             if not self._skip_eqtube:
                 eq_pipe_id = self.pipe_counter; self.pipe_counter += 1
-                # Diagnostic (OPENWAM_EQ_DIA=<m>): override the stub diameter to
-                # test the small-area-at-junction density-runaway hypothesis
-                # (set e.g. 0.052 to match the φ52 runners; default 0.010).
-                eq_pipe_dia = float(os.environ.get("OPENWAM_EQ_DIA", "0.010"))
+                eq_pipe_dia = float(os.environ.get("OPENWAM_EQ_DIA", "0.030"))
 
                 cid_eq_end = self.connection_counter
                 self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)

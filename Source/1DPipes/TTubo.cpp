@@ -1402,19 +1402,24 @@ void TTubo::ActualizaPropiedadesGas() {
       }
     }
 
-    // Diagnostic (OPENWAM_INTEMP=1): print the gas temperature along selected
-    // intake pipes (bellmouth=3 plenum-side, runner=4, port=7 valve-side) to
-    // localise where the intake gas is hot -- whole runner (init/boundary) vs
-    // only the port (overlap backflow). Sparse (every ~50 calls).
+    // Diagnostic (OPENWAM_INTEMP=1): print the gas temperature + end velocities
+    // along the intake tract to localise the cold->hot transition and the mean
+    // flow direction. Chain (cyl-1): reservoir(1000m3 cold) -> 1 snorkel -> 2 filter
+    // -> airbox plenum -> throttle -> 3 bellmouth -> 4 runner -> 7 port -> valve.
+    // If the snorkel(1)/filter(2) are already hot, heat has reached the reservoir
+    // (a mass-source / mean-outflow signature); if only the port(7) is hot, it is
+    // local overlap backflow. v[0]>0 = flow toward valve (induction). Sparse.
     if (getenv("OPENWAM_INTEMP") &&
-        (FNumeroTubo == 3 || FNumeroTubo == 7)) {
-      static long s_n3 = 0, s_n7 = 0;
-      long &cnt = (FNumeroTubo == 3) ? s_n3 : s_n7;
-      if ((++cnt % 4000) == 0)
-        printf("INTEMP pipe%d: T[0]=%.0fK T[mid]=%.0fK T[end]=%.0fK "
-               "P[mid]=%.3fbar\n",
+        (FNumeroTubo == 1 || FNumeroTubo == 2 || FNumeroTubo == 3 ||
+         FNumeroTubo == 4 || FNumeroTubo == 7)) {
+      static long s_cnt[8] = {0};
+      int slot = (FNumeroTubo < 8) ? FNumeroTubo : 0;
+      if ((++s_cnt[slot] % 4000) == 0)
+        printf("INTEMP pipe%d: T[0]=%.0f T[mid]=%.0f T[end]=%.0fK | "
+               "v[0]=%+.1f v[end]=%+.1f m/s | P[mid]=%.3fbar\n",
                FNumeroTubo, FTemperature[0], FTemperature[FNin / 2],
-               FTemperature[FNin - 1], FPresion0[FNin / 2]);
+               FTemperature[FNin - 1], FVelocidadDim[0], FVelocidadDim[FNin - 1],
+               FPresion0[FNin / 2]);
     }
 #ifdef usetry
   } catch (std::exception &N) {
