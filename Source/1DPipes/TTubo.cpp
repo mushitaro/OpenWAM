@@ -1379,6 +1379,11 @@ void TTubo::ActualizaPropiedadesGas() {
           double A = conArea ? FArea[i] : 1.0;
           double rhoOld0 = FU0[0][i];
           double scale = (rhoOld0 != 0.0) ? (rhoNew * A) / rhoOld0 : 1.0;
+          // Constant-pressure cool: density rises, velocity kept. (A momentum-
+          // conserving variant -- dropping v as rho rises -- was tried and is worse:
+          // it removes the intake ram and collapses the fill to ~3% VE. Keeping v is
+          // the stable choice; it tops out near ~76% before the cold-dense gas plus
+          // the un-damped overlap pressure wave over-fills. Stage 33-34.)
           FU0[0][i] = rhoNew * A;
           FU0[1][i] = FU0[0][i] * v;
           FU0[2][i] = A * pPa / FGamma1[i] + 0.5 * FU0[1][i] * v;

@@ -1838,3 +1838,56 @@ deeper coupled fix.
 
 ### Assets
 - OPENWAM_INTAKE_HSINK (1/s), OPENWAM_INTAKE_TAMB (K): intake thermal-sink model.
+
+## Stage 34 — the deep fix attempt: post-hoc thermal manipulation cannot recover VE (it fights the gas dynamics)
+
+Pursuing the user's request for the deep coupled fix, examined the cylinder
+gas-exchange energy equation (TCilindro4T ActualizaPropiedades, lines ~1228-1357:
+Benson filling-and-emptying, Energia = (V0 M)/(V M0) * exp((H1+H0)/2 + heat),
+Temp1 = T*Energia^(g-1)) and EntalpiaEntrada (stagnation enthalpy of the inflow,
+incl. the kinetic v^2/(2a^2) term). Both look like the standard, physically-correct
+MoC engine model -- no obvious arithmetic bug, and the SAME code conserves energy on
+the exhaust side. The spurious enthalpy is a subtle MoC gas-exchange effect (likely
+the entropy/KE bookkeeping when hot cylinder gas crosses the valve into the cooler
+port during the violent overlap transient), not a localizable typo.
+
+Tried to make the explicit intake thermal sink reach ~100% by changing how the
+constant-pressure cool rebuilds momentum:
+```
+keep velocity (rho up, v same -> momentum up):  HSINK 300 stable 78%; >=450 over-fills
+conserve momentum (rho up, v down):             HSINK 1000 -> 76% (ragged);
+                                                 5000 -> 3% (fill COLLAPSES);
+                                                 50000 -> 54% (ragged)
+```
+So neither rebuild works: keeping velocity injects ram (over-fill); conserving
+momentum removes ram (the fill collapses to ~3% VE). The trapped mass is exquisitely
+sensitive to the intake velocity/ram, so ANY post-hoc temperature manipulation that
+touches the state perturbs the fill. Conclusion: VE is set by the COUPLED density x
+velocity x valve gas dynamics; you cannot recover it by editing the gas temperature
+mid-solve. Reverted to the keep-velocity form (stable ~78% at HSINK<=350).
+
+### Honest bottom line on the VE deficit
+- Conservative energy removal (wall HT, OPENWAM_IN_HMULT): stable, caps ~76% (higher
+  multipliers go sonic).
+- Non-conservative thermal reset (OPENWAM_INTAKE_HSINK / TPIN): can hit the right
+  temperature but the cold-dense charge + the (un-fixed) over-strong overlap pressure
+  wave then over-fills, or, if momentum is conserved, under-fills. The TPIN "~99%" is
+  an artifact of its hard per-step clamp ALSO damping the wave via a fixed sound speed.
+- The two errors (hot gas, over-strong ~1.6 bar overlap wave) are coupled through the
+  sound speed and the gas dynamics; neither a thermal model nor a single valve/pipe
+  timing change fixes both.
+
+A clean ~100% requires fixing the SOURCE -- the WOT valve/gas-exchange enthalpy (and
+hence sound-speed / wave) generation -- inside the MoC. That is a substantial, higher
+-risk rework shared with the (working) exhaust path; the principled way in is to
+validate THIS deck's gas exchange against stock OpenWAM on a reference single-cylinder
+case and find where the converged charge temperature diverges, rather than editing the
+live state. Pragmatic stable build today: OPENWAM_IN_HMULT (or INTAKE_HSINK<=300) +
+per-rpm VANOS, ~76-80% VE.
+
+### Net deliverables from Stages 24-34 (all env-gated, default deck unchanged)
+- Decisive diagnosis: rpm-flat 2x VE deficit = numerically hot (~567 K) intake charge.
+- Probes: OPENWAM_VEDIAG, INITDIAG, VLVENE, VLVWIN(+STEP), EXHWIN, JUNCENE, INTEMP.
+- Levers: OPENWAM_IN_HMULT, INTAKE_HSINK/TAMB, IVO/EX_DUR/IN_DUR, EXH_TGAS, IN_VINIT,
+  NO_THROTTLE, NO_EQTUBE/EQ_DIA, TPIN.
+- Correctness fix kept: closed-cycle init vacuum bug (TCilindro.cpp, Stage 25).
