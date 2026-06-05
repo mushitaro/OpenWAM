@@ -1791,3 +1791,50 @@ gas-exchange enthalpy handling.
 
 ### Assets
 - OPENWAM_EX_DUR (exhaust duration / EVC override).
+
+## Stage 33 — explicit intake thermal sink: stable to ~76-78%, and WHY ~100% needs more
+
+Per the user's choice to implement an explicit intake thermal model, added
+OPENWAM_INTAKE_HSINK (1/s): a time-step-consistent first-order relaxation of the
+INTAKE-pipe gas temperature toward an ambient target (OPENWAM_INTAKE_TAMB, default
+313 K) at constant pressure: T <- Tamb + (T-Tamb)*exp(-HSINK*dt), rebuilding the
+conserved state each step. Physically it represents the aluminium manifold sinking the
+(numerically spurious) recirculation heat to ambient.
+
+Sweep @5300 rpm WOT (baseline 567 K/57%, TPIN hard-pin 340 K/~99% for 5/6 cyl):
+```
+HSINK=200 /s : 431 K / 61%  stable
+HSINK=300 /s : 445 K / 78%  stable  (0.43-0.55 g, consistent)
+HSINK=350 /s : 430 K / 76%  stable
+HSINK=450 /s : 792 K / 770% BLOWS UP (over-fill cascade, one cyl 27 g)
+HSINK>=1000  : 241-818%      over-fill cascade
+```
+So a stable thermal sink caps at ~76-78% (same ceiling as the conservative wall-HT
+boost OPENWAM_IN_HMULT=10). Cooling harder triggers an over-fill cascade.
+
+Why ~100% (TPIN) is not cleanly reachable -- TWO compensating errors. Re-running the
+TPIN hard pin on the current build: 340 K, 0.64 g (~99%) for 5/6 cyl, no over-fill.
+But OPENWAM_INTAKE_HSINK at the same converged temperature (340 K, HSINK~1000)
+OVER-fills to 1.5 g (241%). Same charge temperature, 2.3x the mass. The difference is
+that the TPIN hard pin forces T=313 K EVERY step, which also clamps the gas sound
+speed (sqrt(gamma*R*313)) and thereby DAMPS the intake pressure waves; the gentle
+relaxation leaves those waves alive. So the intake actually carries TWO errors that
+compensate in the baseline:
+  (1) the gas is ~1.7x too hot (low density)   -- the one we targeted, and
+  (2) the overlap-window port pressure waves are too strong (~1.6 bar ram).
+Baseline = hot (low rho) x strong ram (high p) -> moderate mass (57%). Fixing only
+(1) -> cold (high rho) x strong ram -> over-fill. TPIN's "99%" worked only because the
+hard pin incidentally suppressed (2) as well. A thermal-only model therefore cannot
+reach ~100% stably; it tops out at ~76-78% before the un-damped ram over-fills.
+
+### Where this leaves it
+OPENWAM_INTAKE_HSINK is retained as a stable, physically-motivated lever to ~76-78%
+(default off). Reaching the target ~100-110% needs BOTH the intake temperature AND the
+spurious ~1.6 bar overlap pressure wave addressed -- i.e. the compensating-errors pair
+must be fixed together, which points back at the WOT valve/gas-exchange dynamics that
+generate both the enthalpy and the over-strong port wave. A pragmatic stable build
+today is HSINK (or IN_HMULT) + per-rpm VANOS timing at ~76-80%; a clean ~100% is a
+deeper coupled fix.
+
+### Assets
+- OPENWAM_INTAKE_HSINK (1/s), OPENWAM_INTAKE_TAMB (K): intake thermal-sink model.

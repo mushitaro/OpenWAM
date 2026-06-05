@@ -1339,6 +1339,64 @@ void TTubo::ActualizaPropiedadesGas() {
       }
     }
 
+    // Intake thermal-sink model (OPENWAM_INTAKE_HSINK=<1/s>): physically-motivated
+    // correction that relaxes the INTAKE-pipe gas temperature toward an ambient
+    // target at CONSTANT pressure (density rises accordingly), with a first-order
+    // rate so it is time-step consistent:
+    //     T <- Tamb + (T - Tamb) * exp(-HSINK * dt).
+    // Rationale (Stages 24-32): the converged intake charge sits ~1.7x too hot
+    // (~567 vs ~330 K), which halves the charge density and gives the rpm-flat ~2x
+    // VE deficit. That heat was shown to be a NUMERICAL artifact of the WOT
+    // gas-exchange enthalpy handling -- it is not real (combustion-OFF identical),
+    // it is not removed by any discrete BC (junctions/throttle/valve all conserve
+    // energy), and the simple wall film coefficient is far too slow to dissipate it
+    // within a cycle. The real aluminium manifold venting to ambient holds the
+    // charge near ambient, so this term removes the spurious enthalpy and restores
+    // the physically-correct ambient charge temperature. A large HSINK approaches
+    // the OPENWAM_TPIN hard pin (which recovers ~99% VE); a finite rate is gentler
+    // and more stable. Intake pipes only (id <= 38). Tamb via OPENWAM_INTAKE_TAMB
+    // (K, default 313 = 40 C, the aluminium-manifold wall temperature).
+    if (getenv("OPENWAM_INTAKE_HSINK") && FNumeroTubo <= 38 &&
+        FDeltaTime > 0.0) {
+      double hsink = atof(getenv("OPENWAM_INTAKE_HSINK"));
+      double Tamb = getenv("OPENWAM_INTAKE_TAMB")
+                        ? atof(getenv("OPENWAM_INTAKE_TAMB")) : 313.0;
+      if (hsink > 0.0 && Tamb > 50.0) {
+        double keep = exp(-hsink * FDeltaTime); // fraction of (T-Tamb) retained
+        bool conArea = (FMod.FormulacionLeyes == nmConArea);
+        for (int i = 0; i < FNin; i++) {
+          double pPa = __units::BarToPa(FPresion0[i]);
+          double Tcur = FTemperature[i];
+          if (!(pPa > 0.0) || !std::isfinite(pPa) || !std::isfinite(Tcur))
+            continue;
+          double Tnew = Tamb + (Tcur - Tamb) * keep;
+          if (!(Tnew > 50.0) || !std::isfinite(Tnew))
+            continue;
+          double rhoNew = pPa / FRMezcla[i] / Tnew; // constant-pressure: p/(R*T)
+          if (!(rhoNew > 0.0) || !std::isfinite(rhoNew))
+            continue;
+          double v = FVelocidadDim[i];
+          double A = conArea ? FArea[i] : 1.0;
+          double rhoOld0 = FU0[0][i];
+          double scale = (rhoOld0 != 0.0) ? (rhoNew * A) / rhoOld0 : 1.0;
+          FU0[0][i] = rhoNew * A;
+          FU0[1][i] = FU0[0][i] * v;
+          FU0[2][i] = A * pPa / FGamma1[i] + 0.5 * FU0[1][i] * v;
+          for (int k = 3; k < FNumEcuaciones; k++)
+            FU0[k][i] *= scale;
+          FU1[0][i] = FU0[0][i];
+          FU1[1][i] = FU0[1][i];
+          FU1[2][i] = FU0[2][i];
+          for (int k = 3; k < FNumEcuaciones; k++)
+            FU1[k][i] = FU0[k][i];
+          FTemperature[i] = Tnew;
+          Frho[i] = rhoNew;
+          FAsonidoDim[i] = sqrt(FGamma[i] * FRMezcla[i] * Tnew);
+          FAsonido0[i] = FAsonidoDim[i] / __cons::ARef;
+        }
+      }
+    }
+
     // Diagnostic (OPENWAM_INTEMP=1): print the gas temperature along selected
     // intake pipes (bellmouth=3 plenum-side, runner=4, port=7 valve-side) to
     // localise where the intake gas is hot -- whole runner (init/boundary) vs
