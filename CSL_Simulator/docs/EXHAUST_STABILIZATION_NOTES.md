@@ -1736,3 +1736,58 @@ vent the clearance gas near TDC -- a valve-flow/lift question, not a pipe-length
 
 ### Assets
 - OPENWAM_EXHWIN (+ OPENWAM_VLVWIN_STEP): crank-resolved exhaust-valve/port window.
+
+## Stage 32 — hypothesis (3) tested and largely FALSIFIED: venting the clearance gas barely helps
+
+Per the user's choice to try (3) -- vent the hot clearance-gas residual at gas-exchange
+TDC so it cannot revert into the intake -- added OPENWAM_EX_DUR (exhaust duration
+override: EVO stays at 102, so a longer duration pushes EVC later and keeps exhaust
+lift up through TDC) and swept it at 5300 rpm WOT.
+
+Mechanism confirmed (EXHWIN, EX_DUR=340 / EVC=442): the exhaust valve now has high
+lift through gas-exchange TDC (CdEx ~0.62), and the cylinder TDC pressure drops from
+1.6 bar -> ~1.0 bar, T_export 615 -> 560 K. So the clearance-gas compression spike is
+genuinely eliminated.
+
+But it does NOT fix the hot intake:
+```
+EX_DUR=264 (EVC=366, baseline): Ttrap 567 K  VE 57%
+EX_DUR=300 (EVC=402):           Ttrap 543 K  VE 51%
+EX_DUR=340 (EVC=442):           Ttrap 540 K  VE 53%
+```
+Eliminating the 1.6 bar TDC spike cools the charge only ~27 K and LOWERS VE (the late
+EVC keeps the exhaust valve open into the intake stroke -> fresh-charge loss out the
+exhaust outweighs the small cooling). So the clearance-gas reversion is NOT the
+dominant intake heat source, and (3) is a net loss.
+
+Cross-check with the IVO lever: IVO=390 cools the charge by ~143 K (567->424 K), far
+more than removing the TDC spike (27 K). So IVO=390's benefit is NOT "avoiding the TDC
+spike" -- it is opening the intake into the deep descending-piston vacuum so the
+inrush is a fast, cold manifold draw rather than a slow overlap-window exchange. The
+heat enters during the slow overlap/near-TDC window whenever the intake valve is open
+there, by a mechanism that is not the clearance-gas spike per se.
+
+### Synthesis of the whole VE-deficit investigation (Stages 24-32)
+The rpm-flat 2x VE deficit is one effect: the converged intake charge sits ~1.7x too
+hot (~567 vs ~330 K), halving density. Proven hot-charge cause (TPIN->VE 99%), proven
+numerical (combustion-OFF identical). Systematically NOT: throttle/butterfly, tuning,
+residual composition (resid~0%), intake restriction (P_IC~1 atm), the Type-12
+junctions or throttle BC (all conserve energy; exhaust side clean), exhaust
+back-pressure (port ~1 atm through overlap), exhaust pipe length (<3 pp over
+240-790 mm), and now the clearance-gas TDC reversion (removing it barely helps).
+
+Measured levers (TPIN ideal 342 K / ~99%):
+  IVO=390 (open into vacuum)        424 K / 68%   <- strongest single lever
+  IN_HMULT=10 (realistic walls)     479 K / 76%
+  EX_DUR / EVC (vent clearance gas) 540 K / 53%   (net loss)
+  exhaust length                    no effect
+No single discrete lever reaches ~100%. The hot intake is a distributed property of
+the WOT intake gas exchange (slow overlap-window heat pickup + weak wall removal),
+not one deletable bug. The realistic recovery path is the COMBINATION: per-rpm intake
+timing (VANOS kf_evan1_soll, opening later/into vacuum) + realistic intake-port/runner
+wall heat rejection. ~100% appears to need either an explicit intake thermal model
+(TPIN-like, defensible as aluminium-to-ambient) or a deeper rework of the valve
+gas-exchange enthalpy handling.
+
+### Assets
+- OPENWAM_EX_DUR (exhaust duration / EVC override).

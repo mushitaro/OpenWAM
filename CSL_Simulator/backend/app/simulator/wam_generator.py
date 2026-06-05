@@ -1499,6 +1499,12 @@ class WAMGenerator:
         duration = valve_conf.duration
         if is_intake and _os.environ.get("OPENWAM_IN_DUR"):
             duration = float(_os.environ["OPENWAM_IN_DUR"])
+        # Exhaust duration override (OPENWAM_EX_DUR): EVO stays at open_angle (102),
+        # so increasing the duration pushes EVC later (= keeps exhaust-valve lift up
+        # through gas-exchange TDC). Tests hypothesis (3): vent the compressed hot
+        # clearance-gas residual at TDC so it cannot revert into the intake.
+        if (not is_intake) and _os.environ.get("OPENWAM_EX_DUR"):
+            duration = float(_os.environ["OPENWAM_EX_DUR"])
         num_lev = int(duration / step) + 1
         
         # Ensure we cover the full duration
