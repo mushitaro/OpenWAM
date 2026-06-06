@@ -668,13 +668,18 @@ class WAMGenerator:
             if not self._skip_eqtube:
                 eq_pipe_id = self.pipe_counter; self.pipe_counter += 1
                 eq_pipe_dia = float(os.environ.get("OPENWAM_EQ_DIA", "0.030"))
+                # Eq-tube stub friction. The eq-tube equalises the cylinders at WOT
+                # but its cross-talk turns into an unstable resonance at part throttle
+                # that starves one cylinder (cyl-2) to collapse. Friction damps that
+                # resonance; OPENWAM_EQ_FRIC raises it for calibration (default 0.02).
+                eq_pipe_fric = float(os.environ.get("OPENWAM_EQ_FRIC", "0.02"))
 
                 cid_eq_end = self.connection_counter
                 self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
 
                 self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", 0.075,
                                eq_pipe_dia, eq_pipe_dia, 40,
-                               cid_eq_branch, cid_eq_end, friction=0.02, dx_mesh=0.025,
+                               cid_eq_branch, cid_eq_end, friction=eq_pipe_fric, dx_mesh=0.025,
                                init_p=intake_map_bar)
 
             # --- RUNNER LOWER (EqTube branch → Port split, φ52, 25mm) ---

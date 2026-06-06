@@ -2043,3 +2043,45 @@ the bulk of the pedal range.
   `_get_butterfly_cd_OLD_discharge_table` for reference.
 - OPENWAM_THRDIAG (runtime cd/K print), OPENWAM_K_CEIL, OPENWAM_CD_FLOOR, OPENWAM_THR_GAMMA,
   OPENWAM_THR_OFFSET, OPENWAM_FUEL_LHV (motoring).
+
+## Stage 38 — cyl-2 part-throttle collapse: diagnosed to the eq-tube resonance; no robust knob, needs a remodel
+
+The recurring single-cylinder anomaly (cyl-2 collapsing to ~0.019 g / 366 K while the
+others choke at ~1433 K) reproduces cleanly at throttle 0.5 / 5300 rpm. Traced it fully.
+
+Failure mode: cyl-2 starts healthy (0.76 g at cycle 1) and DECAYS every cycle --
+0.76 -> 0.57 -> 0.29 -> 0.10 -> 0.045 -> 0.019 -- a positive-feedback starvation, not a
+blow-up. It is not breathing (tiny, cold charge), while the other five accumulate hot
+residual.
+
+Cause: the equalization-tube cross-talk. With OPENWAM_NO_EQTUBE the same throttle-0.5 case
+converges PERFECTLY uniform (all six 0.63 g, no collapse). So the shared eq-tube plenum +
+the six runner stubs form a resonant path that, at part-throttle MAP (~0.85 bar, i.e.
+~0.5 throttle), de-stabilises into a standing mode that starves cyl-2. It is a NARROW
+resonance: throttle 0.7, 0.25 and 0.10 are all stable at the default; only ~0.5 collapses.
+
+Why not just delete the eq-tube: it earns its keep at WOT. With NO_EQTUBE (or a heavily
+damped tube) WOT goes NON-uniform -- cyl-4 lags (0.44 vs 0.72 g) -- because the cylinders
+carry an inherent (exhaust-side, 3-into-1 collector) maldistribution that the eq-tube
+equalises. The 10.5 L airbox already decouples the intake, so the maldistribution is not an
+airbox-size effect; it is on the exhaust/scavenging side.
+
+Friction-damping the stub is a DEAD END -- the eq-tube is a delicate resonant element and
+the response is non-monotonic and rpm-dependent:
+```
+EQ_FRIC  5300 WOT        throttle 0.5     7000 WOT
+0.02     97% uniform     cyl-2 COLLAPSE   100% uniform   (current default)
+0.05     96% uniform     uniform OK       BLOWS UP @cyc3
+0.10     131% over-fill  uniform OK       --
+0.50     non-uniform     uniform OK       --
+```
+No single value is robust across {WOT both rpm} and {part throttle}.
+
+### Where this leaves it
+- Added OPENWAM_EQ_FRIC (eq-tube stub friction, default 0.02 = unchanged) for studies.
+- Default kept at 0.02: WOT is validated uniform at 97-100% across 3000-7000 rpm; the
+  cyl-2 collapse is confined to a narrow ~0.5-throttle resonance.
+- A robust fix is NOT a parameter tweak. It needs either (a) remodelling the eq-tube so it
+  is not a Helmholtz-resonant plenum+stubs (e.g. a continuous balance tube), or (b) removing
+  the eq-tube and fixing the underlying exhaust-side cyl-4 maldistribution so the cylinders
+  are uniform without it. Both are larger, separate tasks.
