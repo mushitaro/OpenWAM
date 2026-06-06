@@ -578,14 +578,25 @@ class WAMGenerator:
         # isolating whether the spurious intake heating originates at the
         # small-area φ10 stub / eq-tube junction (ENBAL Stage-17 finding).
         self._skip_eqtube = bool(os.environ.get("OPENWAM_NO_EQTUBE"))
+        # Eq-tube model. "plenum" (default, legacy) = one central 141cc plenum with
+        # six runner stubs -> a Helmholtz resonator that destabilises at part throttle
+        # and starves cyl-2 (Stage 38). "chain" = a CONTINUOUS balance tube: the six
+        # stubs tee into a row of short tube segments (volume distributed along the
+        # tube, no central cavity), which is what the real S54 Gleichdruckrohr is and
+        # should not Helmholtz-resonate. Select with OPENWAM_EQ_CHAIN=1.
+        self._eq_chain = bool(os.environ.get("OPENWAM_EQ_CHAIN")) and not self._skip_eqtube
+        self._eq_tee_cids = []  # filled per-cylinder in chain mode, linked after the loop
         if self._skip_eqtube:
             print("DEBUG: OPENWAM_NO_EQTUBE=1 -> equalization tube DISABLED")
             eq_tube_id = None  # do NOT consume a plenum id: keep ids contiguous
+        elif self._eq_chain:
+            print("DEBUG: OPENWAM_EQ_CHAIN=1 -> continuous balance-tube eq-tube")
+            eq_tube_id = None  # no central plenum in chain mode
         else:
             eq_tube_id = self.plenum_counter; self.plenum_counter += 1
         eq_tube_vol = math.pi * (0.010**2) * 0.450  # ~1.41e-4 m³ ≈ 141cc
         # degC: intake-side equalization tube, ~40 C (was 313 = read as 313 C = 586 K)
-        if not self._skip_eqtube:
+        if not self._skip_eqtube and not self._eq_chain:
             self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 40)
             print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
 
@@ -674,8 +685,15 @@ class WAMGenerator:
                 # resonance; OPENWAM_EQ_FRIC raises it for calibration (default 0.02).
                 eq_pipe_fric = float(os.environ.get("OPENWAM_EQ_FRIC", "0.02"))
 
-                cid_eq_end = self.connection_counter
-                self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
+                if self._eq_chain:
+                    # Chain model: the stub tees into the continuous balance tube. Its
+                    # far end is a Type-12 tee shared with the adjacent tube segments
+                    # (linked after the cylinder loop). No central plenum.
+                    cid_eq_end = self._create_branch_junction()
+                    self._eq_tee_cids.append(cid_eq_end)
+                else:
+                    cid_eq_end = self.connection_counter
+                    self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
 
                 self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", 0.075,
                                eq_pipe_dia, eq_pipe_dia, 40,
@@ -717,6 +735,32 @@ class WAMGenerator:
                 self._add_pipe(pid_port, f"Port_In_{cyl_idx}_{v+1}", port_len_in,
                                port_dia_in, valve_dia_in, port_twall,
                                cid_port_split, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010,
+                               init_p=intake_map_bar)
+
+        # --- CONTINUOUS BALANCE TUBE: link the per-cylinder stub tees with short tube
+        # segments (chain model). The real Gleichdruckrohr is a phi20 tube running
+        # along the runners; modelling its volume distributed in N-1 segments (rather
+        # than lumped in one plenum) removes the Helmholtz mode that collapsed cyl-2.
+        if self._eq_chain and len(self._eq_tee_cids) >= 2:
+            # Segment diameter. Must stay >= ~phi25: below that the small cross-runner
+            # segment runs away at its tee (same area-mismatch instability as the old
+            # phi10 stub -- phi18/phi12 blow up at WOT startup). At the stable phi25-30
+            # the chain equalises every cylinder at ALL throttles (cyl-2 no longer
+            # collapses, cyl-4 no longer lags) BUT the strong runner-to-runner coupling
+            # over-fills WOT to ~135% VE, and that ram is NOT removable by friction
+            # (0.1-0.15 leave it at 135%, 0.5 blows up startup) -- bringing WOT back to
+            # ~100% needs the runner lengths re-tuned for the chain. So this is kept as
+            # an opt-in model (OPENWAM_EQ_CHAIN). OPENWAM_EQ_SEG_DIA default phi30.
+            seg_dia = float(os.environ.get("OPENWAM_EQ_SEG_DIA", "0.030"))
+            eq_pipe_fric = float(os.environ.get("OPENWAM_EQ_FRIC", "0.02"))
+            # Distribute the 450 mm tube across the segments between the 6 stubs.
+            seg_len = 0.450 / (len(self._eq_tee_cids) - 1)
+            for s in range(len(self._eq_tee_cids) - 1):
+                seg_id = self.pipe_counter; self.pipe_counter += 1
+                self._add_pipe(seg_id, f"EqTube_Seg_{s+1}", seg_len,
+                               seg_dia, seg_dia, 40,
+                               self._eq_tee_cids[s], self._eq_tee_cids[s + 1],
+                               friction=eq_pipe_fric, dx_mesh=0.025,
                                init_p=intake_map_bar)
 
     def _generate_simplified_exhaust(self, c):

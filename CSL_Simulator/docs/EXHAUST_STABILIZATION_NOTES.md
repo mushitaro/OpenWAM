@@ -2085,3 +2085,44 @@ No single value is robust across {WOT both rpm} and {part throttle}.
   is not a Helmholtz-resonant plenum+stubs (e.g. a continuous balance tube), or (b) removing
   the eq-tube and fixing the underlying exhaust-side cyl-4 maldistribution so the cylinders
   are uniform without it. Both are larger, separate tasks.
+
+## Stage 39 — eq-tube root work: ② cyl-4 is a scavenging laggard; ① a continuous balance tube equalises everything but over-rams WOT
+
+Pursued both promised paths for the cyl-2 collapse.
+
+### ② Why the cylinders are unequal (the maldistribution the eq-tube papers over)
+Per-cylinder probe with NO_EQTUBE at WOT: cyl-4 traps 0.40 g at Ttrap=535 K and
+P_IC=1.27 bar while the other five trap 0.55 g at ~365 K / ~1.19 bar. cyl-4 is ~170 K
+HOTTER -- it is not breathing less, it is failing to SCAVENGE and keeps hot residual.
+cyl-4 (right 3-into-1 collector) and cyl-2 (left collector) are the two cylinders that
+fire LAST within their collector (firing 1-5-3-6-2-4 -> left fires 1,3,2; right 5,6,4),
+so they sit on the worst collector back-pressure during overlap. This is a physical
+3-into-1 scavenging penalty -- exactly what a real Gleichdruckrohr exists to mitigate --
+not a bug. The 10.5 L airbox already decouples the intake, so it is exhaust-side.
+
+### ① Continuous balance tube (OPENWAM_EQ_CHAIN)
+Replaced the central 141cc plenum + 6 stubs (a Helmholtz resonator) with a CONTINUOUS
+tube: the six stubs tee into a row of five short segments, volume distributed along the
+tube (what the real component is). Result:
+```
+                       throttle 0.5        WOT
+plenum (default)       cyl-2 COLLAPSE      97% uniform
+chain  (EQ_CHAIN=1)    98% UNIFORM (fix!)  135% uniform (over-fill)
+```
+The chain ELIMINATES both maldistributions -- cyl-2 no longer collapses at part throttle
+AND cyl-4 no longer lags at WOT; every cylinder is within a few % at all throttles. So the
+equalisation works and the Helmholtz resonance is gone. The remaining problem is purely a
+LEVEL error: the strong runner-to-runner coupling over-rams WOT to ~135% VE. That ram is
+not removable without destabilising -- friction 0.1-0.15 leaves 135%, 0.5 blows up startup;
+segments must stay >= phi25 or the small cross-runner pipe runs away (phi18/phi12 blow up),
+and phi25-30 both give ~135%. Bringing WOT back to ~100% needs the runner lengths re-tuned
+around the chain (the chain changes the intake acoustics) -- a calibration pass.
+
+### Where this leaves it
+- OPENWAM_EQ_CHAIN (default OFF) + OPENWAM_EQ_SEG_DIA (default phi30): opt-in continuous
+  balance tube. It is the right structural fix for the cyl-2/cyl-4 uniformity (both solved),
+  pending a runner re-tune to pull WOT off 135%.
+- Default deck unchanged (plenum model, WOT validated 97-100%); the cyl-2 collapse remains
+  confined to the narrow ~0.5-throttle band noted in Stage 38.
+- Net: the uniformity root (②) is understood and the chain (①) fixes it; the open item is
+  re-calibrating WOT VE for the chain before it can replace the plenum as default.
