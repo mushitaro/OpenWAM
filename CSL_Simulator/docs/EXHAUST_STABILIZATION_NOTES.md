@@ -2126,3 +2126,43 @@ around the chain (the chain changes the intake acoustics) -- a calibration pass.
   confined to the narrow ~0.5-throttle band noted in Stage 38.
 - Net: the uniformity root (②) is understood and the chain (①) fixes it; the open item is
   re-calibrating WOT VE for the chain before it can replace the plenum as default.
+
+## Stage 40 — WOT VE-rpm SHAPE vs stock: plenum tracks, chain mis-phases the ram (first look)
+
+Re-framed the goal (the sim is a VANOS / front-pipe OPTIMISER, so the SimVE must FOLLOW
+the stock VE shape across throttle x rpm; the absolute offset is removed by the
+calibration correction matrix). Compared both eq-tube models against the stock WOT
+breakpoints (app/data/stock_csl_ve.json; peak 116% @3900, gentle plateau 107-111% to
+7300) with scripts/ve_model_shape_compare.py.
+
+First look (high-rpm breakpoints, ~19-22 cycles -- UNDER-converged, see caveat):
+```
+RPM   stock%  plenum%  chain%
+3900  116     127      127
+4600  111     131       97
+5300  110      93      136
+6300  109      83      147   <- chain peak
+7300  107      83      128
+shape corr vs stock:  plenum r=+0.825   chain r=-0.271
+peak:  stock @3900   plenum @4600   chain @6300
+```
+The PLENUM tracks the stock shape (peak mid-rpm, then declines; r=+0.83). The CHAIN
+ANTI-correlates (r=-0.27): its continuous tube adds a strong ~6300 rpm ram resonance and
+peaks at high rpm, opposite to the real engine's 3900 peak. So the earlier intuition
+("chain captures ram, so better for the optimiser") was wrong on PHASE -- the chain rams,
+but tuned to the wrong rpm.
+
+Caveat (important): under-converged. The plenum's steep high-rpm droop (83% @7300) is
+partly non-convergence -- the converged 7000-rpm point was ~100% (Stage 36) -- so a fully
+converged plenum would lift its high-rpm tail toward the stock ~107% plateau and match
+even better. The chain's 6300 peak is a real acoustic resonance, not a convergence
+artifact.
+
+### Implication
+For the trend-matching goal the PLENUM is the better breathing model (right VE-rpm shape);
+the chain trades that shape away for cylinder uniformity. So the cyl-2 part-throttle
+collapse should be fixed WITHIN the plenum model, not by switching to the chain (which
+breaks the WOT shape). Next: confirm with a converged (30-cycle) high-rpm comparison, then
+revisit cyl-2.
+
+Asset: scripts/ve_model_shape_compare.py (plenum vs chain vs stock shape, correlation).
