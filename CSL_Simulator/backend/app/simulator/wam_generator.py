@@ -270,7 +270,10 @@ class WAMGenerator:
         self._add("1.0", "Dosado")
         
         # 6. Efficiency & Fuel Props
-        self._add("0.98 44000000 750", "Eff LHV Rho")
+        # Fuel lower heating value (J/kg). OPENWAM_FUEL_LHV=0 motors the engine
+        # (combustion releases no heat) for clean breathing/throttle-metering tests.
+        fuel_lhv = os.environ.get("OPENWAM_FUEL_LHV", "44000000")
+        self._add(f"0.98 {fuel_lhv} 750", "Eff LHV Rho")
         
         # 7-8. Thermal Params - MUST be separate values for TBloqueMotor::LeeMotor
         # Line 222: FNumTuboRendVol (Ref Pipe for VE calculation)
