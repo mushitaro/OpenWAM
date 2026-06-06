@@ -2202,3 +2202,43 @@ resonance and is therefore NOT suitable as the optimisation base. So:
 
 Assets: scripts/ve_model_shape_compare.py, scripts/ve_converged_highrpm.py,
 ve_shape_highrpm_results.csv.
+
+## Stage 42 — cyl-2 within the plenum: every acoustic fix distorts the VE-rpm shape; keep the plenum, reject bad points
+
+Per the user's choice to fix cyl-2 INSIDE the plenum (so the validated VE-rpm SHAPE is
+kept), tried detuning the eq-tube resonance instead of removing it. Added
+OPENWAM_EQ_MISTUNE: spread the six stub LENGTHS per cylinder with a zero-sum pattern
+([1,-1,.6,-.6,.2,-.2]) so the MEAN length -- hence the WOT equalisation/shape -- is
+nominally preserved, like a real manifold's branch-length scatter (length only, so the
+area-mismatch stability floor is untouched).
+
+It does break the cyl-2 resonance, but it just MOVES the pathology and distorts the
+high-rpm shape (CONVERGED-ish WOT):
+```
+                5300        6300            7000
+mistune 0.30    97% uniform 140% UNIFORM    94% uniform   <- spurious 6300 over-ram
+                            (plenum 90%)
+mistune 0.15    ok          cyl-2 COLLAPSE  cyl-2 BLOWS UP (1.6 g)
+                            (0.17 g)
+```
+So mistune 0.30 fixes the collapse but injects a spurious ~6300 ram peak (140% vs the
+plenum's 90% -- the SAME shape damage as the chain); mistune 0.15 is too light and the
+collapse just reappears at 6300 and inverts to a blow-up at 7000. There is no value that
+fixes cyl-2 at all rpms AND leaves the shape intact.
+
+### Conclusion -- this closes the eq-tube avenue
+Friction (Stage 38), the continuous chain (Stage 39/41) and now length mistuning all
+confirm the same thing: the eq-tube is an acoustically active resonator, so ANY structural
+change that suppresses the cyl-2 resonance also shifts the WOT resonances and distorts the
+VE-rpm shape (or merely relocates the collapse). Since the SHAPE is the priority for the
+optimiser, the eq-tube must stay UNMODIFIED (plenum, mistune=0 -- the default, validated
+97%/correct ram phasing).
+
+The cyl-2 collapse is therefore a numerical pathology to be handled at the OPTIMISER level,
+not in the deck: detect per-cylinder trapped-mass maldistribution (a cylinder far from the
+fleet mean = collapse or blow-up) and REJECT those operating points as unreliable, so the
+optimiser never reads their (garbage) engine-average VE. The collapse is confined to narrow
+throttle/rpm islands, so rejecting them costs few points.
+
+OPENWAM_EQ_MISTUNE / EQ_FRIC / EQ_CHAIN remain documented research levers (each fixes the
+collapse under SOME conditions at the cost of shape). Default deck unchanged.

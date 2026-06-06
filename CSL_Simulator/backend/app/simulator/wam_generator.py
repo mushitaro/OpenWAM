@@ -684,6 +684,18 @@ class WAMGenerator:
                 # that starves one cylinder (cyl-2) to collapse. Friction damps that
                 # resonance; OPENWAM_EQ_FRIC raises it for calibration (default 0.02).
                 eq_pipe_fric = float(os.environ.get("OPENWAM_EQ_FRIC", "0.02"))
+                # Eq-tube stub MISTUNING. The cyl-2 part-throttle collapse is a
+                # coherent resonance of the six IDENTICAL stubs against the shared
+                # plenum: it needs them in phase to coherently starve one cylinder.
+                # Spreading the stub LENGTHS per cylinder (zero-sum pattern, so the
+                # MEAN length -- hence the WOT equalisation and the validated VE-rpm
+                # shape -- is preserved) detunes the modes and breaks that coherence,
+                # like a real manifold's branch-length scatter. Length only (not
+                # diameter) so the area-mismatch stability floor is untouched.
+                # OPENWAM_EQ_MISTUNE = fractional half-spread (e.g. 0.25 -> +/-25%).
+                eq_mistune = float(os.environ.get("OPENWAM_EQ_MISTUNE", "0.0"))
+                _mt_pat = [1.0, -1.0, 0.6, -0.6, 0.2, -0.2]  # zero-sum, non-monotonic
+                eq_stub_len = 0.075 * (1.0 + eq_mistune * _mt_pat[i % 6])
 
                 if self._eq_chain:
                     # Chain model: the stub tees into the continuous balance tube. Its
@@ -695,7 +707,7 @@ class WAMGenerator:
                     cid_eq_end = self.connection_counter
                     self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
 
-                self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", 0.075,
+                self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", eq_stub_len,
                                eq_pipe_dia, eq_pipe_dia, 40,
                                cid_eq_branch, cid_eq_end, friction=eq_pipe_fric, dx_mesh=0.025,
                                init_p=intake_map_bar)
