@@ -50,8 +50,10 @@ class OpenWAMRunner:
                 # Avg RPM = (Start + End) / 2
                 # Cycles = (AvgRPM / 60) * Duration
                 # We'll let OpenWAM handle Time via Sensors, but we need to set DurationCycles high enough.
-                # Let's estimate:
-                duration_cycles=int(((rpm_start + rpm_end)/2 / 60) * duration_sec * 1.5), # *1.5 safety buffer
+                # Floor at 30: intake VE needs ~25-30 cycles to converge (Stage 36),
+                # so a short duration_sec must still run enough cycles or the reported
+                # VE/torque is under-converged.
+                duration_cycles=max(30, int(((rpm_start + rpm_end)/2 / 60) * duration_sec * 1.5)), # *1.5 safety buffer, >=30 for VE convergence
                 step_size=0.5 
             ),
             environment=EnvironmentConfig()

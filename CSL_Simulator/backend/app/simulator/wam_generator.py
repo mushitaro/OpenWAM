@@ -698,8 +698,16 @@ class WAMGenerator:
                 self._add_con_valve_v2(pid_port, 1, cyl_idx, True, vid_global)
                 
                 # Taper: port_dia(T12 runner side) → valve_dia(T10 valve side)
+                # Port wall temp (degC). The intake port runs through the hot
+                # aluminium head; 127 C is a heat-soaked estimate. After the
+                # eq-tube fix the trapped charge sits ~40 K above ambient and the
+                # port wall is the dominant remaining heat input (the port-gas
+                # flux temperature tracks this wall), so expose it for tuning via
+                # OPENWAM_PORT_TWALL=<degC>. A real coolant-side intake port is
+                # nearer ~60-90 C. Default kept at 127 unless overridden.
+                port_twall = float(os.environ.get("OPENWAM_PORT_TWALL", "127"))
                 self._add_pipe(pid_port, f"Port_In_{cyl_idx}_{v+1}", port_len_in,
-                               port_dia_in, valve_dia_in, 127,
+                               port_dia_in, valve_dia_in, port_twall,
                                cid_port_split, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010,
                                init_p=intake_map_bar)
 

@@ -1949,3 +1949,43 @@ Earlier stages reported NO_EQTUBE "did not cool the intake". Re-tested cleanly h
 clearly DOES (442 K / 70%); the earlier negative was from confounded builds/metrics.
 The decisive new tool was ENBAL's per-pipe dM/Hdot, which pinned the source to the
 single stub pipe rather than to junctions/throttle/valve in aggregate.
+
+## Stage 36 — final tuning: the "remaining gap" was non-convergence; true VE is ~91-100%
+
+After the eq-tube φ30 root-cause fix (Stage 35) the charge ran ~370 K / 82% VE -- but
+that 82% was measured at only 14 cycles. Running to convergence shows the intake VE
+keeps climbing for ~25-30 cycles (the airbox + eq-tube plenums and the cylinder
+residual flush the startup hot-charge transient asymptotically):
+```
+5300 rpm, cyl-1 trapped mass by cycle:  6:0.535  10:0.566  16:0.597  24:0.620  29:0.631 g
+```
+True CONVERGED VE (30 cycles, default φ30 stub, 127 C port wall, 100% = 0.6408 g):
+```
+3000 rpm  331 K / 91%   uniform 0.580-0.583 g
+5300 rpm  328 K / 97%   uniform 0.613-0.631 g
+7000 rpm  343 K / 100%  uniform 0.635-0.644 g
+```
+A textbook high-rpm-rising NA VE curve, ~91-100%, uniform across all six cylinders,
+charge 328-343 K (ambient + a small port-wall pickup). The 2x deficit is gone; what
+looked like a residual "gap to 100%" at 14 cycles was simply under-convergence.
+
+### Port-wall sensitivity (secondary lever, characterised, default unchanged)
+At 30 cycles @5300: 127 C -> 97%, 100 C -> 101%, both uniform. Below ~90 C the run
+goes non-uniform (cyl-2 stalls at ~0.45 g while the rest over-fill) -- a marginal
+resonance, so the realistic 127 C heat-soaked port is kept as default. Exposed as
+OPENWAM_PORT_TWALL=<degC> for studies.
+
+### Fixes
+1. models.py: SimulationConfig.duration_cycles 10 -> 30. Ten cycles reported a badly
+   under-converged VE (~65-70% of true); 30 lands within ~1% of converged.
+2. openwam_runner.py: floor the transient runner's computed cycle count at 30, so a
+   short duration_sec cannot silently under-converge the VE/torque.
+3. wam_generator.py: OPENWAM_PORT_TWALL override for the intake-port wall temp.
+
+### Bottom line (Stages 24-36)
+The rpm-flat ~2x intake VE deficit is RESOLVED. Root cause: a φ10 equalization-tube
+stub whose Type-12 junction with the φ52 runner was numerically unstable and injected a
+spurious ~10 MW / 2.78 kg/s mass+energy source that cooked the intake to ~567 K and
+halved VE (Stage 35, fixed by φ30). The apparent residual gap was non-convergence
+(this stage). Default deck now converges at ~91-100% VE, uniform, with physical charge
+temperatures -- no post-hoc thermostats, the gas dynamics do it once the deck is sound.
