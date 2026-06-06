@@ -1641,6 +1641,43 @@ class WAMGenerator:
 
     def _get_butterfly_cd(self, angle_deg: float) -> float:
         """
+        EFFECTIVE FLOW-AREA RATIO A_eff/A_bore for a butterfly throttle blade at the
+        given blade angle (deg from fully closed; 90 deg = fully open).
+
+        The C++ throttle BC (TCCPerdidadePresion) consumes this value as
+            K = 1/ratio^2 - 1
+        and applies that loss to the FULL-BORE dynamic head. For the loss to be
+        physical, the value returned here must therefore be the fraction of the bore
+        the blade actually leaves open -- NOT a bare discharge coefficient.
+
+        The previous table returned a discharge-coefficient-like curve (0.33 at 15
+        deg, 0.50 at 25 deg). Referenced to the full bore that implied the blade
+        still passed ~30-50% of the bore area at a near-shut angle, so K stayed tiny
+        (~9 at 25% pedal) and, against the low full-bore velocity through the phi52
+        ITB (~7 m/s), produced a negligible ~0.002 bar loss: the manifold refilled to
+        ~atmospheric at ANY pedal and VE was flat vs throttle (the long-standing bug).
+
+        Correct geometry (Heywood Ch.7, Blair Ch.5): a thin butterfly's open area is
+            A_open/A_bore ~= 1 - cos(theta),
+        and a true discharge coefficient Cd_disc ~0.65..0.95 multiplies it. So a
+        near-shut blade leaves only a few percent of the bore open and K becomes
+        large, which is what actually meters the air. Validated empirically: at 25%
+        pedal a ratio of ~0.067 (vs the old 0.32) drops trapped mass from ~85% to
+        ~53% -- the throttle finally bites.
+        """
+        import math
+        if angle_deg >= 90.0:
+            return 0.96   # blade parallel to flow: ~full bore (negligible K)
+        if angle_deg <= 0.0:
+            return 0.001  # fully shut: blade-gap leakage only
+
+        open_frac = 1.0 - math.cos(math.radians(angle_deg))  # butterfly open area
+        cd_disc = 0.65 + 0.25 * (angle_deg / 90.0)           # discharge coef 0.65->0.90
+        ratio = cd_disc * open_frac
+        return max(0.001, min(0.96, ratio))
+
+    def _get_butterfly_cd_OLD_discharge_table(self, angle_deg: float) -> float:
+        """
         Non-linear Discharge Coefficient for Butterfly Throttle Valve.
 
         Based on experiment data from:

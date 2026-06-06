@@ -1989,3 +1989,57 @@ spurious ~10 MW / 2.78 kg/s mass+energy source that cooked the intake to ~567 K 
 halved VE (Stage 35, fixed by φ30). The apparent residual gap was non-convergence
 (this stage). Default deck now converges at ~91-100% VE, uniform, with physical charge
 temperatures -- no post-hoc thermostats, the gas dynamics do it once the deck is sound.
+
+## Stage 37 — throttle finally meters air: butterfly Cd was an area function, not a Cd
+
+Checked whether the eq-tube VE fix changed the long-standing "VE flat vs throttle"
+behaviour. It did NOT -- that is an independent bug. A converged throttle sweep (eq-tube
+fixed, 30 cycles) showed trapped mass barely moving with pedal: closing 100% -> 25% dropped
+air only ~13%, and the manifold (initialised at the estimated 0.68 bar MAP) REFILLED to
+~1.18 bar over the cycles. OPENWAM_THRDIAG confirmed the runtime throttle was applying
+cd=0.32, K=8.6 at 25% pedal -- correctly read, but against the low full-bore velocity
+through the phi52 ITB (~7 m/s) K=8.6 is a ~0.002 bar loss, so the throttle never bit.
+
+Root cause: `_get_butterfly_cd` returned a discharge-coefficient-like curve (0.33 at 15
+deg, 0.50 at 25 deg) that the C++ BC consumes as K = 1/Cd^2 - 1 referenced to the FULL
+BORE. Referenced to the bore, 0.32 means the blade still passes ~32% of the bore at a
+near-shut angle -- physically a butterfly at 14.6 deg blocks ~97% (open-area ratio
+1-cos(theta) ~= 0.03). The function conflated the discharge coefficient with the blade
+open-area function.
+
+Fix:
+- wam_generator `_get_butterfly_cd` -> returns the effective open-AREA ratio
+  A_eff/A_bore = Cd_disc(theta) * (1 - cos theta), ~0.96 at WOT, ~0.024 at 25% pedal.
+- TCCPerdidadePresion K ceiling 50 -> 2000 (a near-shut blade's physical K reaches ~2000;
+  the old cap let any pedal refill to atmospheric).
+- pedal->angle gamma kept at 1.4 (env OPENWAM_THR_GAMMA), now sitting on a correct Cd.
+
+Converged sweep @5300 rpm WOT (gamma 1.4, K_CEIL 2000, corrected Cd; 100% = 0.6408 g):
+```
+throttle 1.0  -> VE 97%  P_IC 1.21 bar  (uniform)   <- unchanged, no WOT regression
+throttle 0.7  -> VE 94%  P_IC 1.22 bar  (uniform)
+throttle 0.25 -> VE 63%  P_IC 0.72 bar  (uniform)   <- manifold now draws DOWN
+throttle 0.1  -> VE 57%  P_IC 0.72 bar  (uniform)
+```
+The throttle now meters air and pulls a manifold vacuum -- the flat-VE bug is fixed for
+the bulk of the pedal range.
+
+### Two honest limitations (documented, not yet fixed)
+1. SATURATION below ~25% pedal. The K-loss model's loss is K*0.5*rho*v_bore^2; as the
+   throttle closes the flow (and v) self-limit, so MAP floors at ~0.72 bar and VE at ~57%
+   no matter how small the opening (0.25 and 0.10 pedal both give 0.72 bar). Idle-level
+   vacuum (~0.3 bar) needs a CHOKED-ORIFICE throttle BC (flow set by the effective area),
+   not a K-loss -- a larger change for a later pass.
+2. A reproducible single-cylinder gas-exchange runaway at ~0.5 throttle / 5300 rpm: cyl-2
+   collapses to 0.019 g / 366 K while the other five sit at ~1433 K (a pathological
+   high-residual steady state). This is the SAME recurring cyl-2 scavenging anomaly seen
+   under TPIN and the low-port-wall sweeps; the now-working manifold vacuum (~0.85 bar at
+   0.5 throttle) exposes it. 0.7, 0.25 and 0.10 throttle are all stable, so it is a narrow
+   resonance, not a monotonic throttle effect. Fixing it is the cyl-2 gas-exchange issue,
+   tracked separately.
+
+### Assets
+- wam_generator `_get_butterfly_cd` (effective-area model); old discharge table kept as
+  `_get_butterfly_cd_OLD_discharge_table` for reference.
+- OPENWAM_THRDIAG (runtime cd/K print), OPENWAM_K_CEIL, OPENWAM_CD_FLOOR, OPENWAM_THR_GAMMA,
+  OPENWAM_THR_OFFSET, OPENWAM_FUEL_LHV (motoring).

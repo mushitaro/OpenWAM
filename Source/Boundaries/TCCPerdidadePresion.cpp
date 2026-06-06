@@ -226,8 +226,15 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
       // calibration. Cd floor 0.02 ~ real ITB blade-gap leakage.
       double cd_floor = getenv("OPENWAM_CD_FLOOR")
                             ? atof(getenv("OPENWAM_CD_FLOOR")) : 0.02;
+      // K ceiling raised 50 -> 2000. With the generator's corrected butterfly model
+      // (Cd now returns the true open-AREA ratio A_eff/A_bore, not a discharge
+      // coefficient), K = 1/ratio^2-1 is the physical contraction loss and reaches
+      // ~2000 at a near-shut blade. The old 50 cap (and the even older 2) let the
+      // manifold refill to atmospheric at any pedal -> VE flat vs throttle. At 2000
+      // a 25% pedal pulls MAP to ~0.72 bar and VE to ~63% (vs 95% WOT), uniformly
+      // and stably across cylinders. Env-tunable for calibration.
       double k_ceiling = getenv("OPENWAM_K_CEIL")
-                             ? atof(getenv("OPENWAM_K_CEIL")) : 50.0;
+                             ? atof(getenv("OPENWAM_K_CEIL")) : 2000.0;
       if (cd < cd_floor)
         cd = cd_floor;
       FK = (1.0 / (cd * cd)) - 1.0;
