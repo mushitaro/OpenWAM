@@ -2166,3 +2166,39 @@ breaks the WOT shape). Next: confirm with a converged (30-cycle) high-rpm compar
 revisit cyl-2.
 
 Asset: scripts/ve_model_shape_compare.py (plenum vs chain vs stock shape, correlation).
+
+## Stage 40-41 — VE-rpm SHAPE vs stock: the PLENUM tracks, the CHAIN mis-phases the ram
+
+Goal reframed by the user: the sim is a VANOS / front-pipe OPTIMISER, so what matters is
+that Sim VE FOLLOWS the stock VE shape across throttle x rpm (a constant correction removes
+the absolute offset). The stock CSL WOT curve (app/data/stock_csl_ve.json) peaks 116% at
+3900 rpm and holds a gentle 107-111% plateau to 7900 -- classic ITB ram tuning, so 110-119%
+peaks ARE the right target (the user was right; 100% was too conservative).
+
+Compared the two eq-tube models against that shape. CONVERGED (30-cycle) WOT VE:
+```
+RPM   stock   plenum  chain     plenum/stock  chain/stock
+5300   110     97      139          0.88          1.26
+6300   109     90      147          0.83          1.35   <- chain spurious ram peak
+7300   107     93      128          0.87          1.19
+```
+- PLENUM: offset is ~CONSTANT (ratio 0.83-0.88). After one correction factor (k=1.17) it
+  tracks stock to +/-4 pp, and its peak sits at 3900-4600 -- the SAME place as stock. It
+  rams correctly, just ~13% low in absolute terms (removable).
+- CHAIN: the continuous tube adds a spurious ~6300-rpm ram resonance (147%); its ratio
+  swings 1.19-1.35, peak at the WRONG rpm (6300 vs stock 3900). After correction it still
+  carries a +7 pp bump at 6300. (Earlier under-converged sweep: plenum shape-correlation
+  r=+0.83 vs chain r=-0.27 -- anti-correlated.)
+
+### Conclusion / recommendation
+For the optimiser, SHAPE fidelity beats absolute level, and the PLENUM is clearly the
+better base: constant correctable offset, ram peak at the right rpm. The CHAIN -- although
+it fixes the cyl-2/cyl-4 uniformity -- distorts the VE-rpm shape with a spurious high-rpm
+resonance and is therefore NOT suitable as the optimisation base. So:
+- KEEP the plenum eq-tube as default (validated WOT shape, correctable).
+- Treat the cyl-2 narrow part-throttle collapse as a separate, bounded artifact to damp
+  within the plenum model -- NOT by switching to the chain.
+- OPENWAM_EQ_CHAIN stays an opt-in research lever.
+
+Assets: scripts/ve_model_shape_compare.py, scripts/ve_converged_highrpm.py,
+ve_shape_highrpm_results.csv.

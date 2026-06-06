@@ -1,0 +1,5 @@
+# converged 30-cyc WOT VE, plenum vs chain vs stock_csl_ve
+rpm,stock_pct,plenum_pct,chain_pct
+5300,110,97,139
+6300,109,90,147
+7300,107,93,128
