@@ -2309,3 +2309,33 @@ advances, so an optimiser would chase unrealistic "optimal" cam angles. Likely l
 runner length/acoustic tuning (sets where the ram resonance sits vs rpm) and the intake
 valve overlap handling at large advance. The cylinder-balance gate still correctly fires on
 the points that blow up at aggressive advance.
+
+## Stage 45 — whole-map (Stock vs Sim) error: structured, not a constant offset
+
+Ran a 16-cell sub-grid of the 480-pt map (4 rpm x 4 load) WITH the real stock intake VANOS,
+resumably (scripts/ve_map_resumable.py appends per batch -> survives the ~12-min reboots),
+gated on cylinder balance. ~18-cycle (under-converged; a few cells cyc<10 are noisy):
+```
+load\rpm   2700      3900      5300      6900
+ 100%    104/142   116/ 94   110/150   106/143
+  65%    102/139   112/ 70   107/143   101/124
+  45%     97/ 62   105/133   102/126    92/ 86
+  20%    92/936X    86/ 95    84/ 79    70/ 58     (X = gate REJECTED a 936% blow-up)
+```
+sim/stock ratio 0.63-1.37 (reliable cells mean 1.11), shape r=0.54. The error is STRUCTURED:
+- HIGH load (100/65%): sim over-rams ~1.2-1.4 (the VANOS over-response of Stage 44) at every
+  rpm EXCEPT 3900.
+- the 3900 column (the stock torque peak): sim is UNDER at high load (94/70/133) -- it does
+  NOT reproduce the real engine's main intake resonance peak.
+- LOW load (20%): tracks well (0.8-1.1) -- the throttle restriction dominates there and the
+  Stage-37 metering is correct.
+So a single correction factor cannot fix the map; the intake acoustic tuning is mis-phased
+vs the real engine once the cam is at the stock (advanced) position. The cylinder-balance
+gate correctly removed the one blow-up cell.
+
+### Bottom line for the optimiser
+Low-load breathing and the gate are sound. The high-load map needs (a) VANOS-sensitivity /
+overlap calibration and (b) intake runner-length (and exhaust front-pipe) acoustic tuning so
+the ram peak lands at ~3900 like stock. Until then the sim is reliable as an optimiser only
+where ratio~const (low/part load); WOT VANOS sweeps will over-state gains. Assets:
+scripts/ve_map_resumable.py, scripts/ve_map_compare.py, ve_map_results_16cell.csv.
