@@ -1565,7 +1565,14 @@ class WAMGenerator:
         # If static (no control):
         if not control_ids:
             if is_intake:
-                vanos_bias = self.config.engine.vanos_intake_bias
+                # VANOS authority calibration (OPENWAM_VANOS_SCALE, default 1.0). The
+                # sim over-responds to intake cam advance: at the stock VANOS the
+                # advanced IVO (up to ~88 deg BTDC at bias 60) makes an excessive
+                # overlap and over-rams VE (Stage 44/45). Scaling the applied bias
+                # pulls the cam back toward a physical IVO range so the VE map matches
+                # stock; tuned empirically against kf_rf_soll.
+                _vscale = float(os.environ.get("OPENWAM_VANOS_SCALE", "1.0"))
+                vanos_bias = self.config.engine.vanos_intake_bias * _vscale
                 self._validate_valve_config(valve_conf, vanos_bias)
                 open_angle = base_open_intake - (vanos_bias + vanos_offset)
             else:

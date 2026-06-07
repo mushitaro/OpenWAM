@@ -2339,3 +2339,37 @@ overlap calibration and (b) intake runner-length (and exhaust front-pipe) acoust
 the ram peak lands at ~3900 like stock. Until then the sim is reliable as an optimiser only
 where ratio~const (low/part load); WOT VANOS sweeps will over-state gains. Assets:
 scripts/ve_map_resumable.py, scripts/ve_map_compare.py, ve_map_results_16cell.csv.
+
+## Stage 46 — VANOS-sensitivity calibration: the over-response is a BISTABLE acoustic resonance, not a scalable sensitivity
+
+Tried to calibrate the Stage-44/45 VANOS over-response with OPENWAM_VANOS_SCALE (scales the
+applied intake bias). It does NOT work -- the response is bistable, not a smooth slope:
+```
+5300 WOT:  bias  0 -> 97%   bias 12 -> 139%   bias 15 -> 139%   bias 42 -> 150%
+3900 WOT:  bias 18 -> 96%   bias 30 -> 145%   bias 60 -> 94%
+```
+The sim jumps between a LOW mode (~95%) and a HIGH-ram mode (~140%) depending on the exact cam
+phase; there is a sharp threshold (~bias 10 at 5300) and it is non-monotonic (3900: bias 30
+locks the high mode while bias 18 and 60 sit in the low mode). The real engine's 110-116% sits
+BETWEEN the two sim modes and is unreachable, so scaling the bias just flips which mode locks --
+it cannot land in the middle.
+
+Root: the 1-D intake acoustics are under-damped, so the runner/eq-tube ram resonance is too
+sharp -- it latches into a high or low standing-wave mode rather than giving the smooth,
+intermediate breathing the real engine has. This is why the WOT map (Stage 45) is over at most
+cells and under at the torque peak: it is which resonance mode each (rpm, cam) cell happens to
+latch, not a constant offset.
+
+### Conclusion
+VANOS-response accuracy is NOT a one-parameter calibration. It needs the intake acoustic model
+DE-PEAKED -- either physical damping (which, per Stages 38/42, distorts the WOT shape) or a
+runner-geometry / mesh re-tune that broadens the resonance so VE varies smoothly with cam phase.
+That is a substantial modelling task. OPENWAM_VANOS_SCALE is kept (default 1.0 = no-op) as a
+documented but INEFFECTIVE lever.
+
+### Net state of the simulator
+- SOLID: the 2x VE-deficit root cause (eq-tube phi30, Stage 35), convergence (Stage 36),
+  throttle metering (Stage 37), the cylinder-balance gate (Stage 42).
+- LIMITED: VANOS-response / high-load map accuracy -- blocked by the bistable intake acoustics.
+  Usable as an optimiser at low/part load and protected by the gate; WOT VANOS sweeps over-state
+  gains until the intake acoustics are de-peaked.
