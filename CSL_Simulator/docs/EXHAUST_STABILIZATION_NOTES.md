@@ -2242,3 +2242,37 @@ throttle/rpm islands, so rejecting them costs few points.
 
 OPENWAM_EQ_MISTUNE / EQ_FRIC / EQ_CHAIN remain documented research levers (each fixes the
 collapse under SOME conditions at the cost of shape). Default deck unchanged.
+
+## Stage 43 — optimiser validation: VANOS response + the cylinder-balance gate in action
+
+With the plenum kept unmodified (correct VE-rpm shape) and the cylinder_balance gate added,
+checked the two things the optimiser actually needs: (a) does VE RESPOND to VANOS so there
+is something to optimise, and (b) does the gate drop the pathological points.
+
+Intake-VANOS sweep at 5300 rpm WOT (bias shifts IVO; ~near-converged):
+```
+ IVbias  IVO     VE     gate
+  +15   317deg  139%    OK
+  +8    324deg  475%    REJECTED  <- a cylinder blew up; gate caught it
+   0    332deg   92%    OK   (converges ~97%)
+  -8    340deg  126%    OK
+  -15   347deg  119%    OK
+```
+- The model responds STRONGLY and sensibly to intake cam phase (VE swings ~90->139% as the
+  cam tunes the ram charging), and the baseline (bias 0) is NOT the VE peak -- so the
+  optimiser has a real gradient to climb. This is the core requirement for a VANOS optimiser.
+- The cylinder_balance gate REJECTED the bias=+8 point (475%, a single-cylinder blow-up) so
+  the optimiser never reads that garbage -- exactly the Stage-42 design working end-to-end.
+
+Together with the earlier results this validates the optimiser base:
+- WOT VE-rpm SHAPE tracks stock (Stage 41, r=+0.83; constant correction k~1.17).
+- Throttle response is monotonic and draws a manifold vacuum (Stage 37: 1.0->97%, 0.25->63%).
+- VANOS response is strong with a climbable peak, and the gate removes pathological cells.
+
+### Status / how to use it
+Default deck = plenum eq-tube, mistune=0 (validated shape). Run each operating point with
+OPENWAM_VEDIAG=1, take VE from the converged cycle, and call
+OpenWAMOutputParser.cylinder_balance(stdout); drop the point when valid=False. Sweep VANOS /
+front-pipe and read VE on the surviving cells. NOTE: the VANOS curve above is ~18-cycle
+(under-converged); the RESPONSE and the GATE are the point, not the exact peak rpm/value --
+production sweeps should run to ~30 cycles for the absolute numbers.
