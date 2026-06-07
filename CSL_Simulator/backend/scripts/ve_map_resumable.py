@@ -46,6 +46,8 @@ def gen(rpm, load, wd):
     os.environ["OPENWAM_THR_GAMMA"] = "1.4"
     cfg = SimConfig(); cfg.engine.rpm = float(rpm); cfg.engine.throttle_position = float(load/100.0)
     cfg.engine.vanos_intake_bias = float(130.0 - lut(M["kf_evan1_soll"], rpm, load))
+    # coordinate the exhaust cam too (Stage 47 fix): base 150 - exhaust target
+    cfg.engine.vanos_exhaust_bias = float(150.0 - lut(M["kf_avan1_soll"], rpm, load))
     cfg.simulation.duration_cycles = CYCLES; cfg.exhaust.port_junction_vol = 0.0
     buf = io.StringIO(); o = sys.stdout; sys.stdout = buf
     c = WAMGenerator(cfg, wd).generate(ignition_timing=20.0); sys.stdout = o

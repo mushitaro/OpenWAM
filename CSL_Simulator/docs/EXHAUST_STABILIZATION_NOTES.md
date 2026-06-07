@@ -2373,3 +2373,36 @@ documented but INEFFECTIVE lever.
 - LIMITED: VANOS-response / high-load map accuracy -- blocked by the bistable intake acoustics.
   Usable as an optimiser at low/part load and protected by the gate; WOT VANOS sweeps over-state
   gains until the intake acoustics are de-peaked.
+
+## Stage 47 — BREAKTHROUGH: the "VANOS over-response" was an UNCOORDINATED exhaust cam, not a resonance
+
+The Stage-46 "bistable intake resonance" diagnosis was wrong. Ruled out the intake-side levers
+at the worst cell (5300 WOT, stock intake bias 42 -> sim 150% vs stock 110%):
+- OPENWAM_CAM_EXP=2 (smooth-seating cos^2 cam): 150% -- no change.
+- OPENWAM_RUNNER_SC 0.7..2.0 (bellmouth 105..300 mm): 151..156% -- no change.
+So the over-ram is NOT the cam coupling nor the runner organ-pipe length. It is the valve
+OVERLAP: run_ve_map_generation advances ONLY the intake cam (bias=130-target) and leaves the
+exhaust at base, so at the stock intake advance IVO reaches ~70 deg BTDC against an unmoved
+EVC -> a ~76 deg overlap that over-scavenges fresh charge straight through and over-rams.
+
+Coordinating the exhaust cam fixes it SMOOTHLY (no bistability):
+```
+5300 WOT, intake bias 42:  ex 0 ->150   ex 20 ->146   ex 40 ->127   ex 45 ~110   ex 50 ->87
+```
+With both cams from their maps (intake 130-target, exhaust 150-target) the WOT row jumps from
+"intake-only" to near-stock:
+```
+            stock   intake-only        coordinated
+ 2700 WOT   104     142 (x1.37)         95 (x0.91)
+ 3900 WOT   116      94 (x0.81)        116 (x1.00)  <- torque peak now exact
+ 5300 WOT   110     150 (x1.36)        123 (x1.11)
+```
+Ratio spread collapses from 0.81-1.37 to 0.91-1.11 and the 3900 torque peak is reproduced.
+
+### Fix
+simulation_service.run_ve_map_generation now sets vanos_exhaust_bias = (150 - kf_avan1_soll
+target) alongside the intake bias. wam_generator gained OPENWAM_CAM_EXP and OPENWAM_RUNNER_SC
+(found not to drive the over-ram, kept as geometry levers) and the static path already honours
+vanos_exhaust_bias. The exhaust base/scale (OPENWAM_EXVANOS_BASE=150, _SCALE=1) is a first
+calibration -- good on the WOT row, to be fine-tuned across the full map. This removes the
+Stage-44/45/46 "over-response": with coordinated VANOS the sim is a usable VANOS optimiser.

@@ -155,14 +155,23 @@ class WAMGenerator:
         is_intake = "intake" in filename
         points = []
         half_dur = duration / 2.0
-        
+        # Cam-lobe shape exponent (OPENWAM_CAM_EXP, default 1.0). The lobe is
+        # lift*cos(rad)^exp. exp=1 (plain cosine) has MAXIMUM valve velocity at the
+        # seats (a sharp open/close) which couples hard to the runner acoustics and
+        # gives the bistable, over-sharp ram resonance behind the VANOS over-response
+        # (Stage 46). exp=2 makes dLift/dangle -> 0 at the seats (smooth seating, like
+        # a real cam ramp) and a narrower high-lift dwell, which de-peaks the
+        # resonance. The cam profile is a placeholder (true S54 lobe unknown), so this
+        # is a legitimate calibration knob.
+        cam_exp = float(os.environ.get("OPENWAM_CAM_EXP", "1.0"))
+
         with open(path, "w") as f:
             f.write(f"361\n") # 1 degree steps
             for ang in np.arange(-360, 361, 2.0):
                 current_lift = 0.0
                 if abs(ang) < half_dur:
                     rad = (ang / half_dur) * (math.pi / 2.0)
-                    current_lift = lift * math.cos(rad)
+                    current_lift = lift * (math.cos(rad) ** cam_exp)
                     if current_lift < 0: current_lift = 0
                 
                 cd = self._get_dynamic_cd(current_lift, dia, is_intake)
@@ -613,7 +622,13 @@ class WAMGenerator:
 
             itb_dia = 0.052                             # 52mm fixed
             bellmouth_entry_dia = 0.070                         # 70mm fixed entry
-            bellmouth_len = 0.150                       # 150mm fixed
+            # Intake runner-length calibration (OPENWAM_RUNNER_SC, default 1.0). The
+            # plenum->valve tube (bellmouth + runners + port) sets the ram-resonance
+            # rpm; the over-ram at advanced cam (Stage 46) is this resonance. Scaling
+            # the tube length re-tunes where it sits / how it couples, a primary lever
+            # for matching the stock VE map. (Geometry is a placeholder.)
+            _run_sc = float(os.environ.get("OPENWAM_RUNNER_SC", "1.0"))
+            bellmouth_len = 0.150 * _run_sc             # 150mm nominal
             port_dia_in = c.engine.head.intake_port.diameter / 1000.0  # 52mm (runner side)
             valve_dia_in = c.engine.head.intake_valve.diameter / 1000.0  # 35mm (valve side)
             
@@ -653,7 +668,7 @@ class WAMGenerator:
             # Type 12 ① : EqTube branch junction (Runner_Upper + EqTube_Stub + Runner_Lower)
             cid_eq_branch = self._create_branch_junction()
             
-            self._add_pipe(runner_upper_id, f"Runner_Upper_{cyl_idx}", 0.015,
+            self._add_pipe(runner_upper_id, f"Runner_Upper_{cyl_idx}", 0.015 * _run_sc,
                            itb_dia, itb_dia, 40,
                            cid_run_upper_start, cid_eq_branch, friction=0.05, dx_mesh=0.0075,
                            init_p=intake_map_bar)
@@ -718,7 +733,7 @@ class WAMGenerator:
             # Type 12 ② : Port split junction (Runner_Lower + Port1 + Port2)
             cid_port_split = self._create_branch_junction()
             
-            self._add_pipe(runner_lower_id, f"Runner_Lower_{cyl_idx}", 0.025,
+            self._add_pipe(runner_lower_id, f"Runner_Lower_{cyl_idx}", 0.025 * _run_sc,
                            itb_dia, itb_dia, 40,
                            cid_eq_branch, cid_port_split, friction=0.05, dx_mesh=0.010,
                            init_p=intake_map_bar)

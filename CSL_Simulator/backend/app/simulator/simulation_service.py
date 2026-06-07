@@ -87,6 +87,26 @@ class SimulationService:
                              # Bias Calc (Base 130 - Val)
                              bias = 130.0 - val
                              point_config.engine.vanos_intake_bias = float(bias)
+
+                     # EXHAUST VANOS -- coordinate the exhaust cam too. Setting ONLY the
+                     # intake advance (and leaving the exhaust at base) leaves an
+                     # excessive, mis-phased valve overlap that over-scavenges and
+                     # over-rams VE (the Stage-44/45 "VANOS over-response", which is NOT
+                     # the bistable intake resonance it first looked like -- Stage 47).
+                     # Advancing the exhaust in step pulls EVC back, cuts the overlap and
+                     # brings VE smoothly down to stock. The base/scale below is a FIRST
+                     # calibration and needs tuning against kf_rf_soll across the map
+                     # (OPENWAM_EXVANOS_BASE / _SCALE for studies).
+                     av_map = maps.get("kf_avan1_soll", {})
+                     a_x, a_y, a_vals = av_map.get("x_axis", []), av_map.get("y_axis", []), av_map.get("values", [])
+                     if a_x and a_y and a_vals:
+                         import os as _os
+                         ax_i = min(range(len(a_x)), key=lambda i: abs(a_x[i] - rpm))
+                         ay_i = min(range(len(a_y)), key=lambda i: abs(a_y[i] - load_tps))
+                         aval = a_vals[ay_i][ax_i]
+                         ex_base = float(_os.environ.get("OPENWAM_EXVANOS_BASE", "150.0"))
+                         ex_scale = float(_os.environ.get("OPENWAM_EXVANOS_SCALE", "1.0"))
+                         point_config.engine.vanos_exhaust_bias = float((ex_base - aval) * ex_scale)
                 except:
                     pass
 
