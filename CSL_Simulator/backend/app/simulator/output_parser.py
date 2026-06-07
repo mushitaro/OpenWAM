@@ -1,6 +1,8 @@
 
 import pandas as pd
 import os
+import re
+import statistics
 
 class OpenWAMOutputParser:
     """
@@ -64,5 +66,36 @@ class OpenWAMOutputParser:
         
         if rpm_col and ve_col:
             return df[[rpm_col, ve_col]].sort_values(by=rpm_col)
-            
+
+    # ---- cylinder-balance gate (Stage 42) ---------------------------------
+    # The eq-tube resonance can, in narrow throttle/rpm islands, drive ONE
+    # cylinder to collapse (~0) or blow up (>>) while the rest are fine. The
+    # engine-average VE then reads garbage. There is no deck fix that removes
+    # this without distorting the validated VE-rpm SHAPE, so the optimiser must
+    # instead DETECT and REJECT such points. This parses the per-cylinder
+    # trapped mass from the VEDIAG diagnostic (run with OPENWAM_VEDIAG=1) and
+    # judges the last converged cycle by how far the worst cylinder sits from
+    # the fleet MEDIAN (robust to one outlier).
+    @staticmethod
+    def cylinder_balance(stdout: str, tol: float = 0.20, n_cyl: int = 6) -> dict:
+        """Return {valid, spread, ve_cyl, n} from VEDIAG per-cylinder Mtrap.
+
+        valid  -> True if every cylinder is within `tol` (frac) of the median
+                  (i.e. no collapse/blow-up); the optimiser should drop the
+                  operating point when valid is False.
+        spread -> max |m_i - median| / median over the last full cycle.
+        """
+        ms = [float(x) for x in re.findall(r"VEDIAG Cyl:\d+ .*?Mtrap:([0-9.]+) g", stdout)]
+        if len(ms) < n_cyl:
+            return {"valid": False, "spread": float("nan"), "ve_cyl": None,
+                    "n": len(ms), "reason": "insufficient VEDIAG data"}
+        seg = ms[-n_cyl:]                       # last full cycle
+        med = statistics.median(seg)
+        if med <= 0:
+            return {"valid": False, "spread": float("inf"), "ve_cyl": seg,
+                    "n": len(ms), "reason": "median trapped mass <= 0"}
+        spread = max(abs(m - med) for m in seg) / med
+        return {"valid": spread <= tol, "spread": spread, "ve_cyl": seg,
+                "n": len(ms), "reason": "" if spread <= tol else "cylinder maldistribution"}
+
         return pd.DataFrame()
