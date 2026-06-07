@@ -2276,3 +2276,36 @@ OpenWAMOutputParser.cylinder_balance(stdout); drop the point when valid=False. S
 front-pipe and read VE on the surviving cells. NOTE: the VANOS curve above is ~18-cycle
 (under-converged); the RESPONSE and the GATE are the point, not the exact peak rpm/value --
 production sweeps should run to ~30 cycles for the absolute numbers.
+
+## Stage 44 — 480-pt map (Stock vs Sim) WITH the real VANOS: the sim OVER-responds to VANOS
+
+Added scripts/ve_map_compare.py: for each (rpm,load) cell of the 480-pt CSL map it looks up
+the stock VE (kf_rf_soll) and the stock intake VANOS (kf_evan1_soll -> bias = 130 - target,
+matching simulation_service.run_ve_map_generation), runs the plenum sim with that VANOS, gates
+on cylinder balance, and tabulates sim vs stock. (Running all 480 here is infeasible -- 4 cores,
+slow runs, and the container reboots every ~12 min; the script is for the production 12-way run.)
+
+The WOT row WITH the stock VANOS (bias 42-60 deg advance) -- not the bias=0 of Stage 41:
+```
+load 100%   stock   sim
+ 2700 rpm   104%    143%   (over)
+ 3900 rpm   116%     97%   (under -- the stock TORQUE PEAK)
+ 5300 rpm   110%    150%   (over)
+```
+Two things follow:
+1. The Stage-41 "plenum tracks stock, r=0.83" was measured at bias=0 -- the FULLY-RETARDED
+   intake position, which is NOT how the engine runs. With the real stock VANOS schedule the
+   tracking is much worse.
+2. The sim OVER-responds to VANOS: at 5300 WOT, going from bias 0 to the stock bias 42 lifts VE
+   97% -> 150% (+53 pp). A 42 deg intake advance lifting VE by half is unphysical (real engines
+   see ~10-20 pp from optimal cam phasing). And it is non-uniform across rpm (3900 ends up UNDER
+   while 2700/5300 are OVER), i.e. the intake acoustic resonances are mis-phased vs the real
+   engine once the cam moves.
+
+### Implication
+Before the sim is a trustworthy VANOS optimiser the VANOS SENSITIVITY must be calibrated: the
+model currently moves VE far too much (and with the wrong rpm phasing) as the intake cam
+advances, so an optimiser would chase unrealistic "optimal" cam angles. Likely levers: the
+runner length/acoustic tuning (sets where the ram resonance sits vs rpm) and the intake
+valve overlap handling at large advance. The cylinder-balance gate still correctly fires on
+the points that blow up at aggressive advance.
