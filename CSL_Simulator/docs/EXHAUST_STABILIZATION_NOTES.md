@@ -2406,3 +2406,65 @@ target) alongside the intake bias. wam_generator gained OPENWAM_CAM_EXP and OPEN
 vanos_exhaust_bias. The exhaust base/scale (OPENWAM_EXVANOS_BASE=150, _SCALE=1) is a first
 calibration -- good on the WOT row, to be fine-tuned across the full map. This removes the
 Stage-44/45/46 "over-response": with coordinated VANOS the sim is a usable VANOS optimiser.
+
+## Stage 48 — part-load REFRAME: the "under-prediction" was timeout truncation; the real picture is a convergence/throughput wall + an rpm-dependent shape error + the cyl-2 collapse
+
+Picked up the Stage-47 part-load TODO ("with coordinated VANOS the WOT row is great but at
+load 45/20 the sim under-predicts ~0.5-0.8 and several load-65 cells gate-reject"). Re-ran
+the part-load cells to convergence and the premise turned out to be wrong on every point.
+
+### ① Run THROUGHPUT is the real wall (and it invalidated the old part-load data)
+A part-load run is ~26 s/cycle single-threaded (slower the lower the load -- more manifold
+vacuum -> smaller CFL timestep). A 30-cycle run is therefore ~13 min, which NEVER fits the
+7-15 min container reboot window, and the old `timeout 220` (and even `timeout 540`) killed
+every part-load cell mid-transient (cyc 12-17). The "coordinated-VANOS 16-cell map" numbers
+in the Stage-47 handoff were thus NOT converged -- they were snapshots partway up the fill
+transient. Verified `OMP_NUM_THREADS=4` reproduces the OMP=1 physics faithfully (per-cylinder
+Mtrap within ~1%, including the real cyl-2 collapse below), so the sweeps now run cells
+SERIALLY with OMP=4 and append the CSV after every cell (`backend/scripts/exvanos_base_sweep.py`).
+NOTE the OMP=4 per-cycle speedup is cell-dependent and modest at the lowest loads, so the
+20%-load cells remain marginal to converge inside one reboot window -- the throughput wall is
+the binding constraint on completing the full 480-pt map here.
+
+### ② The converged load-65 picture is a SHAPE error, not a uniform deficit
+Per-cycle VE (healthy cylinders, base 150), read off the VEDIAG Mtrap stream:
+```
+ 2700/65   ~76%  (flat from cyc7)     stock 102   -> UNDER  (and cyl-2 collapses)
+ 3900/65   ~114% (plateaus by cyc14)  stock 112   -> ~match (and cyl-2 collapses)
+ 5300/65   ~129% (near plateau cyc28) stock 107   -> OVER
+```
+Sim VE rises monotonically with rpm at load 65 while stock PEAKS at 3900. A single scalar
+EXVANOS_BASE cannot correct an rpm-dependent shape error -- the over-fill at high rpm and the
+under-fill at low rpm need opposite base moves.
+
+### ③ The load-65 gate rejections are the cyl-2 gas-exchange COLLAPSE, not under-convergence
+The handoff guessed the load-65 rejects were under-converged (cyc 12-15). They are not: at
+2700/65 and 3900/65 cyl-2 collapses to ~0.0025 g / ~820 K (the recurring part-load anomaly,
+Stages 38-42) while the other five sit at ~0.73 g. It is fully converged and IDENTICAL under
+OMP=1 and OMP=4, so it is physics, correctly excluded by `OpenWAMOutputParser.cylinder_balance`.
+5300/65 does NOT collapse. So the optimiser's usable part-load cells are the HIGH-RPM ones
+(5300, 6900); the low-rpm part-load cells are gated out regardless of VANOS base.
+
+### ④ The EXVANOS_BASE lever IS strong and monotonic at part load (same sign as WOT)
+Converged base sweep at 5300/65 (no collapse, `/tmp/sweep5300.csv`):
+```
+ base 110 (exbias  5)  VE 142.6%  x1.33
+ base 150 (exbias 45)  VE 128.9%  x1.20   (current default)
+ base 190 (exbias 85)  VE  57.3%  x0.53
+```
+Higher base = more exhaust advance = less overlap = lower VE (same direction as the Stage-47
+5300 WOT sweep). Near stock the slope is ~-1.8 %/deg; base ~162 would put 5300/65 on stock.
+So the over-filling high-rpm part-load cells CAN be pulled to stock by raising the base -- but
+the required base is rpm- (and probably load-) dependent, i.e. the calibration is a
+base(rpm,load) surface, not the present constant 150. Note 5300 over-fills at WOT too (123%,
+Stage 47), so part of this is an rpm-tuning offset that a base(rpm) schedule would also help.
+
+### Where this leaves it (next steps)
+- The clean lever + converged 5300/65 point make `EXVANOS_BASE(rpm[,load])` the right knob,
+  but calibrating it needs the converged high-rpm part-load block (5300/6900 x 65/45/20) at a
+  few bases -- in progress via the resumable sweep; the 20%-load cells are throughput-marginal.
+- Do NOT implement a base schedule off a single cell: it would risk the validated WOT row.
+  Gather the high-rpm part-load map first, fit base(rpm,load) to cross stock per cell, then
+  wire it into `run_ve_map_generation` (replacing the constant `OPENWAM_EXVANOS_BASE=150`).
+- The low-rpm part-load cells (cyl-2 collapse) stay gated; they are a separate gas-exchange
+  remodel (Stage 39 balance-tube), not a VANOS-base fix.
