@@ -10,10 +10,19 @@ reproduces kf_rf_soll) can be fitted into a load-dependent law.
 Robust to the ~7-15 min container reboots: results append to a CSV after every batch and
 finished (rpm,load,base) triples are skipped, so just re-invoke after each reboot.
 
+RUN SPEED / THREADS (important): a 30-cycle part-load run is ~26 s/cycle single-threaded
+(~13 min), which NEVER survives the 7-15 min reboot window -- so the old OMP_NUM_THREADS=1
+runs were all timeout-truncated mid-climb (cyc 12-17), not converged. Verified that OMP=4
+reproduces the OMP=1 physics faithfully (per-cylinder Mtrap matches within ~1%, incl. the
+real cyl-2 part-load collapse) at ~2.3x speed, so each run finishes in ~5 min INSIDE a
+reboot window. We therefore run cells SERIALLY with OMP=4 (not parallel/OMP=1) and append
+the CSV after EVERY cell, so a reboot loses only the in-flight cell.
+
 Env knobs:
   SWEEP_CYCLES   duration_cycles (default 30; the intake needs ~25-30 to converge)
-  SWEEP_TIMEOUT  per-run timeout in seconds (default 540 -- a 30-cycle part-load run is ~5-6 min)
-  SWEEP_BATCH    cells launched in parallel per invocation (default 3; ~4 cores, OMP=1)
+  SWEEP_TIMEOUT  per-run timeout in seconds (default 480 -- 30 cyc * ~11 s/cyc OMP=4 + margin)
+  SWEEP_OMP      OpenMP threads per run (default 4; serial cells)
+  SWEEP_MAXCELLS cells to attempt this invocation (default 99 = chew through all TODO)
   SWEEP_GRID     "all" (default, the JOBS grid below) or "load65" (the load-65 gate re-check)
 """
 import sys, os, io, re, json, math, subprocess, statistics, csv
@@ -26,8 +35,9 @@ from app.simulator.wam_generator import WAMGenerator
 M = json.load(open(os.path.join(HERE, "app/data/csl_ecu_maps.json")))
 M_REF = math.pi*(0.087/2)**2*0.091*(101325/(287.05*298.0))*1000
 CYCLES = int(os.environ.get("SWEEP_CYCLES", "30"))
-TIMEOUT = os.environ.get("SWEEP_TIMEOUT", "540")
-BATCH = int(os.environ.get("SWEEP_BATCH", "3"))
+TIMEOUT = os.environ.get("SWEEP_TIMEOUT", "480")
+OMP = os.environ.get("SWEEP_OMP", "4")
+MAXCELLS = int(os.environ.get("SWEEP_MAXCELLS", "99"))
 GRID = os.environ.get("SWEEP_GRID", "all")
 CSV = os.environ.get("SWEEP_CSV", "/tmp/exvanos_sweep.csv")
 
@@ -77,27 +87,26 @@ def gen(rpm, load, base, wd):
     c = WAMGenerator(cfg, wd).generate(ignition_timing=20.0); sys.stdout = o
     open(wd+"/m.wam", "w").write(c)   # generate() writes intake.vlv/exhaust.vlv into wd itself
 
-def run_batch(cells):
-    procs = []
-    for rpm, load, base in cells:
-        wd = f"/tmp/ex_{rpm}_{int(load)}_{int(base)}"; gen(rpm, load, base, wd)
-        env = os.environ.copy(); env["OPENWAM_HLLC"]="1"; env["OMP_NUM_THREADS"]="1"; env["OPENWAM_VEDIAG"]="1"
-        procs.append((rpm, load, base, wd, subprocess.Popen(["timeout", TIMEOUT, BIN, "m.wam"], cwd=wd,
-                      stdout=open(wd+"/run.log", "wb"), stderr=subprocess.STDOUT, env=env)))
-    for rpm, load, base, wd, p in procs: p.wait()
+def run_cell(rpm, load, base):
+    """Run ONE cell serially with OMP threads; append its row immediately."""
+    wd = f"/tmp/ex_{rpm}_{int(load)}_{int(base)}"; gen(rpm, load, base, wd)
+    env = os.environ.copy(); env["OPENWAM_HLLC"]="1"; env["OMP_NUM_THREADS"]=OMP; env["OPENWAM_VEDIAG"]="1"
+    subprocess.run(["timeout", TIMEOUT, BIN, "m.wam"], cwd=wd,
+                   stdout=open(wd+"/run.log", "wb"), stderr=subprocess.STDOUT, env=env)
+    t = open(wd+"/run.log", encoding="utf-8", errors="ignore").read()
+    ve, ok, cyc = gate(t)
     new = not os.path.exists(CSV)
     with open(CSV, "a", newline="") as f:
         w = csv.writer(f)
         if new: w.writerow(["rpm", "load", "base", "exbias", "stock", "sim", "valid", "cyc"])
-        for rpm, load, base, wd, p in procs:
-            t = open(wd+"/run.log", encoding="utf-8", errors="ignore").read()
-            ve, ok, cyc = gate(t)
-            w.writerow([rpm, int(load), int(base), f"{base-aval(rpm,load):.1f}",
-                        f"{stock(rpm,load):.1f}", f"{ve:.1f}", 1 if ok else 0, cyc])
+        w.writerow([rpm, int(load), int(base), f"{base-aval(rpm,load):.1f}",
+                    f"{stock(rpm,load):.1f}", f"{ve:.1f}", 1 if ok else 0, cyc])
+    return ve, ok, cyc
 
 todo = [j for j in JOBS if (j[0], int(j[1]), int(j[2])) not in done_cells()]
-if todo:
-    run_batch(todo[:BATCH])
+for rpm, load, base in todo[:MAXCELLS]:
+    ve, ok, cyc = run_cell(rpm, load, base)
+    print(f"  ran {rpm}/{int(load)} base{int(base)} -> sim {ve:.1f} {'OK' if ok else 'REJ'} cyc{cyc}", flush=True)
 
 # ---- print accumulated sweep ----
 rows = []
