@@ -53,6 +53,12 @@ def eval_(rpm, load): return lut(M["kf_evan1_soll"], rpm, load)
 if GRID == "load65":
     # gate re-check: the four load-65 cells at the default base, 30 cycles
     JOBS = [(r, 65.0, 150.0) for r in (2700, 3900, 5300, 6900)]
+elif GRID == "custom":
+    # SWEEP_RPMS / SWEEP_LOADS / SWEEP_BASES are comma lists; full cross product.
+    rpms = [int(x) for x in os.environ.get("SWEEP_RPMS", "5300").split(",")]
+    loads = [float(x) for x in os.environ.get("SWEEP_LOADS", "65").split(",")]
+    bases = [float(x) for x in os.environ.get("SWEEP_BASES", "110,150,190").split(",")]
+    JOBS = [(r, l, b) for r in rpms for l in loads for b in bases]
 else:
     JOBS = []
     for load in (65.0, 45.0, 20.0):
