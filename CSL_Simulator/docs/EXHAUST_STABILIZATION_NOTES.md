@@ -2493,14 +2493,33 @@ resonance-contaminated outlier. The cleaner GENERAL part-load story is UNDER-fil
 over-advances the exhaust), corrected by dropping base with load. A per-rpm linear base(load)
 anchored at base~150 for WOT is a good first model; refine the 5300 row for the resonance.
 
+### ⑦ At 6900 the base lever's EFFECTIVENESS is itself rpm/load-dependent (base alone is not enough)
+6900 base sweep (`backend/ve_sweep6900_lowbase.csv`, vs the base-150 block in ⑤):
+```
+ cell      base150   base110   stock   note
+ 6900/65   64.8*     137.6     101.2   strong lever; crossing ~120-130 (*150 was cyc24, unreliable)
+ 6900/45   81.3      84.2 REJ   92.1   WEAK lever, and base110 TRIGGERS the cyl-2 collapse
+ 6900/20   47.0      47.3       70.3   lever is DEAD (47% at exbias 47 AND 7) -> base cannot move it
+```
+Two new facts: (1) the EXVANOS_BASE lever is potent at 6900/65 but **goes flat at 6900/20**
+-- that cell sits ~0.67x stock regardless of base, i.e. it is **throttle-K-loss-saturation
+limited** (Stage 37: MAP floors ~0.72 bar), not VANOS-limited. (2) lowering the base can
+**induce** the cyl-2 collapse (6900/45 was valid at 150, rejects at 110), so base and the
+gas-exchange anomaly are coupled. CONCLUSION: `base(rpm,load)` fixes the MID part-load cells
+(all of 5300, 6900/65) but the lowest-load high-rpm cells need the Stage-37 choked-orifice
+throttle BC -- base alone cannot make the whole part-load map track stock.
+
 ### Where this leaves it (next steps)
-- The clean lever + the converged base-150 high-rpm block (⑤) make `EXVANOS_BASE(rpm,load)`
-  the right knob; the missing piece is the per-cell stock-crossing base. Direction is known
-  (drop base below 150 with load to lift the under-filling cells; raise to ~162 at 5300/65).
-  Need a base sweep (e.g. {90,110,130}) at the under cells to fit the surface; 20%-load cells
-  are throughput-marginal (re-run them longer / lower-thread to reach cyc>=28).
-- Do NOT implement a base schedule off a single cell: it would risk the validated WOT row.
-  Gather the high-rpm part-load map first, fit base(rpm,load) to cross stock per cell, then
-  wire it into `run_ve_map_generation` (replacing the constant `OPENWAM_EXVANOS_BASE=150`).
-- The low-rpm part-load cells (cyl-2 collapse) stay gated; they are a separate gas-exchange
-  remodel (Stage 39 balance-tube), not a VANOS-base fix.
+- The part-load map needs THREE coordinated fixes, not one: (A) `EXVANOS_BASE(rpm,load)` for
+  the mid cells where the lever bites (all of 5300, 6900/65); (B) the Stage-37 choked-orifice
+  throttle BC for the lowest-load high-rpm cells where the base lever is DEAD (6900/20, and the
+  weak-lever 6900/45) -- they are airflow/throttle-saturation limited; (C) the gated cyl-2
+  collapse cells stay excluded (Stage-39 balance-tube remodel, a separate task). Note base and
+  the collapse are coupled (low base can induce it), so (A) must be checked against the gate.
+- For (A): finish the per-cell stock-crossing base. Known: 5300 -> 20/45/65 ~95/135/162;
+  6900/65 ~120-130 (re-run 6900/65 base150 LONGER first -- it was cyc24). Then fit
+  base(rpm,load) ANCHORED at base~150 for WOT (load 100) so the validated WOT row does NOT
+  regress, and wire it into `run_ve_map_generation` (replacing the constant 150). Do NOT
+  implement off partial data -- it would risk the WOT row.
+- ⚠ Trust only cyc>=28 cells (the fill transient). The container is sometimes stable for
+  ~100+ min (not always 7-15), so longer serial OMP=4 batches are often possible now.

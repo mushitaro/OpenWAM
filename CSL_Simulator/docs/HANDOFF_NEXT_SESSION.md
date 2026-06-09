@@ -44,12 +44,15 @@ mid-fill, cyc 12-17, NOT converged) and found:
   HIGHER VE). At 5300 the stock-crossing base is a clean LOAD law: load20→~95, 45→~135,
   65→~162 (WOT~150-157). Data: `backend/ve_sweep5300_65_exvanos_base.csv` + `_lowbase` runs.
 
-**Next:** repeat the base sweep ({90,110,130,150}) on the **6900 row** (all under at 150) to
-get the second rpm of the `base(rpm,load)` surface, re-run **6900/65 longer** (it was cyc24-
-truncated). Then implement `base(rpm,load)` in `run_ve_map_generation` ANCHORED at base≈150
-for WOT (so the validated WOT row does NOT regress) and validate. Throttle saturation (Stage
-37 choked-orifice) is the SEPARATE lower-load lever, only needed if base can't reach the
-lowest cells. The cyl-2-collapse low-rpm cells need the Stage-39 balance-tube remodel, not VANOS.
+**Next — the part-load map needs THREE coordinated fixes (Stage 48 ⑦), not just a base tweak:**
+- (A) `base(rpm,load)` where the EXVANOS lever bites: all of 5300 (crossings 20/45/65 ~95/135/162)
+  and 6900/65 (~120-130). Fit ANCHORED at base≈150 for WOT so the validated WOT row does NOT
+  regress; wire into `run_ve_map_generation`. Re-run **6900/65 base150 LONGER** first (was cyc24).
+- (B) the Stage-37 **choked-orifice throttle BC** for the lowest-load high-rpm cells where the
+  base lever is DEAD (6900/20 sits 0.67x stock at any base) — they are throttle-saturation limited.
+- (C) the gated **cyl-2 collapse** cells stay excluded (Stage-39 balance-tube remodel). NB base
+  and the collapse are coupled — a low base can *induce* the collapse (6900/45 valid@150, REJ@110),
+  so (A) must be re-checked against the `cylinder_balance` gate.
 
 ## HOW TO RUN (important — environment is hostile)
 - Build: `cd /home/user/OpenWAM/build && cmake --build . --config Release -j"$(nproc)"`.
