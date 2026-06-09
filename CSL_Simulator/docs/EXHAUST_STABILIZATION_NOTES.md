@@ -2459,10 +2459,31 @@ the required base is rpm- (and probably load-) dependent, i.e. the calibration i
 base(rpm,load) surface, not the present constant 150. Note 5300 over-fills at WOT too (123%,
 Stage 47), so part of this is an rpm-tuning offset that a base(rpm) schedule would also help.
 
+### ⑤ The converged high-rpm part-load block (base 150): mostly UNDER, one cell OVER
+The usable (non-collapse) part-load cells are at 5300/6900 rpm. Converged at base 150
+(`/tmp/highrpm_partload.csv`, all valid=no collapse):
+```
+ cell      stock   sim    sim/stock   cyc
+ 5300/65   107.3   129.0   1.20       28   <- the ONLY over-fill
+ 5300/45   101.9    87.3   0.86       28
+ 5300/20    83.9    65.9   0.79       27
+ 6900/65   101.2    64.8   0.64       24   (cyc24, timeout-truncated -> suspect/under-converged)
+ 6900/45    92.1    81.3   0.88       29
+ 6900/20    70.3    47.0   0.67       27
+```
+So at base 150 the high-rpm part-load block UNDER-fills in 5 of 6 cells (only 5300/65 over).
+Because lower base = more overlap = HIGHER VE (the ④ lever), the corrective direction at part
+load is a LOWER base than the WOT-tuned 150 -- i.e. base should DROP with load. 5300/65 is the
+exception (needs ~162). The lever is strongly nonlinear (5300/65: 110->150 only -0.34 %/deg,
+150->190 -1.79 %/deg), so the base(rpm,load) surface must be fitted, not extrapolated. The
+6900/65 point is timeout-truncated (cyc24) and should be re-run longer before trusting it.
+
 ### Where this leaves it (next steps)
-- The clean lever + converged 5300/65 point make `EXVANOS_BASE(rpm[,load])` the right knob,
-  but calibrating it needs the converged high-rpm part-load block (5300/6900 x 65/45/20) at a
-  few bases -- in progress via the resumable sweep; the 20%-load cells are throughput-marginal.
+- The clean lever + the converged base-150 high-rpm block (⑤) make `EXVANOS_BASE(rpm,load)`
+  the right knob; the missing piece is the per-cell stock-crossing base. Direction is known
+  (drop base below 150 with load to lift the under-filling cells; raise to ~162 at 5300/65).
+  Need a base sweep (e.g. {90,110,130}) at the under cells to fit the surface; 20%-load cells
+  are throughput-marginal (re-run them longer / lower-thread to reach cyc>=28).
 - Do NOT implement a base schedule off a single cell: it would risk the validated WOT row.
   Gather the high-rpm part-load map first, fit base(rpm,load) to cross stock per cell, then
   wire it into `run_ve_map_generation` (replacing the constant `OPENWAM_EXVANOS_BASE=150`).
