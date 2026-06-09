@@ -2509,6 +2509,38 @@ gas-exchange anomaly are coupled. CONCLUSION: `base(rpm,load)` fixes the MID par
 (all of 5300, 6900/65) but the lowest-load high-rpm cells need the Stage-37 choked-orifice
 throttle BC -- base alone cannot make the whole part-load map track stock.
 
+### ⑧ The low-load high-rpm gap IS the missing throttle CHOKE (quantified via K_CEIL)
+The base lever is dead at 6900/20 but the throttle K_CEIL lever is wide open
+(`backend/ve_throttle_kceil_sweep.csv`, all cyc>=27, base 150):
+```
+ cell      K_CEIL2000  K_CEIL500  K_CEIL100   stock   -> stock-crossing K_CEIL
+ 6900/20    47.0        64.7       78.0        70.3    ~250
+ 5300/20    65.9        74.2        --         83.9    ~200-300
+```
+Lowering K_CEIL strongly+monotonically RAISES these cells to stock. Diagnosis confirmed: the
+incompressible quadratic K-loss (dP = K*1/2*rho*u_bore^2, K=1/sigma^2-1) OVER-restricts at
+small opening + high flow. At 6900/20 the geometric K is ~5700 (clamped to 2000); even 2000
+under-flows (VE 47 vs stock 70). A real orifice CHOKES -- once the throat hits sonic the mass
+flux caps at rho*.a*.A_throat and any extra pull just lowers MAP, so a choked orifice passes
+MORE mass than the quadratic loss for the same geometry. The quadratic model has no sonic cap,
+so it keeps trading flow for an ever-larger dP. K_CEIL~250 emulates the choked flow here, but
+a single global K_CEIL is wrong: it depends on rpm/flow (the quadratic dP ~ u_bore^2), exactly
+what a compressible-orifice BC removes. K_CEIL=2000 is right for the MID part-load metering
+(Stage 37: 0.25 pedal @5300 -> 63%), so it cannot just be lowered globally.
+
+### Implementing the choked orifice (design for the next pass)
+Replace the throttle's quadratic K-loss in `TCCPerdidadePresion` with a COMPRESSIBLE-ORIFICE
+solve at the effective throat area `A_t = ratio * A_pipe` (`ratio` = the generator's
+`_get_butterfly_cd` open-area value, already supplied to the BC as Cd). OpenWAM already has the
+MoC building blocks: `stContraction`/`stExpansion` (BoundaryFunctions.h) solve compressible
+area changes with the supersonic/sonic branch. Model the throttle as contraction-to-throat +
+expansion-back (with vena-contracta loss), and when the throat reaches M=1 impose the sonic
+condition (mass flux = rho*.a*.A_t) and let the downstream characteristic float to the lower
+MAP. Gate it (`OPENWAM_THR_CHOKE`, default OFF) and validate: 6900/20 should reach ~stock
+WITHOUT a K_CEIL change, WOT must stay ~unchanged (throat far from sonic at WOT), and the MID
+cells (0.25 pedal @5300 ~63%) must not regress. This is a real MoC change -- needs fast
+iteration (each part-load run is 6-15 min here), so do it where runs are cheap.
+
 ### Where this leaves it (next steps)
 - The part-load map needs THREE coordinated fixes, not one: (A) `EXVANOS_BASE(rpm,load)` for
   the mid cells where the lever bites (all of 5300, 6900/65); (B) the Stage-37 choked-orifice
