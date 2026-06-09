@@ -97,6 +97,7 @@ def run_cell(rpm, load, base):
     """Run ONE cell serially with OMP threads; append its row immediately."""
     wd = f"/tmp/ex_{rpm}_{int(load)}_{int(base)}"; gen(rpm, load, base, wd)
     env = os.environ.copy(); env["OPENWAM_HLLC"]="1"; env["OMP_NUM_THREADS"]=OMP; env["OPENWAM_VEDIAG"]="1"
+    if os.environ.get("SWEEP_KCEIL"): env["OPENWAM_K_CEIL"] = os.environ["SWEEP_KCEIL"]
     subprocess.run(["timeout", TIMEOUT, BIN, "m.wam"], cwd=wd,
                    stdout=open(wd+"/run.log", "wb"), stderr=subprocess.STDOUT, env=env)
     t = open(wd+"/run.log", encoding="utf-8", errors="ignore").read()
