@@ -2478,6 +2478,21 @@ exception (needs ~162). The lever is strongly nonlinear (5300/65: 110->150 only 
 150->190 -1.79 %/deg), so the base(rpm,load) surface must be fitted, not extrapolated. The
 6900/65 point is timeout-truncated (cyc24) and should be re-run longer before trusting it.
 
+### ⑥ At 5300 rpm the stock-crossing base is a clean, monotonic LOAD law
+Bracketed the crossing with base 110 (`/tmp/sweep5300_lowbase.csv`, both cyc29 converged):
+```
+ cell      base110   base150   stock   -> stock-crossing base
+ 5300/65    142.6     128.9    107.3   ~162   (over at both -> needs higher base)
+ 5300/45    126.1      87.3    101.9   ~135
+ 5300/20     79.1      65.9     83.9    ~95   (still under at 110 -> base below 110)
+```
+So base(5300, load) rises with load: 20%~95, 45%~135, 65%~162 (WOT~150-157, x1.11 at 150).
+The 5300/65 over-fill peaking ABOVE the WOT requirement is consistent with the 5300 eq-tube
+Helmholtz resonance (Stages 38-39) -- 5300 over-fills at WOT too -- so 5300 is partly a
+resonance-contaminated outlier. The cleaner GENERAL part-load story is UNDER-fill (base 150
+over-advances the exhaust), corrected by dropping base with load. A per-rpm linear base(load)
+anchored at base~150 for WOT is a good first model; refine the 5300 row for the resonance.
+
 ### Where this leaves it (next steps)
 - The clean lever + the converged base-150 high-rpm block (⑤) make `EXVANOS_BASE(rpm,load)`
   the right knob; the missing piece is the per-cell stock-crossing base. Direction is known

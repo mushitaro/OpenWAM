@@ -1,6 +1,6 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–47)
+Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–48)
 
 ## What this is
 `CSL_Simulator/` wraps OpenWAM to simulate a BMW S54 (CSL). GOAL: use it as a **VANOS /
@@ -29,26 +29,27 @@ front-pipe optimiser** — Sim VE must FOLLOW the **stock VE map** across **thro
    `vanos_exhaust_bias = OPENWAM_EXVANOS_BASE(150) − kf_avan1_soll`. Stage 47. WOT row now
    tracks stock (3900 torque peak EXACT: 116/116; ratios 0.91-1.17).
 
-## REMAINING WORK (this is where to start)
-**Part-load tracking.** With coordinated VANOS the **WOT row is great** but at **load 45/20%
-the sim UNDER-predicts** (sim/stock ~0.5-0.8) and several **load-65 cells gate-reject**.
-Coordinated-VANOS 16-cell map (≈18-cyc, see `backend/ve_map_coordinated_vanos.csv`):
-```
-load\rpm   2700      3900      5300      6900
- 100%    104/95    116/116   110/122   106/124   (WOT: good, peak exact)
-  65%    102/67X   112/95X   107/109   101/69X   (3/4 gate-rejected)
-  45%     97/70    105/76    102/81     92/75    (sim under ~0.7)
-  20%     92/64     86/67     84/60     70/39    (sim under ~0.5-0.8)
-```
-Two coupled causes to calibrate:
-- (a) **Exhaust-VANOS base is WOT-tuned** and over-corrects at low load → make
-  `OPENWAM_EXVANOS_BASE/_SCALE` load-dependent (calibrate per row against `kf_rf_soll`).
-- (b) **Throttle saturates** (Stage 37): the K-loss model floors MAP ~0.72 bar, so the sim
-  can't reach the low-load cells; idle-level vacuum needs a choked-ORIFICE throttle BC (flow
-  set by effective area), not a K-loss. The `cylinder_balance` rejections at load-65 may be
-  under-convergence (cyc 12-15) — re-check at 30 cycles before treating as real.
-Then: run the **full 480-pt** map (`run_ve_map_generation`, 12-way) on a stable machine and
-compare to `kf_rf_soll` cell-by-cell; the resumable script gives the methodology.
+## REMAINING WORK (this is where to start) — UPDATED by Stage 48 (read it)
+**Part-load tracking, but the Stage-47 premise was WRONG and is now corrected.** Stage 48
+re-ran the part-load cells to CONVERGENCE (the old `OMP=1`+`timeout` data was truncated
+mid-fill, cyc 12-17, NOT converged) and found:
+- The "sim under-predicts everywhere" claim was a **convergence artifact**. The converged
+  picture is an **rpm-dependent SHAPE error**: e.g. load-65 healthy VE goes 2700→76% /
+  3900→114% / 5300→129% (stock 102/112/107) — sim rises with rpm while stock peaks at 3900.
+- The **load-65 gate rejects are the real cyl-2 collapse** (Mtrap ~0.0025 g, identical at
+  OMP=1/4), NOT under-convergence. They stay gated; the usable part-load cells are at 5300/6900.
+- Converged high-rpm part-load block at base 150 (`backend/ve_highrpm_partload_base150.csv`):
+  5 of 6 cells UNDER-fill (5300/65 is the only over-fill, ~the 5300 eq-tube resonance).
+- **The EXVANOS_BASE lever is strong, monotonic, nonlinear** (lower base = more overlap =
+  HIGHER VE). At 5300 the stock-crossing base is a clean LOAD law: load20→~95, 45→~135,
+  65→~162 (WOT~150-157). Data: `backend/ve_sweep5300_65_exvanos_base.csv` + `_lowbase` runs.
+
+**Next:** repeat the base sweep ({90,110,130,150}) on the **6900 row** (all under at 150) to
+get the second rpm of the `base(rpm,load)` surface, re-run **6900/65 longer** (it was cyc24-
+truncated). Then implement `base(rpm,load)` in `run_ve_map_generation` ANCHORED at base≈150
+for WOT (so the validated WOT row does NOT regress) and validate. Throttle saturation (Stage
+37 choked-orifice) is the SEPARATE lower-load lever, only needed if base can't reach the
+lowest cells. The cyl-2-collapse low-rpm cells need the Stage-39 balance-tube remodel, not VANOS.
 
 ## HOW TO RUN (important — environment is hostile)
 - Build: `cd /home/user/OpenWAM/build && cmake --build . --config Release -j"$(nproc)"`.
@@ -59,12 +60,22 @@ compare to `kf_rf_soll` cell-by-cell; the resumable script gives the methodology
   `cfg.simulation.duration_cycles=30`, `cfg.exhaust.port_junction_vol=0.0`; `WAMGenerator(cfg,
   outdir).generate(ignition_timing=20.0)` returns the deck string (write to `m.wam`) and
   writes `intake.vlv`/`exhaust.vlv` into outdir.
-- Run: `env OPENWAM_HLLC=1 OMP_NUM_THREADS=1 OPENWAM_VEDIAG=1 <BIN> m.wam`.
+- Run: `env OPENWAM_HLLC=1 OMP_NUM_THREADS=4 OPENWAM_VEDIAG=1 <BIN> m.wam`.
 - VE: mean of the last 6 `VEDIAG ... Mtrap:X g` / `M_REF`, where
   `M_REF = π(0.087/2)²·0.091·(101325/(287.05·298))·1000 ≈ 0.6408 g` = 100% VE.
-- ⚠ **The container reboots every ~7-15 min**, killing long runs. Use the **resumable** driver
-  `backend/scripts/ve_map_resumable.py` (appends `/tmp/map_results.csv`, skips done cells, 3
-  cells/invocation) — just re-invoke after each reboot. ~4 cores; keep ≤3 parallel.
+- ⚠ **CONVERGENCE/THROUGHPUT is the binding constraint (Stage 48).** A part-load run is
+  ~11-26 s/cycle (SLOWER at lower load: deeper vacuum → smaller CFL step), so 30 cycles is
+  ~6-15 min. Part-load VE keeps climbing the fill transient until ~cyc 28-30, so anything
+  with `cyc < 28` in the CSV is **suspect/under-converged** — do NOT trust truncated cells
+  (this is exactly how the Stage-47 map was wrong). `OMP_NUM_THREADS=4` is ~2x and verified
+  FAITHFUL to OMP=1 (per-cyl Mtrap within ~1%, incl. the cyl-2 collapse), so run cells
+  **SERIALLY with OMP=4** (each finishes inside a reboot window) rather than 3×OMP=1 parallel.
+- ⚠ **The container reboots every ~7-15 min** (but can stay up ~30+ min); `/tmp` survives a
+  reboot, so the resumable CSVs persist. Use `backend/scripts/exvanos_base_sweep.py`
+  (env: `SWEEP_GRID=custom SWEEP_RPMS=.. SWEEP_LOADS=.. SWEEP_BASES=.. SWEEP_CYCLES=30
+  SWEEP_OMP=4 SWEEP_CSV=..`; serial OMP=4, appends after EVERY cell, skips done) — re-invoke
+  after each reboot. The older `ve_map_resumable.py` uses the truncating OMP=1+timeout pattern.
+- ⚠ pip deps (`pydantic`, `numpy`) are NOT preinstalled — `pip install pydantic numpy` first.
 - ⚠ Don't copy a fixed `.vlv` over the generator's when testing `OPENWAM_CAM_EXP` (the .vlv IS
   the cam lift profile). For non-cam tests, copying `/tmp/vediag_5300/*.vlv` is fine.
 - pandas is NOT installed in the test python; `cylinder_balance` uses only re/statistics.
@@ -72,7 +83,9 @@ compare to `kf_rf_soll` cell-by-cell; the resumable script gives the methodology
 ## ENV LEVERS (default = the SOLVED behaviour unless noted)
 `OPENWAM_VEDIAG`(gate data), `OPENWAM_HLLC`, `OPENWAM_EQ_DIA`(=0.030 fix),
 `OPENWAM_THR_GAMMA`(=1.4), `OPENWAM_K_CEIL`(=2000), `OPENWAM_PORT_TWALL`(=127),
-**`OPENWAM_EXVANOS_BASE`(=150)/`_SCALE`(=1) ← part-load calibration knob**,
+**`OPENWAM_EXVANOS_BASE`(=150)/`_SCALE`(=1) ← part-load knob; STRONG+monotonic+nonlinear,
+lower base = more overlap = higher VE; at 5300 the stock-crossing base by load is ~95/135/162
+for 20/45/65% (Stage 48). The production calibration target is a `base(rpm,load)` surface.**,
 `OPENWAM_VANOS_SCALE`(no-op, ineffective), `OPENWAM_CAM_EXP`(=1)/`OPENWAM_RUNNER_SC`(=1)
 (geometry levers, NOT the over-ram cause), `OPENWAM_EQ_CHAIN/_FRIC/_MISTUNE/NO_EQTUBE`
 (eq-tube studies — all distort the VE-rpm shape, keep plenum default),
@@ -83,10 +96,13 @@ compare to `kf_rf_soll` cell-by-cell; the resumable script gives the methodology
 - `backend/app/simulator/simulation_service.py` — `run_ve_map_generation` (480-pt map; now sets
   both intake & exhaust VANOS).
 - `backend/app/simulator/output_parser.py` — `cylinder_balance` gate.
-- `backend/scripts/ve_map_resumable.py` (reboot-safe map vs stock), `ve_map_compare.py`,
-  `ve_model_shape_compare.py`, `ve_converged_highrpm.py`.
+- `backend/scripts/exvanos_base_sweep.py` ← **use this** (Stage 48: serial OMP=4, resumable,
+  env-configurable grid). Older: `ve_map_resumable.py` (OMP=1+timeout = truncating, avoid),
+  `ve_map_compare.py`, `ve_model_shape_compare.py`, `ve_converged_highrpm.py`.
+- `backend/ve_highrpm_partload_base150.csv` (converged high-rpm part-load @150),
+  `backend/ve_sweep5300_65_exvanos_base.csv` (the EXVANOS_BASE lever) — Stage 48 data.
 - `backend/app/data/csl_ecu_maps.json` (stock VE + VANOS), `stock_csl_ve.json` (WOT row).
-- `docs/EXHAUST_STABILIZATION_NOTES.md` — Stages 16-47 (read Stage 35,37,42,47 first).
+- `docs/EXHAUST_STABILIZATION_NOTES.md` — Stages 16-48 (read Stage 35,37,42,47,**48** first).
 
 ## COMMIT/PUSH
 Branch `claude/admiring-carson-slqOr`, draft PR #11. Commit + push each step (the container is
