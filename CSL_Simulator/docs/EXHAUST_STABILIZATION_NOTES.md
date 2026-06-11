@@ -2593,8 +2593,12 @@ With the actual deck geometry (six phi52 ITB runner bores) the numbers close exa
   sigma = (0.65+0.25·th/90)·(1-cos th) = 0.0132 (K_geo ~5700, the Stage-48 number); the BC
   floors it at OPENWAM_CD_FLOOR=0.02. The required area is ~3.2x the floored value (~4.8x
   raw geometry). NO flow physics at sigma~0.02 reaches stock; the Stage-48 validation point
-  "6900/20 -> stock with no K_CEIL change" is unreachable by the choke alone (prediction:
-  it lands ~25-30%, i.e. BELOW the K_CEIL2000 result 47).
+  "6900/20 -> stock with no K_CEIL change" is unreachable by the choke alone. (The BC-side
+  prediction: legacy K2000 at its r~0.72 equilibrium passes U/A = sqrt(0.28/2000) = 0.0118,
+  the choked plateau at the floored sigma passes 0.02*Psi*(g=1.31) = 0.0117 — i.e. choke at
+  geometry should land ~= legacy 47, a ~0.7x stock truncation either way. An earlier
+  demand-anchored estimate of ~25-30% was the wrong frame: the crude bore-velocity demand
+  math is ~1.7x off because the deep-throttle charge is hot/residual-heavy, 590K, fresh~34%.)
 
 ### ③ ANALYSIS: the "0.25 pedal -> 63%" guard was never a stock anchor (map semantics)
 `kf_rf_soll` is pedal->target-fill: stock at (5300 rpm, pedal 25%) is 89.1%, not 63%. The
@@ -2636,7 +2640,52 @@ the valve's open-area ratio, default 1 = pure geometry — THE calibration lever
 apart from stashing the floored cd (gate off => identical numerics).
 
 ### ⑤ RUNS (validation of ④ and the ②/③ predictions)
-[RUN_RESULTS_PLACEHOLDER]
+Campaign: `backend/scripts/choke_validation.sh` (4 cells, serial OMP=4, 30 cyc, base 150).
+Gate-off binary regression first: 3900/100 gate-OFF reproduces the recorded cyc-17 WOT
+value (115.2 vs 115.5) — and shows the recorded WOT row was itself NOT converged (the run
+reaches 122.5 by cyc 22 and is still climbing; the Tier-47 'torque peak exact 116/116' was
+a cyc-17 snapshot. The converged WOT row needs re-recording before it anchors any fit).
+```
+ cell      config                        stock   sim    cyc  note
+ 6900/20   CHOKE=1 (sigma_eff=0.02)       70.3   49.8   29   == legacy 47.0 (+6%): choke at
+                                                             geometry does NOT reach stock;
+                                                             Stage-48 (B) hypothesis FALSIFIED
+ 6900/20   CHOKE=1 AGAIN=3.2 (0.064)      70.3   85.1   29   1.21x stock: the AREA lever spans
+                                                             stock with margin; K_CEIL->sigma
+                                                             equivalence OVERestimates the need
+ 3900/100  CHOKE=1 AGAIN=3.2 (WOT)       115.7   91.3   23   ⚠ WOT REGRESSION — see ⑥
+ 5300/20   CHOKE=1 AGAIN=3.2 (0.064)      83.9   80.4   29   0.96x stock — close
+```
+The three part-load runs converged stably (valid=1, cyc 29, no NaN) — the gated BC is
+numerically robust through 29-cycle deep-choke operation, including a sigma_eff=0.02 run
+that pulls the charge to 590 K / fresh~34% (heavy internal EGR, physical for deep throttle).
+CALIBRATION readout: stock 70.3 sits between sigma_eff 0.02 (49.8) and 0.064 (85.1) ->
+sigma_eff(6900, pedal 0.20) ~= 0.046, AGAIN ~= 2.3-2.6; at 5300 the same sigma_eff lands
+0.96x stock -> AGAIN ~= 3.4-3.6. The quasi-steady K_CEIL<->sigma equivalence (0.0635)
+over-predicts at 6900 because the exact orifice is leakier than the legacy quadratic
+across the intake pulse; per-cell empirical AGAIN sweeps remain the calibration tool, the
+analytic equivalences are only ~+-30% guides. A SINGLE gain does not put both rpms on
+stock simultaneously (same pedal: 5300 wants ~0.067, 6900 wants ~0.046): the residual is
+an rpm-shape term — to be split between the (A) EXVANOS base(rpm,load) lever and/or a mild
+rpm term in sigma(pedal) during the production calibration.
+
+### ⑥ OPEN ANOMALY: gate-on WOT (3900/100) drops to 91.3 vs 122.5 gate-off — under bisection
+At WOT the gated block computes sigma=0.97, chi 1.00-1.02, FK = 0.042 (vs legacy constant
+FK = 0.0851) — the loss magnitudes are BOTH negligible (dP ~ 100 Pa at WOT pulse velocity),
+yet gate-on collapses the FRESH feed 4.6x (Mair 0.041 vs 0.188 g/cyl/cyc; Mtrap-VE 91.3 vs
+122.5 at cyc 22-23; both runs re-breathe ~0.6 g — P_IC stays ~1 atm, so the cylinder
+re-inhales runner gas while net through-flow dies). The trajectory is anomalous from the
+start: cyc1 333% (huge inrush) -> cyc3 43.5% -> slow 20-cycle climb to 91 — looks like the
+weaker/time-varying termination K flips the 3900 ram resonance onto a different attractor
+(the eq-tube system has shown bistability before, Stages 38-39). Candidates: (a) the
+gamma/2 'orifice-exact' convention halves the WOT termination loss (0.085 -> 0.042);
+(b) chi(r(t)) varying along the acoustic cycle (legacy K is constant in time). Test A
+(AGAIN=0.98 -> gated Kgeo == legacy 0.0851 with chi still live) discriminates: ~115@cyc17
+=> (a) K magnitude; ~91 => (b) chi time-variation. Fix in either case: redefine the gated
+K as a pure CORRECTION on legacy — K = (1/sigma^2-1)*chi(r) (drop gamma/2; restores the
+validated legacy WOT termination identically; the choke shape and the b1=r fixed point are
+unchanged; part-load sigma calibration absorbs the sqrt(g/2) shift), optionally ramping
+chi->1 above r~0.9 so the WOT termination is also CONSTANT in time.
 
 ### Where this leaves it (next steps, REORDERED)
 - The production part-load fix is now TWO generator-side calibrations plus the gated BC:
