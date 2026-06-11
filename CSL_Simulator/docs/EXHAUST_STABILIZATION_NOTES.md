@@ -2695,7 +2695,23 @@ unrealistically high ram Q — keep this in mind when calibrating the VANOS sens
   the full correction; the steady flow is frozen below r* (verified: flow(0.545)=flow(0.30)
   to 3 digits) — the choke plateau in legacy-K units is sqrt(g/2)*rho*.a*.A_t, the constant
   absorbed by the sigma calibration. b1 = r at the fixed point holds for ANY K(r), so the
-  no-singularity property is unchanged. Verification: [V1/V2/V3 PENDING]
+  no-singularity property is unchanged. Verification (scripts/choke_verify2.sh):
+```
+ V1  3900/100 CHOKE=1 AGAIN=3.2   117.8 @cyc17  == gate-off 115.2 (broken run3: ~90) ✓
+     (the +-3pp spread between gate-off/testA/V1 is transient-alignment noise on a cell
+      still climbing +1.5/cyc; all three runs share K=0.0851 exactly and one attractor)
+ V2  6900/20  CHOKE=1 AGAIN=3.2    65.5 @cyc26  0.93x stock 70.3 (old convention: 85.1)
+ V3  5300/20  CHOKE=1 AGAIN=3.2    78.0 @cyc29  0.93x stock 83.9 (old convention: 80.4)
+```
+KEY RESULT: under the legacy-anchored convention a SINGLE AGAIN=3.2 puts BOTH pedal-0.20
+cells at exactly 0.93x stock — the rpm-dependence of the needed effective area (which
+plagued the K_CEIL era: 250 vs 2000, and the gamma/2 convention: 1.21x vs 0.96x) has
+COLLAPSED. The choke BC meters rpm-uniformly, so ONE sigma(pedal) curve can serve all
+rpm and the rpm SHAPE stays with the (A) EXVANOS base(rpm,load) lever — exactly the
+separation the production calibration wants. The remaining uniform deficit is a single
+scale: AGAIN_stock(pedal 0.20) ~= 3.5-3.7 for both rpms. Next session: a 2-3 point AGAIN
+sweep per anchor pedal (0.20/0.25/0.39 at 5300+6900, CHOKE=1) pins sigma_eff(pedal), then
+the sigma(pedal) curve goes into the generator.
 
 ### Where this leaves it (next steps, REORDERED)
 - The production part-load fix is now TWO generator-side calibrations plus the gated BC:

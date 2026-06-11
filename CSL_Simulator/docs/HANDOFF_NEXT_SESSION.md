@@ -3,19 +3,31 @@
 Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–49)
 
 ## ⚡ Stage 49 happened — read it before the Stage-48 plan below
-The Stage-48 (B) item is DONE and its premise INVERTED (notes Stage 49):
-- `OPENWAM_THR_CHOKE=1` = exact compressible/CHOKED-orifice throttle BC (default OFF =
-  byte-identical legacy). Verified to machine precision against the analytic orifice;
-  steady flow = `rho1·a1·A_t·Psi(max(r,r*))/sqrt(1-sigma^2)`, b1=r fixed point (no
-  singularity, K_CEIL obsolete under the gate). `OPENWAM_THR_AGAIN` = effective-area gain.
-- A choked orifice flows LESS than the legacy quadratic loss at equal area (chi>=1) — the
-  low-load×high-rpm under-fill is an effective-AREA calibration gap (~3.2x the floored cd
-  at pedal 0.20-0.25), NOT missing choke physics. `kf_rf_soll` is PEDAL->target-fill:
-  stock(5300, pedal25)=89.1%, so the old "0.25 pedal -> 63%" anchor was never a stock match.
-- NEXT: recalibrate sigma(pedal) in the generator (fill-demand semantics; data points
-  sigma_eff(0.20)~0.0635, (0.25)~0.069, WOT~0.96; single AGAIN~3.2 fixes the <=0.25 band
-  but over-fills the 0.3-0.45 band ~+5-10% -> curve, not gain), THEN the Stage-48 (A)
-  base(rpm,load) fit on top, with `OPENWAM_THR_CHOKE=1` as the production metering law.
+The Stage-48 (B) item is DONE and its premise INVERTED (notes Stage 49, ①-⑦):
+- `OPENWAM_THR_CHOKE=1` = compressible/CHOKED-orifice throttle BC as a pure CORRECTION on
+  the legacy loss: `K = (1/sigma^2-1)·chi_eff(r)`, chi ramped out above r~0.92 (default
+  OFF = byte-identical legacy). Steady flow verified: legacy at r->1, frozen choke plateau
+  below r*~0.54; b1=r fixed point (no singularity; K_CEIL obsolete under the gate).
+  `OPENWAM_THR_AGAIN` = effective-area gain (cannot touch WOT: sigma ceiling = valve cd).
+- A choked orifice flows LESS than the legacy quadratic at equal area (chi>=1): the
+  low-load×high-rpm under-fill is an effective-AREA calibration gap, NOT missing choke
+  physics (6900/20 choke-at-geometry = 49.8 == legacy 47, stock 70.3). `kf_rf_soll` is
+  PEDAL->target-fill: stock(5300, pedal25)=89.1%, so the Stage-37 "0.25 pedal -> 63%"
+  anchor was never a stock match — the whole low-pedal region is throttled ~3-5x too shut.
+- Measured anchors (CHOKE=1, AGAIN=3.2, base150): 6900/20 -> 65.5 AND 5300/20 -> 78.0,
+  BOTH exactly 0.93x their stock — the needed-area rpm-dependence (K_CEIL era: 250 vs
+  2000) has COLLAPSED under the choke BC. One sigma(pedal) curve serves all rpm
+  (AGAIN_stock(p0.20) ~3.5-3.7); rpm shape stays with the (A) base lever.
+- ⚠ NEW LANDMINE (Stage 49 ⑥): the 3900 WOT ram resonance BIFURCATES on the throttle
+  termination K — a ~100 Pa loss change flips VE by 30 pts (attractor flip). Unrealistic
+  ram Q; remember when calibrating VANOS sensitivity. AND: the recorded WOT row was
+  cyc-17 UNCONVERGED (3900/100 converged is ~122, not 116) — the EXVANOS_BASE=150 anchor
+  was tuned against a truncated row. Re-record the WOT row at cyc>=28-30 BEFORE fitting
+  base(rpm,load).
+- NEXT: (i) re-record the converged WOT row (gate-off and CHOKE=1 should now agree);
+  (ii) AGAIN sweep 2-3 points per anchor cell (pedal 0.20/0.25/0.39 × 5300/6900) under
+  `OPENWAM_THR_CHOKE=1` -> fit sigma(pedal) into the generator (fill-demand semantics);
+  (iii) THEN the Stage-48 (A) base(rpm,load) fit on top, re-anchored to the CONVERGED row.
 
 ## What this is
 `CSL_Simulator/` wraps OpenWAM to simulate a BMW S54 (CSL). GOAL: use it as a **VANOS /
