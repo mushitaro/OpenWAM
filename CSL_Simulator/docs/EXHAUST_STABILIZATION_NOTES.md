@@ -2669,23 +2669,33 @@ stock simultaneously (same pedal: 5300 wants ~0.067, 6900 wants ~0.046): the res
 an rpm-shape term — to be split between the (A) EXVANOS base(rpm,load) lever and/or a mild
 rpm term in sigma(pedal) during the production calibration.
 
-### ⑥ OPEN ANOMALY: gate-on WOT (3900/100) drops to 91.3 vs 122.5 gate-off — under bisection
-At WOT the gated block computes sigma=0.97, chi 1.00-1.02, FK = 0.042 (vs legacy constant
-FK = 0.0851) — the loss magnitudes are BOTH negligible (dP ~ 100 Pa at WOT pulse velocity),
-yet gate-on collapses the FRESH feed 4.6x (Mair 0.041 vs 0.188 g/cyl/cyc; Mtrap-VE 91.3 vs
-122.5 at cyc 22-23; both runs re-breathe ~0.6 g — P_IC stays ~1 atm, so the cylinder
-re-inhales runner gas while net through-flow dies). The trajectory is anomalous from the
-start: cyc1 333% (huge inrush) -> cyc3 43.5% -> slow 20-cycle climb to 91 — looks like the
-weaker/time-varying termination K flips the 3900 ram resonance onto a different attractor
-(the eq-tube system has shown bistability before, Stages 38-39). Candidates: (a) the
-gamma/2 'orifice-exact' convention halves the WOT termination loss (0.085 -> 0.042);
-(b) chi(r(t)) varying along the acoustic cycle (legacy K is constant in time). Test A
-(AGAIN=0.98 -> gated Kgeo == legacy 0.0851 with chi still live) discriminates: ~115@cyc17
-=> (a) K magnitude; ~91 => (b) chi time-variation. Fix in either case: redefine the gated
-K as a pure CORRECTION on legacy — K = (1/sigma^2-1)*chi(r) (drop gamma/2; restores the
-validated legacy WOT termination identically; the choke shape and the b1=r fixed point are
-unchanged; part-load sigma calibration absorbs the sqrt(g/2) shift), optionally ramping
-chi->1 above r~0.9 so the WOT termination is also CONSTANT in time.
+### ⑥ ANOMALY RESOLVED: the 3900 WOT ram resonance BIFURCATES on the throttle termination K
+Gate-on WOT (run 3) dropped to 91.3 vs 122.5 gate-off although the gated block computed
+sigma=0.97, chi 1.00-1.02, FK = 0.042 vs legacy constant 0.0851 — loss magnitudes BOTH
+'negligible' (dP ~ 100 Pa at WOT pulse velocity). Yet the FRESH feed collapsed 4.6x
+(Mair 0.041 vs 0.188 g/cyl/cyc; both runs re-breathe ~0.6 g; P_IC ~1 atm — the cylinder
+re-inhales runner gas while net through-flow dies), with a violent start (cyc1 333% inrush
+-> cyc3 43.5% -> slow 20-cycle climb to 91).
+TEST A (AGAIN=0.98 => gated Kgeo == legacy 0.0851 exactly, chi still live): VE 118.5@cyc17
+== the gate-off attractor (115.2@17, climbing to ~122) — healthy trajectory (cyc1 135, no
+dip). DIAGNOSIS: the K MAGNITUDE (the gamma/2 'orifice-exact' convention + the 0.97 sigma
+clamp halving the WOT termination loss), NOT chi's time variation. The 3900 WOT ram
+resonance sits on a knife edge: a ~0.04 change in a throttle K of order 0.05-0.09 (a
+~100 Pa device!) flips it onto an attractor 30 VE-points lower. NOTE for the resonance
+thread (Stages 44-46): a WOT row whose VE bifurcates on a 100-Pa termination loss has an
+unrealistically high ram Q — keep this in mind when calibrating the VANOS sensitivity.
+
+### ⑦ FIX: gated K redefined as a pure correction on the validated legacy loss
+`K = (1/sigma^2 - 1) * chi_eff(r)` (the gamma/2 dropped), with two protections:
+- sigma ceiling = the valve's own WOT value (max(cd, 0.96)), so OPENWAM_THR_AGAIN cannot
+  alter the WOT termination at all;
+- chi RAMPED OUT near r=1 (chi_eff = 1+(chi-1)*clamp((0.97-r)/0.05,0,1)): quasi-steady
+  lagged r is least valid in the acoustic regime, and this makes the gated WOT termination
+  identical to legacy in magnitude AND time-constancy. Part-load equilibria (r <= 0.9) get
+  the full correction; the steady flow is frozen below r* (verified: flow(0.545)=flow(0.30)
+  to 3 digits) — the choke plateau in legacy-K units is sqrt(g/2)*rho*.a*.A_t, the constant
+  absorbed by the sigma calibration. b1 = r at the fixed point holds for ANY K(r), so the
+  no-singularity property is unchanged. Verification: [V1/V2/V3 PENDING]
 
 ### Where this leaves it (next steps, REORDERED)
 - The production part-load fix is now TWO generator-side calibrations plus the gated BC:

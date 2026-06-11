@@ -286,33 +286,38 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
            chi   = Psi_inc(r)^2 / Psi_isen(max(r, r_crit))^2  >= 1
            Psi_inc^2  = 2(1-r)/g                  (incompressible reference)
            Psi_isen^2 = 2/(g-1)*(r^(2/g) - r^((g+1)/g))  (isentropic to throat)
-       The functor stPerdPresAd encodes p2/p1 = b1 = 1 - K*(U1/A1)^2, i.e.
-       dP = (2/g)*K*(1/2 rho1 U1^2) -- its K carries a hidden 2/g, so the
-       orifice-exact loss is K_geo = (g/2)*(1-sigma^2)/sigma^2. With that and
-       chi, the steady solution passes EXACTLY the compressible-orifice mass
-       flow  m = rho1*a1*A_t*Psi_isen(rh)/sqrt(1-sigma^2),  and b1 = r at the
-       fixed point, so the functor never approaches its b1<0 singularity at
-       any vacuum. chi -> 1 as r -> 1 (no change at small dP, so WOT and light
-       losses are untouched); for r < r_crit the denominator freezes at the
-       sonic value so the flow caps at rho*.a*.A_t while the downstream
-       pressure floats free (the choke). The lagged r is quasi-steady -- exact
-       in steady metering, smooth over MoC timesteps.
-       OPENWAM_THR_AGAIN scales the effective area (calibration lever for the
-       butterfly open-area curve; default 1 = pure geometry). The K_CEIL
-       default clamp is NOT applied when choked (the b1=r fixed point makes it
-       unnecessary; an explicit OPENWAM_K_CEIL is still honoured on the final
-       K as a diagnostic escape hatch). */
+       K is defined as a pure CORRECTION ON THE LEGACY loss, K = K_legacy*chi
+       with K_legacy = 1/sigma^2-1, NOT as the textbook-exact orifice
+       coefficient (g/2)*(1-sigma^2)/sigma^2. Stage 49 (6): the 3900 WOT ram
+       resonance BIFURCATES on the throttle termination K (halving the
+       'negligible' WOT K 0.085 -> 0.042 collapsed the fresh feed 4.6x and
+       VE 122 -> 91), so the gated model must reproduce the validated legacy
+       K exactly wherever chi ~ 1; the sqrt(g/2) flow-scale difference at
+       part load is absorbed by the sigma calibration (OPENWAM_THR_AGAIN).
+       For the same reason chi is RAMPED OUT near r=1 (s=(0.97-r)/0.05,
+       clamped [0,1]): the quasi-steady lagged r is least valid in the
+       acoustic regime, and freezing chi=1 there makes the gated WOT
+       termination identical to legacy in magnitude AND constancy. The sigma
+       ceiling is the valve's own value (>=0.96), so AGAIN cannot alter the
+       WOT K either. At the steady fixed point b1 = r for ANY K(r) of this
+       family, so the functor never approaches its b1<0 singularity at any
+       vacuum and the K_CEIL stability clamp is unnecessary when gated (an
+       explicit OPENWAM_K_CEIL is still honoured on the final K as a
+       diagnostic escape hatch). For r < r_crit the chi denominator freezes
+       at the sonic value so the steady flow caps at the choke plateau
+       (sqrt(g/2)*rho*.a*.A_t in legacy-K units) while the downstream
+       pressure floats free. */
     if (thr_cd > 0. && getenv("OPENWAM_THR_CHOKE") &&
         atoi(getenv("OPENWAM_THR_CHOKE")) != 0) {
       double again = getenv("OPENWAM_THR_AGAIN")
                          ? atof(getenv("OPENWAM_THR_AGAIN")) : 1.0;
       double sigma = thr_cd * again;
-      if (sigma > 0.97)
-        sigma = 0.97;
+      double sig_ceil = (thr_cd > 0.96) ? thr_cd : 0.96;
+      if (sigma > sig_ceil)
+        sigma = sig_ceil;
       if (sigma < 1e-3)
         sigma = 1e-3;
-      double Kgeo =
-          0.5 * FGamma * (1.0 / (sigma * sigma) - 1.0); // (g/2)*(1-s^2)/s^2
+      double Kgeo = 1.0 / (sigma * sigma) - 1.0; // legacy form, see comment
       // Pressure ratio across the device from the previous-step pipe-end
       // states: p_i ~ (A_i/AA_i)^(2g/(g-1)), A_i = (Landa+Beta)/2.
       double chi = 1.0, r = 1.0;
@@ -336,6 +341,13 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
               chi = num / den;
             if (chi < 1.0)
               chi = 1.0;
+            // ramp chi out near r=1 (acoustic regime; Stage 49 (6))
+            double s = (0.97 - r) / 0.05;
+            if (s < 0.)
+              s = 0.;
+            if (s > 1.)
+              s = 1.;
+            chi = 1.0 + (chi - 1.0) * s;
           }
         }
       }
