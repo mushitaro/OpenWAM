@@ -2555,3 +2555,99 @@ iteration (each part-load run is 6-15 min here), so do it where runs are cheap.
   implement off partial data -- it would risk the WOT row.
 - ⚠ Trust only cyc>=28 cells (the fill transient). The container is sometimes stable for
   ~100+ min (not always 7-15), so longer serial OMP=4 batches are often possible now.
+
+## Stage 49 — choked-orifice throttle BC implemented (gated, exact) + the Stage-48 hypothesis INVERTS: the low-load gap is effective AREA, not the missing choke
+
+Implemented the Stage-48 (B) item: `OPENWAM_THR_CHOKE=1` turns the throttle BC into an
+exact compressible/choked orifice (default OFF = byte-identical legacy). But the pre-run
+analysis (confirmed by the runs below) shows the Stage-48 premise was backwards, and that
+changes where the part-load fix lives.
+
+### ① ANALYSIS: a choked orifice passes LESS than the quadratic K-loss, never more
+Stage 48 ⑧ argued "a real orifice CHOKES ... so a choked orifice passes MORE mass than the
+quadratic loss for the same geometry". The steady algebra says the opposite. The legacy
+quadratic loss IS the incompressible orifice (throat velocity sqrt(2·dP/rho), unbounded);
+compressibility only ever shrinks the flow function:
+```
+                      mdot / (rho1·a1·A_throat)
+   r=p2/p1:   1.0   0.9    0.8    0.72   0.528(=r*)  0.3    0.1
+   incomp:    0     0.378  0.535  0.632  0.821       1.0    1.134   = sqrt(2(1-r)/g)
+   compress:  0     0.357  0.475  0.527  0.5787      0.5787 0.5787  (chokes at r*)
+   chi=(inc/comp)^2: 1.00  1.12   1.27   1.44  2.01  2.99   3.84
+```
+So at the SAME effective area the compressible/choked orifice flows 0.89x (r=0.9) down to
+0.51x (deep vacuum) of the incompressible model: adding the choke REDUCES these cells.
+What the choke DOES fix is the SHAPE pathology: below r* the real flow freezes (mass flux
+rho*·a*·A_t, MAP floats) instead of growing as sqrt(dP) — that unbounded growth is exactly
+why the stock-matching K_CEIL in Stage 48 was rpm/flow-dependent (250 at 6900/20 vs 2000 at
+the Stage-37 mid-load anchor). Choke removes the rpm-dependence; it cannot add mass.
+
+### ② ANALYSIS: the 20%-pedal cells need ~4.8x the GEOMETRIC open area — closing the loop
+With the actual deck geometry (six phi52 ITB runner bores) the numbers close exactly:
+- Engine demand at stock VE: 6900 rpm, VE 70.3% -> mean bore velocity ~10.3 m/s per runner.
+- Compressible orifice at MAP~0.8: u_bore = sigma·a1·Psi(0.8) = sigma·161 m/s
+  -> sigma_needed = 0.064. Same exercise at 5300/20 (stock 83.9): sigma_needed ~0.058.
+- The K_CEIL~250 stock-crossing from Stage 48 ⑧ is the SAME number in K language:
+  sigma_eff = 1/sqrt(251) = 0.0631. Two independent routes, one answer: sigma_eff ~0.06.
+- But the generator's geometric chain gives pedal 0.20 -> angle 2+88·0.2^1.4 = 11.3 deg ->
+  sigma = (0.65+0.25·th/90)·(1-cos th) = 0.0132 (K_geo ~5700, the Stage-48 number); the BC
+  floors it at OPENWAM_CD_FLOOR=0.02. The required area is ~3.2x the floored value (~4.8x
+  raw geometry). NO flow physics at sigma~0.02 reaches stock; the Stage-48 validation point
+  "6900/20 -> stock with no K_CEIL change" is unreachable by the choke alone (prediction:
+  it lands ~25-30%, i.e. BELOW the K_CEIL2000 result 47).
+
+### ③ ANALYSIS: the "0.25 pedal -> 63%" guard was never a stock anchor (map semantics)
+`kf_rf_soll` is pedal->target-fill: stock at (5300 rpm, pedal 25%) is 89.1%, not 63%. The
+Stage-37 "0.25 pedal @5300 -> 63%" was a 'the throttle finally bites' sanity point (vs the
+old VE-flat bug), and the sim there UNDER-fills stock by 0.71 — the same deficit family as
+the 20%-pedal cells (0.67-0.79). So 'mid-load must stay 63%' is NOT a regression guard
+against stock; the whole low-pedal region under-flows because sigma(pedal) is too shut.
+Required effective area: sigma_eff(pedal 0.20) ~0.0635, sigma_eff(0.25) ~0.069. Against
+the FLOORED cd (0.02 / 0.0224) that is a single gain AGAIN~3.2 for BOTH cells (the
+CD_FLOOR accidentally flattens the low-pedal curve the right way); against raw geometry
+it is 4.8x/3.1x. Above pedal ~0.3 the needed gain falls toward ~1.5 (pedal 0.39 wants
+sigma~0.107, geometry gives 0.0707), so a SINGLE gain over-fills the 0.3-0.45 band by
+~+5-10% — the production fix is the sigma(pedal) CURVE (the 1-cos(theta) butterfly law +
+THR_GAMMA pedal curve close far too fast at the low end), with AGAIN as the quick lever.
+This is exactly what a drive-by-wire fill-targeting ECU (MSS54) does differently: pedal is
+a FILL demand, the blade opens as far as needed — at high rpm a 20% pedal is a much more
+open blade than 20% of travel through a cos law.
+
+### ④ IMPLEMENTED: exact gated choked-orifice BC (OPENWAM_THR_CHOKE, default OFF)
+`TCCPerdidadePresion::CalculaCondicionContorno` now (when gated AND in dynamic-valve mode)
+replaces FK each step with the orifice-exact value instead of clamp(1/cd^2-1, K_CEIL):
+```
+  K_eff = (g/2)·(1-sigma^2)/sigma^2 · chi(r)        [sigma = cd·OPENWAM_THR_AGAIN]
+  chi   = Psi_inc(r)^2/Psi_isen(max(r,r*))^2 >= 1,  r = p_dn/p_up (prev step, from
+          (Landa+Beta)/2 and Entropia of the two pipe ends; p ~ (A/AA)^(2g/(g-1)))
+```
+Derivation (verified numerically to machine precision, all sigma x r): the loss functor
+stPerdPresAd encodes EXACTLY p2/p1 = b1 = 1-K·(U1/A1)^2 (its K carries a hidden 2/g vs the
+physical dP = zeta·q convention — so the LEGACY model was also ~1.2x leakier than its
+nominal sigma). With the (g/2) factor and chi, the steady BC passes exactly
+mdot = rho1·a1·A_t·Psi_isen(max(r,r*))/sqrt(1-sigma^2): correct subsonic compressible
+metering, hard sonic cap below r*=0.528 with downstream MAP floating. At the fixed point
+b1 = r, so the functor NEVER approaches its b1<0 singularity at any vacuum — the K_CEIL
+stability clamp is unnecessary when gated (still honoured if explicitly set, as an escape
+hatch; the DEFAULT 2000 is not applied under the gate). chi(r->1)=1 so WOT/light loads are
+untouched. Knobs: `OPENWAM_THR_CHOKE` (gate), `OPENWAM_THR_AGAIN` (effective-area gain on
+the valve's open-area ratio, default 1 = pure geometry — THE calibration lever from ②/③),
+`OPENWAM_THRDIAG` prints `THRCHOKE CC n: sigma Kgeo r chi K`. Legacy path is untouched
+apart from stashing the floored cd (gate off => identical numerics).
+
+### ⑤ RUNS (validation of ④ and the ②/③ predictions)
+[RUN_RESULTS_PLACEHOLDER]
+
+### Where this leaves it (next steps, REORDERED)
+- The production part-load fix is now TWO generator-side calibrations plus the gated BC:
+  (i) sigma(pedal): replace/recalibrate `_calculate_throttle_angle`+`_get_butterfly_cd`
+  so the EFFECTIVE area matches the fill-demand semantics of `kf_rf_soll` (data points:
+  sigma_eff(0.20)~0.06, sigma_eff(0.25)~0.069, WOT~0.96; consider deriving sigma(pedal,rpm)
+  directly from kf_rf_soll + the orifice law instead of a blade-geometry law);
+  (ii) the Stage-48 (A) `EXVANOS_BASE(rpm,load)` fit where that lever bites;
+  (iii) run part-load with `OPENWAM_THR_CHOKE=1` so the metering law is the real
+  compressible one while sigma is swept (use `OPENWAM_THR_AGAIN` for quick area sweeps
+  without regenerating decks).
+- The 6900/20-style cells are calibration-limited (area), NOT solver-limited. Do NOT spend
+  more time on K_CEIL — with the gate ON it is obsolete.
+- (C) cyl-2 collapse cells: unchanged, stay gated (Stage-39 remodel separate).

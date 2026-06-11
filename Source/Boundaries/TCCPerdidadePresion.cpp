@@ -194,6 +194,8 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
            xx3 = 0., ei = 0, ed = 0;
     double flujo, FraccionMasicaAcum = 0.;
     int TuboCalculado = 0;
+    double thr_cd = -1.; // floored butterfly open-area ratio (set in the
+                         // dynamic-valve block; used by the gated choke model)
 
     // Strategy A: Dynamic Cd -> K conversion
     // Physics: K = (1/Cd^2) - 1  (Borda-Carnot pressure loss model)
@@ -237,6 +239,7 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
                              ? atof(getenv("OPENWAM_K_CEIL")) : 2000.0;
       if (cd < cd_floor)
         cd = cd_floor;
+      thr_cd = cd;
       FK = (1.0 / (cd * cd)) - 1.0;
       if (FK > k_ceiling)
         FK = k_ceiling;
@@ -270,6 +273,89 @@ void TCCPerdidadePresion::CalculaCondicionContorno(double Time) {
     FGamma3 = __Gamma::G3(FGamma);
     FGamma2 = __Gamma::G2(FGamma);
     FGamma5 = __Gamma::G5(FGamma);
+
+    /* OPENWAM_THR_CHOKE (default OFF): compressible-orifice (choking) throttle.
+       The legacy quadratic K-loss is an INCOMPRESSIBLE orifice -- its throat
+       velocity sqrt(2*dP/rho) grows without bound as the manifold pulls vacuum,
+       so at small openings it mis-meters with an rpm/flow-dependent error
+       (Stage 48: the stock-matching K_CEIL varied per cell, 250..2000). A real
+       orifice compresses and CHOKES: the mass flux can never exceed the sonic
+       value rho*.a*.A_t at the throat A_t = sigma*A_pipe.
+       Implemented by scaling the loss coefficient each step:
+           K_eff = K_geo(sigma) * chi(r),   r = p_down/p_up (previous step)
+           chi   = Psi_inc(r)^2 / Psi_isen(max(r, r_crit))^2  >= 1
+           Psi_inc^2  = 2(1-r)/g                  (incompressible reference)
+           Psi_isen^2 = 2/(g-1)*(r^(2/g) - r^((g+1)/g))  (isentropic to throat)
+       The functor stPerdPresAd encodes p2/p1 = b1 = 1 - K*(U1/A1)^2, i.e.
+       dP = (2/g)*K*(1/2 rho1 U1^2) -- its K carries a hidden 2/g, so the
+       orifice-exact loss is K_geo = (g/2)*(1-sigma^2)/sigma^2. With that and
+       chi, the steady solution passes EXACTLY the compressible-orifice mass
+       flow  m = rho1*a1*A_t*Psi_isen(rh)/sqrt(1-sigma^2),  and b1 = r at the
+       fixed point, so the functor never approaches its b1<0 singularity at
+       any vacuum. chi -> 1 as r -> 1 (no change at small dP, so WOT and light
+       losses are untouched); for r < r_crit the denominator freezes at the
+       sonic value so the flow caps at rho*.a*.A_t while the downstream
+       pressure floats free (the choke). The lagged r is quasi-steady -- exact
+       in steady metering, smooth over MoC timesteps.
+       OPENWAM_THR_AGAIN scales the effective area (calibration lever for the
+       butterfly open-area curve; default 1 = pure geometry). The K_CEIL
+       default clamp is NOT applied when choked (the b1=r fixed point makes it
+       unnecessary; an explicit OPENWAM_K_CEIL is still honoured on the final
+       K as a diagnostic escape hatch). */
+    if (thr_cd > 0. && getenv("OPENWAM_THR_CHOKE") &&
+        atoi(getenv("OPENWAM_THR_CHOKE")) != 0) {
+      double again = getenv("OPENWAM_THR_AGAIN")
+                         ? atof(getenv("OPENWAM_THR_AGAIN")) : 1.0;
+      double sigma = thr_cd * again;
+      if (sigma > 0.97)
+        sigma = 0.97;
+      if (sigma < 1e-3)
+        sigma = 1e-3;
+      double Kgeo =
+          0.5 * FGamma * (1.0 / (sigma * sigma) - 1.0); // (g/2)*(1-s^2)/s^2
+      // Pressure ratio across the device from the previous-step pipe-end
+      // states: p_i ~ (A_i/AA_i)^(2g/(g-1)), A_i = (Landa+Beta)/2.
+      double chi = 1.0, r = 1.0;
+      double Aa = 0.5 * (FTuboExtremo[0].Landa + FTuboExtremo[0].Beta);
+      double Ab = 0.5 * (FTuboExtremo[1].Landa + FTuboExtremo[1].Beta);
+      if (Aa > 0. && Ab > 0. && FTuboExtremo[0].Entropia > 0. &&
+          FTuboExtremo[1].Entropia > 0.) {
+        double pa = pow(Aa / FTuboExtremo[0].Entropia, 1.0 / FGamma5);
+        double pb = pow(Ab / FTuboExtremo[1].Entropia, 1.0 / FGamma5);
+        if (pa == pa && pb == pb && pa > 0. && pb > 0.) {
+          r = (pb < pa) ? pb / pa : pa / pb; // downstream over upstream
+          if (r < 1.0) {
+            double rcrit =
+                pow(2.0 / (FGamma + 1.0), FGamma / (FGamma - 1.0));
+            double rh = (r > rcrit) ? r : rcrit;
+            double num = 2.0 * (1.0 - r) / FGamma;
+            double den = (2.0 / (FGamma - 1.0)) *
+                         (pow(rh, 2.0 / FGamma) -
+                          pow(rh, (FGamma + 1.0) / FGamma));
+            if (den > 1e-12)
+              chi = num / den;
+            if (chi < 1.0)
+              chi = 1.0;
+          }
+        }
+      }
+      FK = Kgeo * chi;
+      if (getenv("OPENWAM_K_CEIL")) { // explicit ceiling: diagnostic escape
+        double kc = atof(getenv("OPENWAM_K_CEIL"));
+        if (FK > kc)
+          FK = kc;
+      }
+      if (getenv("OPENWAM_THRDIAG")) {
+        static int chokeDiag = 0;
+        if (chokeDiag < 12 || (chokeDiag % 200000) == 0) {
+          printf("THRCHOKE CC %d: sigma=%.4f Kgeo=%.1f r=%.3f chi=%.3f "
+                 "K=%.1f\n",
+                 FNumeroCC, sigma, Kgeo, r, chi, FK);
+          fflush(stdout);
+        }
+        ++chokeDiag;
+      }
+    }
 
     flujo = (*FCC[1] / FTuboExtremo[1].Entropia) /
             (*FCC[0] / FTuboExtremo[0].Entropia);

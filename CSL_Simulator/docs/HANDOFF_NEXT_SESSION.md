@@ -1,6 +1,21 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–48)
+Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–49)
+
+## ⚡ Stage 49 happened — read it before the Stage-48 plan below
+The Stage-48 (B) item is DONE and its premise INVERTED (notes Stage 49):
+- `OPENWAM_THR_CHOKE=1` = exact compressible/CHOKED-orifice throttle BC (default OFF =
+  byte-identical legacy). Verified to machine precision against the analytic orifice;
+  steady flow = `rho1·a1·A_t·Psi(max(r,r*))/sqrt(1-sigma^2)`, b1=r fixed point (no
+  singularity, K_CEIL obsolete under the gate). `OPENWAM_THR_AGAIN` = effective-area gain.
+- A choked orifice flows LESS than the legacy quadratic loss at equal area (chi>=1) — the
+  low-load×high-rpm under-fill is an effective-AREA calibration gap (~3.2x the floored cd
+  at pedal 0.20-0.25), NOT missing choke physics. `kf_rf_soll` is PEDAL->target-fill:
+  stock(5300, pedal25)=89.1%, so the old "0.25 pedal -> 63%" anchor was never a stock match.
+- NEXT: recalibrate sigma(pedal) in the generator (fill-demand semantics; data points
+  sigma_eff(0.20)~0.0635, (0.25)~0.069, WOT~0.96; single AGAIN~3.2 fixes the <=0.25 band
+  but over-fills the 0.3-0.45 band ~+5-10% -> curve, not gain), THEN the Stage-48 (A)
+  base(rpm,load) fit on top, with `OPENWAM_THR_CHOKE=1` as the production metering law.
 
 ## What this is
 `CSL_Simulator/` wraps OpenWAM to simulate a BMW S54 (CSL). GOAL: use it as a **VANOS /
