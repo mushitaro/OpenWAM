@@ -1720,7 +1720,68 @@ class WAMGenerator:
         gamma = float(os.environ.get("OPENWAM_THR_GAMMA", "1.4"))
 
         tp = idle_offset + (max_angle - idle_offset) * (ro ** gamma)
+
+        # Calibrated sigma(pedal) override (Stage 49/50). The geometric 1-cos law
+        # throttles the low/mid pedals too hard (sim's per-rpm load profile is too
+        # steep at clean rpms). When a calibrated pedal->sigma breakpoint table is
+        # configured, override the OPERATING angle with the one whose (geometric,
+        # monotonic) Cd equals the target sigma at this pedal. Only the operating
+        # angle moves -- the emitted Cd table stays geometric -- so every consumer
+        # (initial angle + controller) stays consistent and WOT (sigma 0.96 -> 90
+        # deg) is preserved. No table configured -> geometric path, byte-identical
+        # to legacy. Pairs with the compressible/choked BC (OPENWAM_THR_CHOKE).
+        sigma_t = self._calibrated_sigma(ro)
+        if sigma_t is not None:
+            tp = self._invert_cd_to_angle(sigma_t)
         return tp
+
+    def _calibrated_sigma(self, ro: float):
+        """Target effective open-area ratio sigma at pedal ro (0..1), read from a
+        breakpoint table; None when no calibrated curve is configured (-> the
+        geometric default path, legacy behaviour preserved byte-for-byte).
+
+        Source: OPENWAM_THR_SIGMA_BP = "p0:s0,p1:s1,..." (pedal->sigma, ascending),
+        e.g. "0.0:0.001,0.2:0.11,0.45:0.30,0.65:0.55,1.0:0.96". Linear interpolation
+        between breakpoints, clamped to the table ends. Anchor pedal 1.0 -> 0.96 to
+        keep the validated WOT termination unchanged.
+        """
+        import os
+        spec = os.environ.get("OPENWAM_THR_SIGMA_BP")
+        if not spec:
+            return None
+        try:
+            pts = sorted((float(p), float(s))
+                         for p, s in (tok.split(":") for tok in spec.split(",")))
+        except Exception:
+            return None
+        if not pts:
+            return None
+        ro = max(0.0, min(1.0, ro))
+        if ro <= pts[0][0]:
+            return pts[0][1]
+        if ro >= pts[-1][0]:
+            return pts[-1][1]
+        for (p0, s0), (p1, s1) in zip(pts, pts[1:]):
+            if p0 <= ro <= p1:
+                return s0 if p1 == p0 else s0 + (s1 - s0) * (ro - p0) / (p1 - p0)
+        return pts[-1][1]
+
+    def _invert_cd_to_angle(self, sigma_target: float) -> float:
+        """Blade angle (deg, 0..90) whose geometric _get_butterfly_cd == sigma_target.
+        _get_butterfly_cd is monotonic in angle, so bisect. Used only when a
+        calibrated sigma(pedal) curve is active."""
+        lo, hi = 0.0, 90.0
+        if sigma_target <= self._get_butterfly_cd(lo):
+            return lo
+        if sigma_target >= self._get_butterfly_cd(hi):
+            return hi
+        for _ in range(40):
+            mid = 0.5 * (lo + hi)
+            if self._get_butterfly_cd(mid) < sigma_target:
+                lo = mid
+            else:
+                hi = mid
+        return 0.5 * (lo + hi)
 
     def _get_butterfly_cd(self, angle_deg: float) -> float:
         """

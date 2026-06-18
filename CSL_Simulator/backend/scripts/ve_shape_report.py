@@ -91,3 +91,25 @@ if trusted:
     rall = pearson([r["cmp"] for r in trusted], [r["stock"] for r in trusted])
     print(f"\n# OVERALL: r={rall:.3f} over {len(trusted)} cells; cmp/stock median {statistics.median(all_ratio):.2f}"
           f" spread {min(all_ratio):.2f}-{max(all_ratio):.2f}; {len(gated)} gated/unconverged")
+
+# ---- per-rpm-COLUMN load-profile view (the sigma(pedal) calibration metric) ----
+# The production correction (calibration_service.py) divides out the per-rpm WOT level,
+# so what must match is the NORMALISED load profile p(load)=VE(load)/VE(WOT) at each rpm.
+# This is the metric Step 1 calibrates against. dP = |p_sim - p_stock| per cell; a clean
+# (acoustically-neutral) rpm with |dP|<=~0.05 across loads means the throttle is calibrated.
+print("\n# ===== per-rpm load-profile (normalised to that rpm's WOT) =====")
+print("# rpm: load  p_stock  p_sim   dP        (WOT=100 used as the per-rpm anchor)")
+rpms = sorted({r["rpm"] for r in trusted})
+for rp in rpms:
+    col = {r["load"]: r for r in trusted if r["rpm"] == rp}
+    if 100 not in col:
+        print(f"  {rp}: (no converged WOT anchor; skip)"); continue
+    sw, kw = col[100]["cmp"], col[100]["stock"]
+    if sw <= 0 or kw <= 0: continue
+    parts, maxdp = [], 0.0
+    for ld in sorted(col, reverse=True):
+        ps, pk = col[ld]["cmp"]/sw, col[ld]["stock"]/kw
+        dp = ps - pk; maxdp = max(maxdp, abs(dp))
+        parts.append(f"{ld:>3}: {pk:4.2f} {ps:4.2f} {dp:+5.2f}")
+    flag = " <= calibrated" if maxdp <= 0.05 else (" (acoustic?)" if maxdp > 0.12 else "")
+    print(f"  {rp:>4}: " + " | ".join(parts) + f"   max|dP|={maxdp:.2f}{flag}")

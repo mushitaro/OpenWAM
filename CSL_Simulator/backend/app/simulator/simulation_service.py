@@ -122,12 +122,19 @@ class SimulationService:
                 # Execute
                 exe_path = os.path.join(self.simulator_dir, "backend", "OpenWAM.exe")
                 if not os.path.exists(exe_path): exe_path = r"C:\Users\kazuh\OpenWAM\CSL_Simulator\backend\OpenWAM.exe"
-                
+
+                # Default the compressible/choked-orifice throttle BC on the CSL
+                # production path (Stage 49/50). The C++ default stays OFF (the BC is
+                # shared by all decks and reads getenv at runtime); we opt-in here so
+                # the VE map uses the validated compressible metering without changing
+                # global solver behaviour. Inherit the rest of the environment.
+                sim_env = {**os.environ, "OPENWAM_THR_CHOKE": "1"}
                 proc = await asyncio.create_subprocess_exec(
                     exe_path, wam_filename,
                     cwd=self.simulator_dir,
                     stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.STDOUT
+                    stderr=asyncio.subprocess.STDOUT,
+                    env=sim_env
                 )
                 
                 stdout, _ = await proc.communicate()
