@@ -2801,3 +2801,59 @@ over-resonance (eq-tube Helmholtz). OVERALL r=0.59, cmp/stock median 1.00, sprea
 - `simulation_service.py`: CSL path passes `OPENWAM_THR_CHOKE=1` to the sim subprocess.
 - `ve_shape_report.py`: per-rpm-column load-profile metric. Scripts: `shape_map_campaign.sh`,
   `shape_patch_underconverged.py`, `merge_shape_csv.py`, `diag_midload_throttle.sh`.
+
+## Stage 51 — the Stage-50 "mid-load deficit" was a CONVERGENCE/init-MAP artifact; mid-load actually tracks; the real target is the WOT-row VANOS over-fill
+
+User directed "diagnose the VANOS over-response root cause first." Setting that up overturned
+the Stage-50 reading.
+
+### ① The init-MAP / convergence confound (root of the false "breathing limit")
+`wam_generator.py` (~569-576) initialises the intake manifold pressure from the GEOMETRIC
+pedal cd (`intake_map_bar = 1.013·min(1,cd_geom^0.35)`; load-65 → ~0.65 bar). But the choke
+BC opens the throttle to `sigma = cd_geom·OPENWAM_THR_AGAIN` (AGAIN=3.2 → sigma 0.91 ≈ open).
+So an AGAIN-opened part-load cell STARTS the manifold at 0.65 bar while its steady state wants
+~1.0 — and crawls up for >30 cycles. The Stage-50 "3900/65 wide-open = 0.79 of WOT" was that
+crawl caught mid-transient (still +1.0/cyc at cyc27).
+
+### ② Converged cells tell the opposite story: mid-load TRACKS
+Slope scan of the 32-cell `/tmp` logs (|dVE/dcyc| over last 5 cyc): the only CLIMBING cells
+were 3900/45, 3900/65 and the low-rpm 2100/2700 columns (cyc<28). The fully-converged 6900
+column (all cyc29, plateau) normalised to its WOT:
+```
+ 6900  load: p_sim  p_stock
+        65:  1.01    0.95     (mid-load slightly OVER, not under)
+        45:  0.90    0.87
+        20:  0.51    0.66     (the real residual is at LOW load)
+```
+5300 and 7300 converged columns agree: mid-load (45/65) tracks; the residual is load-20
+(slightly under) and the WOT over-fill. So there is NO mid-load breathing deficit.
+
+### ③ VANOS is ~constant from load 45→100 — so mid-load is not a VANOS-variation effect
+Map values (bias = 130-evan / 150-avan):
+```
+        intake bias (load 20/45/65/100)     exhaust bias
+ 3900    35 / 52 / 60 / 60                   57 / 63 / 63 / 63
+ 5300    35 / 42 / 42 / 42                   52 / 45 / 45 / 45
+ 6900   ~19 (varies little 45-100)          ~39 (varies little 45-100)
+```
+The cam phase only moves at load-20 and below. Mid-load runs WOT-like cams. So the WOT-row
+behaviour IS the part-load (≥45) behaviour, and the diagnosis target is the WOT row.
+
+### ④ The real target: WOT-row over-fill rising with rpm = the "VANOS over-response"
+Converged WOT row: 3900 126, 4600 139, 5300 127, 6300 92, 6900 128, 7300 129 (stock
+116/111/110/109/106/107) → 1.09-1.28x, rising with rpm, with a 6300 anti-resonance notch.
+This is the Stage-44/47 over-response (sim VE responds too strongly / mis-phased to cam
+advance). Stage 47 coordinated the exhaust cam and fixed the gross WOT over-ram; the residual
+rpm-rising over-fill is what remains to diagnose (Step 2: dVE/d-bias at WOT, converged).
+
+### ⑤ FIX landed: init MAP from the EFFECTIVE sigma (speeds convergence, removes the artifact)
+`wam_generator.py`: when `OPENWAM_THR_CHOKE` active, `intake_map_bar` is computed from
+`eff_cd0 = min(cd_geom·AGAIN, ceil)` (incl. the calibrated sigma curve), not the geometric
+cd. Verified: load-65 init MAP 0.65→0.98 at AGAIN=3.2; choke-off path byte-identical. With
+the fix, 3900/65 wide-open starts ~104 (cyc1 inrush 135 → settles) and climbs to ~122+ by
+cyc21 heading to WOT — vs the old crawl from 65. The artifact is confirmed and removed.
+
+### Method rule going forward
+Judge convergence by SLOPE (|dVE/dcyc|<~0.3 over last 5 cyc), never by cycle count. Do not
+draw physics conclusions from climbing cells (the Stage-50 lesson). Tools: `ve_shape_report.py`
+(slope), `vanos_sensitivity_sweep.py` (Step 2 WOT bias sweeps), `shape_patch_underconverged.py`.
