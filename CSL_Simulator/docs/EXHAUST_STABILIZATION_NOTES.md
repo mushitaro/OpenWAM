@@ -2726,3 +2726,78 @@ the sigma(pedal) curve goes into the generator.
 - The 6900/20-style cells are calibration-limited (area), NOT solver-limited. Do NOT spend
   more time on K_CEIL — with the gate ON it is obsolete.
 - (C) cyl-2 collapse cells: unchanged, stay gated (Stage-39 remodel separate).
+
+## Stage 50 — full 32-cell shape map under the choke BC: LOAD axis follows, but mid-load is VANOS/breathing-limited (NOT throttle) — sigma(pedal) reach is low-pedal only
+
+Picked up the user's directive to validate SHAPE-following broadly (not just the 4 BC
+points). Ran a representative 32-cell map (rpm 2100/2700/3900/4600/5300/6300/6900/7300 ×
+load 20/45/65/100) at `OPENWAM_THR_CHOKE=1 OPENWAM_THR_AGAIN=3.2 base150`, 30 cyc, serial
+OMP=4, resumable across reboots (`backend/scripts/shape_map_campaign.sh`,
+`ve_shape_map_choke_a32.csv`; report `ve_shape_report.py`, now with a per-rpm-COLUMN
+load-profile view; plot `docs/analysis/`).
+
+### ① The choke BC fixed the LOAD axis at low pedal (the throttle's job) — confirmed
+LOAD-20 row tracks stock across ALL rpm: r=0.89, max shape err 0.07, scale 0.94, and the
+single-cell V2/V3 values reproduce (5300/20=78, 6900/20=66, 7300/20=65 ≈ 0.93-0.97x). The
+rpm-dependence of the needed area (K_CEIL era: 250 vs 2000) is GONE — one global AGAIN puts
+every pedal-0.20 cell at ~0.93-0.97x stock. The compressible metering is the right model.
+
+### ② But the production correction needs the per-rpm LOAD PROFILE, and mid-load is wrong
+The coded correction (`calibration_service.py:486-495`) applies the WOT-row sim/stock ratio
+across all loads and FABRICATES part-load by copying stock's load shape — so the foundation
+needs the sim's per-rpm profile p(load)=VE(load)/VE(WOT) to match stock's. The per-column
+view (clean rpms):
+```
+ rpm   load: p_stock p_sim  dP
+ 3900   65:   0.97   0.69  -0.28     45: 0.91 0.68 -0.23   (sim part-load too STEEP)
+ 4600   65:   0.98   0.70  -0.28     45: 0.94 0.67 -0.26
+ 5300   65:   0.97   1.00  +0.02     45: 0.93 1.03 +0.11   (over = resonance)
+ 6300   45:   0.88   1.06  +0.18                            (over = anti-resonance dip)
+ pedal-20 sits ~-0.15 at most rpm (the modest residual the throttle still owns)
+```
+
+### ③ DECISIVE TEST: at mid-load the throttle is NOT the lever — breathing/VANOS is
+At AGAIN=3.2 the pedal-0.65 sigma is already ~0.91 (nearly wide open), yet 3900/65 VE is
+0.69 of WOT. Swept sigma at the fixed 3900/65 cell (`diag_midload_throttle.sh`):
+```
+ AGAIN  sigma@p0.65   VE    p=VE/WOT(126)   note
+ 1.0    0.283         88.0   0.70           valid=0 (cyl-2 collapse present)
+ 2.0    0.566         80.6   0.64           cyc23 (under-converged)
+ 3.2    0.91          86.8   0.69           campaign value
+ 6.0    0.96 (open)   99.7   0.79           valid=1, cyc27 (cleanest, no collapse)
+ stock                112    0.97
+```
+Even with the throttle WIDE OPEN (sigma 0.96), 3900/65 reaches only 0.79 of WOT vs stock's
+0.97 — removing the throttle entirely does NOT close the mid-load profile gap. The dominant
+residual (~0.18 normalised) is breathing/VANOS, i.e. the per-cell `kf_evan1/kf_avan1` cam
+schedule + the over-ram (Stage 44-47 "VANOS over-response"), NOT the throttle. (3900/65 is
+noisy because the cyl-2 collapse flips in/out across the sweep, but the wide-open ceiling at
+0.79 is the clean, decisive number.)
+
+### ④ The rpm axis: WOT over-fills with rpm; 5300 column over-fills; 6300 dips (acoustic)
+Converged WOT row (re-recorded — the Stage-47 "116" was cyc-17 truncated): 3900 126, 4600
+139, 5300 127, 6300 92, 6900 128, 7300 129 (stock 116/111/110/109/106/107). Over-fills
+rise with rpm (the Stage-48② shape error) with a 6300 anti-resonance notch and a 5300
+over-resonance (eq-tube Helmholtz). OVERALL r=0.59, cmp/stock median 1.00, spread 0.48-1.28.
+
+### What this means for the plan (refinement, NOT reversal)
+- sigma(pedal) calibration (Stage-50 Step 2 infra: `OPENWAM_THR_SIGMA_BP`, default
+  byte-identical) is still worth baking — it makes the validated low-pedal metering the
+  permanent default and owns the ~-0.15 pedal-20 residual. But its REACH is the low-pedal
+  region; it cannot complete the mid-load profile.
+- Completing the load-axis foundation across ALL loads REQUIRES pulling the deferred
+  VANOS/`base(rpm,load)` + acoustic lever FORWARD: the mid/high-load profile is set by the
+  per-cell cam schedule and the runner/eq-tube resonance, exactly the Stage 44-48 levers
+  (`OPENWAM_VANOS_SCALE`, `EXVANOS_BASE(rpm,load)` replacing the 150 constant at
+  `simulation_service.py:107-109`, `RUNNER_SC`, `CAM_EXP`, `EQ_FRIC/_MISTUNE`).
+- Net: throttle work (this session) = low-pedal axis DONE. Whole-map shape-following =
+  next, and it is a VANOS-sensitivity + acoustic-tuning problem, re-anchored to the
+  converged WOT row recorded here.
+
+### Code landed this session (gated, default-safe)
+- `TCCPerdidadePresion.cpp`: compressible/choked-orifice BC (`OPENWAM_THR_CHOKE`, default OFF).
+- `wam_generator.py`: `OPENWAM_THR_SIGMA_BP` pedal→sigma override (re-maps operating angle
+  only; default geometric = byte-identical; WOT→90° preserved).
+- `simulation_service.py`: CSL path passes `OPENWAM_THR_CHOKE=1` to the sim subprocess.
+- `ve_shape_report.py`: per-rpm-column load-profile metric. Scripts: `shape_map_campaign.sh`,
+  `shape_patch_underconverged.py`, `merge_shape_csv.py`, `diag_midload_throttle.sh`.
