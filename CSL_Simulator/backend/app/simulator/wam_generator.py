@@ -570,10 +570,24 @@ class WAMGenerator:
         thr_cd0 = self._get_butterfly_cd(thr_angle0)
         # MAP/Patm ~ Cd^p maps Cd(0.02..0.96) -> ~(0.3 .. 1.0) atm. p tunable.
         import os as _os
+        # Effective opening seen by the compressible/choked BC: the global
+        # OPENWAM_THR_AGAIN trim opens the throttle BEYOND its geometric cd, but
+        # this init MAP was computed from the geometric cd, so AGAIN-opened
+        # part-load cells started the manifold too LOW and then crawled up for
+        # >30 cycles (Stage 51: the apparent mid-load deficit was this
+        # under-convergence, not breathing). When the choke BC is active, base
+        # the init MAP on the EFFECTIVE sigma so the manifold starts near its
+        # steady pressure and converges in-window. Legacy (choke off) path
+        # uses the geometric cd unchanged -> byte-identical.
+        eff_cd0 = thr_cd0
+        if _os.environ.get("OPENWAM_THR_CHOKE") and int(_os.environ.get("OPENWAM_THR_CHOKE") or "0") != 0:
+            _again = float(_os.environ.get("OPENWAM_THR_AGAIN", "1.0"))
+            _sig_ceil = thr_cd0 if thr_cd0 > 0.96 else 0.96
+            eff_cd0 = min(thr_cd0 * _again, _sig_ceil)
         _map_exp = float(_os.environ.get("OPENWAM_MAP_EXP", "0.35"))
-        map_frac = max(0.30, min(1.0, thr_cd0 ** _map_exp))
+        map_frac = max(0.30, min(1.0, eff_cd0 ** _map_exp))
         intake_map_bar = 1.01325 * map_frac
-        print(f"DEBUG: Throttle angle={thr_angle0:.1f} Cd={thr_cd0:.3f} -> intake MAP={intake_map_bar:.3f} bar")
+        print(f"DEBUG: Throttle angle={thr_angle0:.1f} Cd={thr_cd0:.3f} effCd={eff_cd0:.3f} -> intake MAP={intake_map_bar:.3f} bar")
 
         # 4. Equalization Tube (等圧管 / Gleichdruckrohr)
         # S54 physical component: φ20mm × 450mm tube connecting all runners.
