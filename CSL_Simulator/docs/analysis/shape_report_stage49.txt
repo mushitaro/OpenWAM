@@ -1,0 +1,63 @@
+# shape report: /tmp/shape_map_choke.csv  (25 trusted / 32 cells; gate: valid & cyc>=26)
+# cmp = healthy-cylinder VE where a cyl collapse is present (ncol>0), else the all-cyl VE
+
+## load 100
+  rpm    stock    cmp   cmp/stock  shape_sim shape_stock  ncol
+  3900   115.7   126.2    1.09      1.02      1.05     0
+  4600   111.3   139.0    1.25      1.13      1.01     0
+  5300   110.1   126.8    1.15      1.03      1.00     0
+  6300   108.7    92.3    0.85      0.75      0.99     0
+  6900   106.0   128.0    1.21      1.04      0.97     0
+  7300   107.1   128.8    1.20      1.04      0.98     0
+  -> row r=0.155  max shape err=0.24  scale=1.12
+  2100    93.2    80.2   [cyc21<26] hve=79.9 ncol=0
+  2700   103.7    92.2   [cyc24<26] hve=91.9 ncol=0
+
+## load 65
+  rpm    stock    cmp   cmp/stock  shape_sim shape_stock  ncol
+  3900   111.8   512.6    4.59      2.83      1.06     2
+  4600   108.9    97.1    0.89      0.54      1.03     0
+  5300   107.3   126.6    1.18      0.70      1.01     0
+  6300   104.4    94.0    0.90      0.52      0.99     0
+  6900   101.2   129.3    1.28      0.71      0.96     0
+  7300   100.9   127.7    1.27      0.70      0.95     0
+  -> row r=0.638  max shape err=1.77  scale=1.71
+  2100    89.6    86.7   [cyc22<26] hve=86.5 ncol=0
+  2700   101.7    65.3   [cyc20<26] hve=64.9 ncol=0
+
+## load 45
+  rpm    stock    cmp   cmp/stock  shape_sim shape_stock  ncol
+  3900   105.3    85.9    0.82      0.82      1.07     0
+  4600   104.1    93.8    0.90      0.89      1.06     0
+  5300   101.9   130.8    1.28      1.24      1.04     0
+  6300    95.5    98.1    1.03      0.93      0.97     0
+  6900    92.1   115.2    1.25      1.09      0.94     0
+  7300    90.4   107.8    1.19      1.02      0.92     0
+  -> row r=-0.331  max shape err=0.26  scale=1.07
+  2100    86.5    71.9   [GATED(spread)] hve=94.0 ncol=1
+  2700    97.2    96.1   [cyc24<26] hve=95.8 ncol=0
+
+## load 20
+  rpm    stock    cmp   cmp/stock  shape_sim shape_stock  ncol
+  2100    85.7    79.5    0.93      1.05      1.07     0
+  2700    92.5    82.1    0.89      1.09      1.16     0
+  4600    84.2    84.1    1.00      1.11      1.05     0
+  5300    83.9    78.2    0.93      1.04      1.05     0
+  6300    75.4    73.7    0.98      0.98      0.94     0
+  6900    70.3    65.8    0.94      0.87      0.88     0
+  7300    67.7    65.4    0.97      0.87      0.85     0
+  -> row r=0.929  max shape err=0.07  scale=0.94
+  3900    86.5    62.0   [GATED(spread)] hve=74.3 ncol=1
+
+# OVERALL: r=0.409 over 25 cells; cmp/stock median 1.03 spread 0.82-4.59; 7 gated/unconverged
+
+# ===== per-rpm load-profile (normalised to that rpm's WOT) =====
+# rpm: load  p_stock  p_sim   dP        (WOT=100 used as the per-rpm anchor)
+  2100: (no converged WOT anchor; skip)
+  2700: (no converged WOT anchor; skip)
+  3900: 100: 1.00 1.00 +0.00 |  65: 0.97 4.06 +3.10 |  45: 0.91 0.68 -0.23   max|dP|=3.10 (acoustic?)
+  4600: 100: 1.00 1.00 +0.00 |  65: 0.98 0.70 -0.28 |  45: 0.94 0.67 -0.26 |  20: 0.76 0.61 -0.15   max|dP|=0.28 (acoustic?)
+  5300: 100: 1.00 1.00 +0.00 |  65: 0.97 1.00 +0.02 |  45: 0.93 1.03 +0.11 |  20: 0.76 0.62 -0.15   max|dP|=0.15 (acoustic?)
+  6300: 100: 1.00 1.00 +0.00 |  65: 0.96 1.02 +0.06 |  45: 0.88 1.06 +0.18 |  20: 0.69 0.80 +0.10   max|dP|=0.18 (acoustic?)
+  6900: 100: 1.00 1.00 +0.00 |  65: 0.95 1.01 +0.06 |  45: 0.87 0.90 +0.03 |  20: 0.66 0.51 -0.15   max|dP|=0.15 (acoustic?)
+  7300: 100: 1.00 1.00 +0.00 |  65: 0.94 0.99 +0.05 |  45: 0.84 0.84 -0.01 |  20: 0.63 0.51 -0.12   max|dP|=0.12 (acoustic?)
