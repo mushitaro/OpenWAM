@@ -2895,3 +2895,51 @@ pulse, the (too-resonant) intake delivers an exaggerated charge. This points to 
 runner acoustic tuning (Q too high / length mis-tuned), testable with `OPENWAM_RUNNER_SC`
 (Step 3) -- detuning should flatten dVE/d-advance toward the physical ~10-20 pp. The 5300
 column (in progress) will show if it is worse at the resonance rpm.
+
+## Stage 53 — ROOT CAUSE CONFIRMED: the VANOS over-response is the intake-runner RAM RESONANCE (runner length controls dVE/d-advance, even its sign)
+
+Step-3 test (`ram_overresponse_test.py`, `ram_overresponse_3900.csv`): 3900 WOT, exhaust bias
+held at the stock-coordinated 63, intake bias {40,60}, runner length OPENWAM_RUNNER_SC
+{0.8,1.0,1.2}; all slope-converged (|slope|<=0.31, cyc38-39), choke + init-MAP fix on.
+```
+ RUNNER_SC   VE(b_in40)  VE(b_in60)   over-response d = VE60-VE40
+ 0.8 (short)   98.3        90.0          -8.3   (peak sits on bias40)
+ 1.0 (stock)   87.6       128.3         +40.7   (bias40 in a TROUGH, bias60 on the PEAK)
+ 1.2 (long)   128.1       132.9          +4.8   (both near the peak -> ~flat, physical)
+```
+The VE surface over (runner length x cam advance) is a sharp resonance RIDGE: high VE
+(~128-133) when runner length + IVO put the intake ram pulse in phase at IVC, low VE
+(~88-98) off-resonance. At the STOCK runner length the operating cam range straddles the
+ridge edge -- bias40 in the trough (88), bias60 on the peak (128) -- so dVE/d-advance is
+huge (+41 pp), i.e. THE OVER-RESPONSE. A 20% runner-length change flips its sign (-8) or
+flattens it to physical (+5). 
+
+### Conclusion (answers the user's "diagnose the VANOS over-response root cause")
+The over-response is NOT a VANOS-model error and NOT a throttle/convergence artifact -- it is
+the intake-runner RAM RESONANCE being too sharply peaked across the operating cam range. The
+runner geometry in the deck is an explicit PLACEHOLDER (wam_generator.py ~624-633: "Geometry
+is a placeholder"; 150 mm bellmouth + 15/25 mm runners + 105 mm port, scaled by RUNNER_SC),
+so its ram-resonance rpm is mis-tuned vs the real S54. That mis-tuned, over-sharp resonance
+is what makes (a) the sim over-respond to cam advance (Stage 44/52) and (b) the WOT row
+over-fill non-monotonically with rpm (5300 peak / 6300 dip, Stage 50).
+
+### Implication for the calibration path (next phase)
+1. The FOUNDATION fix is to calibrate the intake runner GEOMETRY to the real S54 (actual
+   per-cylinder runner lengths + plenum), so the ram resonance sits at the right rpm with a
+   realistic (broader) Q. This is the dominant lever for BOTH the VANOS-response fidelity and
+   the rpm VE-shape -- it must precede any base(rpm,load) fit (fitting base on a mis-tuned
+   ram chases false optima, the Stage-44 warning).
+2. RUNNER_SC is the coarse lever already available; a per-segment runner-length model (and
+   possibly a small Q/damping knob) is the production calibration. Validate by re-running the
+   WOT VANOS sweep (Step 2) and checking dVE/d-advance drops to ~10-20 pp across rpm.
+3. Only then: base(rpm,load) for residual rpm offset + the sigma(pedal) low-pedal lock-in
+   (Stage 49/50 infra already in place), and the correction (calibration_service) becomes
+   physically valid.
+
+### Status of code landed this diagnostic arc (all gated / default-safe)
+- Choke BC (OPENWAM_THR_CHOKE), sigma(pedal) override (OPENWAM_THR_SIGMA_BP), init-MAP from
+  effective sigma -- all default byte-identical to legacy when choke is off.
+- Diagnostic tools: vanos_sensitivity_sweep.py, ram_overresponse_test.py,
+  ve_shape_report.py (slope+profile), shape_patch_underconverged.py, merge_shape_csv.py.
+- The VEDIAG fresh%/Mair fields are BROKEN (Stage 52) -- use Mtrap; verify charge is fresh
+  via the cool trapped temperature.
