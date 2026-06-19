@@ -2857,3 +2857,41 @@ cyc21 heading to WOT — vs the old crawl from 65. The artifact is confirmed and
 Judge convergence by SLOPE (|dVE/dcyc|<~0.3 over last 5 cyc), never by cycle count. Do not
 draw physics conclusions from climbing cells (the Stage-50 lesson). Tools: `ve_shape_report.py`
 (slope), `vanos_sensitivity_sweep.py` (Step 2 WOT bias sweeps), `shape_patch_underconverged.py`.
+
+## Stage 52 — VANOS over-response CONFIRMED at WOT (converged); and a metric caveat (the VEDIAG fresh%/Mair fields are broken, Mtrap is valid)
+
+### ⚠ Metric caveat (resolved): use Mtrap, the fresh%/Mair VEDIAG fields are unreliable
+While setting up the WOT VANOS sweep the VEDIAG `fresh%`/`Mair` fields looked alarming
+(3900/100: Mtrap-VE 126 but fresh 2%, Mair-VE 3%; 4600/45: fresh -2%; a Step-2 cell: -64%).
+Taken at face value that would mean the cylinders trap ~80-98% residual and the project's
+Mtrap-VE is meaningless. It is NOT: the trapped TEMPERATURE refutes it. WOT cells trap at
+362-406 K; a charge that was 80-98% hot residual would be 600-900 K. A 375 K charge is
+predominantly FRESH air. The `fresh%`/`Mair` fields (FComposicionCicloCerrado[2] =
+FFraccionMasicaEspecie[0]/atm_air, TCilindro.cpp:2245) are numerically broken for this deck
+(negative fractions are impossible), so IGNORE them. VE = Mtrap/M_REF remains the valid
+metric (corroborated by the cool trapped temperature). [Flagged so a future session doesn't
+re-trip on this and "fix" a non-problem.]
+
+### VANOS over-response is REAL and steep at WOT (3900, converged, choke on, init-MAP fixed)
+Intake-bias sweep at 3900 WOT, exhaust held at the stock-coordinated bias 63
+(`vanos_sensitivity_sweep.py`, slope-converged):
+```
+ b_in  IVO   overlap(2+bi-bex)  VE(Mtrap)  Ttrap  slope
+ 0     332    -61               72.4       441K   -0.11   (very late intake, warm = poor fill)
+ 20    312    -41               82.6       ~      +0.41
+ 40    292    -21               88.2       ~      +0.10
+ 60    272     -1              126.0       378K   ~conv   (cool, strong fill)
+```
+dVE/d(intake advance): 0->20 +10.2, 20->40 +5.6, 40->60 **+37.8** pp. The response is
+concave-UP -- a sharp, nonlinear jump in the last 20deg of advance (1.9 pp/deg), with the
+charge cooling 441->378 K. Real engines see ~10-20 pp TOTAL from cam phasing; here it is
++54 pp over 60deg with +38 in the last 20. This reproduces Stage-44's "+53 pp for +42deg"
+under PROPER convergence -- so the over-response is physics in the model, not a transient.
+
+### Working hypothesis for the root cause
+The jump concentrates at high advance (earlier IVO) and coincides with the charge cooling
+(better fill), i.e. an OVER-STRONG intake ram: once IVO is early enough to catch the ram
+pulse, the (too-resonant) intake delivers an exaggerated charge. This points to the intake
+runner acoustic tuning (Q too high / length mis-tuned), testable with `OPENWAM_RUNNER_SC`
+(Step 3) -- detuning should flatten dVE/d-advance toward the physical ~10-20 pp. The 5300
+column (in progress) will show if it is worse at the resonance rpm.
