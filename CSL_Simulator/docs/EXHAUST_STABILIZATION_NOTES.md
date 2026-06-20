@@ -2943,3 +2943,53 @@ over-fill non-monotonically with rpm (5300 peak / 6300 dip, Stage 50).
   ve_shape_report.py (slope+profile), shape_patch_underconverged.py, merge_shape_csv.py.
 - The VEDIAG fresh%/Mair fields are BROKEN (Stage 52) -- use Mtrap; verify charge is fresh
   via the cool trapped temperature.
+
+## Stage 54 — the ram resonance is structurally TOO SHARP: scalar knobs (length, damping) shift/modulate it but cannot BROADEN it to stock's curve -> intake geometry remodel needed
+
+Pursued the Stage-53 fix (retune the intake ram). Two scalar levers tested at 3900 WOT
+(choke + init-MAP on, slope-converged unless noted):
+
+### Length (OPENWAM_RUNNER_SC) — shifts the peak SHARPLY (runner_tune_wot_partial.csv)
+3900 WOT VE: SC=1.0 -> 126, SC=1.2 -> ~132, SC=1.3 -> ~97 (climbing). A 0.1 length step swings
+VE 132->97: the resonance is so sharp that length moves the peak past 3900 almost
+discontinuously. (2700/3900 at SC=1.3 were also slow to converge -- longer runner = longer
+fill transient.) Length relocates the sharp peak; it does not broaden it.
+
+### Damping (OPENWAM_RUNNER_FRIC_MULT) — modulates, with a flow-choke penalty; d OSCILLATES
+Over-response d = VE(bias60) - VE(bias40), 3900 WOT (fric_overresponse_3900.csv):
+```
+ fric_mult   VE(b40)   VE(b60)    d        note
+ 1.0          88.7      128.3    +39.6     baseline over-response
+ 2.0         120.3       90.7    -29.6     trough filled at b40, peak moved off b60
+ 4.0          77.2*     128.5    +51.3     *b40 under-converged (slope .88); high fric chokes flow
+```
+d does NOT trend to zero -- it OSCILLATES (+40 / -30 / +51) because friction adds phase lag
+that shifts the sharp resonance (like length) rather than broadening it, and at high values it
+adds real pressure LOSS that chokes fill (b40 77 at fric 4). d DOES cross zero near fric~1.4,
+so a scalar can flatten ONE rpm's over-response -- but not all rpm at once (the resonance moves
+with rpm), and not by genuine broadening.
+
+### Conclusion (honest)
+The VANOS over-response and the peaky WOT VE-shape are the SAME pathology: the modelled intake
+ram resonance is structurally too sharp (high Q) and mis-tuned vs the real S54's broad, gentle
+curve (WOT VE 104-116, peak 3900). The Q is a property of the PLACEHOLDER intake topology --
+uniform phi52 runners, the central-plenum eq-tube coupling (Stage 38-39), the Type-12 junction
+structure -- not of any one scalar. So:
+- Scalar knobs (RUNNER_SC, RUNNER_FRIC_MULT) can place/flatten the resonance at a single
+  operating point but CANNOT reproduce stock's broad curve across rpm. Do not "calibrate" with
+  them -- it would just move the error around (the Stage-44 false-optimum trap, now quantified).
+- The real fix is an intake GEOMETRY REMODEL to realistic S54 acoustics: physical per-cylinder
+  runner length+diameter (ITBs close to the head -> short runners), a proper airbox/plenum
+  volume, and a balance-tube model that does not Helmholtz-resonate (Stage-39 item). That sets
+  the resonance rpm AND a realistic (broad) Q. This is a geometry/topology change, not a knob
+  sweep, and it needs FAST iteration (each WOT cell is 10-15 min here and reboots) -- best done
+  where runs are cheap, then validated here.
+
+### What is solid and reusable now
+- Root cause proven (Stage 53) + the two levers characterised (this stage).
+- Code (all gated/default-safe): choke BC, sigma(pedal) infra, init-MAP-from-effective-sigma,
+  OPENWAM_RUNNER_FRIC_MULT. Diagnostic tooling: vanos_sensitivity_sweep.py,
+  ram_overresponse_test.py, fric_overresponse_test.py, runner_tune_wot.py, ve_shape_report.py
+  (slope+profile). Data CSVs committed.
+- Metric rule: use Mtrap (cool Ttrap = fresh charge); the VEDIAG fresh%/Mair fields are broken.
+- Convergence rule: judge by slope (|dVE/dcyc|<~0.3), never cycle count.
