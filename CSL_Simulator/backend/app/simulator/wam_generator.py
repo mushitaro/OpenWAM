@@ -642,6 +642,15 @@ class WAMGenerator:
             # the tube length re-tunes where it sits / how it couples, a primary lever
             # for matching the stock VE map. (Geometry is a placeholder.)
             _run_sc = float(os.environ.get("OPENWAM_RUNNER_SC", "1.0"))
+            # Intake-tract damping (OPENWAM_RUNNER_FRIC_MULT, default 1.0 = unchanged).
+            # Stage 53/54: the intake ram resonance is too SHARP (high Q) -- a 0.1 change
+            # in runner length swings 3900 WOT VE 132->100, and VE over-responds to cam
+            # advance (+40pp). Q is set largely by the (very low) bellmouth friction 0.015.
+            # Raising the intake-tract friction broadens the resonance (lower Q), which
+            # should flatten the VANOS over-response and the WOT VE-shape toward stock's
+            # broad curve. Multiplier preserves the relative per-segment values; 1.0 is
+            # byte-identical to legacy.
+            _fric_mult = float(os.environ.get("OPENWAM_RUNNER_FRIC_MULT", "1.0"))
             bellmouth_len = 0.150 * _run_sc             # 150mm nominal
             port_dia_in = c.engine.head.intake_port.diameter / 1000.0  # 52mm (runner side)
             valve_dia_in = c.engine.head.intake_valve.diameter / 1000.0  # 35mm (valve side)
@@ -670,7 +679,7 @@ class WAMGenerator:
             # Bellmouth pipe (taper: φ70 → φ52)
             self._add_pipe(bellmouth_id, f"Bellmouth_{cyl_idx}", bellmouth_len,
                            bellmouth_entry_dia, itb_dia, 40,
-                           cid_bell_start, cid_bell_end, friction=0.015, dx_mesh=0.010)
+                           cid_bell_start, cid_bell_end, friction=0.015 * _fric_mult, dx_mesh=0.010)
             
             # --- RUNNER UPPER (Throttle → EqTube branch, φ52, 15mm) ---
             runner_upper_id = self.pipe_counter; self.pipe_counter += 1
@@ -684,7 +693,7 @@ class WAMGenerator:
             
             self._add_pipe(runner_upper_id, f"Runner_Upper_{cyl_idx}", 0.015 * _run_sc,
                            itb_dia, itb_dia, 40,
-                           cid_run_upper_start, cid_eq_branch, friction=0.05, dx_mesh=0.0075,
+                           cid_run_upper_start, cid_eq_branch, friction=0.05 * _fric_mult, dx_mesh=0.0075,
                            init_p=intake_map_bar)
 
             # --- EQUALIZATION TUBE STUB (φ30, 75mm) ---
@@ -749,7 +758,7 @@ class WAMGenerator:
             
             self._add_pipe(runner_lower_id, f"Runner_Lower_{cyl_idx}", 0.025 * _run_sc,
                            itb_dia, itb_dia, 40,
-                           cid_eq_branch, cid_port_split, friction=0.05, dx_mesh=0.010,
+                           cid_eq_branch, cid_port_split, friction=0.05 * _fric_mult, dx_mesh=0.010,
                            init_p=intake_map_bar)
 
             # --- INTAKE PORTS (2 per cyl, tapered φ52→φ35, 105mm) ---
