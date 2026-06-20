@@ -1,6 +1,46 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–49)
+Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–54)
+
+## ⚡⚡ Stages 49–54 — read EXHAUST_STABILIZATION_NOTES Stage 49-54 first. Headline:
+The throttle/part-load work is DONE; the binding problem is now the INTAKE ACOUSTIC MODEL.
+- **Stage 49**: choked-orifice throttle BC `OPENWAM_THR_CHOKE` (gated, default OFF=legacy).
+- **Stage 50**: 32-cell shape map. LOAD-20 row follows stock (r=0.89). Mid/high-load looked off.
+- **Stage 51**: that "mid-load deficit" was a CONVERGENCE/init-MAP ARTIFACT. Fixed:
+  `intake_map_bar` now from the EFFECTIVE (choke/AGAIN) sigma. Converged 6900 col tracks.
+  ⚠ Judge convergence by SLOPE (|dVE/dcyc|<~0.3), never cycle count.
+- **Stage 52**: VEDIAG `fresh%`/`Mair` fields are BROKEN (negative; contradict the cool ~375K
+  trapped temp). USE Mtrap for VE. The real target = WOT-row over-fill rising with rpm.
+- **Stage 53 (ROOT CAUSE)**: the "VANOS over-response" IS the intake-runner RAM RESONANCE.
+  At 3900 WOT, over-response d=VE(b60)-VE(b40) = -8/+41/+5 pp at RUNNER_SC 0.8/1.0/1.2 — a
+  20% length change flips its SIGN. The resonance is a sharp ridge; stock cam phasing sits on
+  the peak.
+- **Stage 54**: scalar knobs (RUNNER_SC length, new OPENWAM_RUNNER_FRIC_MULT damping) SHIFT/
+  modulate the sharp resonance but CANNOT broaden it to stock's gentle WOT curve (104-116,
+  peak 3900). Damping d oscillates +40/-30/+51 (phase shift + flow-choke), not broadening.
+  **CONCLUSION: the placeholder intake topology (uniform φ52 runners + central-plenum eq-tube)
+  has too-high Q. The fix is an intake GEOMETRY REMODEL to realistic S54 acoustics, NOT scalar
+  tuning** (which only moves the error around = the Stage-44 false-optimum trap).
+
+## NEXT PHASE (the fix) — intake geometry remodel (needs FAST compute; do off-box, validate here)
+1. Replace the placeholder intake tract with physical S54 geometry: per-cylinder runner
+   length+diameter (ITBs sit close to the head → short runners, smaller taper), a real
+   airbox/plenum volume, and a balance-tube ("Gleichdruckrohr") model that does NOT
+   Helmholtz-resonate (the Stage-39 item; `OPENWAM_EQ_CHAIN` continuous tube is the start).
+   This sets the ram-resonance rpm AND a realistic (broad) Q in one physical change.
+   Geometry lives in `wam_generator.py` (~634-790 per-cyl loop) + `models.py` (Intake/Port/
+   Bellmouth configs). Knobs already there to explore: OPENWAM_RUNNER_SC, _FRIC_MULT, EQ_CHAIN.
+2. Validate with `vanos_sensitivity_sweep.py` (dVE/d-advance should drop to physical ~10-20pp
+   ACROSS rpm) and `runner_tune_wot.py` (WOT VE-shape should match stock's broad curve: peak
+   3900, smooth 104-116). Use `ve_shape_report.py` (slope+profile views).
+3. ONLY THEN: base(rpm,load) for residual rpm offset + sigma(pedal) low-pedal lock-in (infra
+   already in place, Stage 49/50), and the WOT-ratio correction (calibration_service) becomes
+   physically valid.
+⚠ This env is 10-15 min/WOT-cell and reboots; the geometry remodel needs many iterations →
+do the iteration where runs are cheap, port the geometry here to validate.
+
+---
+## (older) Stage 49 detail — kept for reference
 
 ## ⚡ Stage 49 happened — read it before the Stage-48 plan below
 The Stage-48 (B) item is DONE and its premise INVERTED (notes Stage 49, ①-⑦):
