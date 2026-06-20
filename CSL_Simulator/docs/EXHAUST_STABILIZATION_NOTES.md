@@ -2993,3 +2993,51 @@ structure -- not of any one scalar. So:
   (slope+profile). Data CSVs committed.
 - Metric rule: use Mtrap (cool Ttrap = fresh charge); the VEDIAG fresh%/Mair fields are broken.
 - Convergence rule: judge by slope (|dVE/dcyc|<~0.3), never cycle count.
+
+## Stage 55 — topology probe: the sharp resonance is ROBUST to eq-tube topology (it just MOVES); + a metric caveat on the intake-only over-response
+
+Probed which intake element sets the resonance Q by measuring the over-response
+d = VE(bias60) - VE(bias40) at 3900 WOT for three existing topologies (topo_probe_3900.csv,
+all slope-converged, choke+init-MAP on):
+```
+ config     VE(b40)  VE(b60)   d        (overlap b40=-21, b60=-1)
+ base        88.7     128.3   +39.6     central-plenum eq-tube (current)
+ eqchain     83.6     130.1   +46.5     continuous balance tube
+ noeqtube   124.7      88.4   -36.3     eq-tube removed -> peak JUMPS to b40
+```
+Every topology change just MOVES the sharp peak between b40 and b60; |d| stays ~36-47. So the
+sharpness is NOT created by the eq-tube (cross-coupling or central cavity) -- like RUNNER_SC
+(Stage 53) and RUNNER_FRIC_MULT (Stage 54), changing it only relocates the peak. The high-Q
+resonance is intrinsic to the intake organ-pipe + valve dynamics, robust to every scalar and
+topology lever available. No geometry knob BROADENS it.
+
+### ⚠ Metric caveat (important, intellectual honesty): the intake-only over-response is partly an OVERLAP artifact
+The over-response sweeps (Steps 2-3, Stages 52-54) advanced the INTAKE cam while holding the
+EXHAUST at the stock-coordinated bias 63. That sweeps the OVERLAP (b40 -> -21deg, b60 -> -1deg)
+through near-zero -- exactly the regime where scavenging/backflow change fast. So the measured
++40pp is intake-advance ram AND an overlap/scavenging swing, NOT the coordinated-cam response.
+In the real engine and the kf_evan1/kf_avan1 maps the cams move TOGETHER (Stage 47); the
+production VE-map runs use coordinated cams. So the intake-only |d|~40 OVERSTATES the response
+the optimiser would actually see.
+
+### Where this leaves the remodel (honest)
+- The FOUNDATION target is the COORDINATED WOT VE-shape vs rpm (sim peaks ~4600 with a 6300
+  notch; stock is broad, peak 3900) -- that is the real, coordinated-cam manifestation of the
+  same sharp ram resonance. The intake-only over-response was a useful but overlap-contaminated
+  proxy.
+- The sharp resonance is robust to RUNNER_SC, RUNNER_FRIC_MULT, and eq-tube topology -> it is
+  NOT reachable by the current geometry scalars. Matching stock's BROAD curve needs a deeper
+  change: physically-correct intake acoustics (realistic runner L/D + a real airbox/plenum
+  termination with acoustic radiation loss), and possibly a model-level look at the
+  plenum-reflection and valve-flow coupling that sets Q. That is beyond scalar tuning and needs
+  fast iteration (each coordinated WOT cell is 10-15 min here + reboots).
+- RECOMMENDED next experiment (when fast compute is available): re-run runner_tune_wot.py
+  (COORDINATED cams, WOT, vary RUNNER_SC) to convergence across rpm and compare the VE-SHAPE
+  (not the intake-only d) to stock -- that is the clean, artifact-free calibration target.
+  Then address Q via a proper trumpet/plenum termination model if length alone can't broaden it.
+
+### Net for this session's "proceed with the remodel (A)" attempt
+Characterised the problem definitively: the sharp ram resonance is intrinsic and robust to all
+available intake knobs/topologies; the real calibration target is the coordinated WOT VE-shape;
+and the intake-only over-response metric is overlap-contaminated. The remodel requires deeper,
+physically-grounded intake-acoustics work + fast iteration, not scalar/topology sweeps here.

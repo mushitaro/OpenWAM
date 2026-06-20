@@ -1,0 +1,7 @@
+config,b_in,ve,slope,cyc
+base,40,88.7,+0.18,37
+base,60,128.3,+0.22,39
+eqchain,40,83.6,+0.18,37
+eqchain,60,130.1,+0.13,39
+noeqtube,40,124.7,-0.02,39
+noeqtube,60,88.4,+0.50,39
