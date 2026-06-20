@@ -23,16 +23,24 @@ The throttle/part-load work is DONE; the binding problem is now the INTAKE ACOUS
   tuning** (which only moves the error around = the Stage-44 false-optimum trap).
 
 ## NEXT PHASE (the fix) — intake geometry remodel (needs FAST compute; do off-box, validate here)
-1. Replace the placeholder intake tract with physical S54 geometry: per-cylinder runner
-   length+diameter (ITBs sit close to the head → short runners, smaller taper), a real
-   airbox/plenum volume, and a balance-tube ("Gleichdruckrohr") model that does NOT
-   Helmholtz-resonate (the Stage-39 item; `OPENWAM_EQ_CHAIN` continuous tube is the start).
-   This sets the ram-resonance rpm AND a realistic (broad) Q in one physical change.
-   Geometry lives in `wam_generator.py` (~634-790 per-cyl loop) + `models.py` (Intake/Port/
-   Bellmouth configs). Knobs already there to explore: OPENWAM_RUNNER_SC, _FRIC_MULT, EQ_CHAIN.
-2. Validate with `vanos_sensitivity_sweep.py` (dVE/d-advance should drop to physical ~10-20pp
-   ACROSS rpm) and `runner_tune_wot.py` (WOT VE-shape should match stock's broad curve: peak
-   3900, smooth 104-116). Use `ve_shape_report.py` (slope+profile views).
+⚠ Stage 55 update: the sharp ram resonance is ROBUST to every available intake scalar/topology
+knob (RUNNER_SC length, RUNNER_FRIC_MULT damping, EQ_CHAIN, NO_EQTUBE) — each only RELOCATES
+the peak (|d|~40pp persists at 3900 WOT), none BROADEN it. So the fix is NOT reachable by the
+existing knobs; it needs deeper, physically-grounded intake acoustics. Also: the intake-only
+over-response metric is OVERLAP-contaminated (exhaust held fixed while intake swept overlap
+through ~0) — use the COORDINATED WOT VE-shape as the clean target instead.
+
+Clean calibration target (artifact-free): the COORDINATED WOT VE-shape vs rpm. Sim peaks ~4600
+with a 6300 notch (range 92-139); stock is broad, peak 3900 (range 104-116). Reproduce stock's
+BROAD curve. Candidate deeper levers (need fast iteration): realistic short trumpet + physical
+runner L/D; a proper airbox/plenum termination with acoustic radiation loss; and a model-level
+look at the plenum-reflection / valve-flow coupling that sets Q (geometry scalars proven
+insufficient). Geometry lives in `wam_generator.py` (~634-790 per-cyl loop) + `models.py`.
+1. Re-run `runner_tune_wot.py` (COORDINATED cams, WOT, vary RUNNER_SC) TO CONVERGENCE across
+   rpm; compare VE-SHAPE (not the intake-only d) to stock. (Longer runners converge slower —
+   use cyc>=45 / slope<0.3.)
+2. If length alone can't broaden it, add a trumpet/plenum termination-loss model (the Q lever
+   the scalars lack), then re-check.
 3. ONLY THEN: base(rpm,load) for residual rpm offset + sigma(pedal) low-pedal lock-in (infra
    already in place, Stage 49/50), and the WOT-ratio correction (calibration_service) becomes
    physically valid.
