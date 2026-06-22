@@ -3041,3 +3041,67 @@ Characterised the problem definitively: the sharp ram resonance is intrinsic and
 available intake knobs/topologies; the real calibration target is the coordinated WOT VE-shape;
 and the intake-only over-response metric is overlap-contaminated. The remodel requires deeper,
 physically-grounded intake-acoustics work + fast iteration, not scalar/topology sweeps here.
+
+## Stage 56 — local rebuild (MSVC) + a cross-compiler attractor finding (the Q pathology, again)
+
+Resumed on the user's local PC (Intel Core Ultra 9, 16 logical cores, no reboots). Setup notes
+for reproducibility:
+- **Build**: no MinGW/gcc present; built with **MSVC (VS2022 Community 14.44) + Ninja + OpenMP
+  2.0**. The root `CMakeLists.txt` forced a windres-style `CMAKE_RC_COMPILE_OBJECT` (MinGW CLI)
+  unconditionally, which breaks MSVC's `rc.exe`; guarded it to GNU/MinGW only (MSVC uses CMake's
+  built-in RC rule). Build is clean (warnings only). Binary at `build/bin/release/OpenWAM.exe`.
+- **Scripts**: the cloud hardcoded `/home/user/...` paths and shelled out to the Unix `timeout`
+  command (Windows `timeout.exe` is an interactive countdown, incompatible). Added
+  `scripts/_local.py` (auto-detects `BIN`/`HERE`, env-overridable via `OPENWAM_BIN`; provides a
+  portable `run_capped()` wall-clock cap) and ported runner_tune_wot, vanos_sensitivity_sweep,
+  ram/fric_overresponse, topology_probe, exvanos_base_sweep. `/tmp` resolves to `C:\tmp` for
+  Windows Python, so the scripts' `/tmp/...` paths work unchanged.
+- **Perf**: ~131 CPU-s per WOT cycle per cell; OpenMP scales ~4x and saturates by ~4 threads
+  (omp4 == omp7 throughput per core). On 16 cores the run is CPU-bound, so total wall time is
+  fixed regardless of conc/omp split: a 30-cell × ~55-cyc coordinated-WOT sweep ≈ 3 h. Use
+  CONC=4 × OMP=4 for full saturation + reasonable per-cell turnaround (`scripts/par_sweep_wot.py`,
+  new: generates all decks sequentially — deck-gen mutates os.environ — then runs cells in a
+  thread pool; resumable; prints the peak-normalised VE-shape report).
+
+### ⚠ Cross-compiler attractor sensitivity (use OUR build's own baseline, do NOT reuse cloud absolutes)
+Re-ran two cloud-anchored cells (coordinated WOT, sc=1.3) to compare the MSVC build against the
+cloud gcc numbers in `runner_tune_wot_partial.csv`:
+```
+ cell          MSVC (this build)        cloud gcc
+ 3900 sc1.3    90.8  (cyc41, slope+0.33)   97.3  (cyc35, slope+0.82)
+ 2700 sc1.3    87.6  (cyc29, slope+1.32)   93.8  (cyc31, slope+0.58)
+```
+The MSVC build converges ~5-7% LOWER. This is NOT a build bug — it is the SAME high-Q pathology
+(Stage 49 ⑥: "a ~100 Pa loss change flips VE by 30 pts"; Stage 53: "0.1 runner length swings
+132→100"). A sharp resonance is acutely sensitive to tiny FP-rounding differences between
+compilers/math libs, so the two builds land on slightly different attractors. Consequences:
+- For SHAPE analysis (peak rpm, notch presence) a roughly-uniform offset is harmless — the
+  conclusions hold. The remodel target (broaden the coordinated WOT curve) is unaffected.
+- But the **absolute VE values are build-specific**: re-establish every gate/anchor on THIS
+  build (e.g. the "3900/100 ~122-126" regression attractor was a cloud-gcc/base-150 number; our
+  build's attractor must be measured here, not assumed). Do not mix cloud and local absolutes.
+- It is also independent corroboration that the resonance Q is unphysically high — even the
+  compiler can move it. Fixing Q (Step 2 termination model) should also shrink this sensitivity.
+
+### Step 1 RESULT — converged coordinated-WOT length sweep: length CANNOT broaden the curve (confirms 53-55)
+Ran the full coordinated-WOT sweep on this build to convergence: SC ∈ {1.0,1.2,1.4,1.7,2.0} ×
+{2700,3900,4600,5300,6300,6900} rpm, cyc55, slope-judged (all cells |slope|<~0.3 except 3900
+sc1.0 which sits on the bifurcation low branch). Data: `backend/step1_wot_msvc.csv`. Shape vs
+stock (each curve mean-normalised; tilt = mean(4600-6900) - mean(2700,3900) in VE pp):
+```
+  sc   peakrpm  range(pp)  r_vs_stock   tilt     mean-norm 2700/3900/4600/5300/6300/6900
+ STOCK   3900      12        1.000      -0.7     0.95 1.06 1.02 1.01 0.99 0.97   (broad, flat, peak low-mid)
+  1.0    4600      60       -0.206     +47.2     0.80 0.67 1.17 1.14 1.13 1.09
+  1.2    6300      45       +0.603     +22.2     0.72 1.05 1.03 1.07 1.08 1.06
+  1.4    6300      58       +0.685     +23.4     0.70 1.04 1.12 1.16 1.17 0.80
+  1.7    6300      43       -0.078     +39.9     0.79 0.79 1.07 1.13 1.13 1.09
+  2.0    5300      54       -0.088     +47.9     0.76 0.74 1.13 1.16 1.11 1.10
+```
+No length reproduces stock's signature: (1) range stays 43-60 pp vs stock's 12 pp — the
+resonance is 3.5-5x too PEAKY at every length (Q unchanged); (2) the peak never lands at 3900
+(always 4600-6300); (3) tilt is strongly POSITIVE +22..+48 (over-rammed at high rpm) vs stock's
+flat/declining -0.7 — the sim's ram is centred too HIGH in rpm; (4) the 2700 fill is a persistent
+deficit (0.70-0.80 vs stock 0.95). Best correlation is only r=0.69 (sc1.4). This is the converged,
+artifact-free confirmation of Stages 53-55: **runner length only RELOCATES the sharp resonance;
+it cannot BROADEN it or move the centre to 3900.** → Step 2 (physical intake termination with
+acoustic radiation loss) is required; length is not a sufficient lever.
