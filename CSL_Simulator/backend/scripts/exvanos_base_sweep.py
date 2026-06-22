@@ -26,8 +26,8 @@ Env knobs:
   SWEEP_GRID     "all" (default, the JOBS grid below) or "load65" (the load-65 gate re-check)
 """
 import sys, os, io, re, json, math, subprocess, statistics, csv
-BIN = "/home/user/OpenWAM/build/bin/release/OpenWAM"
-HERE = "/home/user/OpenWAM/CSL_Simulator/backend"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _local import BIN, HERE, run_capped
 sys.path.insert(0, HERE)
 from app.models import SimConfig
 from app.simulator.wam_generator import WAMGenerator
@@ -98,8 +98,7 @@ def run_cell(rpm, load, base):
     wd = f"/tmp/ex_{rpm}_{int(load)}_{int(base)}"; gen(rpm, load, base, wd)
     env = os.environ.copy(); env["OPENWAM_HLLC"]="1"; env["OMP_NUM_THREADS"]=OMP; env["OPENWAM_VEDIAG"]="1"
     if os.environ.get("SWEEP_KCEIL"): env["OPENWAM_K_CEIL"] = os.environ["SWEEP_KCEIL"]
-    subprocess.run(["timeout", TIMEOUT, BIN, "m.wam"], cwd=wd,
-                   stdout=open(wd+"/run.log", "wb"), stderr=subprocess.STDOUT, env=env)
+    run_capped([BIN, "m.wam"], wd, wd+"/run.log", TIMEOUT, env)
     t = open(wd+"/run.log", encoding="utf-8", errors="ignore").read()
     ve, ok, cyc = gate(t)
     new = not os.path.exists(CSV)

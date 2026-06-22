@@ -43,5 +43,9 @@ if(BUILD_PARALLEL)
         add_definitions(-DWITH_OPENMP)
     endif()
 endif()
-set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff ${CMAKE_RC_FLAGS} -i <SOURCE> -o <OBJECT>")
+# windres (MinGW) uses a different CLI than MSVC's rc.exe. Only override the RC
+# rule for GNU/MinGW toolchains; MSVC uses CMake's built-in rc.exe rule.
+if(MINGW OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff ${CMAKE_RC_FLAGS} -i <SOURCE> -o <OBJECT>")
+endif()
 add_subdirectory(Source)

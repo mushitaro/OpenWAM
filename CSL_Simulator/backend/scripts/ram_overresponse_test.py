@@ -17,8 +17,8 @@ Env: RAM_RPMS (3900), RAM_SCS (0.8,1.0,1.2), RAM_BINS (40,60), RAM_BEX (auto sto
      RAM_CYCLES (40), RAM_TIMEOUT (1400), RAM_OMP (4), RAM_CSV (/tmp/ram_test.csv).
 """
 import sys, os, io, re, json, math, subprocess, statistics, csv
-BIN = "/home/user/OpenWAM/build/bin/release/OpenWAM"
-HERE = "/home/user/OpenWAM/CSL_Simulator/backend"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _local import BIN, HERE, run_capped
 sys.path.insert(0, HERE)
 from app.models import SimConfig
 from app.simulator.wam_generator import WAMGenerator
@@ -69,8 +69,7 @@ def run_cell(rpm, sc, b_in, b_ex):
     wd = f"/tmp/ram_{rpm}_{sc}_{int(b_in)}"; gen(rpm, b_in, b_ex, sc, wd)
     env = os.environ.copy(); env["OPENWAM_HLLC"]="1"; env["OMP_NUM_THREADS"]=OMP
     env["OPENWAM_VEDIAG"]="1"; env["OPENWAM_THR_CHOKE"]="1"
-    subprocess.run(["timeout", TIMEOUT, BIN, "m.wam"], cwd=wd,
-                   stdout=open(wd+"/run.log","wb"), stderr=subprocess.STDOUT, env=env)
+    run_capped([BIN, "m.wam"], wd, wd+"/run.log", TIMEOUT, env)
     ve, slope, ncyc = metrics(open(wd+"/run.log", encoding="utf-8", errors="ignore").read())
     new = not os.path.exists(CSV)
     with open(CSV, "a", newline="") as f:

@@ -15,8 +15,8 @@ wd includes SC so runs don't collide; CSV key (rpm,sc). Slope-converged, choke+i
 Resumable. Env: RT_RPMS, RT_SCS, RT_CYCLES(38), RT_TIMEOUT(1300), RT_OMP(4), RT_CSV.
 """
 import sys, os, io, re, json, math, subprocess, statistics, csv
-BIN = "/home/user/OpenWAM/build/bin/release/OpenWAM"
-HERE = "/home/user/OpenWAM/CSL_Simulator/backend"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _local import BIN, HERE, run_capped
 sys.path.insert(0, HERE)
 from app.models import SimConfig
 from app.simulator.wam_generator import WAMGenerator
@@ -67,8 +67,7 @@ def run_cell(rpm, sc):
     wd = f"/tmp/rt_{rpm}_{sc}"; gen(rpm, sc, wd)
     env = os.environ.copy(); env["OPENWAM_HLLC"]="1"; env["OMP_NUM_THREADS"]=OMP
     env["OPENWAM_VEDIAG"]="1"; env["OPENWAM_THR_CHOKE"]="1"
-    subprocess.run(["timeout", TIMEOUT, BIN, "m.wam"], cwd=wd,
-                   stdout=open(wd+"/run.log","wb"), stderr=subprocess.STDOUT, env=env)
+    run_capped([BIN, "m.wam"], wd, wd+"/run.log", TIMEOUT, env)
     ve, slope, n = metrics(open(wd+"/run.log", encoding="utf-8", errors="ignore").read())
     new = not os.path.exists(CSV)
     with open(CSV, "a", newline="") as f:
