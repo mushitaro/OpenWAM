@@ -48,6 +48,11 @@ class WAMGenerator:
         self.throttle_valves = [] # List of {'vid': int, 'cd': float}
         self.valves_intake = []
         self.valves_exhaust = []
+        # Intake-V2 trumpet-mouth termination (Stage 56+). Valve index used by the
+        # bellmouth->Plenum_Main Type-11 connection. Default 25 = the shared
+        # fully-open (Cd=1.0) valve == legacy. OPENWAM_INTAKE_V2 swaps in a separate
+        # soft-Cd "trumpet mouth" valve (see the per-cylinder loop).
+        self._mouth_valve_id = 25
         
         # Pipe Buffer for deferred topology resolution
         # Dict[pid, Dict]
@@ -630,6 +635,27 @@ class WAMGenerator:
         # now that the MAP estimate is known. (Plenum_Main and the ambient plenum
         # stay atmospheric: they are UPSTREAM of the throttle.)
 
+        # INTAKE V2 (Stage 56+): physically-correct trumpet-mouth termination loss.
+        # The Step-1 sweep proved runner LENGTH only RELOCATES the sharp ram
+        # resonance; it cannot BROADEN it (Q stays 43-60pp vs stock 12pp). The
+        # missing damping is the ACOUSTIC RADIATION / contraction LOSS at the
+        # velocity-stack mouth opening into the airbox -- a boundary loss at the
+        # reflection point, which lowers Q WITHOUT shifting the resonance frequency
+        # (unlike length or distributed friction). Modelled as a fixed-Cd "soft
+        # mouth" on the bellmouth->Plenum_Main Type-11 connection: Cd<1 makes the
+        # effective mouth area < pipe area (Borda-Carnot), dissipating energy each
+        # pass and reducing the mouth reflection coefficient. One monotonic,
+        # sweepable scalar (OPENWAM_INTAKE_MOUTH_CD), orthogonal to RUNNER_SC.
+        # GATED: OPENWAM_INTAKE_V2=1 enables it; default OFF keeps valve 25 (Cd=1.0)
+        # so the deck is byte-identical. Cd=1.0 with the gate ON is also identical
+        # to OFF (the soft valve == valve 25) -- a built-in consistency check.
+        self._intake_v2 = bool(os.environ.get("OPENWAM_INTAKE_V2"))
+        self._mouth_cd = float(os.environ.get("OPENWAM_INTAKE_MOUTH_CD", "0.7"))
+        if self._intake_v2:
+            # reserve a new valve index after the 6 throttles (26..31) -> 32
+            self._mouth_valve_id = 26 + c.engine.cylinders
+            print(f"DEBUG: OPENWAM_INTAKE_V2=1 -> trumpet-mouth valve id={self._mouth_valve_id} Cd={self._mouth_cd}")
+
         # 5. Per-Cylinder: Bellmouth → [Type 9 Throttle] → Runner_Upper → [Type 12] → Runner_Lower → [Type 12] → Ports
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
@@ -659,7 +685,7 @@ class WAMGenerator:
             bellmouth_id = self.pipe_counter; self.pipe_counter += 1
             
             cid_bell_start = self.connection_counter
-            self._add_con_plenum_pipe_v2(plenum_id, bellmouth_id, 0)
+            self._add_con_plenum_pipe_v2(plenum_id, bellmouth_id, 0, valve_idx=self._mouth_valve_id)
             
             # --- THROTTLE VALVE (ITB) - STRATEGY A: PIPE-TO-PIPE ---
             vid_throttle = 26 + i
@@ -1142,7 +1168,9 @@ class WAMGenerator:
             # control_ids = {'intake': 2, 'exhaust': 3, 'lift_fix': 4}
             pass
             
-        total_valves = 25 + len(self.throttle_valves)
+        # +1 valve when INTAKE_V2 adds the soft-Cd trumpet mouth (appended last, index 32)
+        intake_v2 = getattr(self, "_intake_v2", False)
+        total_valves = 25 + len(self.throttle_valves) + (1 if intake_v2 else 0)
         self.wam_lines.append(f"{total_valves}")
         for i in range(12): self._add_valve_def(i+1, "intake.vlv", c.engine.head.intake_valve.diameter/1000.0, control_ids)
         for i in range(12): self._add_valve_def(i+13, "exhaust.vlv", c.engine.head.exhaust_valve.diameter/1000.0, control_ids)
@@ -1156,7 +1184,12 @@ class WAMGenerator:
         for vid in self.throttle_valves:
             dia = c.intake.bellmouth.diameter/1000.0
             self._add_valve_throttle_mariposa(vid, dia, throttle_ctrl_id)
-            
+
+        # INTAKE_V2 soft trumpet-mouth valve: appended LAST so it occupies index
+        # 26+cylinders (=32), after the throttles, leaving all legacy ids unmoved.
+        if intake_v2:
+            self._add_valve_fixed_cd(self._mouth_valve_id, self._mouth_cd, self._mouth_cd)
+
         # Append Buffered Valves
         self.wam_lines.extend(self.wam_lines_valves)
             
@@ -2013,11 +2046,13 @@ class WAMGenerator:
         self.connections[cid] = (ctype, [f"0 {cyl_id}", f"{vid_global}"])
         self.connection_counter += 1
 
-    def _add_con_plenum_pipe_v2(self, plid, pid, end_idx):
+    def _add_con_plenum_pipe_v2(self, plid, pid, end_idx, valve_idx=25):
         # Type 11 (TCCDeposito) reads: numid, plenum_id.
         # THEN TOpenWAM::ReadConnections reads 'quevalv' (Valve Index).
+        # valve_idx defaults to 25 (the shared fully-open Cd=1.0 valve = legacy);
+        # the intake trumpet mouth passes a separate soft-Cd valve when INTAKE_V2.
         cid = self.connection_counter
-        self.connections[cid] = (11, [f"0 {plid}", "25"])  # Type 11, plenum_id, valve index
+        self.connections[cid] = (11, [f"0 {plid}", str(valve_idx)])  # Type 11, plenum_id, valve index
         self.connection_counter += 1
         return cid
 
