@@ -3105,3 +3105,49 @@ deficit (0.70-0.80 vs stock 0.95). Best correlation is only r=0.69 (sc1.4). This
 artifact-free confirmation of Stages 53-55: **runner length only RELOCATES the sharp resonance;
 it cannot BROADEN it or move the centre to 3900.** → Step 2 (physical intake termination with
 acoustic radiation loss) is required; length is not a sufficient lever.
+
+
+### Step 2a -- gated soft-Cd trumpet mouth (OPENWAM_INTAKE_V2): directionally right, but a WEAK and CONFOUNDED Q lever
+Implemented a generator-only, byte-safe lever (commit feat(intake-v2)): the bellmouth->Plenum_Main
+Type-11 (TCCDeposito) connection takes a separate fixed-Cd valve (index 32) for the 6 trumpet
+mouths only (exhaust plenum joins stay on valve 25); OPENWAM_INTAKE_MOUTH_CD is the knob. Cd<1
+shrinks the effective mouth area (Borda-Carnot), a boundary loss at the reflection point. Verified
+OFF == legacy HEAD byte-for-byte; Cd=1.0 ON == valve 25 physically. Swept Cd at WOT, SC=1.0,
+coordinated cams, cyc55 (backend/step2_mouth_cd_sweep.csv):
+```
+  Cd     range(pp)  tilt    2700/3900/4600/5300/6300/6900 (mean-norm)  [stock: 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
+  1.0      54       27.0    0.68 1.03 1.11 1.08 1.06 1.03
+  0.75     43       17.1    0.78 1.04 1.12 1.09 0.93 1.04
+  0.55     45       38.4    0.81 0.77 1.14 1.11 1.11 1.06
+```
+1. Broadens in the RIGHT direction: Cd 1.0->0.75 shrinks range 54->43 pp and tilt 27->17, and
+   lifts the 2700 deficit 0.68->0.78. Resolves the investigation agents' contradiction in favour of
+   "Cd<1 broadens Q" (a dissipative boundary loss lowers the mouth reflection).
+2. But WEAK and saturating: the high-rpm band 4600-6900 is nearly Cd-INVARIANT (~135 VE) -- the
+   mouth loss has almost no leverage on the dominant high-rpm over-fill. By Cd=0.55 the broadening
+   reverses (3900 flips to its low branch).
+3. Cd CONFLATES acoustic damping with steady-flow choking: a low mouth Cd also restricts the mean
+   WOT flow, so pushing Cd down chokes the fill rather than cleanly damping the oscillation. A clean
+   Q lever needs loss on the OSCILLATING component (frequency/Mach-aware radiation impedance), not a
+   static area restriction.
+
+### WARNING: Step 2a exposed the 3900 WOT BISTABILITY in the sharpest possible form
+cd=1.0 ON gives 3900 = 129.4 (converged, slope +0.06, HIGH branch). The physically-IDENTICAL Step-1
+cell (3900 sc1.0, v2 OFF) gave 79.3 (LOW branch). The only deck difference is cosmetic -- the 6
+mouth connections reference valve 32 instead of 25 (both Cd=1.0 TCDFijo) plus one extra valve line.
+A change with ZERO physical content flipped the 3900 WOT attractor by 50 VE pp. This is Stage 49(6)'s
+"~100 Pa flips VE 30 pts" bistability at its most acute: the resonance is so under-damped it is
+bistable and which branch a cell lands on is numerically fragile. Tuning the 3900 shape is
+unreliable until the damping makes it monostable -- exactly what a sufficient radiation loss should
+also achieve.
+
+### Step 2 fork (where the remodel goes next)
+The deck-only soft-mouth proves the mechanism but is insufficient. Two higher-yield directions:
+- (A) A frequency/Mach-aware mouth RADIATION loss in C++ (TCCDeposito), mirroring the choke chi(r)
+  gating in TCCPerdidadePresion.cpp -- loss on the oscillating component so it damps Q without
+  choking the mean WOT flow. The physically-correct lever, but needs a C++ change + rebuild.
+- (B) Diagnose & fix the systematic HIGH-RPM OVER-FILL (sim 130-140 vs stock 106-111 at 4600-6900,
+  ~Cd- and ~SC-invariant) -- likely the eq-tube cross-coupling or port/valve flow, not the mouth.
+  This sets the tilt the mouth loss cannot touch.
+Next experiment: combine the modest mouth loss (Cd~0.75) with longer runners (RUNNER_SC) to test the
+orthogonal recenter+broaden hypothesis before committing to (A)/(B).
