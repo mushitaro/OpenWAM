@@ -3151,3 +3151,35 @@ The deck-only soft-mouth proves the mechanism but is insufficient. Two higher-yi
   This sets the tilt the mouth loss cannot touch.
 Next experiment: combine the modest mouth loss (Cd~0.75) with longer runners (RUNNER_SC) to test the
 orthogonal recenter+broaden hypothesis before committing to (A)/(B).
+
+
+### Step 2b -- DIAGNOSTIC BREAKTHROUGH: the eq-tube (Gleichdruckrohr) drives the high-rpm over-fill / tilt, NOT the runner ram or the mouth
+Full-rpm coordinated-WOT sweep over 4 configs (cyc55, backend/step2_eqtube_diag.csv):
+```
+  config        range(pp) tilt    2700/3900/4600/5300/6300/6900 (mean-norm)   peak   [stock: 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
+  base            65      49.7    0.80 0.63 1.18 1.15 1.13 1.10               4600
+  noeqtube        38       1.7    0.92 1.06 1.17 1.16 0.85 0.84               4600
+  eqdia020        59       4.3    0.78 1.17 0.67 1.20 1.03 1.16               5300
+  sc1.7_cd0.75    44      31.6    0.76 0.91 1.06 1.09 1.10 1.07               6300
+```
+THE KEY RESULT -- removing the eq-tube (OPENWAM_NO_EQTUBE) collapses the tilt 49.7 -> 1.7 (stock
+-0.7) and snaps 2700 and 3900 onto stock almost EXACTLY (0.92/1.06 vs stock 0.95/1.06). So the
+dominant shape error -- the high-rpm over-fill that NEITHER runner length NOR the mouth Cd could
+touch -- is driven by the eq-tube CROSS-COUPLING. Corollaries:
+- noeqtube OVER-corrects the very top: 6300/6900 fall to a deficit (abs 101/100 vs stock 109/106),
+  and it breaks the part-throttle cyl-2 balance the eq-tube exists to fix. So the answer is to
+  TUNE the eq-tube coupling, not remove it -- there is an intermediate coupling between phi30
+  (over-couples: tilt +50) and removed (under-couples at the top) that should give stock's flat curve.
+- eqdia020 (phi20 stub) also cuts the tilt (4.3) but is bifurcation-prone (4600 collapsed to 0.67).
+  Diameter is a strong but unstable lever (area-mismatch, Stage 35).
+- sc1.7_cd0.75 keeps tilt 31.6 -> confirms runner length + mouth loss CANNOT fix the tilt because
+  it is eq-tube-driven. (Length even pushed the peak UP to 6300 here.)
+- Caveats: some low-rpm / top-end cells under-converged at cyc55 (noeqtube 2700 slope +0.87,
+  6300 +0.32; eqdia020 6300 +1.11) -- qualitative shape holds, re-converge the winners longer.
+
+=> Step-2 direction CHANGES: the primary lever is the EQ-TUBE GEOMETRY (deck-only, no C++), not the
+mouth termination and not a C++ radiation loss. Cleanest knob to sweep next: eq-stub FRICTION
+(OPENWAM_EQ_FRIC, default 0.02) -- it damps the cross-coupling resonance WITHOUT the area-mismatch
+bifurcation that diameter changes cause. Target: dial tilt 50 -> ~0 and range -> ~12 while keeping
+the curve smooth (no notches) and the part-throttle cyl balance intact. The soft mouth (Cd~0.75)
+stays available as a secondary broadening trim.
