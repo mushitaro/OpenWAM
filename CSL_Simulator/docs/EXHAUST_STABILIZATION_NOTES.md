@@ -3183,3 +3183,31 @@ mouth termination and not a C++ radiation loss. Cleanest knob to sweep next: eq-
 bifurcation that diameter changes cause. Target: dial tilt 50 -> ~0 and range -> ~12 while keeping
 the curve smooth (no notches) and the part-throttle cyl balance intact. The soft mouth (Cd~0.75)
 stays available as a secondary broadening trim.
+
+
+### Step 2c -- eq-stub FRICTION does NOT damp the coupling (it is ACOUSTIC, via the cavity); refined 2-component model
+Swept OPENWAM_EQ_FRIC {0.02, 0.10, 0.25, 0.50} at phi30, WOT, cyc55 (backend/step2_eqfric_sweep.csv):
+```
+  EQ_FRIC  range  tilt    2700/3900/4600/5300/6300/6900   [stock 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
+  0.02      60    47.5    0.80 0.66 1.17 1.14 1.13 1.09
+  0.10      44    37.2    0.81 0.78 1.14 1.10 1.10 1.07
+  0.25      53    46.4    0.73 0.75 1.17 1.13 1.12 1.09
+  0.50      46    30.4    0.84 0.81 1.21 1.17 0.85 1.12
+```
+The high-rpm ABSOLUTE VE is essentially friction-INVARIANT (4600 = 139/139/139/139; 6900 ~129.8
+throughout; 6300 holds 133 until it bifurcates to 98 at fric0.5). So the eq-tube over-coupling is
+NOT a viscous-flow effect -- stub friction cannot damp it. It is an ACOUSTIC coupling through the
+141 cc central cavity (which is exactly why removing the tube, Step 2b, killed it but friction does
+not). Only 3900/2700 wobble with friction (they ride the bistable branch).
+
+REFINED MODEL of the WOT VE shape (from 2b + 2c):
+- (1) RUNNER RAM: a peak at 4600-5300 (~138 VE). PERSISTS with the eq-tube removed -> it is the
+  runner organ-pipe resonance. Too high in rpm and too strong vs stock (peak 3900=116).
+- (2) EQ-TUBE ACOUSTIC COUPLING through the 141 cc cavity: boosts 6300/6900 (+30) AND pushes 3900
+  onto its low (notch) branch. Removing the cavity fixes both; friction does not; smaller stub
+  DIAMETER does but bifurcates (area mismatch).
+Levers, cleanly separated: runner LENGTH should move (1)'s peak; eq cavity VOLUME/area should set
+(2)'s coupling. Added OPENWAM_EQ_VOL_MULT (default 1.0 = byte-identical) to scale the cavity volume
+WITHOUT the stub-diameter area-mismatch bifurcation -- the clean knob for (2).
+Next: (a) noeqtube x runner-SC to test whether length moves the clean ram peak (1) to 3900; (b)
+EQ_VOL_MULT sweep to weaken (2) while keeping the tube for part-load cyl balance.

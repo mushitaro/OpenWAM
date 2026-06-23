@@ -22,11 +22,10 @@ from app.simulator.wam_generator import WAMGenerator
 
 # ---- the diagnostic matrix (label -> env overrides applied during deck gen) ----
 CONFIGS = [
-    ("base",        {}),                                                  # legacy sc1.0 reference
-    ("noeqtube",    {"OPENWAM_NO_EQTUBE": "1"}),                          # eq-tube as resonance driver?
-    ("eqdia020",    {"OPENWAM_EQ_DIA": "0.020"}),                         # smaller eq stub
-    ("sc1.7_cd0.75",{"OPENWAM_RUNNER_SC": "1.7", "OPENWAM_INTAKE_V2": "1",
-                      "OPENWAM_INTAKE_MOUTH_CD": "0.75"}),                # recenter + broaden
+    ("noeq_sc1.0", {"OPENWAM_NO_EQTUBE": "1"}),                              # clean ram, baseline length
+    ("noeq_sc1.7", {"OPENWAM_NO_EQTUBE": "1", "OPENWAM_RUNNER_SC": "1.7"}),  # does length move the ram peak to 3900?
+    ("noeq_sc2.5", {"OPENWAM_NO_EQTUBE": "1", "OPENWAM_RUNNER_SC": "2.5"}),  # long runner
+    ("eqvol025",   {"OPENWAM_EQ_VOL_MULT": "0.25"}),                         # production-viable: shrink the acoustic cavity
 ]
 
 M = json.load(open(os.path.join(HERE, "app/data/csl_ecu_maps.json")))
@@ -40,7 +39,8 @@ CSV = os.environ.get("PC_CSV", "/tmp/par_sweep_cfg.csv")
 
 # env keys a config may set; cleared before each gen so configs don't leak into each other
 _CFG_KEYS = ["OPENWAM_NO_EQTUBE", "OPENWAM_EQ_CHAIN", "OPENWAM_EQ_DIA", "OPENWAM_EQ_MISTUNE",
-             "OPENWAM_RUNNER_SC", "OPENWAM_RUNNER_FRIC_MULT", "OPENWAM_INTAKE_V2",
+             "OPENWAM_EQ_FRIC", "OPENWAM_EQ_VOL_MULT", "OPENWAM_RUNNER_SC",
+             "OPENWAM_RUNNER_FRIC_MULT", "OPENWAM_INTAKE_V2",
              "OPENWAM_INTAKE_MOUTH_CD", "OPENWAM_PORT_TWALL"]
 
 def lut(m, rpm, load):

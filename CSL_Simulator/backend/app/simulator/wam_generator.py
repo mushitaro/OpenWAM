@@ -623,6 +623,13 @@ class WAMGenerator:
         else:
             eq_tube_id = self.plenum_counter; self.plenum_counter += 1
         eq_tube_vol = math.pi * (0.010**2) * 0.450  # ~1.41e-4 m³ ≈ 141cc
+        # Eq-tube central-plenum VOLUME scale (Stage 56). Step-2b showed the eq-tube's
+        # high-rpm over-fill is an ACOUSTIC coupling through this 141cc cavity (stub
+        # friction does NOT damp it; only removing the tube does). The cavity volume
+        # sets the coupling strength: shrinking it weakens the acoustic cross-talk
+        # (less 6300/6900 over-fill) WITHOUT the area-mismatch bifurcation that a
+        # smaller stub diameter causes. OPENWAM_EQ_VOL_MULT default 1.0 = byte-identical.
+        eq_tube_vol *= float(os.environ.get("OPENWAM_EQ_VOL_MULT", "1.0"))
         # degC: intake-side equalization tube, ~40 C (was 313 = read as 313 C = 586 K)
         if not self._skip_eqtube and not self._eq_chain:
             self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 40)
