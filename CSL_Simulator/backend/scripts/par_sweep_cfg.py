@@ -21,11 +21,14 @@ from app.models import SimConfig
 from app.simulator.wam_generator import WAMGenerator
 
 # ---- the diagnostic matrix (label -> env overrides applied during deck gen) ----
+# DETERMINISTIC re-run (must use PC_OMP=1 -- omp>1 is non-deterministic at the WOT
+# bifurcation, Step 2e). Clean comparison set.
 CONFIGS = [
-    ("noeq_sc1.0", {"OPENWAM_NO_EQTUBE": "1"}),                              # clean ram, baseline length
-    ("noeq_sc1.7", {"OPENWAM_NO_EQTUBE": "1", "OPENWAM_RUNNER_SC": "1.7"}),  # does length move the ram peak to 3900?
-    ("noeq_sc2.5", {"OPENWAM_NO_EQTUBE": "1", "OPENWAM_RUNNER_SC": "2.5"}),  # long runner
-    ("eqvol025",   {"OPENWAM_EQ_VOL_MULT": "0.25"}),                         # production-viable: shrink the acoustic cavity
+    ("base",         {}),                                                   # eq-tube on, sc1.0 (reference)
+    ("noeqtube",     {"OPENWAM_NO_EQTUBE": "1"}),                           # eq-tube removed
+    ("eqvol050",     {"OPENWAM_EQ_VOL_MULT": "0.5"}),                       # eq cavity half
+    ("eqvol050_cd07",{"OPENWAM_EQ_VOL_MULT": "0.5", "OPENWAM_INTAKE_V2": "1",
+                      "OPENWAM_INTAKE_MOUTH_CD": "0.7"}),                    # half cavity + soft mouth
 ]
 
 M = json.load(open(os.path.join(HERE, "app/data/csl_ecu_maps.json")))

@@ -3260,3 +3260,31 @@ branch. CONSEQUENCES:
 NEXT: re-run the key configs (base / noeqtube / eqvol / mouth-Cd) DETERMINISTICALLY at omp1 to get
 reproducible shape data. The "bistability across configs" may largely collapse once the OMP noise is
 removed -- in which case the deck levers may tune cleanly after all.
+
+
+### Step 2f -- DETERMINISTIC (omp1) re-run: data is now reproducible; clean lever map confirmed
+Re-ran the key configs at OMP_NUM_THREADS=1 (deterministic), CONC=16 (same wall throughput), cyc55
+(backend/step2_deterministic_configs.csv):
+```
+  config         range  tilt    2700/3900/4600/5300/6300/6900   [stock 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
+  base            66    50.7    0.80 0.62 1.18 1.15 1.14 1.10    eq over-coupled (3900 low branch 72.8)
+  noeqtube        38     0.2    0.94 1.06 1.16 1.15 0.85 0.84    tilt~0; 2700/3900 == stock; ram hump+top droop
+  eqvol050        41    33.2    0.83 0.81 1.14 1.09 1.10 1.03
+  eqvol050_cd07   52    37.5    0.77 0.79 1.23 1.19 0.88 1.14
+```
+The deterministic numbers closely match the prior omp4 runs for these configs (noeqtube 3900=125.9
+both times) -- so most cells were branch-CONSISTENT across runs; the OMP noise mainly affected the
+occasionally-flipping bistable cells (3900/6300). Now everything is reproducible. Clean lever map:
+- eq central-cavity VOLUME sets the high-rpm over-fill / tilt: base(vol1.0) tilt 50.7 -> eqvol050
+  tilt 33 -> noeqtube(vol0) tilt 0.2. Monotonic, clean.
+- residual at the best WOT shape (noeqtube): a RUNNER-RAM hump at 4600/5300 (1.16/1.15) + a top-end
+  droop at 6300/6900 (0.85) -- the ram is centred ~4600-5300, not 3900, and length cannot move it
+  (erratic with the eq-tube; blows up without it). NB the real S54 torque peaks ~4900, so a
+  ~4600-5300 ram peak may be MORE correct than the kf_rf_soll 3900-peak target.
+- the eq cavity is a WOT-shape vs PART-LOAD-balance tradeoff: noeqtube nails WOT low/mid but the
+  eq-tube exists to fix the part-throttle cyl-2 collapse, so it cannot simply be removed.
+
+STATUS: the deck-only levers get the low/mid onto stock and null the tilt (eq cavity), but leave a
+physically-plausible runner-ram hump (4600/5300) that they cannot broaden, and trade WOT vs
+part-load. This is the natural end of the deck-only tuning phase -> a strategic fork (C++ radiation
+damping for the ram hump / accept-and-proceed-to-Step-3 / re-examine the 3900-peak target).
