@@ -3288,3 +3288,30 @@ STATUS: the deck-only levers get the low/mid onto stock and null the tilt (eq ca
 physically-plausible runner-ram hump (4600/5300) that they cannot broaden, and trade WOT vs
 part-load. This is the natural end of the deck-only tuning phase -> a strategic fork (C++ radiation
 damping for the ram hump / accept-and-proceed-to-Step-3 / re-examine the 3900-peak target).
+
+
+### Step 2 CLOSE-OUT + target validation (user chose: lock defaults, proceed to Step 3)
+Target validation -- full stock kf_rf_soll WOT column (operating band): 2700=104 2900=103 3100=104
+**3900=116(PEAK)** 4600=111 5300=110 6300=109 6900=106 7300=107 7900=102. (The 600/870=120/117 are
+idle/cranking, not the power band.) So the 3900-peak broad curve is the REAL target -- not a target
+artifact. The sim's ram peak at 4600-5300 is therefore genuinely ~700-1400 rpm too HIGH (the
+effective intake tract is acoustically too short), and deck levers cannot move it (length blows up
+without the eq-tube / moves erratically with it).
+
+DECISION (user): keep the LEGACY base intake as the production default (part-load is solved and
+sacred; reducing the eq cavity trades that away). The Step-2 work delivers, GATED and default-safe:
+- OPENWAM_INTAKE_V2 + OPENWAM_INTAKE_MOUTH_CD : soft trumpet-mouth termination loss (mild Q-broaden).
+- OPENWAM_EQ_VOL_MULT : eq central-cavity volume = the clean tilt lever (no area-mismatch bifurcation).
+- a complete, deterministic lever map + the OMP-determinism methodology fix (run omp1 for calibration).
+These are AVAILABLE TUNING KNOBS for the eventual auto-tuner; the residual WOT-shape error (ram peak
+~700-1400 rpm high) is a documented, physically-bounded limitation (real S54 torque peaks ~4900, so
+the sim's ~4600-5300 ram peak is not unreasonable; matching the 3900-peak VE target exactly needs a
+longer effective tract or a C++ radiation model, deferred).
+
+### Step 3 ENTRY -- deterministic build's converged WOT row (the EXVANOS_BASE anchor)
+From the omp1 base config (deterministic, cyc55): 2700=94.3, 3900=72.8, 4600=139.0, 5300=135.1,
+6300=133.3, 6900=129.5. NOTE 3900=72.8 sits on the LOW (notch) branch where stock PEAKS (116) --
+the bistability lands our build's 3900/100 low. The EXVANOS_BASE(rpm,load) fit (vanos_exhaust_bias
+= base - kf_avan1_soll; simulation_service.py:107) sweeps the exhaust-cam coordination, which moves
+the overlap and hence the resonance -- so it is the right lever to also pull 3900 onto its high
+branch. Step 3 starts by fitting EXVANOS_BASE(rpm) on the converged (omp1) WOT row.
