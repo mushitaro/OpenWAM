@@ -3239,3 +3239,24 @@ WORKING TARGET (revised, production-viable, deck-only): keep the eq-tube for par
 but shrink its cavity (EQ_VOL_MULT ~0.4-0.7) to null the tilt, and add the soft mouth (Cd~0.7) to
 broaden the 4600/5300 ram hump. Accept the ram peak at ~4600 (close to stock's flat top). Next:
 eqvol fine sweep {0.4,0.5,0.65} x mouth-Cd combo.
+
+
+### Step 2e -- ROOT METHODOLOGICAL FINDING: the OpenMP build is NON-DETERMINISTIC at WOT (flips the bistable attractor by ~57 VE pp run-to-run)
+Ran the SAME 3900 WOT deck three times: A(omp4)=128.2, B(omp4, identical deck)=71.1, D(omp2)=71.1.
+Two omp4 runs of the IDENTICAL deck diverged by 57 VE pp (trajectories differ from ~cyc15). So
+OpenWAM's OpenMP parallel reductions are order-non-deterministic, and at the high-Q bifurcation a
+tiny FP-order difference flips the 3900 (and 6300) WOT cell between its high (~128) and low (~71)
+branch. CONSEQUENCES:
+- EVERY omp4 sweep in Steps 1-2d carries run-to-run NOISE at the bistable cells (3900, 6300) that
+  flips them ~50 pp. The fine shape comparisons (exact tilt, "which config is best", the
+  "noeq_sc1.0 tilt 0.0") were partly this noise, NOT config sensitivity. The LARGE qualitative
+  findings still hold (eq-tube drives the tilt; length cannot broaden; mouth Cd is weak) -- those
+  were big effects -- but precise shape calibration on omp>1 data is unreliable.
+- FIX (no speed cost): run OMP_NUM_THREADS=1 (single-thread = deterministic, bitwise reproducible)
+  with CONC=16 (16 cells in parallel). The run is CPU-bound, so omp1xCONC16 has the SAME wall-clock
+  throughput as omp4xCONC4 but is fully reproducible. All future calibration sweeps must use omp1.
+- This is also a real OpenWAM caveat for ANY precise WOT work, not just this project: the parallel
+  build is not reproducible near the (unphysically sharp) intake resonance.
+NEXT: re-run the key configs (base / noeqtube / eqvol / mouth-Cd) DETERMINISTICALLY at omp1 to get
+reproducible shape data. The "bistability across configs" may largely collapse once the OMP noise is
+removed -- in which case the deck levers may tune cleanly after all.
