@@ -3211,3 +3211,31 @@ Levers, cleanly separated: runner LENGTH should move (1)'s peak; eq cavity VOLUM
 WITHOUT the stub-diameter area-mismatch bifurcation -- the clean knob for (2).
 Next: (a) noeqtube x runner-SC to test whether length moves the clean ram peak (1) to 3900; (b)
 EQ_VOL_MULT sweep to weaken (2) while keeping the tube for part-load cyl balance.
+
+
+### Step 2d -- noeqtube isolates a clean low/mid (tilt 0) but long-SC BLOWS UP; eq cavity VOLUME confirmed as the coupling lever
+configs at WOT, cyc58 (backend/step2_noeq_eqvol_sweep.csv):
+```
+  config       range  tilt    2700/3900/4600/5300/6300/6900   [stock 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
+  noeq_sc1.0    38     0.0    0.95 1.05 1.16 1.15 0.84 0.84    <- tilt 0; 2700/3900 EXACT; mid-hump + top-droop
+  noeq_sc1.7   752   202.5    NUMERICAL BLOWUP (5300=846 VE)
+  noeq_sc2.5   797  -203.1    NUMERICAL BLOWUP (3900=877, 6900=816)
+  eqvol025      45    12.1    0.79 1.08 1.16 1.11 0.81 1.05    <- cavity 0.25x: tilt 47.5->12.1, 6300 notch
+```
+Findings:
+- noeqtube at base length is the BEST shape so far: tilt 0.0 and 2700/3900 land on stock almost
+  exactly. Residual error is a RUNNER-RAM hump at 4600/5300 (1.16/1.15) + a top-end droop at
+  6300/6900 (0.84) -- the ram resonance is centred ~4600-5300, not 3900.
+- noeqtube + LONGER runner (SC 1.7, 2.5) NUMERICALLY BLOWS UP (VE 800+). So the ram peak CANNOT be
+  walked down to 3900 by lengthening: with the eq-tube it moves erratically and not to 3900
+  (Step 1); without it, long runners go unstable. The ram peak at ~4600-5300 is effectively pinned.
+  (NB: the real S54 torque peak is ~4900 rpm, so a ~4600 ram peak is arguably more physical than the
+  kf_rf_soll target's 3900 -- worth revisiting the target later.)
+- eqvol025 (OPENWAM_EQ_VOL_MULT=0.25) cuts tilt 47.5->12.1 -> CONFIRMS the eq central-cavity VOLUME
+  is the acoustic-coupling lever (clean, no bifurcation), but at 0.25x it over-shrinks and notches
+  6300. An intermediate volume should sit between base (over-couples, tilt 47) and 0.25x.
+
+WORKING TARGET (revised, production-viable, deck-only): keep the eq-tube for part-load cyl balance
+but shrink its cavity (EQ_VOL_MULT ~0.4-0.7) to null the tilt, and add the soft mouth (Cd~0.7) to
+broaden the 4600/5300 ram hump. Accept the ram peak at ~4600 (close to stock's flat top). Next:
+eqvol fine sweep {0.4,0.5,0.65} x mouth-Cd combo.
