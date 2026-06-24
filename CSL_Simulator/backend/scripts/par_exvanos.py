@@ -24,6 +24,10 @@ M = json.load(open(os.path.join(HERE, "app/data/csl_ecu_maps.json")))
 M_REF = math.pi*(0.087/2)**2*0.091*(101325/(287.05*298.0))*1000
 RPMS = [int(x) for x in os.environ.get("PV_RPMS", "2700,3900,4600,5300,6300,6900").split(",")]
 BASES = [float(x) for x in os.environ.get("PV_BASES", "90,120,150,180").split(",")]
+# Mouth acoustic-radiation damping alpha(s) (runtime env OPENWAM_MOUTH_RAD; deck-independent
+# so decks are reused across rad values). PV_RADW = the EMA weight. 0.0 = legacy/off.
+RADS = [float(x) for x in os.environ.get("PV_RADS", "0").split(",")]
+RADW = os.environ.get("PV_RADW", "0.02")
 LOAD = float(os.environ.get("PV_LOAD", "100"))
 CYCLES = int(os.environ.get("PV_CYCLES", "55"))
 OMP = os.environ.get("PV_OMP", "1")
@@ -72,60 +76,56 @@ def done():
     d = set()
     if os.path.exists(CSV):
         for r in csv.reader(open(CSV)):
-            if len(r) >= 3 and r[0] != "rpm": d.add((int(r[0]), float(r[1])))
+            if len(r) >= 3 and r[0] != "rpm": d.add((int(r[0]), float(r[1]), float(r[2])))
     return d
 
 _lock = threading.Lock()
-def run_cell(rpm, base):
+def run_cell(rpm, base, rad):
     wd = os.path.abspath(f"/tmp/pv_{rpm}_{int(base)}_{int(LOAD)}")
     env = os.environ.copy(); env["OPENWAM_HLLC"] = "1"; env["OMP_NUM_THREADS"] = OMP
     env["OPENWAM_VEDIAG"] = "1"; env["OPENWAM_THR_CHOKE"] = "1"
-    run_capped([BIN, "m.wam"], wd, wd+"/run.log", TIMEOUT, env)
-    ve_all, ve_h, ncol, slope, ncyc, ok = metrics(open(wd+"/run.log", encoding="utf-8", errors="ignore").read())
+    if rad > 0:
+        env["OPENWAM_MOUTH_RAD"] = str(rad); env["OPENWAM_MOUTH_RAD_W"] = RADW
+    else:
+        env.pop("OPENWAM_MOUTH_RAD", None); env.pop("OPENWAM_MOUTH_RAD_W", None)
+    log = wd + f"/run_rad{rad}.log"
+    run_capped([BIN, "m.wam"], wd, log, TIMEOUT, env)
+    ve_all, ve_h, ncol, slope, ncyc, ok = metrics(open(log, encoding="utf-8", errors="ignore").read())
     with _lock:
         new = not os.path.exists(CSV)
         with open(CSV, "a", newline="") as f:
             w = csv.writer(f)
-            if new: w.writerow(["rpm", "base", "load", "stock", "ve_all", "ve_h", "ncol", "slope", "cyc", "valid"])
-            w.writerow([rpm, base, int(LOAD), f"{stock(rpm,LOAD):.1f}", f"{ve_all:.1f}", f"{ve_h:.1f}",
+            if new: w.writerow(["rpm", "base", "rad", "radw", "load", "stock", "ve_all", "ve_h", "ncol", "slope", "cyc", "valid"])
+            w.writerow([rpm, base, rad, RADW, int(LOAD), f"{stock(rpm,LOAD):.1f}", f"{ve_all:.1f}", f"{ve_h:.1f}",
                         ncol, f"{slope:+.2f}", ncyc, 1 if ok else 0])
-    return rpm, base, ve_h, slope, ncyc, ok
+    return rpm, base, rad, ve_h, slope, ncyc, ok
 
-jobs = [(rpm, base) for base in BASES for rpm in RPMS]
+jobs = [(rpm, base, rad) for rad in RADS for base in BASES for rpm in RPMS]
 dn = done()
-todo = [j for j in jobs if (j[0], j[1]) not in dn]
-print(f"# EXVANOS base sweep (load={LOAD}): {len(todo)}/{len(jobs)} TODO, conc={CONC} omp={OMP} cyc={CYCLES}", flush=True)
-for rpm, base in todo:
+todo = [j for j in jobs if (j[0], j[1], j[2]) not in dn]
+print(f"# EXVANOS base sweep (load={LOAD}): {len(todo)}/{len(jobs)} TODO, conc={CONC} omp={OMP} cyc={CYCLES} radw={RADW}", flush=True)
+# generate decks once per (rpm,base) (shared across rad values)
+for rpm, base in {(j[0], j[1]) for j in todo}:
     gen(rpm, base, os.path.abspath(f"/tmp/pv_{rpm}_{int(base)}_{int(LOAD)}"))
 with ThreadPoolExecutor(max_workers=CONC) as ex:
-    futs = {ex.submit(run_cell, rpm, base): (rpm, base) for rpm, base in todo}
+    futs = {ex.submit(run_cell, rpm, base, rad): (rpm, base, rad) for rpm, base, rad in todo}
     for fut in as_completed(futs):
-        rpm, base, ve, slope, ncyc, ok = fut.result()
-        print(f"  {rpm} base{int(base)} -> VE_h {ve:.1f} slope{slope:+.2f} cyc{ncyc} {'OK' if ok else 'REJ'} (stock {stock(rpm,LOAD):.0f})", flush=True)
+        rpm, base, rad, ve, slope, ncyc, ok = fut.result()
+        print(f"  {rpm} base{int(base)} rad{rad} -> VE_h {ve:.1f} slope{slope:+.2f} cyc{ncyc} {'OK' if ok else 'REJ'} (stock {stock(rpm,LOAD):.0f})", flush=True)
 
-# report: per rpm, VE vs base, and the base that crosses stock (linear interp)
-print(f"\n# ==== EXVANOS_BASE fit @ load {LOAD:.0f} (VE_h vs base; * = stock-crossing base) ====")
-rows = [r for r in csv.reader(open(CSV)) if len(r) >= 10 and r[0] != "rpm"] if os.path.exists(CSV) else []
-bs = sorted({float(r[1]) for r in rows})
-print("  rpm   stock  " + "  ".join(f"b{int(b)}" for b in bs) + "    base*=stock-cross")
+# report: VE_h vs base for each (rpm, rad) -- shows whether radiation damping smooths VE(base)
+print(f"\n# ==== VE_h vs base per rad @ load {LOAD:.0f} (smooth across base = monostabilized) ====")
+rows = [r for r in csv.reader(open(CSV)) if len(r) >= 12 and r[0] != "rpm"] if os.path.exists(CSV) else []
+bs = sorted({float(r[1]) for r in rows}); rds = sorted({float(r[2]) for r in rows})
 for rpm in RPMS:
-    seg = {float(r[1]): (float(r[5]), r[9]) for r in rows if int(r[0]) == rpm}
+    seg = {(float(r[1]), float(r[2])): float(r[7]) for r in rows if int(r[0]) == rpm}
     if not seg: continue
-    line = f"  {rpm:>4}  {stock(rpm,LOAD):>5.0f}  "
-    pts = []
-    for b in bs:
-        if b in seg:
-            ve, ok = seg[b]; pts.append((b, ve))
-            line += f"{ve:>4.0f}{'' if ok=='1' else 'x'} "
-        else:
-            line += "  -   "
-    # find stock crossing by linear interp over (base, ve) sorted by base
-    st = stock(rpm, LOAD); cross = None
-    pts.sort()
-    for i in range(len(pts)-1):
-        (b1, v1), (b2, v2) = pts[i], pts[i+1]
-        if (v1-st)*(v2-st) <= 0 and v1 != v2:
-            cross = b1 + (st-v1)*(b2-b1)/(v2-v1); break
-    line += f"   {('%.0f'%cross) if cross else '(no cross in range)'}"
-    print(line)
+    print(f"\n  rpm {rpm} (stock {stock(rpm,LOAD):.0f}):  base-> " + " ".join(f"{int(b):>4}" for b in bs))
+    for rad in rds:
+        vals = [seg.get((b, rad)) for b in bs]
+        # jaggedness metric: mean abs successive difference (low = smooth)
+        diffs = [abs(vals[i+1]-vals[i]) for i in range(len(vals)-1) if vals[i] is not None and vals[i+1] is not None]
+        jag = sum(diffs)/len(diffs) if diffs else float('nan')
+        line = f"    rad {rad:<4} VE-> " + " ".join(f"{v:>4.0f}" if v is not None else "   -" for v in vals)
+        print(line + f"   |jag={jag:.1f}|")
 print("# done", flush=True)
