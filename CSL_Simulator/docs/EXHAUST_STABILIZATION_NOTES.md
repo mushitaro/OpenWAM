@@ -3336,3 +3336,35 @@ Deterministic (omp1) base x rpm sweep at WOT (backend/step3_exvanos_wot_coarse.c
   stock-matching VE for those cells. Probing a fine base grid at 3900 & 4600 to settle smooth-steep
   (stable crossing exists) vs discontinuous (bistable, no stable stock value).
 - Only 5300 has a near-stock STABLE point (base180 -> 109 ~ stock 110).
+
+
+### Step 3b -- DEFINITIVE: the converged WOT VE is a DETERMINISTIC-CHAOTIC function of the base (deck calibration is impossible)
+Fine deterministic (omp1) base grid at 3900 & 4600 WOT, 5-unit steps
+(backend/step3_exvanos_fine_chaos.csv). Converged VE_h vs base:
+```
+  3900:  b125=140 b130=138 b135=100 b140=135 b145=96 b150=74 b155=85 b160=124 b165=83 b170=77 b175=79
+  4600:  b125=148 b130=146 b135=106 b140=103 b145=141 b150=139 b155=95 b160=133 b165=125 b170=121 b175=100
+```
+Per-cycle trajectories CONFIRM these are CONVERGED (flat tails), e.g. 3900: base130 settles 138,
+base135 settles 99, base140 settles 134, base145 settles 95, base150 settles 73, base160 settles
+124. So adjacent bases (5 units apart) converge to DIFFERENT attractors (~74 / ~99 / ~138) in a
+non-monotonic, chaotic pattern. Under omp1 this is fully deterministic -> it is genuine PARAMETRIC
+MULTISTABILITY / deterministic chaos, not run-to-run noise (Step 2e) and not under-convergence.
+
+IMPLICATION (the wall): the converged WOT VE is a chaotic/fractal function of the exhaust base --
+and, by the identical behaviour seen for runner length, eq-volume and mouth-Cd, of EVERY deck
+lever. Therefore NO EXVANOS_BASE(rpm,load) fit (nor any deck-parameter fit) can make the sim VE
+track stock smoothly: VE jumps across stock unpredictably as the parameter moves. Deck-level WOT
+calibration is not merely hard, it is ILL-POSED while the resonance Q is this high.
+
+ROOT CAUSE (now fully nailed, three independent confirmations): the intake resonance Q is
+unphysically high -> the WOT cycle has multiple co-existing attractors -> (1) cross-compiler shift
+(Step 56), (2) OMP run-to-run flips (Step 2e), and (3) parametric chaos vs every lever (this step).
+The ONLY fix that restores a smooth, calibratable, monostable model is to LOWER Q with real
+physical DAMPING. The deck levers (length, friction, eq-topology, mouth-Cd, eq-volume) cannot supply
+enough. This requires the C++ frequency/Mach-aware mouth RADIATION loss in TCCDeposito (the lever
+the original Step-2 plan anticipated, mirroring the choke chi(r) gating in TCCPerdidadePresion.cpp).
+
+=> Deck-only Step 3 (EXVANOS_BASE fit, sigma(pedal), WOT-ratio correction) is BLOCKED until Q is
+lowered. Recommend implementing the C++ radiation damping next (it should also collapse the
+bistability and finally let the WOT shape AND the base fit converge cleanly).
