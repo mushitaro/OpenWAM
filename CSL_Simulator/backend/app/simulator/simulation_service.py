@@ -55,7 +55,21 @@ class SimulationService:
                 point_config = config.model_copy(deep=True)
                 point_config.engine.rpm = float(rpm)
                 point_config.engine.throttle_position = float(load_tps / 100.0)
-                
+
+                # Stage 56 WOT calibration: at high load (WOT) the mouth acoustic-radiation
+                # damping (C++ OPENWAM_MOUTH_RAD) monostabilizes the cycle and, with the fitted
+                # per-rpm EXVANOS_BASE(rpm), reproduces the stock WOT VE-shape (max shape err 0.02).
+                # Applied only at >=85% tps so the already-solved part-load (and its cyl balance)
+                # stays on the legacy path untouched until the part-load fit phase. Override the
+                # damping with OPENWAM_MOUTH_RAD (explicit value wins) or disable via _OFF.
+                import os as _os0
+                _is_wot = (load_tps >= 85.0)
+                _rad_off = _os0.environ.get("OPENWAM_MOUTH_RAD_OFF")
+                _rad_explicit = _os0.environ.get("OPENWAM_MOUTH_RAD")
+                cal_rad = (_rad_explicit is not None) or (_is_wot and not _rad_off)
+                cal_rad_val = _rad_explicit if _rad_explicit is not None else "0.4"
+                cal_rad_w = _os0.environ.get("OPENWAM_MOUTH_RAD_W", "0.005")
+
                 # VANOS Lookup (Intake)
                 try:
                      van_in_map = maps.get("kf_evan1_soll", {})
@@ -104,7 +118,30 @@ class SimulationService:
                          ax_i = min(range(len(a_x)), key=lambda i: abs(a_x[i] - rpm))
                          ay_i = min(range(len(a_y)), key=lambda i: abs(a_y[i] - load_tps))
                          aval = a_vals[ay_i][ax_i]
-                         ex_base = float(_os.environ.get("OPENWAM_EXVANOS_BASE", "150.0"))
+                         # EXVANOS_BASE(rpm) -- Stage 56 WOT fit (with radiation damping ON) that
+                         # reproduces the stock WOT VE-shape. Per-rpm interpolated table at WOT;
+                         # part-load keeps the legacy const 150 (untouched). OPENWAM_EXVANOS_BASE
+                         # forces a scalar override (studies).
+                         _envb = _os.environ.get("OPENWAM_EXVANOS_BASE")
+                         if _envb:
+                             ex_base = float(_envb)
+                         elif _is_wot:
+                             _BMAP = [(2700, 150.0), (3900, 115.0), (4600, 155.0),
+                                      (5300, 160.0), (6300, 160.0), (6900, 160.0)]
+                             if rpm <= _BMAP[0][0]:
+                                 ex_base = _BMAP[0][1]
+                             elif rpm >= _BMAP[-1][0]:
+                                 ex_base = _BMAP[-1][1]
+                             else:
+                                 ex_base = 150.0
+                                 for _i in range(len(_BMAP) - 1):
+                                     (_r0, _b0), (_r1, _b1) = _BMAP[_i], _BMAP[_i + 1]
+                                     if _r0 <= rpm <= _r1:
+                                         _t = (rpm - _r0) / (_r1 - _r0)
+                                         ex_base = _b0 * (1 - _t) + _b1 * _t
+                                         break
+                         else:
+                             ex_base = 150.0
                          ex_scale = float(_os.environ.get("OPENWAM_EXVANOS_SCALE", "1.0"))
                          point_config.engine.vanos_exhaust_bias = float((ex_base - aval) * ex_scale)
                 except:
@@ -129,6 +166,12 @@ class SimulationService:
                 # the VE map uses the validated compressible metering without changing
                 # global solver behaviour. Inherit the rest of the environment.
                 sim_env = {**os.environ, "OPENWAM_THR_CHOKE": "1"}
+                # Stage 56: opt the WOT cells into the C++ mouth radiation damping (default OFF in
+                # the binary, so part-load and any non-WOT path stay byte-identical legacy). This
+                # monostabilizes the WOT cycle so the EXVANOS_BASE(rpm) fit reproduces stock.
+                if cal_rad:
+                    sim_env["OPENWAM_MOUTH_RAD"] = cal_rad_val
+                    sim_env["OPENWAM_MOUTH_RAD_W"] = cal_rad_w
                 proc = await asyncio.create_subprocess_exec(
                     exe_path, wam_filename,
                     cwd=self.simulator_dir,
