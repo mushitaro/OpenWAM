@@ -3368,3 +3368,24 @@ the original Step-2 plan anticipated, mirroring the choke chi(r) gating in TCCPe
 => Deck-only Step 3 (EXVANOS_BASE fit, sigma(pedal), WOT-ratio correction) is BLOCKED until Q is
 lowered. Recommend implementing the C++ radiation damping next (it should also collapse the
 bistability and finally let the WOT shape AND the base fit converge cleanly).
+
+
+### Step 3c -- SUCCESS: the C++ mouth radiation damping MONOSTABILIZES the WOT cycle (VE(base): chaotic -> smooth)
+Deterministic (omp1) 3900 WOT, VE_h vs exhaust base, at OPENWAM_MOUTH_RAD alpha {0, 0.2, 0.5}, w=0.005
+(backend/step3_monostab_3900.csv):
+```
+  base->            130  135  140  145  150   | jaggedness (mean |dVE| across base)
+  rad 0.0 (legacy)  138  100  135   96   74   | 33.9   CHAOTIC / multistable
+  rad 0.2           86   85   83   81   79    |  1.8   SMOOTH, monotonic
+  rad 0.5           89   86   85   82   80    |  2.0   SMOOTH
+```
+The gated AC-radiation damping WORKS: it collapses the parametric chaos (jag 33.9 -> 1.8, an 18x
+smoothing) into a smooth, single-valued, monotonic VE(base) -- the WOT cycle is now MONOSTABLE, and
+base still modulates VE smoothly (the ram is reduced, not dead). This removes the Step-3b wall:
+EXVANOS_BASE (and every deck lever) is now a smoothly-invertible knob, so calibration is well-posed.
+- CAVEAT: alpha=0.2 OVER-damps -- the smooth level (~79-86) sits BELOW stock 116. The transition
+  from chaos (high branch ~135) to the smooth low level happens between alpha 0 and 0.2, so a SMALLER
+  alpha should give a smooth curve that sits HIGHER and crosses stock. Tuning alpha (and w) next to
+  land the smooth VE(base) curve across stock while retaining maximum ram (smallest alpha that just
+  monostabilizes). Then validate monostabilization across rpm and confirm omp4==omp1 (monostable =>
+  the OMP non-determinism, Step 2e, should also vanish).
