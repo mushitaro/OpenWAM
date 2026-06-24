@@ -68,7 +68,6 @@ def gen(rpm, base, wd):
 _lock = threading.Lock()
 def run_cell(rpm, base):
     wd = os.path.abspath(f"/tmp/prof_{rpm}_{int(base)}")
-    gen(rpm, base, wd)
     env = os.environ.copy(); env["OPENWAM_HLLC"]="1"; env["OMP_NUM_THREADS"]=OMP
     env["OPENWAM_VEDIAG"]="1"; env["OPENWAM_THR_CHOKE"]="1"
     if float(RAD) > 0: env["OPENWAM_MOUTH_RAD"]=RAD; env["OPENWAM_MOUTH_RAD_W"]=RADW
@@ -84,6 +83,9 @@ def run_cell(rpm, base):
 
 rpms = sorted(PROFILE)
 print(f"# profile fit @ WOT, rad={RAD} w={RADW}: " + " ".join(f"{r}:b{int(PROFILE[r])}" for r in rpms), flush=True)
+# generate all decks sequentially (gen mutates global os.environ/sys.stdout -> not thread-safe)
+for r in rpms:
+    gen(r, PROFILE[r], os.path.abspath(f"/tmp/prof_{r}_{int(PROFILE[r])}"))
 with ThreadPoolExecutor(max_workers=CONC) as ex:
     futs = {ex.submit(run_cell, r, PROFILE[r]): r for r in rpms}
     res = {}

@@ -3436,3 +3436,25 @@ base x rpm at alpha=0.4, w=0.005, omp1 (backend/step3_basefit_alpha04.csv):
   to move the sim peak from 5300 to 3900, LOWER the 3900 base (lifts it, e.g. b108->~92) and RAISE the
   5300/6300/6900 base (trims them, e.g. b175->~78). Verifying a candidate profile
   {2700:135,3900:108,4600:148,5300:178,6300:172,6900:168} (par_profile.py).
+
+
+### Step 3f -- SUCCESS: EXVANOS_BASE(rpm) + radiation damping REPRODUCES the stock WOT shape (max shape err 0.02)
+With OPENWAM_MOUTH_RAD=0.4 (w=0.005) and the fitted per-rpm exhaust base
+EXVANOS_BASE(rpm) = {2700:150, 3900:115, 4600:155, 5300:160, 6300:160, 6900:160}
+(backend/step3_exvanos_fit_FINAL.csv, omp1, cyc55):
+```
+  rpm     2700  3900  4600  5300  6300  6900   range tilt  peak
+  sim     0.97  1.07  1.01  0.99  0.98  0.99    9   -2.1   3900   (mean-norm)
+  stock   0.95  1.06  1.02  1.01  0.99  0.97   12   -0.7   3900
+  |diff|  0.02  0.01  0.01  0.02  0.01  0.02   -- max shape error 0.02 --
+```
+The simulated WOT VE-shape now MATCHES stock: broad (range 9 ~ stock 12), peaked at 3900, gentle
+NEGATIVE tilt (-2.1 ~ stock -0.7). This is the Step-2/3 deliverable that was impossible before the
+C++ damping (deck levers gave a chaotic, ill-posed VE). The absolute level (~82-91) is removed by the
+WOT-ratio correction; the SHAPE is the calibration target and it is met to within 0.02 normalised.
+
+PRODUCTION integration (simulation_service.py): (a) line ~131 sim_env opts into OPENWAM_MOUTH_RAD=0.4
+/ _W=0.005 (like it already opts into THR_CHOKE), (b) line ~107 the const EXVANOS_BASE=150 becomes a
+per-rpm interpolated lookup (this WOT fit), env-overridable. The C++ default stays OFF (byte-identical
+legacy); the production path opts in. NEXT PHASE: extend EXVANOS_BASE to (rpm,LOAD) for part-load +
+sigma(pedal), and re-validate the part-load cyl-balance with damping on.
