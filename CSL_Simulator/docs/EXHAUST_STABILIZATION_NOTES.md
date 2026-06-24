@@ -3315,3 +3315,24 @@ the bistability lands our build's 3900/100 low. The EXVANOS_BASE(rpm,load) fit (
 = base - kf_avan1_soll; simulation_service.py:107) sweeps the exhaust-cam coordination, which moves
 the overlap and hence the resonance -- so it is the right lever to also pull 3900 onto its high
 branch. Step 3 starts by fitting EXVANOS_BASE(rpm) on the converged (omp1) WOT row.
+
+
+### Step 3a -- WOT-row EXVANOS_BASE sweep (deterministic): strong lever, but stock VE sits in the BISTABLE GAP for most rpm
+Deterministic (omp1) base x rpm sweep at WOT (backend/step3_exvanos_wot_coarse.csv):
+```
+  rpm   stock  b90  b120  b150  b180   interp-cross
+  2700   104   109  108   95   76     129   (gradual)
+  3900   116   144  141   73   82     131   CLIFF b120=141 -> b150=73
+  4600   111   152  149  139   74     163   CLIFF b150=139 -> b180=74
+  5300   110   150  148  135  109     179   gradualish (b180=109 ~ stock)
+  6300   109   151  149  133   81     164   CLIFF
+  6900   106   151  149  130   74     163   CLIFF
+```
+- GOOD: lowering the base resolves the 3900 notch -- base120 puts 3900 on its HIGH branch (141) vs
+  base150's low branch (73). So the exhaust-cam coordination DOES control the branch.
+- BAD: the VE(base) response is not smooth -- it holds a HIGH branch (130-152) then CLIFFS to a LOW
+  branch (74-110) over a ~30-unit base step, and stock (104-116) falls in the GAP between branches
+  for 3900/4600/6300/6900. If the cliff is a true discontinuity (bistable), NO base gives a stable
+  stock-matching VE for those cells. Probing a fine base grid at 3900 & 4600 to settle smooth-steep
+  (stable crossing exists) vs discontinuous (bistable, no stable stock value).
+- Only 5300 has a near-stock STABLE point (base180 -> 109 ~ stock 110).
