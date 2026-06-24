@@ -83,6 +83,15 @@ private:
   nmCaso FCaso;
   nmSentidoFlujo FSentidoFlujo;
 
+  // --- Gated mouth acoustic-radiation damping (env OPENWAM_MOUTH_RAD, default OFF) ---
+  // Damps only the AC (oscillating) part of the end velocity about a per-boundary
+  // running mean, lowering the intake-resonance Q WITHOUT choking the mean WOT flow.
+  // Default OFF (alpha=0) -> the damping block is skipped, byte-identical to legacy.
+  double FMouthRadAlpha; // AC deviation damping fraction in [0,1]; <0 = env not yet cached
+  double FMouthRadW;     // EMA weight for the DC (cycle-mean) end-velocity estimate
+  bool FMouthRadGated;   // cached gate flag (alpha > 0)
+  double FVelBar;        // per-boundary running-mean (DC) of FVelocity
+
   double FRegimen;
 
   double FGamma1;

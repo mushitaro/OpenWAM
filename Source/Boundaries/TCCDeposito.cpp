@@ -80,6 +80,12 @@ TCCDeposito::TCCDeposito(nmTypeBC TipoCC, int numCC,
   FSentidoFlujo = nmParado;
   FMachVenturi = 0;
 
+  // Gated mouth acoustic-radiation damping (env OPENWAM_MOUTH_RAD); off by default.
+  FMouthRadAlpha = -1.0; // sentinel: env not yet read
+  FMouthRadW = 0.0;
+  FMouthRadGated = false;
+  FVelBar = 0.0;
+
   FTime0 = 0.;
   FTime1 = 0.;
   FAnguloAnterior = 0.;
@@ -693,6 +699,52 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
       FSonido = *FCC;
       // La composicion se mantiene, al estar el flujo parado.
     }
+
+    // === GATED MOUTH ACOUSTIC-RADIATION DAMPING (Stage 56; default OFF -> byte-identical) ===
+    // The intake ram resonance is unphysically high-Q, making the WOT cycle multistable
+    // (the converged VE jumps chaotically with any parameter). A real trumpet mouth radiates
+    // acoustic energy into the airbox (a partially-absorbing open end); the plenum BC here
+    // reflects almost fully. We damp ONLY the AC (oscillating) part of the end velocity about a
+    // per-boundary running mean, attenuating the reflected standing wave (lowering Q) while
+    // leaving the DC (mean) WOT flow untouched: at a converged fixed point FVelocity==FVelBar,
+    // so the deviation is 0 and this block is an identity (no choking). The (FVelocity, FGasto,
+    // *FCD, *FCC) quadruple is kept mutually consistent using the same per-direction sign the
+    // flow routines use (entrante: *FCD = FSonido - G3*V ; saliente: *FCD = FSonido + G3*V).
+    if (FMouthRadAlpha < 0.0) { // read env once, then cache
+      const char *ev = getenv("OPENWAM_MOUTH_RAD");
+      double a = ev ? atof(ev) : 0.0;
+      if (a < 0.0) a = 0.0;
+      if (a > 1.0) a = 1.0;
+      const char *ew = getenv("OPENWAM_MOUTH_RAD_W");
+      double w = ew ? atof(ew) : 0.02;
+      if (w < 0.0) w = 0.0;
+      if (w > 1.0) w = 1.0;
+      FMouthRadAlpha = a;
+      FMouthRadW = w;
+      FMouthRadGated = (a > 1e-8);
+    }
+    if (FMouthRadGated &&
+        (FSentidoFlujo == nmEntrante || FSentidoFlujo == nmSaliente)) {
+      const double s = (FSentidoFlujo == nmSaliente) ? 1.0 : -1.0;
+      FVelBar = (1.0 - FMouthRadW) * FVelBar + FMouthRadW * FVelocity;
+      const double Vold = FVelocity;
+      const double Vnew = FVelBar + (1.0 - FMouthRadAlpha) * (FVelocity - FVelBar);
+      if (fabs(Vold) > 1e-30)
+        FGasto *= (Vnew / Vold); // keep mass flow consistent with the damped velocity
+      FVelocity = Vnew;
+      *FCD = FSonido + s * FGamma3 * FVelocity;
+      *FCC = FSonido - s * FGamma3 * FVelocity;
+      if (getenv("OPENWAM_MOUTH_RADDIAG")) {
+        static int mrDiag = 0;
+        if (mrDiag < 12 || (mrDiag % 200000) == 0) {
+          printf("MOUTHRAD CC%d dir=%d a=%.3f w=%.3f Vbar=%.5f Vold=%.5f Vnew=%.5f FCD=%.5f\n",
+                 FNumeroCC, (int)FSentidoFlujo, FMouthRadAlpha, FMouthRadW, FVelBar, Vold, Vnew, *FCD);
+          fflush(stdout);
+        }
+        ++mrDiag;
+      }
+    }
+
     FValvula->AcumulaCDMedio(Time);
   } catch (exception &N) {
     std::cout << "ERROR: TCCDeposito::CalculaCondicionContorno en la condicion "
