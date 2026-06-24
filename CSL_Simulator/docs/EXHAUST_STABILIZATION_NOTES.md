@@ -3389,3 +3389,27 @@ EXVANOS_BASE (and every deck lever) is now a smoothly-invertible knob, so calibr
   land the smooth VE(base) curve across stock while retaining maximum ram (smallest alpha that just
   monostabilizes). Then validate monostabilization across rpm and confirm omp4==omp1 (monostable =>
   the OMP non-determinism, Step 2e, should also vanish).
+
+
+### Step 3d -- radiation damping MONOSTABILIZES across rpm AND BROADENS the WOT curve to ~stock range
+Full WOT rpm sweep at base150, OPENWAM_MOUTH_RAD alpha {0,0.1,0.2,0.4}, w=0.005, omp1
+(backend/step3_radshape_alpha.csv). VE_h vs rpm:
+```
+  rpm     rad0.0  rad0.1  rad0.2  rad0.4    stock
+  2700     99.7    84.2    79.5    82.4     104
+  3900     72(R)   80.4    78.9    78.7     116
+  4600    139.0   142.3    82.8    87.8     111
+  5300    135.0   136.6   133.4!   89.3     110
+  6300    133.4    91.4    85.7    88.3     109
+  6900    129.6   131.2    82.7    87.1     106
+```
+- alpha 0.1/0.2 only PARTIALLY monostabilize (5300 stays on the high branch ~133 until alpha~0.4).
+- alpha 0.4 FULLY monostabilizes all rpm: VE = 82/79/88/89/88/87, mean-normalised
+  0.96/0.92/1.03/1.04/1.03/1.02, RANGE 10.6 pp -- essentially stock's broad range (12 pp)! The C++
+  damping achieved the Step-2 goal (a BROAD WOT curve) that NO deck lever could.
+- RESIDUAL shape error vs stock (0.95/1.06/1.02/1.01/0.99/0.97): the sim peak is at 5300 (not 3900),
+  3900 is a slight DIP (0.92 vs 1.06), tilt +7.6 vs stock -0.7. The absolute level (~85) is removed by
+  the WOT-ratio correction; the residual is a SHAPE detail now addressable because the cycle is
+  monostable and smooth -- the EXVANOS_BASE(rpm) coordination is finally a well-posed, smooth knob.
+NEXT: with damping ON (alpha~0.4), fit EXVANOS_BASE(rpm) (now smooth) to lift the 3900 dip / trim the
+5300 peak toward stock; pick the smallest alpha that holds full monostability; validate omp4==omp1.
