@@ -41,6 +41,13 @@ Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator
   Tooling: `scripts/par_exvanos.py` (deterministic base × rpm × mouth-rad), `par_profile.py` (per-rpm
   base profile verifier), `par_sweep_cfg/wot/mouth.py`. Data CSVs `backend/step2_*`, `step3_*`.
   REMEMBER: run all calibration sweeps at OMP_NUM_THREADS=1 (omp>1 is non-deterministic at WOT).
+- **⚠ BEFORE the VANOS auto-tuner (read the Stage-56 "DESIGN CAVEAT" note)**: EXVANOS_BASE(rpm) is a
+  calibration FUDGE (a ~45 deg/rpm swing that papers over the intake ram still peaking at ~5300 not
+  3900) and it sits in the SAME equation as the exhaust cam the tuner optimises. The radiation damping
+  ENABLES the tuner (chaotic VE surface -> smooth), but EXVANOS_BASE must be FOLDED AWAY first: fix the
+  intake ram rpm physically (so the stock cam map alone peaks VE at 3900), then set EXVANOS_BASE to a
+  fixed datum so the cam angle is a direct physical input. Until then, auto-tuned VANOS far from the
+  stock cam map is low-confidence.
 
 ---
 (historical context below — superseded by Stage 56 for the intake model)

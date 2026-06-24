@@ -3458,3 +3458,39 @@ PRODUCTION integration (simulation_service.py): (a) line ~131 sim_env opts into 
 per-rpm interpolated lookup (this WOT fit), env-overridable. The C++ default stays OFF (byte-identical
 legacy); the production path opts in. NEXT PHASE: extend EXVANOS_BASE to (rpm,LOAD) for part-load +
 sigma(pedal), and re-validate the part-load cyl-balance with damping on.
+
+
+### Stage 56 -- DESIGN CAVEAT for the VANOS auto-tuner: EXVANOS_BASE(rpm) is a calibration FUDGE that must be folded away before trusting auto-tuned VANOS
+The end goal is a VANOS auto-tuner (estimate the cam-table values that maximise VE / hit a desired
+driveability for the CURRENT mechanical components). Two consequences of the Stage-56 WOT
+calibration for that goal:
+
+GOOD -- the radiation damping is a PREREQUISITE for the auto-tuner. Before it, VE-vs-VANOS was a
+CHAOTIC/multistable surface (VE jumped 73<->138 with a tiny cam change); an optimiser cannot climb a
+surface that jumps. The damping makes the VE-vs-VANOS surface SMOOTH and single-valued (range 67->10),
+so cam optimisation is now well-posed. alpha is also the RIGHT kind of calibration: it is a physical
+property of the mouth (how much it radiates), INDEPENDENT of the cam settings being optimised.
+
+CAVEAT -- EXVANOS_BASE(rpm) is the WRONG kind of calibration for an auto-tuner, because it lives in
+the SAME equation as the exhaust cam table the tuner wants to optimise:
+    exhaust_cam_phase = EXVANOS_BASE(rpm) - kf_avan1_soll(rpm,load)
+and it is currently absorbing residual INTAKE-model error. Concretely: even after damping the intake
+ram peak still sits at ~5300 rpm (the tract is acoustically tuned there), while stock VE peaks at
+3900. The fit set EXVANOS_BASE 115@3900 -> 160@high-rpm -- a ~45 deg per-rpm SWING with NO real-ECU
+counterpart (the real exhaust schedule is already in kf_avan1_soll) -- i.e. it uses exhaust-cam
+timing to PAPER OVER an intake tuned to the wrong rpm. So:
+- auto-tuned VANOS recommendations are trustworthy only NEAR the calibrated (stock) operating point;
+  recommendations far from stock entangle with the EXVANOS_BASE fudge and lose physical meaning.
+- the table-value the tuner returns inherits the fudge (the actual cam angle is base - table, and base
+  is contaminated).
+
+CLEAN PATH (do this before shipping the auto-tuner), in order:
+  1. Lean the WOT calibration on alpha (physical) -- keep doing this.
+  2. Fix the intake so its ram peaks at ~3900 PHYSICALLY (correct the effective tract length / the
+     acoustics), so the STOCK cam map alone reproduces the stock VE peak.
+  3. Then fold EXVANOS_BASE to a fixed datum (->0 / a constant), so the exhaust cam becomes a DIRECT
+     physical input.
+  4. The auto-tuner then sweeps ACTUAL cam angles (real overlap) against a clean physical model and
+     back-converts to ECU table values without the per-rpm fudge.
+Until step 2-3 are done, treat EXVANOS_BASE(rpm) as model-calibration scaffolding, NOT as physics,
+and flag auto-tuned VANOS that strays far from the stock cam map as low-confidence.
