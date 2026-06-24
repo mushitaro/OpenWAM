@@ -19,16 +19,28 @@ Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator
   mean flow. Result (omp1): at alpha≈0.4 the WOT cycle is MONOSTABLE across all rpm and VE(base) is
   smooth (jag 34→1.8), AND the WOT curve is now BROAD (range 10.6 ≈ stock 12) — the Step-2 goal no
   deck lever could reach. Calibration is now WELL-POSED.
-- **REMAINING (now tractable, this is where to continue)**:
-  1. Pick alpha/w (smallest alpha that holds full monostability; check VANOS dVE/d-advance ~10-20pp).
-  2. Fit `EXVANOS_BASE(rpm)` with damping ON (now smooth) to lift the 3900 dip / trim the 5300 peak
-     toward stock's 3900-peak shape; put it at `simulation_service.py:107` (replaces the const 150).
-  3. Re-validate the gates with damping ON: WOT-row regression (the 3900/100 attractor is now a
-     SINGLE smooth value, not bistable), cyl-balance gate, NaN-free, choke-OFF byte-identity.
-  4. sigma(pedal) low-pedal lock-in (part-load) + the `calibration_service.py:486` WOT-ratio
-     correction (now physically valid since the WOT row is monostable/smooth).
-  Tooling: `scripts/par_exvanos.py` (deterministic parallel base × rpm × mouth-rad sweep),
-  `par_sweep_cfg.py`/`par_sweep_wot.py`/`par_sweep_mouth.py`. Data CSVs `backend/step2_*`, `step3_*`.
+- **DONE this session — the WOT row is CALIBRATED**:
+  - alpha=0.4, w=0.005 fully monostabilizes; with `EXVANOS_BASE(rpm)` =
+    {2700:150,3900:115,4600:155,5300:160,6300:160,6900:160} the sim WOT VE-shape MATCHES stock
+    (mean-norm 0.97/1.07/1.01/0.99/0.98/0.99 vs 0.95/1.06/1.02/1.01/0.99/0.97; peak 3900, max shape
+    err 0.02). Step3f, data `backend/step3_exvanos_fit_FINAL.csv`.
+  - WIRED into production (`simulation_service.py`): at >=85% tps the VE map opts into
+    OPENWAM_MOUTH_RAD=0.4 + the EXVANOS_BASE(rpm) table. Part-load (<85%) is deliberately left on the
+    legacy const-150/no-damping path -> the solved part-load + cyl balance is UNTOUCHED (zero
+    regression by construction). Env overrides: OPENWAM_EXVANOS_BASE (scalar), OPENWAM_MOUTH_RAD,
+    OPENWAM_MOUTH_RAD_OFF.
+- **REMAINING (next phase)**:
+  1. Extend EXVANOS_BASE to `(rpm, LOAD)` for part-load, and decide whether to enable the damping at
+     part-load (re-validate the cyl-balance gate / the r=0.89 LOAD-20 fit if so). Currently part-load
+     is legacy-untouched.
+  2. sigma(pedal) low-pedal lock-in (`OPENWAM_THR_SIGMA_BP`, infra ready) for the part-load load axis.
+  3. Confirm VANOS sensitivity with damping: `vanos_sensitivity_sweep.py` at WOT — target dVE/d-advance
+     ~10-20pp (the damping should have tamed the old +40pp over-response). Lower alpha if too damped.
+  4. The `calibration_service.py:486` WOT-ratio correction is now physically valid (WOT row monostable
+     & stock-shaped) -- re-anchor / re-validate it end-to-end on the production VE map.
+  Tooling: `scripts/par_exvanos.py` (deterministic base × rpm × mouth-rad), `par_profile.py` (per-rpm
+  base profile verifier), `par_sweep_cfg/wot/mouth.py`. Data CSVs `backend/step2_*`, `step3_*`.
+  REMEMBER: run all calibration sweeps at OMP_NUM_THREADS=1 (omp>1 is non-deterministic at WOT).
 
 ---
 (historical context below — superseded by Stage 56 for the intake model)
