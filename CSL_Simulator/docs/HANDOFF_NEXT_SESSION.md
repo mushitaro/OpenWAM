@@ -1,6 +1,37 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–54)
+Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–56)
+
+## ⚡⚡⚡ Stage 56 (local MSVC build) — THE INTAKE Q PROBLEM IS SOLVED (C++ radiation damping). Read EXHAUST_STABILIZATION_NOTES Stage 56 first.
+- **Built locally with MSVC** (no MinGW): `cmake --build build --config Release` after the RC guard
+  in root CMakeLists.txt. Binary at `build/bin/release/OpenWAM.exe`. Diagnostic scripts ported off
+  the cloud paths via `CSL_Simulator/backend/scripts/_local.py` (auto BIN/HERE + a portable
+  `run_capped`). **Run all calibration sweeps at OMP_NUM_THREADS=1** (see below).
+- **ROOT CAUSE fully nailed**: the intake resonance Q was unphysically high → the WOT cycle had
+  MULTIPLE co-existing attractors → the converged VE was a CHAOTIC/multistable function of EVERY
+  deck parameter (length, eq-vol, mouth-Cd, exhaust base). Three confirmations: cross-compiler shift,
+  OMP run-to-run flips (the OpenMP build is NON-DETERMINISTIC at WOT — same deck → 128 vs 71 VE;
+  USE omp1 for any calibration), and parametric chaos vs every lever. Deck-only calibration was
+  therefore ILL-POSED (Step 3b).
+- **THE FIX (works)**: a gated C++ **mouth acoustic-radiation damping** in `TCCDeposito`
+  (`OPENWAM_MOUTH_RAD` alpha, `_W` EMA weight; default OFF = byte-identical, verified). It damps only
+  the AC (oscillating) end velocity about a per-boundary running mean → lowers Q WITHOUT choking the
+  mean flow. Result (omp1): at alpha≈0.4 the WOT cycle is MONOSTABLE across all rpm and VE(base) is
+  smooth (jag 34→1.8), AND the WOT curve is now BROAD (range 10.6 ≈ stock 12) — the Step-2 goal no
+  deck lever could reach. Calibration is now WELL-POSED.
+- **REMAINING (now tractable, this is where to continue)**:
+  1. Pick alpha/w (smallest alpha that holds full monostability; check VANOS dVE/d-advance ~10-20pp).
+  2. Fit `EXVANOS_BASE(rpm)` with damping ON (now smooth) to lift the 3900 dip / trim the 5300 peak
+     toward stock's 3900-peak shape; put it at `simulation_service.py:107` (replaces the const 150).
+  3. Re-validate the gates with damping ON: WOT-row regression (the 3900/100 attractor is now a
+     SINGLE smooth value, not bistable), cyl-balance gate, NaN-free, choke-OFF byte-identity.
+  4. sigma(pedal) low-pedal lock-in (part-load) + the `calibration_service.py:486` WOT-ratio
+     correction (now physically valid since the WOT row is monostable/smooth).
+  Tooling: `scripts/par_exvanos.py` (deterministic parallel base × rpm × mouth-rad sweep),
+  `par_sweep_cfg.py`/`par_sweep_wot.py`/`par_sweep_mouth.py`. Data CSVs `backend/step2_*`, `step3_*`.
+
+---
+(historical context below — superseded by Stage 56 for the intake model)
 
 ## ⚡⚡ Stages 49–54 — read EXHAUST_STABILIZATION_NOTES Stage 49-54 first. Headline:
 The throttle/part-load work is DONE; the binding problem is now the INTAKE ACOUSTIC MODEL.
