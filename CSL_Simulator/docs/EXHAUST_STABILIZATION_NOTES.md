@@ -3413,3 +3413,26 @@ Full WOT rpm sweep at base150, OPENWAM_MOUTH_RAD alpha {0,0.1,0.2,0.4}, w=0.005,
   monostable and smooth -- the EXVANOS_BASE(rpm) coordination is finally a well-posed, smooth knob.
 NEXT: with damping ON (alpha~0.4), fit EXVANOS_BASE(rpm) (now smooth) to lift the 3900 dip / trim the
 5300 peak toward stock; pick the smallest alpha that holds full monostability; validate omp4==omp1.
+
+
+### Step 3e -- with damping ON, base IS a smooth monotonic knob; fitting EXVANOS_BASE(rpm) for the 3900-peak shape
+base x rpm at alpha=0.4, w=0.005, omp1 (backend/step3_basefit_alpha04.csv):
+```
+  rpm   stock  b110  b150  b190   slope(dVE/dbase)
+  2700   104    90    82    63    -0.34
+  3900   116    92    79   (REJ)  (b190 numerically blew up)
+  4600   111    96    88    65    -0.39
+  5300   110    98    89    67    -0.38
+  6300   109   141!   88    71    -0.88   (b110 re-enters the high branch)
+  6900   106   110    87    67    -0.53
+```
+- Around base~150 the VE is now a SMOOTH, monotonic, invertible function of base (slopes -0.34..-0.53)
+  -- the EXVANOS_BASE knob works as a calibration lever (was impossible pre-damping). Lower base =
+  more overlap = higher VE.
+- The base EXTREMES still misbehave (alpha 0.4 doesn't fully damp the high-overlap regime): 6300/6900
+  jump to the high branch at base110; 3900 blows up at base190. So keep the per-rpm base within a
+  monostable window (~120-180).
+- The absolute level (~80-98) is removed by the WOT-ratio correction; the SHAPE is fitted by base(rpm):
+  to move the sim peak from 5300 to 3900, LOWER the 3900 base (lifts it, e.g. b108->~92) and RAISE the
+  5300/6300/6900 base (trims them, e.g. b175->~78). Verifying a candidate profile
+  {2700:135,3900:108,4600:148,5300:178,6300:172,6900:168} (par_profile.py).
