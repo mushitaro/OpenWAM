@@ -3494,3 +3494,25 @@ CLEAN PATH (do this before shipping the auto-tuner), in order:
      back-converts to ECU table values without the per-rpm fudge.
 Until step 2-3 are done, treat EXVANOS_BASE(rpm) as model-calibration scaffolding, NOT as physics,
 and flag auto-tuned VANOS that strays far from the stock cam map as low-confidence.
+
+
+### Stage 56 -- DATA PROVENANCE + CORRECTION (how to evaluate results)
+CORRECTION of an earlier wrong assumption: previous notes (Step 2d / Step 3d) speculated "the real
+S54 torque peaks ~4900, so the sim's ~5300 ram peak may be MORE correct than the kf_rf_soll 3900
+peak." That ~4900 was a GENERIC net/spec value and is RETRACTED. (Also torque-peak != VE-peak.)
+
+GROUND TRUTH: the supplied VE maps are THIS engine's MEASURED data, not a generic spec:
+- WOT row (kf_rf_soll @ full load): the DME VE map, calibrated with a WIDEBAND O2 sensor (commanded
+  fuel matched to measured AFR). So the 3900 VE PEAK is real, measured truth for this specific
+  engine. The physical intake model must be driven TO 3900; the sim peaking at ~5300 is MODEL ERROR
+  (wrong effective intake length / acoustics), NOT a questionable target. Do NOT doubt the 3900 peak.
+- Part-load rows: narrowband O2 + per-table-cell lambda averaged from driving logs, matched to stock
+  VE. Levels differ somewhat from stock but the WAVEFORM/shape is ~the same as stock.
+
+EVALUATION POLICY (use this when judging sweeps):
+- WOT: wideband-calibrated -> high confidence on BOTH shape AND level; hold to a tight tolerance.
+- Part-load: narrowband + log-averaged -> SHAPE/trend is reliable, absolute LEVEL is less precise ->
+  judge by shape (which is exactly why the WOT-ratio correction divides out the per-rpm level).
+- Therefore "physically correct" = the model reproduces the MEASURED VE shape at 3900-peak WITHOUT
+  the EXVANOS_BASE fudge. When the corrected-geometry model settles, it should land at 3900 (the
+  measured truth); if it lands elsewhere, the geometry/acoustics are still wrong, not the target.
