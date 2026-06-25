@@ -56,11 +56,10 @@ class CombustionConfig(BaseModel):
 class ValveConfig(BaseModel):
     lift_profile: str = "S54 CSL"
     max_lift: float = 11.8 # mm
-    # Geometric cosine-lift window (deg). NOTE: the E46 M3 *CSL* uses the
-    # asymmetric 268°(intake)/264°(exhaust) camshafts, NOT the 260°/260° of the
-    # standard S54B32. HeadConfig sets the per-side CSL values below; this
-    # class default stays at the standard S54 figure for any bare ValveConfig().
-    duration: float = 260.0 # deg (standard S54; CSL overrides to 268/264)
+    # Geometric cosine-lift window (deg). This build runs the STANDARD S54B32
+    # 260°/260° cams (set per-side in HeadConfig below); the CSL's wider 268/264
+    # cams are NOT fitted.
+    duration: float = 260.0 # deg (standard S54)
     diameter: float = 35.0 # mm
     flow_coeff_map: str = "S54_Stock_Port" # Reference to flowbench data
 
@@ -72,11 +71,13 @@ class HeadConfig(BaseModel):
     port_flow_coeff: float = 1.0 # Scalar modifier (Stable Baseline)
     valves_per_cyl: int = 4
     wall_temp: float = 450.0 # K
-    # CSL camshafts: 268° intake / 264° exhaust (asymmetric, intake-biased).
-    # The standard E46 M3 S54B32 runs 260°/260°; the CSL fitted slightly larger,
-    # intake-favoured cams — the dominant mechanical difference of the CSL spec.
-    intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=268.0)
-    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=264.0, diameter=30.5)
+    # This engine is a STANDARD E46 M3 (S54B32) with STOCK cams = 260° intake /
+    # 260° exhaust (the CSL's wider 268/264 cams were NOT fitted). The only CSL
+    # conversion is the intake plenum (and its 50φ×700mm flap-pipe is REMOVED, so
+    # the modelled short-snorkel intake matches the real hardware). Cam offsets use
+    # the CSL stock DME VANOS schedule.
+    intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0)
+    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=260.0, diameter=30.5)
     intake_port: PortConfig = PortConfig(diameter=52.0, length=105.0) # S54 CSL Spec
     exhaust_port: PortConfig = PortConfig(diameter=48.0, length=90.0)  # S54 CSL Spec
     port_friction: float = 0.05 # F1-Spec Port Job (was 0.3-0.5)
