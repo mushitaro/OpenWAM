@@ -22,13 +22,16 @@ from app.simulator.wam_generator import WAMGenerator
 
 # ---- the diagnostic matrix (label -> env overrides applied during deck gen) ----
 # DETERMINISTIC re-run (must use PC_OMP=1 -- omp>1 is non-deterministic at the WOT
-# bifurcation, Step 2e). Clean comparison set.
+# bifurcation, Step 2e). Stage 56: re-test RUNNER LENGTH with the C++ mouth radiation
+# damping ON (export OPENWAM_MOUTH_RAD=0.4) -- Step 1's "length can't move the peak" was
+# measured on the CHAOTIC pre-damping model; now monostable, does longer runner cleanly
+# walk the ram peak 5300 -> 3900? Cams coordinated at the UN-FUDGED base 150 so the peak
+# location reflects intake physics, not EXVANOS_BASE compensation.
 CONFIGS = [
-    ("base",         {}),                                                   # eq-tube on, sc1.0 (reference)
-    ("noeqtube",     {"OPENWAM_NO_EQTUBE": "1"}),                           # eq-tube removed
-    ("eqvol050",     {"OPENWAM_EQ_VOL_MULT": "0.5"}),                       # eq cavity half
-    ("eqvol050_cd07",{"OPENWAM_EQ_VOL_MULT": "0.5", "OPENWAM_INTAKE_V2": "1",
-                      "OPENWAM_INTAKE_MOUTH_CD": "0.7"}),                    # half cavity + soft mouth
+    ("sc1.0_rad",  {"OPENWAM_RUNNER_SC": "1.0"}),
+    ("sc1.2_rad",  {"OPENWAM_RUNNER_SC": "1.2"}),
+    ("sc1.35_rad", {"OPENWAM_RUNNER_SC": "1.35"}),
+    ("sc1.5_rad",  {"OPENWAM_RUNNER_SC": "1.5"}),
 ]
 
 M = json.load(open(os.path.join(HERE, "app/data/csl_ecu_maps.json")))

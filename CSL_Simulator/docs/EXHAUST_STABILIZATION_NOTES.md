@@ -3516,3 +3516,32 @@ EVALUATION POLICY (use this when judging sweeps):
 - Therefore "physically correct" = the model reproduces the MEASURED VE shape at 3900-peak WITHOUT
   the EXVANOS_BASE fudge. When the corrected-geometry model settles, it should land at 3900 (the
   measured truth); if it lands elsewhere, the geometry/acoustics are still wrong, not the target.
+
+
+### Stage 56 -- approach (1) RESULT: runner length does NOT move the peak to 3900 even with damping; the 3900 issue is a LOCALIZED dip (overlap), not a peak-location shift
+Re-ran the length sweep with the C++ damping ON (OPENWAM_MOUTH_RAD=0.4), base150 coordinated, omp1
+(backend/step3_length_retest_damped.csv):
+```
+  config      range tilt   2700/3900/4600/5300/6300/6900   [stock 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
+  sc1.0       10    7.5    0.96 0.92 1.03 1.04 1.03 1.02   pk5300 (flattest)
+  sc1.2       11    7.2    0.97 0.92 0.99 1.03 1.05 1.04   pk6300
+  sc1.35      53   18.9    0.88 0.84 0.94 0.93 0.99 1.41   pk6900 (6900 re-spikes to 130 -> partial de-stab)
+  sc1.5       26   11.9    0.94 0.87 0.98 0.98 1.06 1.17   pk6900
+```
+Findings:
+- LONGER runner moves the fill UP in rpm (peak 5300->6300->6900) and at sc>=1.35 starts to re-spike
+  the top end (6900->130, range 53) -- i.e. length does NOT walk the peak DOWN to 3900; it makes it
+  worse. sc1.0 (the current default) is already the flattest. So even on the clean (damped) model,
+  runner length is NOT the lever (this UPDATES Step 1 on a monostable model -- same conclusion).
+- The real defect is NOT a broad peak-location shift: at sc1.0 the curve is FLAT 4600-6900 (~1.03)
+  with a single LOCALIZED DIP at 3900 (0.92) -- exactly where measured stock PEAKS (1.06). So the
+  problem is "3900 is missing its boost", a one-point anomaly.
+- That dip is ROBUST to length -> it is an OVERLAP effect, not an intake-tract-length effect. At
+  base150 the coordinated overlap at 3900 is ~-1 deg (no scavenging boost); the EXVANOS_BASE fit
+  fixed 3900 by going to base115 (overlap ~+34 deg). So the question reframes to: is the model's
+  coordinated overlap at 3900 (with the 130/150 datums) WRONG vs the real engine's overlap at 3900?
+  If the real engine really runs ~+34 deg overlap at 3900 (its VE-peak), then EXVANOS_BASE is largely
+  a DATUM fix, not fudge; if the real overlap at 3900 is small, the +34 is compensating for a genuine
+  intake ram null at 3900. NEXT: (a) check the real cam timing / overlap at 3900 (user domain
+  knowledge / the VANOS maps), and/or (b) test the PLENUM/airbox VOLUME (Helmholtz) lever, which
+  runner-length scaling does NOT touch and which could add a low-rpm (3900) boost.
