@@ -1295,21 +1295,27 @@ class WAMGenerator:
         #   For each point: Distance NumVars Var1 Var2 ...
         # Variables: 0=Pressure, 1=Velocity, 2=Temp, 3=MassFlow
         
-        self.wam_lines.append(f"{num_pipes} 0")  # All pipes, WAMer=0
-        
-        for pid, pipe_data in sorted(self.pipes.items()):
-            pipe_length = pipe_data.get('length', 0.5)  # Default 0.5m if not stored
-            
-            # 2 measurement points per pipe: inlet (0.0) and outlet (length)
-            self.wam_lines.append(f"{pid} 2")
-            
-            # Point 1: Inlet (distance = 0.0)
-            # Request 4 variables: Pressure(0), Velocity(1), Temp(2), MassFlow(3)
-            self.wam_lines.append(f"0.0 4 0 1 2 3")
-            
-            # Point 2: Outlet (distance = pipe_length)
-            self.wam_lines.append(f"{pipe_length:.4f} 4 0 1 2 3")
-        
+        # FAST OUTPUT (Stage 56): monitoring all ~75 pipes (2 pts x 4 vars) EVERY
+        # timestep is pure file I/O and does NOT affect the physics or the VEDIAG
+        # (Mtrap) stream the VE calibration reads. OPENWAM_FAST_OUTPUT=1 emits ZERO
+        # pipe instantaneous results -> big I/O cut for calibration/optimization
+        # sweeps. Default OFF keeps the full monitoring (byte-identical; needed for the
+        # 3D waveform view).
+        _fast_output = bool(os.environ.get("OPENWAM_FAST_OUTPUT"))
+        if _fast_output:
+            self.wam_lines.append("0 0")  # 0 pipes monitored, WAMer=0
+        else:
+            self.wam_lines.append(f"{num_pipes} 0")  # All pipes, WAMer=0
+            for pid, pipe_data in sorted(self.pipes.items()):
+                pipe_length = pipe_data.get('length', 0.5)  # Default 0.5m if not stored
+                # 2 measurement points per pipe: inlet (0.0) and outlet (length)
+                self.wam_lines.append(f"{pid} 2")
+                # Point 1: Inlet (distance = 0.0)
+                # Request 4 variables: Pressure(0), Velocity(1), Temp(2), MassFlow(3)
+                self.wam_lines.append(f"0.0 4 0 1 2 3")
+                # Point 2: Outlet (distance = pipe_length)
+                self.wam_lines.append(f"{pipe_length:.4f} 4 0 1 2 3")
+
         # --- END PIPE INSTANTANEOUS RESULTS ---
         
         self.wam_lines.append("0")  # Venturis

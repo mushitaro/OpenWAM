@@ -13,7 +13,10 @@ Env: PS_RPMS, PS_SCS, PS_CYCLES(50), PS_OMP(4), PS_CONC(4), PS_TIMEOUT(3000), PS
 import sys, os, io, re, json, math, statistics, csv, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _local import BIN, HERE, run_capped
+from _local import BIN, HERE, run_until_converged
+# Stage 56: calibration tools need only VEDIAG -> drop the heavy 75-pipe
+# instantaneous monitoring (pure I/O) for a big per-cell speedup.
+os.environ["OPENWAM_FAST_OUTPUT"] = "1"
 sys.path.insert(0, HERE)
 from app.models import SimConfig
 from app.simulator.wam_generator import WAMGenerator
@@ -66,7 +69,7 @@ def run_cell(rpm, sc):
     wd = os.path.abspath(f"/tmp/rt_{rpm}_{sc}")
     env = os.environ.copy(); env["OPENWAM_HLLC"] = "1"; env["OMP_NUM_THREADS"] = OMP
     env["OPENWAM_VEDIAG"] = "1"; env["OPENWAM_THR_CHOKE"] = "1"
-    run_capped([BIN, "m.wam"], wd, wd+"/run.log", TIMEOUT, env)
+    run_until_converged([BIN, "m.wam"], wd, wd+"/run.log", TIMEOUT, env)
     ve, slope, n = metrics(open(wd+"/run.log", encoding="utf-8", errors="ignore").read())
     with _lock:
         new = not os.path.exists(CSV)
