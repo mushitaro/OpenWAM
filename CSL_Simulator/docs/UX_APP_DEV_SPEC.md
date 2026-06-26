@@ -248,3 +248,64 @@ done points) — calibration/optimization runs are long.
 - Full-map runs are long even at peak parallelism; always show ETA and make them cancellable/resumable.
 - Do NOT "fix" the chaos by removing the damping or raising threads — that reintroduces the
   non-determinism the whole app is built to avoid.
+
+
+---
+
+## 10. Branch coordination & calibration-in-flux (READ BEFORE STARTING)
+
+This spec and the working physics/calibration live on the branch
+`claude/wizardly-nightingale-81aa55` (Stage 56). That branch carries the FOUNDATION the app needs:
+the C++ mouth radiation damping (monostabilizes the WOT cycle), the production calibration wired into
+`simulation_service.py` (EXVANOS_BASE(rpm) + MOUTH_RAD at WOT), the omp1-determinism + speed levers,
+and these design docs. **Build the UX on top of that branch, not on a `main` that lacks it** —
+otherwise the app runs the OLD chaotic/un-tunable model.
+
+Recommended sequence:
+1. Merge the Stage-56 branch to `main` FIRST (it is the validated backend foundation).
+2. Branch the UX work FROM the updated `main`.
+3. Conflict surface is small: Stage-56 = backend physics / `scripts` / `docs`; UX = `frontend/` + a
+   thin API. The shared contract is `SimConfig` (the geometry the UI inputs) and the calibration
+   constants in `simulation_service.py`.
+
+**Calibration is IN FLUX — treat the constants as provisional config, never hardcode them as final:**
+- The cam duration was just corrected 268/264 -> 260/260 (this is a stock-M3-cam engine, not CSL
+  cams). That invalidates the WOT `EXVANOS_BASE(rpm)` fit (it was fitted at 268°).
+- The intake runner/manifold/exhaust dimensions are the owner's by-feel estimate (the reason the ram
+  peaks ~5300 not the measured 3900). Real measured dimensions are pending; once supplied, the WOT
+  calibration is re-fitted.
+- So `EXVANOS_BASE(rpm)` + `alpha` are MODEL-CALIBRATION SCAFFOLDING that will change. Keep them as
+  named config constants (the spec §4.C "foldable scaffold"), surfaced in a settings/calibration
+  store, NOT baked into UI logic. The UX architecture (dims -> Run -> metrics -> Tune -> export) does
+  NOT depend on their final values — only on the model being stable/sweepable, which it already is —
+  so the UX can proceed in parallel while the physics calibration finalizes.
+
+## 11. Phase-A data instrumentation (do this from day one — it seeds the surrogate)
+
+See `SURROGATE_DESIGN.md`. The eventual fast-tuning surrogate needs data; the cheapest way to get it
+is to LOG every Run/Tune from day one. Wire this into the app from the start:
+
+- On every simulated cell (Run, calibration iteration, and each optimizer evaluation), append ONE
+  record: `{schema_version, sim_binary_sig, sim_code_commit, calib{alpha,w}, geometry{...full
+  SimConfig geometry...}, op{rpm,load}, vanos{intake_cam,exhaust_cam,overlap}, sim{ve,ve_healthy,
+  cyl_collapsed_n,converged,slope,cyc,blew_up}, measured{ve,source,confidence}|null,
+  meta{user_hash,engine_hash,ts,app_version,run_id}}`. (Same keying as the `.sim_cache` already built
+  this session — that cache is the embryonic data lake.)
+- When the user provides their measured VE for a cell (wideband WOT / narrowband-log part-load),
+  attach it as the `measured` label with its provenance `source`/`confidence` (Stage-56 rule:
+  wideband = high confidence shape+level; narrowband-log = shape only).
+- DON'T push raw run.logs to the cloud (600 KB–2.4 MB each); keep logs local (or in cheap egress-free
+  object storage). Push only the small (~1 KB) feature ROWS.
+
+**Storage — local-first, designed to lift to cloud (DB-only; compute stays on each user's PC):**
+- LOCAL now: **SQLite** (single file, zero setup) for the record table + **DuckDB** for analytical /
+  training reads (reads SQLite/Parquet directly). OR local **Postgres** (Docker) if you want the exact
+  cloud engine.
+- CLOUD later (DB only — users' PCs keep doing the compute, so the owner bears no compute cost):
+  - SQLite path -> **Turso** or **Cloudflare D1** (SQLite-compatible; D1 has $0 egress, 5 GB free).
+  - Postgres path -> **Supabase** (Postgres + Auth + auto REST API + Storage, batteries-included; free
+    tier ~500 MB ≈ millions of rows — ample for an S54-niche userbase) or **Neon**.
+  - Raw-log blobs (if kept) -> **Cloudflare R2** (10 GB free, $0 egress).
+  - Firebase works but its NoSQL + per-day read quotas fit ML-training reads poorly; prefer a SQL store.
+- Use a thin DB abstraction (a `RunStore` interface with `append(record)` / `query(...)`) so the
+  local SQLite impl swaps for the cloud impl with no UI changes.
