@@ -12,6 +12,11 @@ class ExhaustLayoutType(str, Enum):
     MERGE_2_1 = "Merge 2-into-1"
     SPLIT_1_2 = "Split 1-into-2"
     CUSTOM = "Custom"
+    # Values the frontend's exhaust layout selectors emit (dual-bank / single pipe);
+    # without these the UI's SimConfig fails validation (422). Treated as a straight
+    # pipe by the generator (no X/H crossover branch).
+    INDEPENDENT = "Independent"
+    SINGLE = "Single"
 
 # 1. Intake System
 class InletConfig(BaseModel):
@@ -29,12 +34,41 @@ class ITBConfig(BaseModel):
     plate_thickness: float = 2.0 # mm
     discharge_coeff_map: str = "default_butterfly" # Reference to lookup
 
+class ThrottleConfig(BaseModel):
+    # Butterfly pedal->angle mapping (TP = idle_offset + (90-idle_offset)*pedal^gamma).
+    # Promoted from OPENWAM_THR_OFFSET / OPENWAM_THR_GAMMA. Defaults reproduce legacy.
+    idle_offset_deg: float = 2.0   # always-open blade angle (idle bypass / blade gap)
+    pedal_gamma: float = 1.4       # >1 = progressive metering; was env OPENWAM_THR_GAMMA
+
+class RunnerConfig(BaseModel):
+    # Intake runner geometry (promoted from hardcoded constants + OPENWAM_RUNNER_SC /
+    # OPENWAM_RUNNER_FRIC_MULT). The runner bore = ITB diameter (intake.itb.diameter).
+    upper_length: float = 15.0      # mm (throttle -> eq-tube branch)
+    lower_length: float = 25.0      # mm (eq-tube branch -> port split)
+    entry_diameter: float = 70.0    # mm (velocity-stack mouth, tapers to ITB bore)
+    length_scale: float = 1.0       # global ram-length scalar (was OPENWAM_RUNNER_SC)
+    friction_multiplier: float = 1.0  # intake-tract friction scale (was OPENWAM_RUNNER_FRIC_MULT)
+
+class EqTubeConfig(BaseModel):
+    # Equalization tube (Gleichdruckrohr). Promoted from OPENWAM_EQ_* / OPENWAM_NO_EQTUBE
+    # / OPENWAM_EQ_CHAIN. Defaults reproduce the validated Stage-35/56 plenum model.
+    enabled: bool = True
+    model: str = "plenum"           # "plenum" (validated) | "chain" (continuous balance tube)
+    stub_diameter: float = 30.0     # mm (phi30 is the smallest stable area ratio; phi10 NaN'd)
+    stub_length: float = 75.0       # mm (per-cylinder stub base length)
+    stub_friction: float = 0.02     # part-throttle resonance damping
+    volume_scale: float = 1.0       # central-plenum (141cc) acoustic-coupling scale
+    mistune_spread: float = 0.0     # per-cyl stub-length half-spread (detunes cyl-2 collapse)
+
 class IntakeConfig(BaseModel):
     type: str = "CSL Replica"
     inlet: InletConfig = InletConfig()
     plenum_vol: float = 10.5 # Liters
     bellmouth: BellmouthConfig = BellmouthConfig()
     itb: ITBConfig = ITBConfig() # New ITB Module
+    throttle: ThrottleConfig = ThrottleConfig()
+    runner: RunnerConfig = RunnerConfig()
+    eq_tube: EqTubeConfig = EqTubeConfig()
     runner_friction: float = 0.015 # F1-Spec Polished (was 0.08)
     min_plenum_vol: float = 0.00005 # Default 50cc (m3). Adjustable for high-vacuum testing.
 
@@ -81,6 +115,7 @@ class HeadConfig(BaseModel):
     intake_port: PortConfig = PortConfig(diameter=52.0, length=105.0) # S54 CSL Spec
     exhaust_port: PortConfig = PortConfig(diameter=48.0, length=90.0)  # S54 CSL Spec
     port_friction: float = 0.05 # F1-Spec Port Job (was 0.3-0.5)
+    intake_port_wall_temp: float = 127.0 # degC, dominant intake charge-heat input (was env OPENWAM_PORT_TWALL)
 
 class HeatTransferConfig(BaseModel):
     woschni_coeffs: List[float] = [128.0, 2.28, 0.0]

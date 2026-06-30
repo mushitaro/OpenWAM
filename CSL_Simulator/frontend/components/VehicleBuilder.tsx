@@ -1,17 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { Play, Activity, Settings2, Info, Wrench, BarChart2, Save, Upload, Download } from "lucide-react";
-import { runCalibration, runOptimization, runSimulation, CalibrationResponse, SimConfig } from "../app/api";
+import { runCalibration, runOptimization, runSimulation, CalibrationResponse, RunResponse, SimConfig, WS_BASE_URL } from "../app/api";
 import MapVisualizer from "./MapVisualizer";
 import VETableComparison from "./VETableComparison";
 import BinaryPatchManager from "./BinaryPatchManager";
 import SimulationDebugPanel from "./SimulationDebugPanel";
 import InteractiveTopology, { SelectionType } from "./InteractiveTopology";
 import SimulationController from "./SimulationController";
+import VeOverlayChart from "./VeOverlayChart";
+import ValidityPanel from "./ValidityPanel";
+
+// Adapt the structured RunResponse into the matrix shape VETableComparison expects
+// ([loadRow][rpmCol]). Off-WOT rows have no measured stock -> 0 / corr 1.
+function runToCalibration(run: RunResponse): CalibrationResponse {
+    const rpm = run.axes.rpm;
+    const load = run.axes.load;
+    const sim = run.cells.map((row) => row.map((c) => c.ve_sim));
+    const target = run.cells.map((row) => row.map((c) => (c.ve_stock ?? 0)));
+    const correction = run.cells.map((row) =>
+        row.map((c) => (c.ve_stock && c.ve_stock > 0 ? c.ve_sim / c.ve_stock : 1)));
+    return { curve: [], matrix: { rpm, load, target, sim, correction } } as CalibrationResponse;
+}
 
 const VehicleBuilder = () => {
     // --- STATE ---
@@ -20,8 +34,27 @@ const VehicleBuilder = () => {
     const [loading, setLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
     const [calibrationData, setCalibrationData] = useState<CalibrationResponse | null>(null);
+    const [runData, setRunData] = useState<RunResponse | null>(null);
+    const [progress, setProgress] = useState<{ done: number; total: number; eta?: number } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [optimizationResult, setOptimizationResult] = useState<{ best_bias: number, max_ve: number } | null>(null);
+
+    // Live progress: parse "CELL x/y" broadcasts on /ws/logs into a progress bar.
+    useEffect(() => {
+        let ws: WebSocket | null = null;
+        try {
+            ws = new WebSocket(`${WS_BASE_URL}/ws/logs`);
+            ws.onmessage = (e) => {
+                const s = typeof e.data === "string" ? e.data : "";
+                const m = /CELL (\d+)\/(\d+)/.exec(s);
+                if (m) {
+                    const eta = /eta=(\d+)s/.exec(s);
+                    setProgress({ done: parseInt(m[1], 10), total: parseInt(m[2], 10), eta: eta ? parseInt(eta[1], 10) : undefined });
+                }
+            };
+        } catch { /* backend not up yet */ }
+        return () => { try { ws?.close(); } catch { } };
+    }, []);
 
     // Builder State
     const [selection, setSelection] = useState<SelectionType | null>({ type: "environment" });
@@ -30,13 +63,16 @@ const VehicleBuilder = () => {
     const [config, setConfig] = useState<SimConfig>({
         environment: { ambient_temp: 298, ambient_pressure: 101325 },
         fuel: { lcv: 44000000, density: 750, stoich_ratio: 14.7 },
-        simulation: { mesh_size: 0.01, openwam_version: 2200, duration_cycles: 10, step_size: 1.0 },
+        simulation: { mesh_size: 0.01, openwam_version: 2200, duration_cycles: 30, step_size: 1.0 },
         intake: {
             type: "CSL Replica",
             inlet: { duct_length: 200, duct_diameter: 100 },
             plenum_vol: 10.5,
-            bellmouth: { length: 120, diameter: 50, taper_angle: 3.5 },
-            itb: { fitted: true, diameter: 50, plate_thickness: 2, discharge_coeff_map: "default_butterfly" }
+            bellmouth: { length: 150, diameter: 52, taper_angle: 3.5 },
+            itb: { fitted: true, diameter: 52, plate_thickness: 2, discharge_coeff_map: "default_butterfly" },
+            throttle: { idle_offset_deg: 2.0, pedal_gamma: 1.4 },
+            runner: { upper_length: 15, lower_length: 25, entry_diameter: 70, length_scale: 1.0, friction_multiplier: 1.0 },
+            eq_tube: { enabled: true, model: "plenum", stub_diameter: 30, stub_length: 75, stub_friction: 0.02, volume_scale: 1.0, mistune_spread: 0.0 }
         },
         engine: {
             cam_profile: "Stock CSL",
@@ -44,27 +80,31 @@ const VehicleBuilder = () => {
             cylinders: 6,
             geometry: { bore: 87.0, stroke: 91.0, compression_ratio: 11.5, rod_length: 139.0 },
             // Advanced Computed/Manual Overrides (Piston/Head Areas calculated in backend)
-            combustion: { duration: 60.0, start_angle: -15.0, shape_parameter_m: 2.0, efficiency_a: 6.9, mass_burned_b: 0.5 },
+            combustion: { duration: 65.0, start_angle: -15.0, shape_parameter_m: 2.2, efficiency_a: 6.9, mass_burned_b: 0.5 },
             vanos_intake_bias: 0.0,
+            vanos_exhaust_bias: 0.0,
             friction: { coeffs: [0.5, 0, 0, 0] },
             heat_transfer: { woschni_coeffs: [2.28, 0.4, 0], global_factor: 1.0 },
             head: {
                 port_flow_coeff: 1.0,
                 valves_per_cyl: 4,
                 wall_temp: 450,
-                intake_port: { length: 80, diameter: 35, wall_temp: 400 },
-                exhaust_port: { length: 60, diameter: 30, wall_temp: 800 },
+                intake_port_wall_temp: 127,
+                intake_port: { length: 105, diameter: 52, wall_temp: 400 },
+                exhaust_port: { length: 90, diameter: 48, wall_temp: 800 },
                 intake_valve: { lift_profile: "Stock", max_lift: 11.8, duration: 260, diameter: 35, open_angle_base: 350, flow_coeff_map: "S54_In" },
-                exhaust_valve: { lift_profile: "Stock", max_lift: 11.2, duration: 260, diameter: 30, open_angle_base: 130, flow_coeff_map: "S54_Ex" }
+                exhaust_valve: { lift_profile: "Stock", max_lift: 11.2, duration: 260, diameter: 30.5, open_angle_base: 130, flow_coeff_map: "S54_Ex" }
             }
         },
         exhaust: {
-            headers: { primary_length: 350, primary_diameter: 42, collector_vol: 1.5, collector_dia: 60 }, // S54 Stock Headers
+            headers: { primary_length: 300, primary_diameter: 48, collector_vol: 1.5, collector_dia: 68 }, // S54 Stock Headers (models.py canonical)
             catalyst: { installed: true, location: "header_collector", cpsi: 200, length: 200, diameter: 120 }, // Default Catalyst
-            section1_1: { length: 800, diameter: 60, layout: "Independent", crossover_offset: 400, name: "Section 1 (Bank 1)", cat_fitted: false, cat_offset: 0, wall_temp: 400, crossover_type: "none" },
-            section1_2: { length: 800, diameter: 60, layout: "Independent", crossover_offset: 400, name: "Section 1 (Bank 2)", cat_fitted: false, cat_offset: 0, wall_temp: 400, crossover_type: "none" },
-            section2: { length: 1200, diameter: 60, layout: "H-Pipe", resonator_fitted: true, resonator_location: "before_h", resonator_length: 300, resonator_diameter: 80, name: "Section 2", cat_fitted: false, cat_offset: 0, wall_temp: 400 }, // Default H-Pipe
-            section3: { volume: 15.0, tailpipe_length: 200, diameter: 70 }, // Stock Muffler
+            // models.py canonical: cat_offset must be > 0 or Section 1-1 becomes a
+            // zero-length pipe that aborts the solver (cyc=0). 68mm / 1200 / 1400 = stock.
+            section1_1: { length: 1200, diameter: 68, layout: "Independent", crossover_offset: 600, name: "Section 1 (Bank 1)", cat_fitted: true, cat_offset: 600, wall_temp: 600, crossover_type: "none" },
+            section1_2: { length: 1200, diameter: 68, layout: "Independent", crossover_offset: 600, name: "Section 1 (Bank 2)", cat_fitted: true, cat_offset: 600, wall_temp: 600, crossover_type: "none" },
+            section2: { length: 1400, diameter: 68, layout: "H-Pipe", resonator_fitted: false, resonator_location: "before_h", resonator_length: 300, resonator_diameter: 80, name: "Section 2", cat_fitted: false, cat_offset: 200, wall_temp: 600 },
+            section3: { volume: 15.0, tailpipe_length: 150, diameter: 68 }, // Stock Muffler
         }
     });
 
@@ -81,27 +121,27 @@ const VehicleBuilder = () => {
         });
     };
 
-    const handleRunCalibration = async () => {
-        console.log("Button Clicked: Run Flow Sim");
+    const handleRun = async (mode: "wot_quick" | "full_map") => {
         setLoading(true);
         setError(null);
+        setRunData(null);
+        setProgress({ done: 0, total: mode === "wot_quick" ? 20 : 480 });
         setMainTab("simulation"); // Auto switch to simulation tab
         try {
-            console.log("Calling API runSimulation with config:", config);
-            const data = await runSimulation(config);
-            console.log("API Response:", data);
-            setCalibrationData(data);
+            const data = await runSimulation(config, mode);
+            setRunData(data);
         } catch (err: any) {
             console.error("Simulation catch error:", err);
             setError(err.message || "Simulation failed");
         } finally {
-            console.log("Finished (Finally block)");
             setLoading(false);
+            setProgress(null);
         }
     };
 
     const handleRunOptimization = async () => {
         setOptimizing(true);
+        setRunData(null);
         setMainTab("simulation"); // Auto switch
         try {
             const result = await runOptimization(config);
@@ -195,10 +235,44 @@ const VehicleBuilder = () => {
                         <InputRow label="Duct Length" unit="mm" value={config.intake.inlet.duct_length} onChange={(v: any) => updateConfig("intake", "inlet.duct_length", v)} />
                         <InputRow label="Plenum Vol" unit="L" value={config.intake.plenum_vol} onChange={(v: any) => updateConfig("intake", "plenum_vol", v)} />
                         {type === "plenum" && (
-                            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-800">
-                                <input type="checkbox" checked={config.intake.itb.fitted} onChange={(e) => updateConfig("intake", "itb.fitted", e.target.checked)} className="rounded border-neutral-700 bg-neutral-900" />
-                                <span className="text-sm font-medium text-neutral-300">ITB Fitted</span>
-                            </div>
+                            <>
+                                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-800">
+                                    <input type="checkbox" checked={config.intake.itb.fitted} onChange={(e) => updateConfig("intake", "itb.fitted", e.target.checked)} className="rounded border-neutral-700 bg-neutral-900" />
+                                    <span className="text-sm font-medium text-neutral-300">ITB Fitted</span>
+                                </div>
+                                <InputRow label="ITB Diameter" unit="mm" value={config.intake.itb.diameter} onChange={(v: any) => updateConfig("intake", "itb.diameter", v)} />
+
+                                <div className="mt-4 pt-4 border-t border-neutral-800">
+                                    <h4 className="text-xs font-bold text-neutral-500 mb-2">THROTTLE MODEL (Butterfly)</h4>
+                                    <InputRow label="Idle Offset" unit="deg" value={config.intake.throttle.idle_offset_deg} onChange={(v: any) => updateConfig("intake", "throttle.idle_offset_deg", v)} />
+                                    <InputRow label="Pedal Gamma" unit="-" value={config.intake.throttle.pedal_gamma} onChange={(v: any) => updateConfig("intake", "throttle.pedal_gamma", v)} />
+                                    <div className="text-[10px] text-neutral-600">γ&gt;1 = progressive metering (validated 1.4)</div>
+                                </div>
+
+                                <div className="mt-4 pt-4 border-t border-neutral-800">
+                                    <h4 className="text-xs font-bold text-neutral-500 mb-2 flex items-center gap-2">
+                                        EQUALIZATION TUBE
+                                        <input type="checkbox" checked={config.intake.eq_tube.enabled} onChange={(e) => updateConfig("intake", "eq_tube.enabled", e.target.checked)} className="rounded border-neutral-700 bg-neutral-900" />
+                                    </h4>
+                                    {config.intake.eq_tube.enabled && (
+                                        <>
+                                            <div className="mb-3">
+                                                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Model</label>
+                                                <select value={config.intake.eq_tube.model} onChange={(e) => updateConfig("intake", "eq_tube.model", e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 outline-none">
+                                                    <option value="plenum">Plenum (validated)</option>
+                                                    <option value="chain">Continuous chain</option>
+                                                </select>
+                                            </div>
+                                            <InputRow label="Stub Diameter" unit="mm" value={config.intake.eq_tube.stub_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_diameter", v)} />
+                                            <InputRow label="Stub Length" unit="mm" value={config.intake.eq_tube.stub_length} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_length", v)} />
+                                            <InputRow label="Stub Friction" unit="-" value={config.intake.eq_tube.stub_friction} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_friction", v)} />
+                                            <InputRow label="Volume Scale" unit="×" value={config.intake.eq_tube.volume_scale} onChange={(v: any) => updateConfig("intake", "eq_tube.volume_scale", v)} />
+                                            <InputRow label="Mistune Spread" unit="frac" value={config.intake.eq_tube.mistune_spread} onChange={(v: any) => updateConfig("intake", "eq_tube.mistune_spread", v)} />
+                                            <div className="text-[10px] text-neutral-600">φ30 min stable; mistune detunes cyl-2 collapse</div>
+                                        </>
+                                    )}
+                                </div>
+                            </>
                         )}
                     </>
                 )}
@@ -206,8 +280,18 @@ const VehicleBuilder = () => {
                 {type === "runner" && (
                     <>
                         <SectionHeader title={`Runner #${(selection as any).index + 1}`} id={getPredictedID(selection)} />
-                        <InputRow label="Runner Length" unit="mm" value={config.intake.bellmouth.length} onChange={(v: any) => updateConfig("intake", "bellmouth.length", v)} />
-                        <div className="text-xs text-neutral-600 mt-2">Note: Changing this updates global bellmouth spec for all runners.</div>
+                        <InputRow label="Bellmouth Length" unit="mm" value={config.intake.bellmouth.length} onChange={(v: any) => updateConfig("intake", "bellmouth.length", v)} />
+                        <InputRow label="Bellmouth Dia" unit="mm" value={config.intake.bellmouth.diameter} onChange={(v: any) => updateConfig("intake", "bellmouth.diameter", v)} />
+                        <InputRow label="Mouth (Entry) Dia" unit="mm" value={config.intake.runner.entry_diameter} onChange={(v: any) => updateConfig("intake", "runner.entry_diameter", v)} />
+                        <InputRow label="Runner Upper Len" unit="mm" value={config.intake.runner.upper_length} onChange={(v: any) => updateConfig("intake", "runner.upper_length", v)} />
+                        <InputRow label="Runner Lower Len" unit="mm" value={config.intake.runner.lower_length} onChange={(v: any) => updateConfig("intake", "runner.lower_length", v)} />
+                        <div className="mt-3 pt-3 border-t border-neutral-800">
+                            <h4 className="text-xs font-bold text-neutral-500 mb-2">RAM TUNING</h4>
+                            <InputRow label="Length Scale" unit="×" value={config.intake.runner.length_scale} onChange={(v: any) => updateConfig("intake", "runner.length_scale", v)} />
+                            <InputRow label="Friction Mult" unit="×" value={config.intake.runner.friction_multiplier} onChange={(v: any) => updateConfig("intake", "runner.friction_multiplier", v)} />
+                            <div className="text-[10px] text-neutral-600">Length Scale shifts the ram-resonance rpm; Friction Mult broadens it (Q).</div>
+                        </div>
+                        <div className="text-xs text-neutral-600 mt-2">Note: intake geometry is global for all runners.</div>
                     </>
                 )}
 
@@ -216,8 +300,11 @@ const VehicleBuilder = () => {
                         <SectionHeader title={`Cylinder #${(selection as any).index + 1}`} id={getPredictedID(selection)} />
                         <InputRow label="Bore" unit="mm" value={config.engine.geometry.bore} onChange={(v: any) => updateConfig("engine", "geometry.bore", v)} />
                         <InputRow label="Stroke" unit="mm" value={config.engine.geometry.stroke} onChange={(v: any) => updateConfig("engine", "geometry.stroke", v)} />
+                        <InputRow label="Compression Ratio" unit=":1" value={config.engine.geometry.compression_ratio} onChange={(v: any) => updateConfig("engine", "geometry.compression_ratio", v)} />
+                        <InputRow label="Rod Length" unit="mm" value={config.engine.geometry.rod_length} onChange={(v: any) => updateConfig("engine", "geometry.rod_length", v)} />
                         <div className="mt-4 p-3 bg-neutral-900 border border-neutral-800 rounded">
                             <InputRow label="VANOS Intake Bias" unit="Deg" value={config.engine.vanos_intake_bias} onChange={(v: any) => updateConfig("engine", "vanos_intake_bias", v)} />
+                            <InputRow label="VANOS Exhaust Bias" unit="Deg" value={config.engine.vanos_exhaust_bias} onChange={(v: any) => updateConfig("engine", "vanos_exhaust_bias", v)} />
                         </div>
 
                         <div className="mt-4">
@@ -234,9 +321,27 @@ const VehicleBuilder = () => {
                         </div>
 
                         <div className="mt-4 pt-4 border-t border-neutral-800">
-                            <h4 className="text-xs font-bold text-neutral-500 mb-2">PORT GEOMETRY (FIXED)</h4>
+                            <h4 className="text-xs font-bold text-neutral-500 mb-2">PORT GEOMETRY</h4>
                             <InputRow label="In-Port Len" unit="mm" value={config.engine.head.intake_port.length} onChange={(v: any) => updateConfig("engine", "head.intake_port.length", v)} />
+                            <InputRow label="In-Port Dia" unit="mm" value={config.engine.head.intake_port.diameter} onChange={(v: any) => updateConfig("engine", "head.intake_port.diameter", v)} />
                             <InputRow label="Ex-Port Len" unit="mm" value={config.engine.head.exhaust_port.length} onChange={(v: any) => updateConfig("engine", "head.exhaust_port.length", v)} />
+                            <InputRow label="Ex-Port Dia" unit="mm" value={config.engine.head.exhaust_port.diameter} onChange={(v: any) => updateConfig("engine", "head.exhaust_port.diameter", v)} />
+                            <InputRow label="In-Port Wall Temp" unit="°C" value={config.engine.head.intake_port_wall_temp} onChange={(v: any) => updateConfig("engine", "head.intake_port_wall_temp", v)} />
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-neutral-800">
+                            <h4 className="text-xs font-bold text-neutral-500 mb-2">HEAD / FLOW</h4>
+                            <InputRow label="Port Flow Coeff" unit="×" value={config.engine.head.port_flow_coeff} onChange={(v: any) => updateConfig("engine", "head.port_flow_coeff", v)} />
+                            <InputRow label="Port Friction" unit="-" value={config.engine.head.port_friction ?? 0.05} onChange={(v: any) => updateConfig("engine", "head.port_friction", v)} />
+                            <InputRow label="Head Wall Temp" unit="K" value={config.engine.head.wall_temp} onChange={(v: any) => updateConfig("engine", "head.wall_temp", v)} />
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-neutral-800">
+                            <h4 className="text-xs font-bold text-neutral-500 mb-2">COMBUSTION (Wiebe)</h4>
+                            <InputRow label="Burn Duration" unit="deg" value={config.engine.combustion.duration} onChange={(v: any) => updateConfig("engine", "combustion.duration", v)} />
+                            <InputRow label="Shape (m)" unit="-" value={config.engine.combustion.shape_parameter_m} onChange={(v: any) => updateConfig("engine", "combustion.shape_parameter_m", v)} />
+                            <InputRow label="Efficiency (a)" unit="-" value={config.engine.combustion.efficiency_a} onChange={(v: any) => updateConfig("engine", "combustion.efficiency_a", v)} />
+                            <InputRow label="Start Angle" unit="deg" value={config.engine.combustion.start_angle} onChange={(v: any) => updateConfig("engine", "combustion.start_angle", v)} />
                         </div>
                     </>
                 )}
@@ -246,6 +351,8 @@ const VehicleBuilder = () => {
                         <SectionHeader title="Header Primary" id={getPredictedID(selection)} />
                         <InputRow label="Primary Length" unit="mm" value={config.exhaust.headers.primary_length} onChange={(v: any) => updateConfig("exhaust", "headers.primary_length", v)} />
                         <InputRow label="Diameter" unit="mm" value={config.exhaust.headers.primary_diameter} onChange={(v: any) => updateConfig("exhaust", "headers.primary_diameter", v)} />
+                        <InputRow label="Header Friction" unit="-" value={config.exhaust.headers.header_friction ?? 0.02} onChange={(v: any) => updateConfig("exhaust", "headers.header_friction", v)} />
+                        <InputRow label="Wall Temp" unit="K" value={config.exhaust.headers.wall_temp ?? 800} onChange={(v: any) => updateConfig("exhaust", "headers.wall_temp", v)} />
                     </>
                 )}
 
@@ -254,6 +361,12 @@ const VehicleBuilder = () => {
                         <SectionHeader title="Collector (Merge)" id={getPredictedID(selection)} />
                         <InputRow label="Collector Vol" unit="L" value={config.exhaust.headers.collector_vol} onChange={(v: any) => updateConfig("exhaust", "headers.collector_vol", v)} />
                         <InputRow label="Outlet Dia" unit="mm" value={config.exhaust.headers.collector_dia} onChange={(v: any) => updateConfig("exhaust", "headers.collector_dia", v)} />
+                        <div className="mt-3 pt-3 border-t border-neutral-800">
+                            <h4 className="text-xs font-bold text-neutral-500 mb-2">EXHAUST PORT JUNCTION</h4>
+                            <InputRow label="Port Junction Vol" unit="cc" value={config.exhaust.port_junction_vol ?? 0.0} onChange={(v: any) => updateConfig("exhaust", "port_junction_vol", v)} />
+                            <InputRow label="Ex-Port Mesh" unit="m" value={config.exhaust.exhaust_port_mesh ?? 0.010} onChange={(v: any) => updateConfig("exhaust", "exhaust_port_mesh", v)} />
+                            <div className="text-[10px] text-neutral-600">≤0 = plenumless Type-12 (validated); &gt;0 = small plenum/cyl</div>
+                        </div>
                     </>
                 )}
 
@@ -484,17 +597,37 @@ const VehicleBuilder = () => {
                                     {loading && (
                                         <div className="absolute inset-0 flex items-center justify-center flex-col gap-4">
                                             <div className="w-6 h-6 border-2 border-neutral-700 border-t-neutral-100 rounded-full animate-spin"></div>
-                                            <div className="text-neutral-500 text-sm font-mono">Simulating Physics Model...</div>
+                                            <div className="text-neutral-500 text-sm font-mono">
+                                                {progress
+                                                    ? `Simulating cell ${progress.done}/${progress.total} (omp1)${progress.eta != null ? ` · ETA ~${progress.eta}s` : ""}...`
+                                                    : "Simulating Physics Model..."}
+                                            </div>
+                                            {progress && progress.total > 0 && (
+                                                <div className="w-64 h-1.5 bg-neutral-800 rounded overflow-hidden">
+                                                    <div className="h-full bg-emerald-500 transition-all duration-300"
+                                                         style={{ width: `${Math.min(100, (progress.done / progress.total) * 100)}%` }} />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
-                                    {!loading && !calibrationData && !optimizationResult && (
+                                    {!loading && !runData && !calibrationData && !optimizationResult && (
                                         <div className="absolute inset-0 flex items-center justify-center text-neutral-600 text-sm">
                                             No simulation data. Run a simulation to view results.
                                         </div>
                                     )}
 
-                                    {(calibrationData || optimizationResult) && !loading && (
+                                    {!loading && runData && (
+                                        <div className="absolute inset-0 overflow-auto p-1 flex flex-col gap-4 animate-in fade-in duration-500">
+                                            <ValidityPanel overall={runData.overall} rows={runData.rows} />
+                                            <div className="h-72 flex-shrink-0"><VeOverlayChart runData={runData} /></div>
+                                            <div className="min-h-[340px] flex-shrink-0">
+                                                <VETableComparison calibrationResult={runToCalibration(runData)} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {!loading && !runData && (calibrationData || optimizationResult) && (
                                         <div className="absolute inset-0 overflow-auto p-4 animate-in fade-in duration-500">
                                             <MapVisualizer calibrationResult={calibrationData || (optimizationResult as any)} />
                                         </div>
@@ -512,24 +645,33 @@ const VehicleBuilder = () => {
                                 <div>
                                     <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-4">Run Simulation</h3>
                                     <button
-                                        onClick={handleRunCalibration}
+                                        onClick={() => handleRun("wot_quick")}
                                         disabled={loading || optimizing}
                                         className="w-full py-3 bg-neutral-100 hover:bg-white text-black font-semibold rounded text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
-                                        <Play size={16} fill="black" /> Run Flow Sim
+                                        <Play size={16} fill="black" /> Run WOT Quick (20)
+                                    </button>
+                                    <button
+                                        onClick={() => handleRun("full_map")}
+                                        disabled={loading || optimizing}
+                                        className="mt-2 w-full py-2 border border-neutral-700 hover:bg-neutral-800 text-neutral-300 rounded text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        title="480 cells at omp1 — several minutes"
+                                    >
+                                        Run Full Map (480) · slower
                                     </button>
                                 </div>
 
                                 <div className="pt-4 border-t border-neutral-800">
-                                    <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-4">Optimization</h3>
+                                    <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-4">Tuning <span className="text-neutral-600 normal-case">(Milestone 4)</span></h3>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <button onClick={() => alert("Hardware Opt TBD")} className="py-2 border border-neutral-700 hover:bg-neutral-800 rounded text-xs text-neutral-300 transition-colors">
+                                        <button disabled title="Lands in Milestone 4" className="py-2 border border-neutral-800 rounded text-xs text-neutral-600 cursor-not-allowed">
                                             Hardware
                                         </button>
-                                        <button onClick={handleRunOptimization} className="py-2 border border-neutral-700 hover:bg-neutral-800 rounded text-xs text-neutral-300 transition-colors">
+                                        <button disabled title="VANOS optimizer lands in Milestone 4 (surrogate proposes, sim disposes)" className="py-2 border border-neutral-800 rounded text-xs text-neutral-600 cursor-not-allowed">
                                             VANOS
                                         </button>
                                     </div>
+                                    <div className="text-[10px] text-neutral-600 mt-2 leading-tight">Run + validity (M1) → geometry calibration (M2) → tuning (M4)</div>
                                 </div>
                             </div>
 
@@ -550,8 +692,8 @@ const VehicleBuilder = () => {
                             <div className="mt-4 border-t border-neutral-800 pt-4">
                                 <div className="h-24 font-mono text-[10px] text-neutral-600 overflow-y-auto">
                                     <div>[SYSTEM] Ready</div>
-                                    {loading && <div>[INFO] Starting Simulation...</div>}
-                                    {calibrationData && <div>[SUCCESS] Data Received.</div>}
+                                    {loading && progress && <div>[RUN] cell {progress.done}/{progress.total}</div>}
+                                    {runData && <div className="text-emerald-500">[DONE] {runData.overall.verdict} ({runData.elapsed_sec}s)</div>}
                                     {error && <div className="text-red-500 font-bold">[ERROR] {error}</div>}
                                 </div>
                             </div>

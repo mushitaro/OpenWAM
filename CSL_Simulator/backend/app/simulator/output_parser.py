@@ -2,6 +2,7 @@
 import pandas as pd
 import os
 import re
+import math
 import statistics
 
 class OpenWAMOutputParser:
@@ -98,4 +99,44 @@ class OpenWAMOutputParser:
         return {"valid": spread <= tol, "spread": spread, "ve_cyl": seg,
                 "n": len(ms), "reason": "" if spread <= tol else "cylinder maldistribution"}
 
-        return pd.DataFrame()
+    # ---- convergence gate (Stage 36 / §3.6) -------------------------------
+    @staticmethod
+    def convergence(stdout: str, m_ref_mg: float, last_n: int = 5,
+                    slope_tol: float = 0.3) -> dict:
+        """Per-cell convergence from the 'Trapped mass:' cycle series.
+
+        Ports ve_converged_robust.py: parse every 'Trapped mass: X (g)', drop
+        consecutive duplicates (each IVC is printed twice), filter blow/collapse,
+        convert to VE% via ``m_ref_mg`` (theoretical trapped mass at VE=100 %, in
+        mg), and judge convergence by the slope of the last ``last_n`` cycles
+        (|dVE/dcycle| < ``slope_tol``).
+        """
+        ms = [float(x) for x in re.findall(r"Trapped mass:\s+([0-9.eE+-]+)\s+\(g\)", stdout)]
+        dedup = []
+        for v in ms:
+            if not dedup or abs(v - dedup[-1]) > 1e-9:
+                dedup.append(v)
+        good = [m for m in dedup if 1e-4 < m < 5.0]
+        if not good:
+            return {"converged": False, "slope": None, "cyc": 0,
+                    "ve_series": [], "ve_last": None, "blew_up": True}
+        if m_ref_mg and m_ref_mg > 0:
+            ve_series = [(m * 1000.0 / m_ref_mg) * 100.0 for m in good]
+        else:
+            ve_series = []
+        n = len(ve_series)
+        seg = ve_series[-last_n:] if n >= 2 else ve_series
+        slope = float("nan")
+        if len(seg) >= 2:
+            xs = list(range(len(seg)))
+            mx = sum(xs) / len(xs)
+            my = sum(seg) / len(seg)
+            denom = sum((x - mx) ** 2 for x in xs)
+            slope = (sum((x - mx) * (y - my) for x, y in zip(xs, seg)) / denom) if denom else float("nan")
+        converged = len(seg) >= 2 and not math.isnan(slope) and abs(slope) < slope_tol
+        blew_up = bool(ve_series and max(ve_series[-3:]) > 300.0)
+        return {"converged": bool(converged),
+                "slope": (None if math.isnan(slope) else round(slope, 4)),
+                "cyc": n, "ve_series": ve_series,
+                "ve_last": (ve_series[-1] if ve_series else None),
+                "blew_up": blew_up}

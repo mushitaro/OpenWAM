@@ -80,6 +80,9 @@ tmp.wam
 # Debug build tree (ASan/gdb)
 build_dbg/
 
+# UX-app MSVC build tree (Stage-56 damping-capable solver for the app)
+build_ux/
+
 # OpenWAM CSL sweep/validation artifacts
 CSL_Simulator/backend/sp_*.wam
 CSL_Simulator/backend/sp_*.log

@@ -7,6 +7,20 @@ from ..models import SimConfig, ExhaustLayoutType
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
+
+def _ce(env_name, cfg_val, default, cast=float):
+    """Resolve a tunable parameter: env var (study override) > SimConfig field >
+    hardcoded default. When the env var is unset and the config carries its default,
+    this returns the same value as the legacy hardcoded path (byte-identical deck)."""
+    e = os.environ.get(env_name)
+    if e is not None:
+        try:
+            return cast(e)
+        except (TypeError, ValueError):
+            return default
+    return cast(cfg_val) if cfg_val is not None else default
+
+
 @dataclass
 class SweepSchedule:
     duration: float
@@ -605,14 +619,14 @@ class WAMGenerator:
         # auto-discovers only Runner_Upper + Runner_Lower (a 2-pipe pass-through),
         # isolating whether the spurious intake heating originates at the
         # small-area φ10 stub / eq-tube junction (ENBAL Stage-17 finding).
-        self._skip_eqtube = bool(os.environ.get("OPENWAM_NO_EQTUBE"))
+        self._skip_eqtube = bool(os.environ.get("OPENWAM_NO_EQTUBE")) or not c.intake.eq_tube.enabled
         # Eq-tube model. "plenum" (default, legacy) = one central 141cc plenum with
         # six runner stubs -> a Helmholtz resonator that destabilises at part throttle
         # and starves cyl-2 (Stage 38). "chain" = a CONTINUOUS balance tube: the six
         # stubs tee into a row of short tube segments (volume distributed along the
         # tube, no central cavity), which is what the real S54 Gleichdruckrohr is and
         # should not Helmholtz-resonate. Select with OPENWAM_EQ_CHAIN=1.
-        self._eq_chain = bool(os.environ.get("OPENWAM_EQ_CHAIN")) and not self._skip_eqtube
+        self._eq_chain = (bool(os.environ.get("OPENWAM_EQ_CHAIN")) or c.intake.eq_tube.model == "chain") and not self._skip_eqtube
         self._eq_tee_cids = []  # filled per-cylinder in chain mode, linked after the loop
         if self._skip_eqtube:
             print("DEBUG: OPENWAM_NO_EQTUBE=1 -> equalization tube DISABLED")
@@ -629,7 +643,7 @@ class WAMGenerator:
         # sets the coupling strength: shrinking it weakens the acoustic cross-talk
         # (less 6300/6900 over-fill) WITHOUT the area-mismatch bifurcation that a
         # smaller stub diameter causes. OPENWAM_EQ_VOL_MULT default 1.0 = byte-identical.
-        eq_tube_vol *= float(os.environ.get("OPENWAM_EQ_VOL_MULT", "1.0"))
+        eq_tube_vol *= _ce("OPENWAM_EQ_VOL_MULT", c.intake.eq_tube.volume_scale, 1.0)
         # degC: intake-side equalization tube, ~40 C (was 313 = read as 313 C = 586 K)
         if not self._skip_eqtube and not self._eq_chain:
             self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 40)
@@ -667,14 +681,14 @@ class WAMGenerator:
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
 
-            itb_dia = 0.052                             # 52mm fixed
-            bellmouth_entry_dia = 0.070                         # 70mm fixed entry
+            itb_dia = c.intake.itb.diameter / 1000.0    # runner bore = ITB diameter (52mm)
+            bellmouth_entry_dia = c.intake.runner.entry_diameter / 1000.0  # velocity-stack mouth (70mm)
             # Intake runner-length calibration (OPENWAM_RUNNER_SC, default 1.0). The
             # plenum->valve tube (bellmouth + runners + port) sets the ram-resonance
             # rpm; the over-ram at advanced cam (Stage 46) is this resonance. Scaling
             # the tube length re-tunes where it sits / how it couples, a primary lever
             # for matching the stock VE map. (Geometry is a placeholder.)
-            _run_sc = float(os.environ.get("OPENWAM_RUNNER_SC", "1.0"))
+            _run_sc = _ce("OPENWAM_RUNNER_SC", c.intake.runner.length_scale, 1.0)
             # Intake-tract damping (OPENWAM_RUNNER_FRIC_MULT, default 1.0 = unchanged).
             # Stage 53/54: the intake ram resonance is too SHARP (high Q) -- a 0.1 change
             # in runner length swings 3900 WOT VE 132->100, and VE over-responds to cam
@@ -683,8 +697,8 @@ class WAMGenerator:
             # should flatten the VANOS over-response and the WOT VE-shape toward stock's
             # broad curve. Multiplier preserves the relative per-segment values; 1.0 is
             # byte-identical to legacy.
-            _fric_mult = float(os.environ.get("OPENWAM_RUNNER_FRIC_MULT", "1.0"))
-            bellmouth_len = 0.150 * _run_sc             # 150mm nominal
+            _fric_mult = _ce("OPENWAM_RUNNER_FRIC_MULT", c.intake.runner.friction_multiplier, 1.0)
+            bellmouth_len = (c.intake.bellmouth.length / 1000.0) * _run_sc   # config-driven (150mm)
             port_dia_in = c.engine.head.intake_port.diameter / 1000.0  # 52mm (runner side)
             valve_dia_in = c.engine.head.intake_valve.diameter / 1000.0  # 35mm (valve side)
             
@@ -724,7 +738,7 @@ class WAMGenerator:
             # Type 12 ① : EqTube branch junction (Runner_Upper + EqTube_Stub + Runner_Lower)
             cid_eq_branch = self._create_branch_junction()
             
-            self._add_pipe(runner_upper_id, f"Runner_Upper_{cyl_idx}", 0.015 * _run_sc,
+            self._add_pipe(runner_upper_id, f"Runner_Upper_{cyl_idx}", (c.intake.runner.upper_length / 1000.0) * _run_sc,
                            itb_dia, itb_dia, 40,
                            cid_run_upper_start, cid_eq_branch, friction=0.05 * _fric_mult, dx_mesh=0.0075,
                            init_p=intake_map_bar)
@@ -749,12 +763,12 @@ class WAMGenerator:
             # (back to ~535 K / 66%). Override with OPENWAM_EQ_DIA=<m> for studies.
             if not self._skip_eqtube:
                 eq_pipe_id = self.pipe_counter; self.pipe_counter += 1
-                eq_pipe_dia = float(os.environ.get("OPENWAM_EQ_DIA", "0.030"))
+                eq_pipe_dia = _ce("OPENWAM_EQ_DIA", c.intake.eq_tube.stub_diameter / 1000.0, 0.030)
                 # Eq-tube stub friction. The eq-tube equalises the cylinders at WOT
                 # but its cross-talk turns into an unstable resonance at part throttle
                 # that starves one cylinder (cyl-2) to collapse. Friction damps that
                 # resonance; OPENWAM_EQ_FRIC raises it for calibration (default 0.02).
-                eq_pipe_fric = float(os.environ.get("OPENWAM_EQ_FRIC", "0.02"))
+                eq_pipe_fric = _ce("OPENWAM_EQ_FRIC", c.intake.eq_tube.stub_friction, 0.02)
                 # Eq-tube stub MISTUNING. The cyl-2 part-throttle collapse is a
                 # coherent resonance of the six IDENTICAL stubs against the shared
                 # plenum: it needs them in phase to coherently starve one cylinder.
@@ -764,9 +778,9 @@ class WAMGenerator:
                 # like a real manifold's branch-length scatter. Length only (not
                 # diameter) so the area-mismatch stability floor is untouched.
                 # OPENWAM_EQ_MISTUNE = fractional half-spread (e.g. 0.25 -> +/-25%).
-                eq_mistune = float(os.environ.get("OPENWAM_EQ_MISTUNE", "0.0"))
+                eq_mistune = _ce("OPENWAM_EQ_MISTUNE", c.intake.eq_tube.mistune_spread, 0.0)
                 _mt_pat = [1.0, -1.0, 0.6, -0.6, 0.2, -0.2]  # zero-sum, non-monotonic
-                eq_stub_len = 0.075 * (1.0 + eq_mistune * _mt_pat[i % 6])
+                eq_stub_len = (c.intake.eq_tube.stub_length / 1000.0) * (1.0 + eq_mistune * _mt_pat[i % 6])
 
                 if self._eq_chain:
                     # Chain model: the stub tees into the continuous balance tube. Its
@@ -789,7 +803,7 @@ class WAMGenerator:
             # Type 12 ② : Port split junction (Runner_Lower + Port1 + Port2)
             cid_port_split = self._create_branch_junction()
             
-            self._add_pipe(runner_lower_id, f"Runner_Lower_{cyl_idx}", 0.025 * _run_sc,
+            self._add_pipe(runner_lower_id, f"Runner_Lower_{cyl_idx}", (c.intake.runner.lower_length / 1000.0) * _run_sc,
                            itb_dia, itb_dia, 40,
                            cid_eq_branch, cid_port_split, friction=0.05 * _fric_mult, dx_mesh=0.010,
                            init_p=intake_map_bar)
@@ -814,7 +828,7 @@ class WAMGenerator:
                 # flux temperature tracks this wall), so expose it for tuning via
                 # OPENWAM_PORT_TWALL=<degC>. A real coolant-side intake port is
                 # nearer ~60-90 C. Default kept at 127 unless overridden.
-                port_twall = float(os.environ.get("OPENWAM_PORT_TWALL", "127"))
+                port_twall = _ce("OPENWAM_PORT_TWALL", c.engine.head.intake_port_wall_temp, 127.0)
                 self._add_pipe(pid_port, f"Port_In_{cyl_idx}_{v+1}", port_len_in,
                                port_dia_in, valve_dia_in, port_twall,
                                cid_port_split, cid_valve, friction=c.engine.head.port_friction, dx_mesh=0.010,
@@ -1784,9 +1798,9 @@ class WAMGenerator:
         import os
         ro = max(0.0, min(1.0, ro))
 
-        idle_offset = float(os.environ.get("OPENWAM_THR_OFFSET", "2.0"))
+        idle_offset = _ce("OPENWAM_THR_OFFSET", self.config.intake.throttle.idle_offset_deg, 2.0)
         max_angle = 90.0
-        gamma = float(os.environ.get("OPENWAM_THR_GAMMA", "1.4"))
+        gamma = _ce("OPENWAM_THR_GAMMA", self.config.intake.throttle.pedal_gamma, 1.4)
 
         tp = idle_offset + (max_angle - idle_offset) * (ro ** gamma)
 

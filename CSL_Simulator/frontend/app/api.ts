@@ -44,12 +44,38 @@ export interface ITBConfig {
     discharge_coeff_map: string;
 }
 
+export interface ThrottleConfig {
+    idle_offset_deg: number;
+    pedal_gamma: number;
+}
+
+export interface RunnerConfig {
+    upper_length: number;
+    lower_length: number;
+    entry_diameter: number;
+    length_scale: number;
+    friction_multiplier: number;
+}
+
+export interface EqTubeConfig {
+    enabled: boolean;
+    model: string;          // "plenum" | "chain"
+    stub_diameter: number;
+    stub_length: number;
+    stub_friction: number;
+    volume_scale: number;
+    mistune_spread: number;
+}
+
 export interface IntakeConfig {
     type: string;
     inlet: InletConfig;
     plenum_vol: number;
     bellmouth: BellmouthConfig;
     itb: ITBConfig; // New ITB Module
+    throttle: ThrottleConfig;
+    runner: RunnerConfig;
+    eq_tube: EqTubeConfig;
 }
 
 // 2. Engine Core
@@ -83,6 +109,8 @@ export interface HeadConfig {
     port_flow_coeff: number;
     valves_per_cyl: number;
     wall_temp: number;
+    intake_port_wall_temp?: number;
+    port_friction?: number;
 
     // Detailed Port Geometry (New)
     intake_port: { length: number; diameter: number; wall_temp: number; };
@@ -101,6 +129,7 @@ export interface EngineConfig {
     combustion: CombustionConfig;
 
     vanos_intake_bias: number;
+    vanos_exhaust_bias?: number;
     head: HeadConfig;
 
     // Friction & Woschni (Advanced)
@@ -119,6 +148,7 @@ export interface HeaderConfig {
     collector_dia: number;
     wall_temp: number;
     heat_coeff: number;
+    header_friction?: number;
 }
 
 export interface ExhaustSectionConfig {
@@ -156,6 +186,9 @@ export interface EnvironmentConfig {
 
 export interface ExhaustConfig {
     headers: HeaderConfig & { collector_vol: number; }; // Added Collector Volume
+    port_junction_vol?: number;   // cc; >0 small plenum, <=0 plenumless Type-12 (validated)
+    exhaust_port_mesh?: number;   // m; exhaust-port pipe mesh (default 0.010)
+    muffler_friction?: number;
     section1_1: Section1Config; // Bank 1 (Cyl 1-3)
     section1_2: Section1Config; // Bank 2 (Cyl 4-6)
     section2: Section2Config;
@@ -193,6 +226,79 @@ export interface SimConfig {
     };
 }
 
+// --- M1 structured Run response (UX_APP_DEV_SPEC §5/§8) ---------------------
+export type TrafficStatus = "green" | "yellow" | "red";
+
+export interface CellHealth {
+    converged: boolean;
+    slope: number | null;
+    cyc: number;
+    cyl_ok: boolean;
+    cyl_spread: number | null;
+    nan_free: boolean;
+    ve_in_band: boolean;
+    valid: boolean;
+}
+
+export interface VeCell {
+    rpm: number;
+    tps: number;
+    ve_sim: number;
+    ve_stock: number | null;
+    mass_mg: number;
+    power_kw: number;
+    health: CellHealth;
+}
+
+export interface RunRow {
+    load: number;
+    r: number | null;
+    max_shape_err: number | null;
+    peak_rpm_sim: number | null;
+    peak_rpm_stock: number | null;
+    peak_match: boolean | null;
+    range_sim_pp: number | null;
+    range_stock_pp: number | null;
+    tilt_sim: number | null;
+    tilt_stock: number | null;
+    wot_ratio_maxdp: number | null;
+    score: number;
+    status: TrafficStatus;
+    n_trusted: number;
+    n_gated: number;
+}
+
+export interface RunOverall {
+    r: number | null;
+    max_shape_err: number | null;
+    score: number;
+    status: TrafficStatus;
+    verdict: string;
+    any_red_health: boolean;
+    n_cells: number;
+    n_converged: number;
+    n_cyl_ok: number;
+}
+
+export interface StockPoint { rpm: number; ve: number; }
+
+export interface RunResponse {
+    schema_version: number;
+    mode: "wot_quick" | "full_map";
+    run_id: string;
+    sim_binary_sig: string;
+    calib: { alpha: number; w: number };
+    axes: { rpm: number[]; load: number[] };
+    cells: VeCell[][];          // [loadRow][rpmCol]
+    rows: RunRow[];
+    overall: RunOverall;
+    stock_curve: StockPoint[];
+    logs: string;
+    status: string;
+    elapsed_sec: number;
+    results?: { rpm: number; tps: number; ve_sim: number; mass_mg: number; power_kw: number }[];
+}
+
 const API_BASE_URL = "http://localhost:8000";
 
 export const runCalibration = async (config: SimConfig): Promise<CalibrationResponse> => {
@@ -217,9 +323,12 @@ export const runCalibration = async (config: SimConfig): Promise<CalibrationResp
     }
 };
 
-export const runSimulation = async (config: SimConfig): Promise<CalibrationResponse> => {
+export const runSimulation = async (
+    config: SimConfig,
+    mode: "wot_quick" | "full_map" = "wot_quick",
+): Promise<RunResponse> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/simulate/run`, {
+        const response = await fetch(`${API_BASE_URL}/simulate/run?mode=${mode}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -232,7 +341,7 @@ export const runSimulation = async (config: SimConfig): Promise<CalibrationRespo
         }
 
         const data = await response.json();
-        return data as CalibrationResponse;
+        return data as RunResponse;
     } catch (error) {
         console.error("Simulation failed:", error);
         throw error;

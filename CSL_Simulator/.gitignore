@@ -1,0 +1,16 @@
+# Runtime artifacts (CSL UX app)
+# Solver decks + outputs written into the sim dir during a Run
+*.wam
+*AVG.DAT
+*INS.DAT
+intake.vlv
+exhaust.vlv
+log_*.txt
+
+# Phase-A RunStore (local SQLite data lake) — runtime data, not source
+backend/app/data/runs.db
+backend/app/data/runs.db-shm
+backend/app/data/runs.db-wal
+
+# Deterministic deck/result cache
+.sim_cache/

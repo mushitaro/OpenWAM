@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "_comment": "PROVISIONAL model-calibration scaffold (UX_APP_DEV_SPEC.md §4.C / §10). These are FOLDABLE constants, NOT final physics. EXVANOS_BASE(rpm) was fitted at the 268/264 cams; the engine was since corrected to the stock 260/260 cams and real measured intake dimensions are pending, so this fit MUST be re-fitted. The UX (dims -> Run -> metrics -> Tune -> export) does NOT depend on these final values, only on the model being stable/sweepable. Each Run record logs the calib block (alpha,w) so a future re-fit is traceable. Env vars (OPENWAM_MOUTH_RAD / _W / OPENWAM_EXVANOS_BASE / _SCALE) still override at runtime for studies.",
+  "mouth_rad": {
+    "alpha": 0.4,
+    "w": 0.005,
+    "wot_tps_threshold": 85.0
+  },
+  "thr_choke": 1,
+  "intake_vanos_base": 130.0,
+  "exvanos_base": {
+    "_comment": "FOLDED to the stable datum for M1 (§4.C 'foldable scaffold'). The per-rpm WOT shape-fit `points` below was fitted at 268-deg cams and is now STALE (cams corrected to 260; it destabilizes 3900 -> diverges at cyc ~23). use_stale_shape_fit=false folds EXVANOS_BASE to wot_base_stable=150 (the validated-stable baseline), so the model is stable/sweepable. Shape won't fully match stock until the real-geometry re-fit (M2); re-enable the shape-fit then.",
+    "fit_cam_deg": 268,
+    "stale": true,
+    "use_stale_shape_fit": false,
+    "wot_base_stable": 150.0,
+    "part_load_const": 150.0,
+    "scale": 1.0,
+    "points": [
+      [2700, 150.0],
+      [3900, 115.0],
+      [4600, 155.0],
+      [5300, 160.0],
+      [6300, 160.0],
+      [6900, 160.0]
+    ]
+  }
+}
