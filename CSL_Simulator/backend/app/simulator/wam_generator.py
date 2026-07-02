@@ -400,7 +400,12 @@ class WAMGenerator:
         # FORCE 1.0 deg Step Size for stability
         # Extended simulation time: 2.0s for cycle stabilization (was 0.5s)
         # At 3000 RPM: 2.0s = ~50 cycles, sufficient for VE convergence
-        self._add(f"2.0 {c.simulation.duration_cycles}", "dTheta Duration") 
+        # M3b waveform endpoint shortens the run via _run_duration_override (a
+        # full-monitoring sim to 2.0s is too slow + must end naturally to flush
+        # INS.DAT). Default None -> the validated line, so the default deck stays
+        # byte-identical.
+        _dur_ov = getattr(self, "_run_duration_override", None)
+        self._add(_dur_ov if _dur_ov is not None else f"2.0 {c.simulation.duration_cycles}", "dTheta Duration")
         # OpenWAM expects BAR for P_amb, and degC for T_amb: TOpenWAM reads
         # AmbientTemperature and applies degCToK() everywhere (TBloqueMotor,
         # TTubo atmosphere BC, ...). ambient_temp is stored in KELVIN, so it MUST
@@ -1315,12 +1320,24 @@ class WAMGenerator:
         # pipe instantaneous results -> big I/O cut for calibration/optimization
         # sweeps. Default OFF keeps the full monitoring (byte-identical; needed for the
         # 3D waveform view).
-        _fast_output = bool(os.environ.get("OPENWAM_FAST_OUTPUT"))
+        # M3b waveform endpoint forces full pipe monitoring ON via an instance
+        # override so it never has to race os.environ against a concurrent map
+        # run. Default None -> read the env exactly as before (the map Run path
+        # sets OPENWAM_FAST_OUTPUT=1) so the default deck stays byte-identical.
+        _fo_ov = getattr(self, "_fast_output_override", None)
+        _fast_output = bool(os.environ.get("OPENWAM_FAST_OUTPUT")) if _fo_ov is None else bool(_fo_ov)
         if _fast_output:
             self.wam_lines.append("0 0")  # 0 pipes monitored, WAMer=0
         else:
-            self.wam_lines.append(f"{num_pipes} 0")  # All pipes, WAMer=0
-            for pid, pipe_data in sorted(self.pipes.items()):
+            # M3b: the waveform endpoint monitors only a curated SUBSET of pipes
+            # (via _monitor_pipe_ids) -- monitoring all ~75 pipes x 8 vars every
+            # step balloons the in-memory INS buffer and stalls the sim. Default
+            # None -> ALL pipes (byte-identical to the legacy full-monitoring deck).
+            _mon = getattr(self, "_monitor_pipe_ids", None)
+            _mon_items = [(pid, self.pipes[pid]) for pid in sorted(self.pipes)
+                          if _mon is None or pid in _mon]
+            self.wam_lines.append(f"{len(_mon_items)} 0")  # monitored pipes, WAMer=0
+            for pid, pipe_data in _mon_items:
                 pipe_length = pipe_data.get('length', 0.5)  # Default 0.5m if not stored
                 # 2 measurement points per pipe: inlet (0.0) and outlet (length)
                 self.wam_lines.append(f"{pid} 2")

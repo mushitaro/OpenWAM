@@ -299,6 +299,91 @@ export interface RunResponse {
     results?: { rpm: number; tps: number; ve_sim: number; mass_mg: number; power_kw: number }[];
 }
 
+// --- M3b crank-angle waveform (UX_APP_DEV_SPEC §6.B-2(ii)) -----------------
+export type WaveformGroup = "cylinder" | "intake" | "exhaust";
+
+export interface WaveformTrace {
+    id: number;            // pipe id or cylinder id
+    label: string;         // semantic label, e.g. "Header_1", "Cyl 1"
+    group: WaveformGroup;
+    pressure_bar: number[];        // aligned to crank_deg
+    velocity_ms?: number[] | null; // pipes only (in-cylinder has no velocity)
+}
+
+export interface WaveformResponse {
+    run_id: string;
+    sim_binary_sig: string;
+    rpm: number;
+    load: number;          // TPS %
+    is_wot: boolean;
+    n_cycles: number;      // cycles present in the INS.DAT
+    crank_deg: number[];   // last COMPLETE cycle, 0..720 (4-stroke)
+    cylinders: WaveformTrace[];
+    pipes: WaveformTrace[];
+    elapsed_sec: number;
+    status: string;
+    note?: string | null;
+    cached?: boolean;       // true when served from the parsed-waveform cache
+}
+
+// --- M4 VANOS tuning (UX_APP_DEV_SPEC §7) ----------------------------------
+export interface TuneEvalHealth {
+    converged: boolean;
+    slope: number | null;
+    cyc: number;
+    cyl_ok: boolean;
+    nan_free: boolean;
+    ve_in_band: boolean;
+    blew_up: boolean;
+}
+
+export interface TuneEval {
+    rpm: number;
+    intake_cam: number;   // physical cam target (KF table value, deg)
+    exhaust_cam: number;
+    ve: number;
+    valid: boolean;       // health-gated (converged, cyl-balanced, in-band, ...)
+    health: TuneEvalHealth;
+}
+
+export interface TuneCell {
+    rpm: number;
+    stock: TuneEval;               // baseline at the stock table cams
+    best: TuneEval | null;         // MAX_VE winner (null if nothing valid)
+    smooth: TuneEval | null;       // SMOOTH selection over the evaluated set
+    chosen: TuneEval;              // per the requested preference
+    delta_ve: number | null;
+    n_evals: number;
+    confidence: "ok" | "low";      // low = far-from-stock (§4.C) or sick baseline
+}
+
+export interface EcuTable {
+    name: string;                  // e.g. "KF_EVAN1_SOLL"
+    unit: string;
+    x_axis: number[];              // rpm breakpoints
+    y_axis: number[];              // load breakpoints
+    values: number[][];            // [loadRow][rpmCol]; WOT row replaced
+    wot_row_index: number;
+}
+
+export interface OptimizationResponse {
+    schema_version: number;
+    mode: "optimization";
+    run_id: string;
+    sim_binary_sig: string;
+    preference: "max_ve" | "smooth";
+    budget: number;
+    bounds: { intake: number[]; exhaust: number[] };
+    cells: TuneCell[];
+    tables: { intake: EcuTable; exhaust: EcuTable };
+    stock_curve: StockPoint[];
+    n_evals_total: number;
+    failed_rpms: number[];         // rpm cells whose search crashed (rest kept)
+    low_confidence_note: string;
+    status: string;
+    elapsed_sec: number;
+}
+
 const API_BASE_URL = "http://localhost:8000";
 
 export const runCalibration = async (config: SimConfig): Promise<CalibrationResponse> => {
@@ -337,7 +422,11 @@ export const runSimulation = async (
         });
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
+            // surface the backend's detail (e.g. the friendly cancel message)
+            // instead of a generic "Internal Server Error"
+            let detail = response.statusText;
+            try { detail = (await response.json())?.detail ?? detail; } catch { /* ignore */ }
+            throw new Error(`API Error: ${detail}`);
         }
 
         const data = await response.json();
@@ -346,6 +435,41 @@ export const runSimulation = async (
         console.error("Simulation failed:", error);
         throw error;
     }
+};
+
+export const runWaveform = async (
+    config: SimConfig,
+    rpm: number,
+    load = 100.0,
+): Promise<WaveformResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/simulate/waveform?rpm=${rpm}&load=${load}`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(config),
+        },
+    );
+    if (!response.ok) {
+        let detail = response.statusText;
+        try { detail = (await response.json())?.detail ?? detail; } catch { /* ignore */ }
+        throw new Error(`Waveform API Error: ${detail}`);
+    }
+    return (await response.json()) as WaveformResponse;
+};
+
+// Reload the last assembled map (persisted server-side) without re-running --
+// recovers a long full_map whose browser fetch died ('Failed to fetch').
+export const fetchLastRun = async (
+    mode: "wot_quick" | "full_map" = "full_map",
+): Promise<RunResponse> => {
+    const response = await fetch(`${API_BASE_URL}/simulate/last?mode=${mode}`);
+    if (!response.ok) {
+        let detail = response.statusText;
+        try { detail = (await response.json())?.detail ?? detail; } catch { /* ignore */ }
+        throw new Error(`No saved ${mode} run: ${detail}`);
+    }
+    return (await response.json()) as RunResponse;
 };
 
 export const fetchMaps = async (): Promise<any> => {
@@ -361,25 +485,46 @@ export const fetchMaps = async (): Promise<any> => {
     }
 };
 
-export const runOptimization = async (config: SimConfig): Promise<any> => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/simulate/optimization`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(config),
-        });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error("Optimization failed:", error);
-        throw error;
+// M4: WOT VANOS tuning. First run is a long real-sim search (deck-cached ->
+// repeats resume instantly); the result also persists server-side, so a lost
+// fetch is recoverable via fetchLastTuning().
+export const runTuning = async (
+    config: SimConfig,
+    preference: "max_ve" | "smooth" = "max_ve",
+    opts?: { rpms?: number[]; budget?: number },
+): Promise<OptimizationResponse> => {
+    const params = new URLSearchParams({ preference });
+    if (opts?.rpms?.length) params.set("rpms", opts.rpms.join(","));
+    if (opts?.budget) params.set("budget", String(opts.budget));
+    const response = await fetch(`${API_BASE_URL}/simulate/optimization?${params}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+    });
+    if (!response.ok) {
+        let detail = response.statusText;
+        try { detail = (await response.json())?.detail ?? detail; } catch { /* ignore */ }
+        throw new Error(`Tuning API Error: ${detail}`);
     }
+    return (await response.json()) as OptimizationResponse;
+};
+
+// M5: cancel every in-flight sim (map run / tuning / waveform). Finished
+// cells stay in the deck cache, so re-running the same request resumes.
+export const cancelRuns = async (): Promise<{ cancelled_tasks: number }> => {
+    const response = await fetch(`${API_BASE_URL}/simulate/cancel`, { method: "POST" });
+    if (!response.ok) throw new Error(`Cancel failed: ${response.statusText}`);
+    return (await response.json()) as { cancelled_tasks: number };
+};
+
+export const fetchLastTuning = async (): Promise<OptimizationResponse> => {
+    const response = await fetch(`${API_BASE_URL}/simulate/last?mode=optimization`);
+    if (!response.ok) {
+        let detail = response.statusText;
+        try { detail = (await response.json())?.detail ?? detail; } catch { /* ignore */ }
+        throw new Error(`No saved tuning run: ${detail}`);
+    }
+    return (await response.json()) as OptimizationResponse;
 };
 
 // Binary Patcher API

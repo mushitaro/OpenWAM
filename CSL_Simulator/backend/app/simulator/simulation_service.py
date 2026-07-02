@@ -36,6 +36,43 @@ class SimulationService:
         self._cache_dir = os.environ.get("OPENWAM_CACHE_DIR") or os.path.join(self.repo_root, ".sim_cache")
         self._exe_path = None
         self._m_ref_mg = 640.4   # per-cylinder trapped mass at VE=100% (recomputed per run)
+        # M5 cancellable runs: every long path (map cells, optimizer evals,
+        # waveform) registers its asyncio Tasks here; POST /simulate/cancel
+        # cancels them (task cancellation reaches _run_solver's finally, which
+        # kills the solver child -> no orphans, CPU freed immediately).
+        # Finished cells stay in the deck cache, so a re-run RESUMES.
+        # _cancel_epoch is a monotonic counter, NOT a boolean: each run captures
+        # the epoch at its start and treats a CancelledError as user-initiated
+        # iff the epoch has advanced. No run ever resets shared state, so
+        # concurrent runs cannot race each other's cancel classification.
+        self._active_tasks = set()
+        self._cancel_epoch = 0
+
+    # -------------------------------------------------------------- cancel
+    def _register_tasks(self, tasks):
+        self._active_tasks.update(tasks)
+
+    def _unregister_tasks(self, tasks):
+        self._active_tasks.difference_update(tasks)
+
+    def cancel_active(self):
+        """Cancel every in-flight sim task. Returns how many were cancelled."""
+        self._cancel_epoch += 1
+        n = 0
+        for t in list(self._active_tasks):
+            if not t.done():
+                t.cancel()
+                n += 1
+        return n
+
+    @staticmethod
+    async def _reap(tasks):
+        """Cancel any not-done tasks and await them all, so no sibling keeps
+        running unreferenced and no 'exception was never retrieved' fires."""
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     # ------------------------------------------------------------------ infra
     def _resolve_exe(self):
@@ -118,15 +155,22 @@ class SimulationService:
                 for c in range(n)]
 
     async def _run_solver(self, exe, wam_filename, cwd, env, log_path, deck_text,
-                          timeout=900, min_cyc=25, slope_thresh=0.3, patience=2, poll=4.0):
+                          timeout=900, min_cyc=25, slope_thresh=0.3, patience=2, poll=4.0,
+                          early_stop=True, no_cache=False):
         """Run the solver with the Stage-56 speed levers: slope-based EARLY STOP
         (kill once |dVE/dcyc| over the last 5 cycles < slope_thresh for `patience`
         polls, after >= min_cyc cycles) + a deterministic deck CACHE (a re-evaluated
         deck returns instantly). Returns the full stdout text.
+
+        early_stop=False lets the solver run to its NATURAL end -- required by the
+        M3b waveform path, because OpenWAM only flushes <deck>INS.DAT at clean
+        termination (GeneralOutput); a killed run loses it. no_cache=True bypasses
+        the stdout cache so a repeat waveform request actually re-runs the solver
+        (the cache stores only stdout, never the DAT files).
         """
         # cache (deterministic omp1 runs only)
         key = None
-        if str(env.get("OMP_NUM_THREADS", "1")) == "1" and not os.environ.get("OPENWAM_NO_CACHE"):
+        if str(env.get("OMP_NUM_THREADS", "1")) == "1" and not no_cache and not os.environ.get("OPENWAM_NO_CACHE"):
             h = hashlib.sha256()
             h.update(deck_text.encode("utf-8", "replace"))
             h.update(self._sim_binary_sig().encode())
@@ -142,6 +186,7 @@ class SimulationService:
         t0 = time.monotonic()
         ok = 0
         proc = None
+        timed_out = False
         logf = open(log_path, "wb")
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -154,15 +199,19 @@ class SimulationService:
                 except asyncio.TimeoutError:
                     pass
                 if time.monotonic() - t0 > timeout:
+                    # a timed-out run is NOT a converged result -- flag it so
+                    # its partial log never poisons the deck cache below.
+                    timed_out = True
                     proc.kill(); await proc.wait(); break
-                ve = self._cycle_ve(log_path)
-                if len(ve) >= max(min_cyc, 5):
-                    if abs((ve[-1] - ve[-5]) / 4.0) < slope_thresh:
-                        ok += 1
-                        if ok >= patience:
-                            proc.kill(); await proc.wait(); break
-                    else:
-                        ok = 0
+                if early_stop:
+                    ve = self._cycle_ve(log_path)
+                    if len(ve) >= max(min_cyc, 5):
+                        if abs((ve[-1] - ve[-5]) / 4.0) < slope_thresh:
+                            ok += 1
+                            if ok >= patience:
+                                proc.kill(); await proc.wait(); break
+                        else:
+                            ok = 0
         finally:
             # NEVER orphan the solver: if the coroutine is cancelled (client
             # disconnect / run cancelled) while the solver is mid-run, kill the
@@ -172,6 +221,13 @@ class SimulationService:
                     proc.kill()
                 except (ProcessLookupError, OSError):
                     pass
+                # bounded wait for the kill to land: on Windows the dying child
+                # still holds its output-file handles, and the caller's cleanup
+                # (deck/log/DAT delete) would silently fail and leak files.
+                try:
+                    await asyncio.wait_for(asyncio.shield(proc.wait()), timeout=5.0)
+                except BaseException:
+                    pass
             try:
                 logf.close()
             except OSError:
@@ -180,10 +236,15 @@ class SimulationService:
             text = open(log_path, encoding="utf-8", errors="replace").read()
         except OSError:
             text = ""
-        if key:
+        if key and not timed_out:
+            # atomic (tmp + replace): a reader never sees a torn cache entry.
+            # timed_out runs are excluded -- their partial log is not a result.
             try:
                 os.makedirs(self._cache_dir, exist_ok=True)
-                shutil.copyfile(log_path, os.path.join(self._cache_dir, key + ".log"))
+                cpath = os.path.join(self._cache_dir, key + ".log")
+                tmp = cpath + ".tmp"
+                shutil.copyfile(log_path, tmp)
+                os.replace(tmp, cpath)
             except OSError:
                 pass
         return text
@@ -416,9 +477,29 @@ class SimulationService:
                     pass
                 return cell
 
-        # ---- fan out cells ----------------------------------------------
-        tasks = [run_point(r, l) for l in loads for r in rpms]
-        flat = await asyncio.gather(*tasks)
+        # ---- fan out cells (cancellable via /simulate/cancel) ------------
+        epoch = self._cancel_epoch
+        tasks = [asyncio.create_task(run_point(r, l)) for l in loads for r in rpms]
+        self._register_tasks(tasks)
+        try:
+            flat = await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+            await self._reap(tasks)
+            if self._cancel_epoch != epoch:
+                # user-initiated cancel (the handler task itself is alive):
+                # solver children are killed by _run_solver's finally; finished
+                # cells are already in the deck cache.
+                raise RuntimeError(
+                    "run cancelled — finished cells are cached; re-run to resume")
+            raise                                   # real cancellation (disconnect)
+        except BaseException:
+            # one cell's ORDINARY exception must not leave the sibling cells
+            # running unreferenced (they'd be unregistered below and thus
+            # uncancellable) — cancel and reap them before propagating.
+            await self._reap(tasks)
+            raise
+        finally:
+            self._unregister_tasks(tasks)
 
         # ---- assemble cells[load][rpm] ----------------------------------
         by_key = {(c["tps"], c["rpm"]): c for c in flat}
@@ -435,7 +516,7 @@ class SimulationService:
         stock_curve = [{"rpm": r, "ve": round(v, 2)}
                        for r, v in zip(rpms, stock_axis) if v is not None]
 
-        return {
+        result = {
             "schema_version": 1,
             "mode": mode,
             "run_id": run_id,
@@ -454,3 +535,231 @@ class SimulationService:
                   "mass_mg": c["mass_mg"], "power_kw": c["power_kw"]} for c in flat],
                 key=lambda x: (x["tps"], x["rpm"])),
         }
+        # Persist the assembled result so a long full_map survives a lost HTTP
+        # response (browser 'Failed to fetch' on an hours-long request): the
+        # frontend can reload it via GET /simulate/last without re-running.
+        # tmp + os.replace = atomic; a concurrent GET never sees a torn file.
+        try:
+            path = os.path.join(self.data_dir, f"last_run_{mode}.json")
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(result, f)
+            os.replace(tmp, path)
+        except OSError:
+            pass
+        return result
+
+    # ------------------------------------------------------ M3b: waveforms
+    # Crank-angle traces for ONE operating point (UX_APP_DEV_SPEC §6.B-2(ii)).
+    # FAST_OUTPUT is forced OFF (generator override) so the deck monitors every
+    # pipe; the run goes to its NATURAL end (early_stop=False) because OpenWAM
+    # only flushes <deck>INS.DAT at clean termination -- a killed run loses it;
+    # the duration is bounded to ~N cycles so a full-monitoring sim stays
+    # responsive. This uses a DISTINCT (FAST_OUTPUT-off) cache key, so it never
+    # perturbs the map Run path or its byte-identical default-deck cache.
+    _WAVE_N_CYC = 12          # cycles to run (enough for a representative, settled wave)
+
+    async def run_waveform_trace(self, config, rpm, load, model_name="ve_wave"):
+        from .wam_generator import WAMGenerator
+
+        t0 = time.time()
+        epoch = self._cancel_epoch          # user-cancel classification datum
+        rpm = float(rpm); load = float(load)
+        is_wot = load >= M.WOT_TPS
+        cal = calib.load(self.data_dir)
+        run_id = uuid.uuid4().hex[:12]
+
+        maps = {}
+        try:
+            with open(os.path.join(self.data_dir, "csl_ecu_maps.json")) as f:
+                maps = json.load(f)
+        except Exception:
+            maps = {}
+        intake_base = calib.intake_vanos_base(cal)
+        ex_scale = calib.exvanos_scale(cal)
+
+        point_config = config.model_copy(deep=True)
+        point_config.engine.rpm = rpm
+        point_config.engine.throttle_position = load / 100.0
+        # VANOS coordination -- identical to run_ve_map_generation.run_point so the
+        # waveform matches the cell the user just ran.
+        try:
+            van_in = maps.get("kf_evan1_soll", {})
+            v_x, v_y, v_vals = van_in.get("x_axis", []), van_in.get("y_axis", []), van_in.get("values", [])
+            if v_x and v_y and v_vals:
+                vi = min(range(len(v_x)), key=lambda i: abs(v_x[i] - rpm))
+                vyi = min(range(len(v_y)), key=lambda i: abs(v_y[i] - load))
+                point_config.engine.vanos_intake_bias = float(intake_base - v_vals[vyi][vi])
+            av = maps.get("kf_avan1_soll", {})
+            a_x, a_y, a_vals = av.get("x_axis", []), av.get("y_axis", []), av.get("values", [])
+            if a_x and a_y and a_vals:
+                ai = min(range(len(a_x)), key=lambda i: abs(a_x[i] - rpm))
+                ayi = min(range(len(a_y)), key=lambda i: abs(a_y[i] - load))
+                env_b = os.environ.get("OPENWAM_EXVANOS_BASE")
+                ex_base = float(env_b) if env_b else calib.exvanos_base_for(cal, rpm, is_wot)
+                scale = float(os.environ.get("OPENWAM_EXVANOS_SCALE", str(ex_scale)))
+                point_config.engine.vanos_exhaust_bias = float((ex_base - a_vals[ayi][ai]) * scale)
+        except Exception:
+            pass
+
+        n_cyc = self._WAVE_N_CYC
+
+        # Discover the pipe topology (built during generate) to pick the curated
+        # MONITOR SUBSET. Monitoring all ~75 pipes x 8 vars every step balloons
+        # the in-memory INS buffer super-linearly and stalls the sim, so we
+        # monitor only the pipes we actually return: intake runners + exhaust
+        # ports + collector outlets (one wave per cylinder + collector).
+        _disc = WAMGenerator(point_config, self.simulator_dir)
+        _disc.generate(ignition_timing=20.0) if is_wot else _disc.generate()
+        pipe_labels = {pid: _disc.pipes[pid].get("label", f"pipe{pid}") for pid in _disc.pipes}
+        _keep = re.compile(r"^(Runner_Lower_\d+|Port_Ex_\d+_1|Col_Out_)")
+        mon_pids = sorted(pid for pid, lab in pipe_labels.items() if _keep.match(lab))
+
+        gen = WAMGenerator(point_config, self.simulator_dir)
+        gen._fast_output_override = False                  # pipe monitoring ON
+        # duration line = "<INS angular period, deg> <run length, cycles>". Token1
+        # is the instantaneous SAMPLING STEP in degrees (fixed 1.0 -> rpm-independent
+        # trace resolution), token2 is the number of cycles (natural end at N full
+        # cycles -> INS.DAT is flushed and the last cycle is complete).
+        gen._run_duration_override = f"1.0 {n_cyc}"
+        gen._monitor_pipe_ids = set(mon_pids)              # curated subset only
+        content = gen.generate(ignition_timing=20.0) if is_wot else gen.generate()
+
+        env = self._build_sim_env(cal, is_wot, fast=False)
+        env.pop("OPENWAM_FAST_OUTPUT", None)               # belt+braces: pipe monitoring ON
+        exe = self._resolve_exe()
+
+        # parsed-waveform cache: first view of a cell is a real sim (~2-3 min),
+        # repeats are instant. Key on deck text + exe sig + the SOLVER-side env
+        # (_RESULT_ENV) -- MOUTH_RAD/HLLC/K_CEIL are read by the solver but NOT
+        # baked into the deck, so a study override of them must change the key
+        # (mirrors the map cache). The .wave.json suffix keeps it in a distinct
+        # namespace from the map deck cache.
+        wkey = hashlib.sha256(
+            (content + "|" + self._sim_binary_sig() + "|wave_v3|"
+             + json.dumps({k: env.get(k) for k in _RESULT_ENV}, sort_keys=True)
+             ).encode("utf-8", "replace")
+        ).hexdigest()
+        wpath = os.path.join(self._cache_dir, wkey + ".wave.json")
+        if not os.environ.get("OPENWAM_NO_CACHE") and os.path.exists(wpath):
+            try:
+                with open(wpath, encoding="utf-8") as f:
+                    cached = json.load(f)
+                cached["elapsed_sec"] = round(time.time() - t0, 1)
+                cached["cached"] = True
+                return cached
+            except (OSError, ValueError):
+                pass
+
+        ncyl = int(getattr(point_config.engine, "cylinders", 6))
+
+        sub = f"{model_name}_{run_id}_{int(rpm)}_{int(load)}"
+        wam_filename = f"{sub}.wam"
+        wam_path = os.path.join(self.simulator_dir, wam_filename)
+        log_path = os.path.join(self.simulator_dir, sub + ".log")
+        ins_path = os.path.join(self.simulator_dir, sub + "INS.DAT")
+        with open(wam_path, "w") as f:
+            f.write(content)
+
+        df = None
+        try:
+            solver_task = asyncio.create_task(
+                self._run_solver(exe, wam_filename, self.simulator_dir, env, log_path,
+                                 content, timeout=600, early_stop=False, no_cache=True))
+            self._register_tasks([solver_task])
+            try:
+                await solver_task
+            except asyncio.CancelledError:
+                await self._reap([solver_task])
+                if self._cancel_epoch != epoch:
+                    raise RuntimeError("waveform run cancelled")
+                raise
+            finally:
+                self._unregister_tasks([solver_task])
+            if os.path.exists(ins_path):
+                df = OpenWAMOutputParser.parse_ins_dat(ins_path)
+        finally:
+            for p in (wam_path, log_path,
+                      os.path.join(self.simulator_dir, sub + "AVG.DAT"), ins_path):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+
+        if df is None or len(df) == 0 or df.shape[1] < 2:
+            return {
+                "run_id": run_id, "sim_binary_sig": self._sim_binary_sig(),
+                "rpm": rpm, "load": load, "is_wot": is_wot, "n_cycles": 0,
+                "crank_deg": [], "cylinders": [], "pipes": [],
+                "elapsed_sec": round(time.time() - t0, 1), "status": "error",
+                "note": "No INS.DAT produced (solver did not reach its natural end).",
+            }
+
+        cols = [str(c) for c in df.columns]
+        ang_j = next((j for j, c in enumerate(cols) if c.startswith("Angle")), 1)
+
+        ang_full = df.iloc[:, ang_j].to_numpy()
+        n_cycles = 1 + sum(1 for i in range(1, len(ang_full))
+                           if ang_full[i] == ang_full[i] and ang_full[i] < ang_full[i - 1] - 1.0)
+        cyc = OpenWAMOutputParser.last_complete_cycle(df, angle_col=ang_j)
+
+        def col(j):
+            return [None if (v != v) else round(float(v), 4) for v in cyc.iloc[:, j].tolist()]
+
+        # Map channels by HEADER NAME (robust to per-cylinder var counts -- each
+        # cylinder block is P,T + per-valve/total mass flows + mass, not a fixed 5):
+        #   cylinders -> "Pressure_Cyl_<n>(bar)"
+        #   pipes     -> "P_duct_<pid>_at_<dist>_m(bar)" / "V_duct_...(m/s)"
+        # distance 0 = inlet, >0 = outlet (we return the outlet trace).
+        re_cyl = re.compile(r"^Pressure_Cyl_(\d+)\(")
+        re_pp = re.compile(r"^P_duct_(\d+)_at_([0-9.]+)_m\(")
+        re_pv = re.compile(r"^V_duct_(\d+)_at_([0-9.]+)_m\(")
+        cyl_p, pipe_p, pipe_v = {}, {}, {}
+        for j, c in enumerate(cols):
+            m = re_cyl.match(c)
+            if m:
+                cyl_p[int(m.group(1))] = j; continue
+            m = re_pp.match(c)
+            if m:
+                pipe_p.setdefault(int(m.group(1)), []).append((float(m.group(2)), j)); continue
+            m = re_pv.match(c)
+            if m:
+                pipe_v.setdefault(int(m.group(1)), []).append((float(m.group(2)), j))
+
+        crank = col(ang_j)                                 # Angle(deg), 0..720
+        cylinders = [
+            {"id": i, "label": f"Cyl {i}", "group": "cylinder",
+             "pressure_bar": col(cyl_p[i]), "velocity_ms": None}
+            for i in range(1, ncyl + 1) if i in cyl_p
+        ]
+        # group from the LABEL, not a magic pid threshold (pid boundaries shift if
+        # the eq-tube is disabled / chained -> pid<39 would mislabel exhaust pipes).
+        intake_re = re.compile(r"^(Runner|Bellmouth|Port_In|EqTube|CSL_Intake|CSL_Panel|Inlet|Plenum)")
+        pipes = []
+        for pid in mon_pids:
+            ps, vs = pipe_p.get(pid), pipe_v.get(pid)
+            if not ps or not vs:
+                continue
+            label = pipe_labels[pid]
+            pipes.append({
+                "id": pid, "label": label,
+                "group": "intake" if intake_re.match(label) else "exhaust",
+                "pressure_bar": col(max(ps)[1]),           # outlet = largest distance
+                "velocity_ms": col(max(vs)[1]),
+            })
+        _missing = [i for i in range(1, ncyl + 1) if i not in cyl_p]
+        note = f"missing cylinder pressure columns for cyl {_missing}" if _missing else None
+
+        result = {
+            "run_id": run_id, "sim_binary_sig": self._sim_binary_sig(),
+            "rpm": rpm, "load": load, "is_wot": is_wot, "n_cycles": n_cycles,
+            "crank_deg": crank, "cylinders": cylinders, "pipes": pipes,
+            "elapsed_sec": round(time.time() - t0, 1), "status": "success", "note": note,
+        }
+        try:
+            os.makedirs(self._cache_dir, exist_ok=True)
+            with open(wpath, "w", encoding="utf-8") as f:
+                json.dump(result, f)
+        except OSError:
+            pass
+        return result

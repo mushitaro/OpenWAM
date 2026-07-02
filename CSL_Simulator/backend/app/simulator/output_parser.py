@@ -68,6 +68,68 @@ class OpenWAMOutputParser:
         if rpm_col and ve_col:
             return df[[rpm_col, ve_col]].sort_values(by=rpm_col)
 
+    # ---- instantaneous (crank-angle) trace parser (M3b waveform view) ------
+    # OpenWAM writes <deck>INS.DAT when the deck monitors instantaneous results
+    # (FAST_OUTPUT off) AND the run ends naturally (CopyInstananeousResultsToFile
+    # at GeneralOutput -- a killed run never flushes it). Format (TOutputResults
+    # / TTubo / TCilindro): one TAB-delimited header line then data rows; col 0 =
+    # "Time" (s), col 1 = "Angle(deg)" in [0,720) for a 4T engine, then the
+    # cylinder / plenum / pipe channels in deck order. Mirrors parse_avg_dat()
+    # but adds explicit utf-8 + numeric coercion (instantaneous files are large).
+    @staticmethod
+    def parse_ins_dat(filepath: str) -> pd.DataFrame:
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Output file not found: {filepath}")
+        try:
+            with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+            header_row = 0
+            for i, line in enumerate(lines):
+                if line.startswith("Time") or "Angle(" in line or "Angulo(" in line:
+                    header_row = i
+                    break
+            df = pd.read_csv(filepath, sep="\t", header=header_row,
+                             encoding="utf-8", encoding_errors="replace")
+            # Do NOT dropna columns here: channels map by POSITION to the deck's
+            # cylinder/plenum/pipe order, and dropping a mid-file all-NaN column
+            # would shift that mapping. A trailing phantom (from a trailing tab)
+            # is harmless -- it sits past every channel index we read.
+            df.columns = [str(c).strip() for c in df.columns]
+            # crank-angle traces are all numeric; coerce so positional indexing is safe
+            df = df.apply(pd.to_numeric, errors="coerce")
+            return df
+        except Exception as e:
+            raise ValueError(f"Failed to parse INS file: {str(e)}")
+
+    @staticmethod
+    def last_complete_cycle(df: pd.DataFrame, angle_col: int = 1) -> pd.DataFrame:
+        """Slice out the LAST fully-complete engine cycle (most converged).
+
+        INS.DAT (storage mode 2) concatenates all cycles; the angle column
+        sawtooths 0->~720 then wraps. Split on wraps, then return the last
+        segment whose length is >= 0.8x the median segment length (drops a
+        partial trailing cycle left by a natural end mid-write).
+        """
+        if df is None or len(df) == 0 or df.shape[1] <= angle_col:
+            return df
+        ang = df.iloc[:, angle_col].to_numpy()
+        # wrap = start of a new cycle (angle drops)
+        starts = [0]
+        for i in range(1, len(ang)):
+            a, b = ang[i], ang[i - 1]
+            if a == a and b == b and a < b - 1.0:   # NaN-safe; ignore tiny jitter
+                starts.append(i)
+        starts.append(len(ang))
+        segs = [(starts[k], starts[k + 1]) for k in range(len(starts) - 1)]
+        segs = [(s, e) for (s, e) in segs if e > s]
+        if not segs:
+            return df
+        lens = sorted(e - s for (s, e) in segs)
+        med = lens[len(lens) // 2]
+        complete = [(s, e) for (s, e) in segs if (e - s) >= 0.8 * med]
+        s, e = (complete[-1] if complete else segs[-1])
+        return df.iloc[s:e].reset_index(drop=True)
+
     # ---- cylinder-balance gate (Stage 42) ---------------------------------
     # The eq-tube resonance can, in narrow throttle/rpm islands, drive ONE
     # cylinder to collapse (~0) or blow up (>>) while the rest are fine. The

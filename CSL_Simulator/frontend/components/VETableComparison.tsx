@@ -285,6 +285,21 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
                     <span className="flex items-center gap-1"><div className="w-3 h-3 bg-blue-500 opacity-80"></div> Reduced (Lower)</span>
                 </div>
             )}
+
+            {/* provenance-aware copy (§5/§10): the measured target only covers WOT */}
+            {hasData && viewMode === 'target' && (
+                <div className="mt-2 text-[11px] text-slate-500 font-mono leading-tight">
+                    Base = this engine&apos;s MEASURED stock VE (wideband) — WOT row (100%) only.
+                    Part-load rows show 0: no measured target is wired yet (narrowband+log
+                    part-load data / BIN-derived reference lands with the calibration re-fit, §10).
+                </div>
+            )}
+            {hasData && (viewMode === 'diff_target' || viewMode === 'correction') && (
+                <div className="mt-2 text-[11px] text-slate-500 font-mono leading-tight">
+                    Only the WOT row (100%) has a measured Base — part-load deltas/corrections
+                    compare against 0 and are not meaningful until part-load targets land (§10).
+                </div>
+            )}
         </div>
     );
 };

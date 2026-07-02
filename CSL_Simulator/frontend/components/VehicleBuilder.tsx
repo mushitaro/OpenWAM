@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { Play, Activity, Settings2, Info, Wrench, BarChart2, Save, Upload, Download } from "lucide-react";
-import { runCalibration, runOptimization, runSimulation, CalibrationResponse, RunResponse, SimConfig, WS_BASE_URL } from "../app/api";
-import MapVisualizer from "./MapVisualizer";
+import { Play, Activity, Settings2, Info, Wrench, BarChart2, Save, Upload, Download, History, Square } from "lucide-react";
+import { runTuning, fetchLastTuning, runSimulation, fetchLastRun, cancelRuns, CalibrationResponse, RunResponse, OptimizationResponse, SimConfig, WS_BASE_URL } from "../app/api";
 import VETableComparison from "./VETableComparison";
 import BinaryPatchManager from "./BinaryPatchManager";
 import SimulationDebugPanel from "./SimulationDebugPanel";
@@ -14,6 +13,9 @@ import InteractiveTopology, { SelectionType } from "./InteractiveTopology";
 import SimulationController from "./SimulationController";
 import VeOverlayChart from "./VeOverlayChart";
 import ValidityPanel from "./ValidityPanel";
+import VeSurfaceChart from "./VeSurfaceChart";
+import VeWaveformChart from "./WaveformChart";
+import TuningResults from "./TuningResults";
 
 // Adapt the structured RunResponse into the matrix shape VETableComparison expects
 // ([loadRow][rpmCol]). Off-WOT rows have no measured stock -> 0 / corr 1.
@@ -33,11 +35,20 @@ const VehicleBuilder = () => {
 
     const [loading, setLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
-    const [calibrationData, setCalibrationData] = useState<CalibrationResponse | null>(null);
     const [runData, setRunData] = useState<RunResponse | null>(null);
+    // snapshot of the config that produced runData, so the Waveform view drills
+    // into the SAME geometry the surface/summary show (config may be edited after).
+    const [runConfig, setRunConfig] = useState<SimConfig | null>(null);
     const [progress, setProgress] = useState<{ done: number; total: number; eta?: number } | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [optimizationResult, setOptimizationResult] = useState<{ best_bias: number, max_ve: number } | null>(null);
+    // non-error notices (cancel confirmations, config loaded, ...) — amber, not red
+    const [notice, setNotice] = useState<string | null>(null);
+    // M4 tuning state
+    const [tuneData, setTuneData] = useState<OptimizationResponse | null>(null);
+    const [tunePref, setTunePref] = useState<"max_ve" | "smooth">("max_ve");
+    const [tuneProgress, setTuneProgress] = useState<{ done: number; total: number; eta?: number } | null>(null);
+    // M3/M4: which results view is showing
+    const [resultView, setResultView] = useState<"summary" | "surface" | "waveform" | "tuning">("summary");
 
     // Live progress: parse "CELL x/y" broadcasts on /ws/logs into a progress bar.
     useEffect(() => {
@@ -50,6 +61,12 @@ const VehicleBuilder = () => {
                 if (m) {
                     const eta = /eta=(\d+)s/.exec(s);
                     setProgress({ done: parseInt(m[1], 10), total: parseInt(m[2], 10), eta: eta ? parseInt(eta[1], 10) : undefined });
+                }
+                // M4: "OPT k/N ... eta=Xs" broadcasts from the VANOS optimizer
+                const t = /OPT (\d+)\/(\d+)/.exec(s);
+                if (t) {
+                    const eta = /eta=(\d+)s/.exec(s);
+                    setTuneProgress({ done: parseInt(t[1], 10), total: parseInt(t[2], 10), eta: eta ? parseInt(eta[1], 10) : undefined });
                 }
             };
         } catch { /* backend not up yet */ }
@@ -124,38 +141,141 @@ const VehicleBuilder = () => {
     const handleRun = async (mode: "wot_quick" | "full_map") => {
         setLoading(true);
         setError(null);
+        setNotice(null);
         setRunData(null);
         setProgress({ done: 0, total: mode === "wot_quick" ? 20 : 480 });
         setMainTab("simulation"); // Auto switch to simulation tab
         try {
-            const data = await runSimulation(config, mode);
+            const runCfg = structuredClone(config);
+            const data = await runSimulation(runCfg, mode);
             setRunData(data);
+            setRunConfig(runCfg);   // snapshot geometry for the Waveform drill-down
+            // fresh run results must be visible, not hidden behind a stale
+            // "tuning" (or other) view selection.
+            setResultView("summary");
         } catch (err: any) {
             console.error("Simulation catch error:", err);
-            setError(err.message || "Simulation failed");
+            // runData was cleared above; fall back to whatever still has data
+            if (tuneData) setResultView("tuning");
+            const msg = err.message || "Simulation failed";
+            if (/cancel/i.test(msg)) {
+                setNotice("Cancelled — finished cells are cached; re-run to resume.");
+            } else {
+                setError(msg);
+            }
         } finally {
             setLoading(false);
             setProgress(null);
         }
     };
 
-    const handleRunOptimization = async () => {
-        setOptimizing(true);
-        setRunData(null);
-        setMainTab("simulation"); // Auto switch
+    // Recover the last persisted map (e.g. a full_map whose fetch died) without re-running.
+    const handleLoadLast = async (mode: "wot_quick" | "full_map") => {
+        setError(null);
         try {
-            const result = await runOptimization(config);
-            setCalibrationData(result as any);
-            alert("Optimization Completed! Check the 'Map Visualizer' for results.");
-        } catch (error) {
-            console.error(error);
-            alert("Optimization Failed.");
-        } finally {
-            setOptimizing(false);
+            const data = await fetchLastRun(mode);
+            setRunData(data);
+            setRunConfig(null);   // saved geometry unknown; waveform falls back to live config
+            setResultView("summary");
+            setMainTab("simulation");
+        } catch (err: any) {
+            setError(err?.message || "No saved run to load");
         }
     };
 
-    const handleConfigLoad = () => { alert("Load Config Feature TBD (File Input)"); };
+    // M4: WOT VANOS tuning (UX_APP_DEV_SPEC §7). Long real-sim search; the deck
+    // cache makes re-runs resumable and the result persists server-side, so a
+    // lost fetch is recoverable via "Load last tuning".
+    const handleRunTuning = async () => {
+        setOptimizing(true);
+        setError(null);
+        setTuneProgress(null);
+        setMainTab("simulation");
+        try {
+            const runCfg = structuredClone(config);
+            const data = await runTuning(runCfg, tunePref);
+            setTuneData(data);
+            setResultView("tuning");
+        } catch (err: any) {
+            const msg = err?.message || "Tuning failed";
+            if (/cancel/i.test(msg)) {
+                setNotice("Tuning cancelled — completed evaluations are cached; re-run to resume.");
+            } else if (/fetch|network|load failed/i.test(msg)) {
+                // network-layer failures (any browser's wording) — the search
+                // keeps running server-side and persists on completion.
+                setError(`${msg} — the search keeps running server-side; use "Load last tuning" when it finishes.`);
+            } else {
+                setError(msg);
+            }
+        } finally {
+            setOptimizing(false);
+            setTuneProgress(null);
+        }
+    };
+
+    const handleLoadLastTuning = async () => {
+        setError(null);
+        try {
+            const data = await fetchLastTuning();
+            setTuneData(data);
+            setResultView("tuning");
+            setMainTab("simulation");
+        } catch (err: any) {
+            setError(err?.message || "No saved tuning run to load");
+        }
+    };
+
+    // M5: cancel every in-flight sim (map / tuning / waveform). Finished cells
+    // stay cached, so re-running the same request resumes where it stopped.
+    const handleCancel = async () => {
+        try {
+            const r = await cancelRuns();
+            setNotice(`Cancelled ${r.cancelled_tasks} in-flight sim task(s) — finished cells are cached; re-run to resume.`);
+        } catch (err: any) {
+            setError(err?.message || "Cancel failed");
+        }
+    };
+
+    // M5: project (SimConfig) load — counterpart of handleConfigSave.
+    const configFileRef = useRef<HTMLInputElement>(null);
+    // pristine defaults, captured on FIRST render (before any edits): loading a
+    // project reproduces the state it was saved from, not defaults+edits+file.
+    const defaultConfigRef = useRef<SimConfig | null>(null);
+    if (defaultConfigRef.current === null) defaultConfigRef.current = structuredClone(config);
+    const handleConfigLoad = () => configFileRef.current?.click();
+    const deepMerge = (base: any, patch: any): any => {
+        if (patch === null || typeof patch !== "object" || Array.isArray(patch)) return patch;
+        const out: any = { ...(base && typeof base === "object" && !Array.isArray(base) ? base : {}) };
+        for (const k of Object.keys(patch)) {
+            if (k === "__proto__" || k === "constructor" || k === "prototype") continue; // no proto pollution
+            out[k] = deepMerge(out[k], patch[k]);
+        }
+        return out;
+    };
+    const handleConfigFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";   // allow re-selecting the same file
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const parsed = JSON.parse(String(ev.target?.result ?? ""));
+                if (!parsed || typeof parsed !== "object" || !parsed.engine || !parsed.intake || !parsed.exhaust) {
+                    setError("Invalid config file — expected a SimConfig JSON (engine/intake/exhaust sections).");
+                    return;
+                }
+                // merge over PRISTINE DEFAULTS (not the currently-edited config)
+                // so a load reproduces the saved project; defaults fill fields
+                // that didn't exist when the file was saved.
+                setConfig(deepMerge(defaultConfigRef.current, parsed) as SimConfig);
+                setError(null);
+                setNotice(`Config loaded from ${file.name}.`);
+            } catch {
+                setError(`Could not parse ${file.name} as JSON.`);
+            }
+        };
+        reader.readAsText(file);
+    };
     const handleConfigSave = () => {
         const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -592,6 +712,26 @@ const VehicleBuilder = () => {
                                     <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
                                         <Activity size={14} /> Simulation Results
                                     </span>
+                                    {!loading && (runData || tuneData) && (
+                                        <div className="flex gap-1">
+                                            {([
+                                                ...(runData ? [["summary", "Charts"], ["surface", "3D Surface"], ["waveform", "Waveform"]] : []),
+                                                ...(tuneData ? [["tuning", "Tuning"]] : []),
+                                            ] as [typeof resultView, string][]).map(([id, label]) => (
+                                                <button
+                                                    key={id}
+                                                    onClick={() => setResultView(id)}
+                                                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                                                        resultView === id
+                                                            ? "bg-neutral-100 text-black"
+                                                            : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"
+                                                    }`}
+                                                >
+                                                    {label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex-1 relative">
                                     {loading && (
@@ -611,13 +751,22 @@ const VehicleBuilder = () => {
                                         </div>
                                     )}
 
-                                    {!loading && !runData && !calibrationData && !optimizationResult && (
-                                        <div className="absolute inset-0 flex items-center justify-center text-neutral-600 text-sm">
-                                            No simulation data. Run a simulation to view results.
+                                    {!loading && !runData && !tuneData && (
+                                        <div className="absolute inset-0 flex items-center justify-center flex-col gap-3 text-neutral-600 text-sm">
+                                            {optimizing ? (
+                                                <>
+                                                    <div className="w-6 h-6 border-2 border-neutral-700 border-t-amber-500 rounded-full animate-spin" />
+                                                    <div className="font-mono text-neutral-500 text-xs">
+                                                        VANOS tuning in progress{tuneProgress ? ` — sim ${tuneProgress.done}/${tuneProgress.total}${tuneProgress.eta != null ? ` · ETA ~${tuneProgress.eta}s` : ""}` : "..."}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <span>No simulation data. Run a simulation to view results.</span>
+                                            )}
                                         </div>
                                     )}
 
-                                    {!loading && runData && (
+                                    {!loading && runData && resultView === "summary" && (
                                         <div className="absolute inset-0 overflow-auto p-1 flex flex-col gap-4 animate-in fade-in duration-500">
                                             <ValidityPanel overall={runData.overall} rows={runData.rows} />
                                             <div className="h-72 flex-shrink-0"><VeOverlayChart runData={runData} /></div>
@@ -627,9 +776,21 @@ const VehicleBuilder = () => {
                                         </div>
                                     )}
 
-                                    {!loading && !runData && (calibrationData || optimizationResult) && (
-                                        <div className="absolute inset-0 overflow-auto p-4 animate-in fade-in duration-500">
-                                            <MapVisualizer calibrationResult={calibrationData || (optimizationResult as any)} />
+                                    {!loading && runData && resultView === "surface" && (
+                                        <div className="absolute inset-0 p-3 animate-in fade-in duration-500">
+                                            <VeSurfaceChart runData={runData} />
+                                        </div>
+                                    )}
+
+                                    {!loading && runData && resultView === "waveform" && (
+                                        <div className="absolute inset-0 p-3 animate-in fade-in duration-500">
+                                            <VeWaveformChart config={runConfig ?? config} runData={runData} />
+                                        </div>
+                                    )}
+
+                                    {!loading && tuneData && resultView === "tuning" && (
+                                        <div className="absolute inset-0 overflow-auto p-3 animate-in fade-in duration-500">
+                                            <TuningResults data={tuneData} />
                                         </div>
                                     )}
                                 </div>
@@ -655,23 +816,81 @@ const VehicleBuilder = () => {
                                         onClick={() => handleRun("full_map")}
                                         disabled={loading || optimizing}
                                         className="mt-2 w-full py-2 border border-neutral-700 hover:bg-neutral-800 text-neutral-300 rounded text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                        title="480 cells at omp1 — several minutes"
+                                        title="480 cells at omp1 — this is SLOW (tens of minutes to hours cold; cached cells are instant on re-run)"
                                     >
-                                        Run Full Map (480) · slower
+                                        Run Full Map (480) · slow
                                     </button>
+                                    <button
+                                        onClick={() => handleLoadLast("full_map")}
+                                        disabled={loading || optimizing}
+                                        className="mt-2 w-full py-1.5 border border-neutral-800 hover:bg-neutral-800 text-neutral-400 rounded text-[11px] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        title="Reload the last completed Full Map from the server (no re-run) — recovers a run whose fetch died"
+                                    >
+                                        <History size={12} /> Load last Full Map
+                                    </button>
+                                    {(loading || optimizing) && (
+                                        <button
+                                            onClick={handleCancel}
+                                            className="mt-2 w-full py-1.5 border border-red-900/60 text-red-400 hover:bg-red-950/40 rounded text-[11px] font-semibold transition-all flex items-center justify-center gap-2"
+                                            title="Stop every in-flight sim now (solver processes are killed). Finished cells stay cached — re-running the same request resumes."
+                                        >
+                                            <Square size={11} /> Cancel run
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div className="pt-4 border-t border-neutral-800">
-                                    <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-4">Tuning <span className="text-neutral-600 normal-case">(Milestone 4)</span></h3>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <button disabled title="Lands in Milestone 4" className="py-2 border border-neutral-800 rounded text-xs text-neutral-600 cursor-not-allowed">
-                                            Hardware
-                                        </button>
-                                        <button disabled title="VANOS optimizer lands in Milestone 4 (surrogate proposes, sim disposes)" className="py-2 border border-neutral-800 rounded text-xs text-neutral-600 cursor-not-allowed">
-                                            VANOS
-                                        </button>
+                                    <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Tuning <span className="text-neutral-600 normal-case">(VANOS · WOT)</span></h3>
+                                    {/* preference (§6.C): user picks the goal, the objective stays internal */}
+                                    <div className="flex gap-1 bg-neutral-900 p-1 rounded-md mb-2">
+                                        {([["max_ve", "Max VE"], ["smooth", "Smooth"]] as const).map(([id, label]) => (
+                                            <button
+                                                key={id}
+                                                onClick={() => setTunePref(id)}
+                                                className={`flex-1 py-1 rounded text-[11px] font-medium transition-colors ${
+                                                    tunePref === id
+                                                        ? "bg-neutral-700 text-neutral-100"
+                                                        : "text-neutral-500 hover:text-neutral-300"
+                                                }`}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
                                     </div>
-                                    <div className="text-[10px] text-neutral-600 mt-2 leading-tight">Run + validity (M1) → geometry calibration (M2) → tuning (M4)</div>
+                                    <button
+                                        onClick={handleRunTuning}
+                                        disabled={loading || optimizing}
+                                        className="w-full py-2 border border-neutral-700 hover:bg-neutral-800 text-neutral-200 rounded text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        title="Per-rpm VANOS cam search on the deterministic omp1 surface. SLOW cold (up to ~1h for all 20 rpm); cached evaluations resume instantly."
+                                    >
+                                        <Wrench size={13} /> {optimizing ? "Tuning..." : "Run VANOS Tuning"}
+                                    </button>
+                                    {optimizing && tuneProgress && (
+                                        <div className="mt-2">
+                                            <div className="text-[10px] font-mono text-neutral-500 mb-1">
+                                                sim {tuneProgress.done}/{tuneProgress.total}{tuneProgress.eta != null ? ` · ETA ~${tuneProgress.eta}s` : ""}
+                                            </div>
+                                            <div className="w-full h-1 bg-neutral-800 rounded overflow-hidden">
+                                                <div className="h-full bg-amber-500 transition-all duration-300"
+                                                     style={{ width: `${Math.min(100, (tuneProgress.done / Math.max(1, tuneProgress.total)) * 100)}%` }} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={handleLoadLastTuning}
+                                        disabled={loading || optimizing}
+                                        className="mt-2 w-full py-1.5 border border-neutral-800 hover:bg-neutral-800 text-neutral-400 rounded text-[11px] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        title="Reload the last completed tuning from the server (no re-run)"
+                                    >
+                                        <History size={12} /> Load last tuning
+                                    </button>
+                                    {(!runData || runData.overall.status === "red") && (
+                                        <div className="text-[10px] text-amber-500/80 mt-2 leading-tight">
+                                            {runData
+                                                ? "Model is Not valid (§5) — tuning proposals are LOW-CONFIDENCE until the geometry calibration lands (§10)."
+                                                : "No validity data yet — run a simulation first (§5); proposals are low-confidence."}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -679,10 +898,12 @@ const VehicleBuilder = () => {
                             <div className="mt-auto">
                                 <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Configuration</h3>
                                 <div className="flex gap-2 text-neutral-400">
-                                    <button onClick={handleConfigLoad} className="flex-1 py-2 border border-neutral-800 hover:border-neutral-600 rounded flex items-center justify-center" title="Load">
+                                    <input type="file" accept=".json,application/json" ref={configFileRef}
+                                        className="hidden" onChange={handleConfigFile} />
+                                    <button onClick={handleConfigLoad} className="flex-1 py-2 border border-neutral-800 hover:border-neutral-600 rounded flex items-center justify-center" title="Load config JSON (project)">
                                         <Upload size={14} />
                                     </button>
-                                    <button onClick={handleConfigSave} className="flex-1 py-2 border border-neutral-800 hover:border-neutral-600 rounded flex items-center justify-center" title="Save">
+                                    <button onClick={handleConfigSave} className="flex-1 py-2 border border-neutral-800 hover:border-neutral-600 rounded flex items-center justify-center" title="Save config JSON (project)">
                                         <Save size={14} />
                                     </button>
                                 </div>
@@ -694,6 +915,7 @@ const VehicleBuilder = () => {
                                     <div>[SYSTEM] Ready</div>
                                     {loading && progress && <div>[RUN] cell {progress.done}/{progress.total}</div>}
                                     {runData && <div className="text-emerald-500">[DONE] {runData.overall.verdict} ({runData.elapsed_sec}s)</div>}
+                                    {notice && <div className="text-amber-400">[INFO] {notice}</div>}
                                     {error && <div className="text-red-500 font-bold">[ERROR] {error}</div>}
                                 </div>
                             </div>

@@ -27,7 +27,10 @@ except Exception as e:           # pragma: no cover
     calibration_service = None
 try:
     from .simulator.optimization_service import OptimizationService
-    optimization_service = OptimizationService(data_dir=DATA_DIR, simulator_dir=SIM_DIR)
+    # share the SimulationService so the optimizer uses the same orphan-safe
+    # _run_solver, exe resolution and deck cache as the Run path.
+    optimization_service = OptimizationService(
+        data_dir=DATA_DIR, simulator_dir=SIM_DIR, sim_service=simulation_service)
 except Exception as e:           # pragma: no cover
     print(f"WARN: OptimizationService unavailable: {e}")
     optimization_service = None
@@ -88,18 +91,117 @@ async def run_simulation(config: SimConfig, mode: str = "wot_quick"):
         raise HTTPException(status_code=500, detail=msg)
 
 
-# NOTE: calibration + optimization are M4-scope (UX_APP_DEV_SPEC §7). The legacy
-# implementations spawn unmanaged solver subprocesses (orphan-on-error) and use a
-# stale exe path. Disabled in M1 so they can't be triggered from the UI; the
-# surrogate-proposes/sim-disposes optimizer lands in M4.
+@app.post("/simulate/cancel")
+async def cancel_runs():
+    """M5: cancel every in-flight simulation task (map run / tuning / waveform).
+
+    Task cancellation reaches _run_solver's finally, which kills the solver
+    child — no orphans, CPU freed immediately. Finished cells remain in the
+    deck cache, so re-running the same request RESUMES from where it stopped.
+    """
+    n = simulation_service.cancel_active()
+    await log_manager.broadcast(f"INFO: Cancel requested — {n} in-flight sim task(s) cancelled.")
+    return {"cancelled_tasks": n}
+
+
+@app.get("/simulate/last")
+async def last_run(mode: str = "full_map"):
+    """Return the last assembled run of `mode` persisted by run_ve_map_generation.
+
+    Lets the UI recover a long full_map whose HTTP response was lost (browser
+    'Failed to fetch' on an hours-long request) without re-running -- the per-cell
+    solver work is cached, and the assembled map is saved on completion.
+    """
+    if mode not in ("wot_quick", "full_map", "optimization"):
+        raise HTTPException(status_code=400, detail="mode must be wot_quick|full_map|optimization")
+    path = os.path.join(DATA_DIR, f"last_run_{mode}.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail=f"no saved {mode} run yet")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError) as e:
+        raise HTTPException(status_code=500, detail=f"could not read saved run: {e}")
+
+
+@app.post("/simulate/waveform")
+async def run_waveform(config: SimConfig, rpm: float, load: float = 100.0):
+    """Crank-angle waveform for ONE cell (UX_APP_DEV_SPEC §6.B-2(ii)).
+
+    Runs a single full-pipe-monitoring sim (FAST_OUTPUT off, to natural end) and
+    returns last-complete-cycle in-cylinder pressure + curated intake/exhaust
+    pipe pressure & velocity traces. First call for a (config,rpm,load) is a real
+    sim (~2-3 min); repeats hit the parsed-waveform cache and are instant.
+    """
+    if rpm <= 0:
+        raise HTTPException(status_code=400, detail="rpm must be > 0")
+    if not (0.0 < load <= 100.0):
+        raise HTTPException(status_code=400, detail="load must be in (0, 100] %TPS")
+    try:
+        await log_manager.broadcast(f"INFO: Waveform run rpm={int(rpm)} load={load}...")
+        result = await simulation_service.run_waveform_trace(config, rpm=rpm, load=load)
+        await log_manager.broadcast(
+            f"INFO: Waveform done — {result['status']} "
+            f"({len(result.get('cylinders', []))} cyl, {len(result.get('pipes', []))} pipes, "
+            f"{result['elapsed_sec']}s)")
+        return result
+    except Exception as e:
+        msg = f"Waveform Error: {e}"
+        await log_manager.broadcast(f"ERROR: {msg}")
+        raise HTTPException(status_code=500, detail=msg)
+
+
+# NOTE: the legacy calibration loop spawns unmanaged solver subprocesses
+# (orphan-on-error) and uses a stale exe path -- still 501-guarded. The VANOS
+# optimizer was REWRITTEN in M4 (below) on the orphan-safe _run_solver path.
 @app.post("/simulate/calibration")
 async def run_calibration(config: SimConfig):
     raise HTTPException(status_code=501, detail="Calibration loop lands in Milestone 2/4 (not enabled in M1)")
 
 
 @app.post("/simulate/optimization")
-async def run_optimization(config: SimConfig):
-    raise HTTPException(status_code=501, detail="VANOS optimizer lands in Milestone 4 (not enabled in M1)")
+async def run_optimization(config: SimConfig, preference: str = "max_ve",
+                           rpms: str = "", budget: int = 16):
+    """M4 WOT VANOS tuning (UX_APP_DEV_SPEC §7).
+
+    preference: "max_ve" | "smooth" (user preference -> internal objective).
+    rpms: optional comma-separated rpm subset (fast iteration / testing).
+    budget: max sim evaluations per rpm cell (deck-cached -> re-runs resume).
+    Returns per-rpm stock vs optimized cams + exportable ECU tables; persists
+    to last_run_optimization.json (recover via GET /simulate/last?mode=optimization).
+    """
+    if optimization_service is None:
+        raise HTTPException(status_code=503, detail="OptimizationService unavailable")
+    if preference not in ("max_ve", "smooth"):
+        raise HTTPException(status_code=400, detail="preference must be max_ve|smooth")
+    if not (2 <= budget <= 64):
+        raise HTTPException(status_code=400, detail="budget must be in [2, 64]")
+    rpm_list = None
+    if rpms.strip():
+        try:
+            rpm_list = [float(x) for x in rpms.split(",") if x.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="rpms must be a comma-separated number list")
+        if not rpm_list:
+            raise HTTPException(status_code=400,
+                                detail="rpms was given but contains no values")
+    try:
+        await log_manager.broadcast(
+            f"INFO: Starting VANOS tuning ({preference}, budget {budget}/rpm)...")
+        result = await optimization_service.optimize_wot(
+            config, preference=preference, rpms=rpm_list, budget=budget)
+        await log_manager.broadcast(
+            f"INFO: Tuning done — {result['n_evals_total']} evals, "
+            f"{result['elapsed_sec']}s")
+        return result
+    except ValueError as e:
+        # invalid request surfaced by the service (e.g. rpms off-axis) -> 400,
+        # never a silent full-axis run.
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        msg = f"Tuning Error: {e}"
+        await log_manager.broadcast(f"ERROR: {msg}")
+        raise HTTPException(status_code=500, detail=msg)
 
 
 @app.post("/simulate/topology")
