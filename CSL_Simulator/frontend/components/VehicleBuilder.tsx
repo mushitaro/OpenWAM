@@ -293,6 +293,8 @@ const VehicleBuilder = () => {
             case "environment": return "N/A";
             case "intake_duct": return "Pipe 1";
             case "plenum": return "Plenum 2";
+            case "itb": return "ITB Butterfly ×6";
+            case "eq_tube": return "EQ Balance Tube";
             case "runner": return `Pipe ${2 + (sel.index * 3)}`;
             case "cylinder": return `Cylinder ${sel.index + 1}`;
             case "header": return `Pipe ${20 + (sel.index * 3)}`;
@@ -355,43 +357,54 @@ const VehicleBuilder = () => {
                         <InputRow label="Duct Length" unit="mm" value={config.intake.inlet.duct_length} onChange={(v: any) => updateConfig("intake", "inlet.duct_length", v)} />
                         <InputRow label="Plenum Vol" unit="L" value={config.intake.plenum_vol} onChange={(v: any) => updateConfig("intake", "plenum_vol", v)} />
                         {type === "plenum" && (
+                            <div className="text-[11px] text-neutral-600 mt-3 leading-snug">
+                                ITB and Equalization Tube are separate components — select them in the diagram.
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {type === "itb" && (
+                    <>
+                        <SectionHeader title="Individual Throttle Bodies" id={getPredictedID(selection)} />
+                        <div className="flex items-center gap-2 mb-4">
+                            <input type="checkbox" checked={config.intake.itb.fitted} onChange={(e) => updateConfig("intake", "itb.fitted", e.target.checked)} className="rounded border-neutral-700 bg-neutral-900" />
+                            <span className="text-sm font-medium text-neutral-300">ITB Fitted</span>
+                        </div>
+                        <InputRow label="ITB Diameter" unit="mm" value={config.intake.itb.diameter} onChange={(v: any) => updateConfig("intake", "itb.diameter", v)} />
+                        <InputRow label="Plate Thickness" unit="mm" value={config.intake.itb.plate_thickness} onChange={(v: any) => updateConfig("intake", "itb.plate_thickness", v)} />
+
+                        <div className="mt-4 pt-4 border-t border-neutral-800">
+                            <h4 className="text-xs font-bold text-neutral-500 mb-2">THROTTLE MODEL (Butterfly)</h4>
+                            <InputRow label="Idle Offset" unit="deg" value={config.intake.throttle.idle_offset_deg} onChange={(v: any) => updateConfig("intake", "throttle.idle_offset_deg", v)} />
+                            <InputRow label="Pedal Gamma" unit="-" value={config.intake.throttle.pedal_gamma} onChange={(v: any) => updateConfig("intake", "throttle.pedal_gamma", v)} />
+                            <div className="text-[10px] text-neutral-600">γ&gt;1 = progressive metering (validated 1.4)</div>
+                        </div>
+                    </>
+                )}
+
+                {type === "eq_tube" && (
+                    <>
+                        <SectionHeader title="Equalization Tube" id={getPredictedID(selection)} />
+                        <div className="flex items-center gap-2 mb-4">
+                            <input type="checkbox" checked={config.intake.eq_tube.enabled} onChange={(e) => updateConfig("intake", "eq_tube.enabled", e.target.checked)} className="rounded border-neutral-700 bg-neutral-900" />
+                            <span className="text-sm font-medium text-neutral-300">Enabled</span>
+                        </div>
+                        {config.intake.eq_tube.enabled && (
                             <>
-                                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-800">
-                                    <input type="checkbox" checked={config.intake.itb.fitted} onChange={(e) => updateConfig("intake", "itb.fitted", e.target.checked)} className="rounded border-neutral-700 bg-neutral-900" />
-                                    <span className="text-sm font-medium text-neutral-300">ITB Fitted</span>
+                                <div className="mb-3">
+                                    <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Model</label>
+                                    <select value={config.intake.eq_tube.model} onChange={(e) => updateConfig("intake", "eq_tube.model", e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 outline-none">
+                                        <option value="plenum">Plenum (validated)</option>
+                                        <option value="chain">Continuous chain</option>
+                                    </select>
                                 </div>
-                                <InputRow label="ITB Diameter" unit="mm" value={config.intake.itb.diameter} onChange={(v: any) => updateConfig("intake", "itb.diameter", v)} />
-
-                                <div className="mt-4 pt-4 border-t border-neutral-800">
-                                    <h4 className="text-xs font-bold text-neutral-500 mb-2">THROTTLE MODEL (Butterfly)</h4>
-                                    <InputRow label="Idle Offset" unit="deg" value={config.intake.throttle.idle_offset_deg} onChange={(v: any) => updateConfig("intake", "throttle.idle_offset_deg", v)} />
-                                    <InputRow label="Pedal Gamma" unit="-" value={config.intake.throttle.pedal_gamma} onChange={(v: any) => updateConfig("intake", "throttle.pedal_gamma", v)} />
-                                    <div className="text-[10px] text-neutral-600">γ&gt;1 = progressive metering (validated 1.4)</div>
-                                </div>
-
-                                <div className="mt-4 pt-4 border-t border-neutral-800">
-                                    <h4 className="text-xs font-bold text-neutral-500 mb-2 flex items-center gap-2">
-                                        EQUALIZATION TUBE
-                                        <input type="checkbox" checked={config.intake.eq_tube.enabled} onChange={(e) => updateConfig("intake", "eq_tube.enabled", e.target.checked)} className="rounded border-neutral-700 bg-neutral-900" />
-                                    </h4>
-                                    {config.intake.eq_tube.enabled && (
-                                        <>
-                                            <div className="mb-3">
-                                                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Model</label>
-                                                <select value={config.intake.eq_tube.model} onChange={(e) => updateConfig("intake", "eq_tube.model", e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 outline-none">
-                                                    <option value="plenum">Plenum (validated)</option>
-                                                    <option value="chain">Continuous chain</option>
-                                                </select>
-                                            </div>
-                                            <InputRow label="Stub Diameter" unit="mm" value={config.intake.eq_tube.stub_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_diameter", v)} />
-                                            <InputRow label="Stub Length" unit="mm" value={config.intake.eq_tube.stub_length} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_length", v)} />
-                                            <InputRow label="Stub Friction" unit="-" value={config.intake.eq_tube.stub_friction} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_friction", v)} />
-                                            <InputRow label="Volume Scale" unit="×" value={config.intake.eq_tube.volume_scale} onChange={(v: any) => updateConfig("intake", "eq_tube.volume_scale", v)} />
-                                            <InputRow label="Mistune Spread" unit="frac" value={config.intake.eq_tube.mistune_spread} onChange={(v: any) => updateConfig("intake", "eq_tube.mistune_spread", v)} />
-                                            <div className="text-[10px] text-neutral-600">φ30 min stable; mistune detunes cyl-2 collapse</div>
-                                        </>
-                                    )}
-                                </div>
+                                <InputRow label="Stub Diameter" unit="mm" value={config.intake.eq_tube.stub_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_diameter", v)} />
+                                <InputRow label="Stub Length" unit="mm" value={config.intake.eq_tube.stub_length} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_length", v)} />
+                                <InputRow label="Stub Friction" unit="-" value={config.intake.eq_tube.stub_friction} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_friction", v)} />
+                                <InputRow label="Volume Scale" unit="×" value={config.intake.eq_tube.volume_scale} onChange={(v: any) => updateConfig("intake", "eq_tube.volume_scale", v)} />
+                                <InputRow label="Mistune Spread" unit="frac" value={config.intake.eq_tube.mistune_spread} onChange={(v: any) => updateConfig("intake", "eq_tube.mistune_spread", v)} />
+                                <div className="text-[10px] text-neutral-600">φ30 min stable; mistune detunes cyl-2 collapse</div>
                             </>
                         )}
                     </>
@@ -399,7 +412,7 @@ const VehicleBuilder = () => {
 
                 {type === "runner" && (
                     <>
-                        <SectionHeader title={`Runner #${(selection as any).index + 1}`} id={getPredictedID(selection)} />
+                        <SectionHeader title={`Runner #${selection.type === "runner" ? selection.index + 1 : ""}`} id={getPredictedID(selection)} />
                         <InputRow label="Bellmouth Length" unit="mm" value={config.intake.bellmouth.length} onChange={(v: any) => updateConfig("intake", "bellmouth.length", v)} />
                         <InputRow label="Bellmouth Dia" unit="mm" value={config.intake.bellmouth.diameter} onChange={(v: any) => updateConfig("intake", "bellmouth.diameter", v)} />
                         <InputRow label="Mouth (Entry) Dia" unit="mm" value={config.intake.runner.entry_diameter} onChange={(v: any) => updateConfig("intake", "runner.entry_diameter", v)} />
@@ -417,7 +430,7 @@ const VehicleBuilder = () => {
 
                 {type === "cylinder" && (
                     <>
-                        <SectionHeader title={`Cylinder #${(selection as any).index + 1}`} id={getPredictedID(selection)} />
+                        <SectionHeader title={`Cylinder #${selection.type === "cylinder" ? selection.index + 1 : ""}`} id={getPredictedID(selection)} />
                         <InputRow label="Bore" unit="mm" value={config.engine.geometry.bore} onChange={(v: any) => updateConfig("engine", "geometry.bore", v)} />
                         <InputRow label="Stroke" unit="mm" value={config.engine.geometry.stroke} onChange={(v: any) => updateConfig("engine", "geometry.stroke", v)} />
                         <InputRow label="Compression Ratio" unit=":1" value={config.engine.geometry.compression_ratio} onChange={(v: any) => updateConfig("engine", "geometry.compression_ratio", v)} />
@@ -494,7 +507,7 @@ const VehicleBuilder = () => {
                     <>
                         <SectionHeader
                             title={
-                                type === "section1" ? `Section 1 (${(selection as any).index === 1 ? "Bank 2" : "Bank 1"})` :
+                                selection.type === "section1" ? `Section 1 (${selection.index === 1 ? "Bank 2" : "Bank 1"})` :
                                     type === "section2" ? "Section 2 (Mid)" :
                                         "Muffler"
                             }
@@ -502,7 +515,7 @@ const VehicleBuilder = () => {
                         />
 
                         {type === "section1" && (() => {
-                            const bankKey = (selection as any).index === 1 ? "section1_2" : "section1_1";
+                            const bankKey = selection.type === "section1" && selection.index === 1 ? "section1_2" : "section1_1";
                             const secConfig = config.exhaust[bankKey as "section1_1" | "section1_2"];
 
                             return (
@@ -666,9 +679,18 @@ const VehicleBuilder = () => {
 
                 {/* --- BUILDER MODE --- */}
                 {mainTab === "builder" && (
-                    <div className="grid grid-cols-12 h-full">
-                        {/* Left Panel: Params */}
-                        <div className="col-span-3 border-r border-neutral-800 bg-neutral-900/50 flex flex-col overflow-hidden">
+                    <div className="flex flex-row h-full">
+                        {/* Topology (wide, left) */}
+                        <div className="order-1 flex-1 min-w-0 bg-neutral-950 relative">
+                            <InteractiveTopology
+                                config={config}
+                                activeSelection={selection}
+                                onSelect={setSelection}
+                                simulationStatus={optimizing ? "running" : "idle"}
+                            />
+                        </div>
+                        {/* Params (fixed width, right) */}
+                        <div className="order-2 w-[340px] flex-shrink-0 border-l border-neutral-800 bg-neutral-900/50 flex flex-col overflow-hidden">
                             {/* Global / Project Header */}
                             <div
                                 onClick={() => setSelection({ type: "environment" })}
@@ -686,16 +708,6 @@ const VehicleBuilder = () => {
                             <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
                                 {renderSelectionParams()}
                             </div>
-                        </div>
-                        {/* Right Panel: Topology */}
-                        {/* Right Panel: Topology */}
-                        <div className="col-span-9 bg-neutral-950 relative">
-                            <InteractiveTopology
-                                config={config}
-                                activeSelection={selection}
-                                onSelect={setSelection}
-                                simulationStatus={optimizing ? "running" : "idle"}
-                            />
                         </div>
                     </div>
                 )}
