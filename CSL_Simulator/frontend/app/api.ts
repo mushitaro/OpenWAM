@@ -594,3 +594,43 @@ export const getTopology = async (config: SimConfig): Promise<any> => {
         throw error;
     }
 }
+
+// --- Measurement parameter sheet (real-engine values: download / import) ----
+export interface SheetImportResult {
+    applied: { path: string; value: number | boolean; label: string; group: string; old: number | boolean | null }[];
+    skipped: { path: string; label: string }[];
+    warnings: string[];
+}
+
+// Download an .xlsx fill-in sheet of the physically measurable parameters,
+// seeded with the CURRENT config's values (so the sheet shows the baseline).
+export const downloadMeasurementSheet = async (config: SimConfig): Promise<Blob> => {
+    const response = await fetch(`${API_BASE_URL}/parameters/sheet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+    });
+    if (!response.ok) {
+        let detail = response.statusText;
+        try { detail = (await response.json())?.detail ?? detail; } catch { /* ignore */ }
+        throw new Error(`Sheet download failed: ${detail}`);
+    }
+    return await response.blob();
+};
+
+// Upload a filled sheet; the backend parses it into applied/skipped/warnings.
+// The caller merges `applied` (path/value pairs) into its live config.
+export const importMeasurementSheet = async (file: File): Promise<SheetImportResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch(`${API_BASE_URL}/parameters/import`, {
+        method: "POST",
+        body: formData,   // no Content-Type header — browser sets the multipart boundary
+    });
+    if (!response.ok) {
+        let detail = response.statusText;
+        try { detail = (await response.json())?.detail ?? detail; } catch { /* ignore */ }
+        throw new Error(`Sheet import failed: ${detail}`);
+    }
+    return (await response.json()) as SheetImportResult;
+};

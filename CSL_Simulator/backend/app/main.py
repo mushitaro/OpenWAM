@@ -1,13 +1,14 @@
 import os
 import json
 
-from fastapi import FastAPI, HTTPException, File, UploadFile, WebSocket
+from fastapi import FastAPI, HTTPException, File, UploadFile, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from .models import SimConfig
 from .log_manager import log_manager
 from .simulator.simulation_service import SimulationService
+from .parameters.sheet import build_sheet, parse_sheet
 
 # --- Paths ------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))          # .../CSL_Simulator/backend/app
@@ -239,6 +240,42 @@ async def binary_download():
     if not os.path.exists(UPLOADED_BIN):
         raise HTTPException(status_code=404, detail="no uploaded binary")
     return FileResponse(UPLOADED_BIN, filename="patched_mss54.bin")
+
+
+# --- Measurement parameter sheet (real-engine values: download / import) ----
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@app.post("/parameters/sheet")
+async def parameters_sheet(request: Request):
+    """Build an .xlsx fill-in sheet of the physically measurable parameters,
+    seeded with the current values from the POSTed (raw) config. Accepts the
+    frontend config verbatim (no Pydantic coercion) so the 'current value'
+    column mirrors exactly what the user has on screen."""
+    try:
+        config = await request.json()
+    except Exception:
+        config = {}
+    if not isinstance(config, dict):
+        config = {}
+    data = build_sheet(config)
+    return Response(
+        content=data,
+        media_type=XLSX_MIME,
+        headers={"Content-Disposition": 'attachment; filename="csl_measurement_sheet.xlsx"'},
+    )
+
+
+@app.post("/parameters/import")
+async def parameters_import(file: UploadFile = File(...)):
+    """Parse a filled measurement sheet into {applied, skipped, warnings}. The
+    frontend merges `applied` (path/value pairs) into its live config. Stateless:
+    nothing is persisted server-side."""
+    data = await file.read()
+    try:
+        return parse_sheet(data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"記入シートを読み取れません: {e}")
 
 
 # --- WebSockets -------------------------------------------------------------

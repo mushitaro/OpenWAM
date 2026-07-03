@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { Play, Activity, Settings2, Info, Wrench, BarChart2, Save, Upload, Download, History, Square } from "lucide-react";
-import { runTuning, fetchLastTuning, runSimulation, fetchLastRun, cancelRuns, CalibrationResponse, RunResponse, OptimizationResponse, SimConfig, WS_BASE_URL } from "../app/api";
+import { Play, Activity, Settings2, Info, Wrench, BarChart2, Save, Upload, Download, History, Square, FileSpreadsheet } from "lucide-react";
+import { runTuning, fetchLastTuning, runSimulation, fetchLastRun, cancelRuns, CalibrationResponse, RunResponse, OptimizationResponse, SimConfig, WS_BASE_URL, downloadMeasurementSheet, importMeasurementSheet, SheetImportResult } from "../app/api";
 import VETableComparison from "./VETableComparison";
 import BinaryPatchManager from "./BinaryPatchManager";
 import SimulationDebugPanel from "./SimulationDebugPanel";
@@ -238,6 +238,8 @@ const VehicleBuilder = () => {
 
     // M5: project (SimConfig) load — counterpart of handleConfigSave.
     const configFileRef = useRef<HTMLInputElement>(null);
+    // real-engine measurement sheet (.xlsx) import
+    const sheetFileRef = useRef<HTMLInputElement>(null);
     // pristine defaults, captured on FIRST render (before any edits): loading a
     // project reproduces the state it was saved from, not defaults+edits+file.
     const defaultConfigRef = useRef<SimConfig | null>(null);
@@ -283,6 +285,63 @@ const VehicleBuilder = () => {
         a.href = url;
         a.download = "csl_sim_config.json";
         a.click();
+    };
+
+    // --- Real-engine measurement sheet (Excel): download / import ---
+    // DL: POST the current config so the sheet's "現在値" column mirrors it.
+    const handleSheetDownload = async () => {
+        try {
+            const blob = await downloadMeasurementSheet(config);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "csl_measurement_sheet.xlsx";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setNotice("計測記入シート (Excel) をダウンロードしました。実測値を記入し「シート取込」で反映できます。");
+            setError(null);
+        } catch (err: any) {
+            setError(err?.message || "計測シートのダウンロードに失敗しました。");
+        }
+    };
+
+    // Import: parse on the backend, then merge the applied path/value pairs into
+    // the live config via the same deepMerge used by the JSON project loader.
+    const handleSheetFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";   // allow re-selecting the same file
+        if (!file) return;
+        try {
+            const res: SheetImportResult = await importMeasurementSheet(file);
+            if (res.applied.length === 0) {
+                setNotice(`シートに記入値が見つかりませんでした（スキップ ${res.skipped.length} 件）。「計測値(記入)」列に入力して保存したか確認してください。`);
+                return;
+            }
+            // build one nested patch object from the dotted paths, then deep-merge
+            const patch: any = {};
+            for (const a of res.applied) {
+                const keys = a.path.split(".");
+                let cur = patch;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    if (typeof cur[keys[i]] !== "object" || cur[keys[i]] === null) cur[keys[i]] = {};
+                    cur = cur[keys[i]];
+                }
+                cur[keys[keys.length - 1]] = a.value;
+            }
+            setConfig(prev => deepMerge(prev, patch) as SimConfig);
+
+            const preview = res.applied.slice(0, 4)
+                .map(a => `${a.label} ${a.old ?? "—"}→${a.value}`).join(", ");
+            const more = res.applied.length > 4 ? ` 他${res.applied.length - 4}件` : "";
+            let msg = `計測シートから ${res.applied.length} 項目を反映（${preview}${more}）。空欄 ${res.skipped.length} 項目はスキップ。`;
+            if (res.warnings.length) msg += ` ⚠ ${res.warnings.join(" / ")}`;
+            setNotice(msg);
+            setError(null);
+        } catch (err: any) {
+            setError(err?.message || "計測シートの取込に失敗しました。");
+        }
     };
 
     // --- ID PREDICTION HELPER ---
@@ -919,6 +978,25 @@ const VehicleBuilder = () => {
                                         <Save size={14} />
                                     </button>
                                 </div>
+
+                                {/* Real-engine measurement sheet (Excel) */}
+                                <input type="file" accept=".xlsx" ref={sheetFileRef}
+                                    className="hidden" onChange={handleSheetFile} />
+                                <div className="flex gap-2 mt-2">
+                                    <button onClick={handleSheetDownload}
+                                        className="flex-1 py-2 border border-neutral-800 hover:border-neutral-600 rounded flex items-center justify-center gap-1.5 text-[11px] text-neutral-300"
+                                        title="実測できるパラメータの記入シート (Excel) をダウンロード">
+                                        <FileSpreadsheet size={14} /> 計測シート
+                                    </button>
+                                    <button onClick={() => sheetFileRef.current?.click()}
+                                        className="flex-1 py-2 border border-neutral-800 hover:border-neutral-600 rounded flex items-center justify-center gap-1.5 text-[11px] text-neutral-300"
+                                        title="記入済みの計測シート (Excel) を取り込み、パラメータへ反映">
+                                        <Upload size={14} /> シート取込
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-neutral-600 mt-1.5 leading-tight">
+                                    実測寸法を Excel に記入 → 取込で反映（空欄は現状維持）
+                                </p>
                             </div>
 
                             {/* Logs */}
