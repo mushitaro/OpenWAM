@@ -27,6 +27,10 @@ Before `preview_start`:
    Ports 3000 and 8000 only ever serve this app in this repo, so clearing them here is safe. If you want to see what you're about to kill first, `Get-NetTCPConnection -LocalPort 3000,8000 -State Listen` and inspect the owning PIDs' `StartTime`/`CommandLine`.
 3. Now `preview_start` both, fresh.
 
+**After a code change, a plain restart is not enough — clear `.next` too.** A `next dev` server can regenerate its server-side (SSR) chunks on restart while serving **stale client static chunks** from `.next/dev/static/` — so the browser keeps showing the OLD UI even though the source and `git` are correct and the server was restarted after the change landed. If someone reports "my change isn't showing" and the source on disk is right, this is almost certainly it. Fix: stop the frontend, `rm -rf CSL_Simulator/frontend/.next`, restart, and have them hard-refresh (Ctrl+Shift+R). This is worth doing as a matter of course whenever you restart the frontend to pick up a change, not only after it's already gone wrong.
+
+**Preview viewport note:** the embedded preview's headless browser can report `window.innerWidth === 0`, which collapses `flex-1` panes to width 0 and makes layout/position measurements meaningless. Before measuring geometry, `preview_resize` to an explicit width/height (e.g. 1440×900) — DOM reads via `preview_eval` are reliable, but `preview_screenshot` may time out in this environment, so lean on `preview_eval`/`preview_snapshot` for proof.
+
 ### Server configs
 
 - **backend** — `python -m uvicorn app.main:app --port 8000`, cwd `CSL_Simulator/backend`. No venv / `pip install` step needed: fastapi/uvicorn resolve from the global `python` already. Port 8000 is **not** flexible — `CSL_Simulator/frontend/app/api.ts` hardcodes `const API_BASE_URL = "http://localhost:8000"` (and `WS_BASE_URL` the same way), which is why `launch.json` pins `autoPort: false` for this one. Leave that alone.
