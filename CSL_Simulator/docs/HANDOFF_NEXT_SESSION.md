@@ -1,5 +1,15 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **⚡⚡⚡⚡ 2026-07-04 UPDATE — REAL MEASURED INTAKE GEOMETRY LANDED; next phase is
+> `docs/PLAN_PARTLOAD_CALIBRATION.md` (execute LOCALLY).** The owner measured the actual car:
+> plenum 22.9 L (not 10.5), duct 400 mm × φ190 → 550×190 slot, runners 10/60 mm, and the EQ
+> system is a **common rail φ21×570 mm returning to the MAIN PLENUM via a φ21×250 mm hose
+> through the ICV** (not the closed 141 cc central plenum modelled today). This supersedes the
+> "owner's by-feel geometry" premise below and re-opens the WOT fit (alpha/EXVANOS re-fit
+> required before part-load). The full staged plan — geometry defaults + rail topology +
+> ICV→sigma(pedal)→base(rpm,load) part-load calibration + `wot_ratio_maxdp` metric — is in
+> `PLAN_PARTLOAD_CALIBRATION.md`. MSS54HP tuner integration comes after that plan completes.
+
 Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–56)
 
 ## ⚡⚡⚡ Stage 56 (local MSVC build) — THE INTAKE Q PROBLEM IS SOLVED (C++ radiation damping). Read EXHAUST_STABILIZATION_NOTES Stage 56 first.

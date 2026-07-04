@@ -1,5 +1,12 @@
 # LOCAL CONTINUATION PROMPT — CSL_Simulator VE calibration (run on the local PC)
 
+> **⚡ 2026-07-04 — SUPERSEDED IN PART by `docs/PLAN_PARTLOAD_CALIBRATION.md`.** Real measured
+> intake geometry is now available (plenum 22.9 L; duct 400×φ190→550×190; runners 10/60 mm;
+> EQ = common rail φ21×570 mm → φ21×250 mm hose → ICV → main plenum). The "Step 2 intake
+> termination guesswork" below is replaced by wiring the MEASURED geometry + the rail EQ
+> topology, then re-fitting WOT and running the part-load calibration. Follow
+> `PLAN_PARTLOAD_CALIBRATION.md` (Phases 0–5); the setup/metric rules below (§0–§2) still apply.
+
 Copy everything below the line into your local Claude Code session (CLI/IDE/desktop), opened
 in the OpenWAM repo. It assumes you are running on the user's own machine (Intel Core Ultra 9,
 32 GB) — i.e. FAST, MANY CORES, and NO container reboots (unlike the cloud session that
