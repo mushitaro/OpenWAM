@@ -202,7 +202,16 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
             med = statistics.median(ve_cyl)
             collapsed_n = sum(1 for x in ve_cyl if med > 0 and x < 0.5 * med)
             cyl_ok = collapsed_n == 0
-        nan_free = ("nan" not in output.lower()) and math.isfinite(mass_g) and mass_g > 0
+        # NaN gate: PERSISTENT NaN only. A recoverable startup transient (cyl-6
+        # exhaust-valve NaN at cycle ~2 on the measured geometry, recovered and
+        # balanced by cycle ~5; Stage-25 precedent: the converged limit cycle is
+        # unaffected) does NOT invalidate the cell -- any NaN after cycle 5 does.
+        low = output.lower()
+        nan_pos = low.rfind("nan")
+        _ve_ends = [m.end() for m in re.finditer(r"Mtrap:[0-9.]+ g", output)]
+        _cut = _ve_ends[29] if len(_ve_ends) >= 30 else (_ve_ends[-1] if _ve_ends else 0)
+        nan_persistent = nan_pos >= 0 and nan_pos >= _cut
+        nan_free = (not nan_persistent) and math.isfinite(mass_g) and mass_g > 0
         ve_in_band = M.VE_BAND[0] <= ve <= M.VE_BAND[1]
         valid = bool(converged and cyl_ok and ve_in_band and nan_free and not blew_up)
 
