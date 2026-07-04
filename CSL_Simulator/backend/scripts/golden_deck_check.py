@@ -46,15 +46,22 @@ def _legacy_config():
     # fixed, arbitrary-but-typical cam biases (exercise the VANOS deck path)
     cfg.engine.vanos_intake_bias = 15.0
     cfg.engine.vanos_exhaust_bias = -11.0
-    # legacy intake geometry, pinned
+    # legacy intake geometry, pinned (EVERY field the measured-geometry default
+    # flip moves is pinned here, so the flip cannot drift these decks)
     cfg.intake.plenum_vol = 10.5
     cfg.intake.inlet.duct_length = 350.0    # == the legacy hardcoded duct
     cfg.intake.inlet.duct_diameter = 200.0
+    cfg.intake.inlet.exit_width = None      # circular exit (no slot)
+    cfg.intake.inlet.exit_height = None
+    cfg.intake.inlet.filter_diameter = 300.0
+    cfg.intake.inlet.filter_thickness = 20.0
     cfg.intake.runner.upper_length = 15.0
     cfg.intake.runner.lower_length = 25.0
     cfg.intake.eq_tube.model = "plenum"
     cfg.intake.eq_tube.stub_diameter = 30.0
     cfg.intake.eq_tube.stub_length = 75.0
+    cfg.intake.eq_tube.stub_friction = 0.02
+    cfg.exhaust.headers.primary_length = 300.0   # legacy placeholder primaries
     return cfg
 
 

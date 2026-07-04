@@ -159,7 +159,10 @@ def exvanos_base_for(cal, rpm, is_wot, load=None):
     ex = (cal or {}).get("exvanos_base", {})
     part_const = float(ex.get("part_load_const", 150.0))
     if is_wot:
-        if not ex.get("use_stale_shape_fit", False):
+        # "use_shape_fit" = the current per-rpm points table (Phase-3 measured-
+        # geometry fit); legacy key "use_stale_shape_fit" still honored.
+        use_points = ex.get("use_shape_fit", ex.get("use_stale_shape_fit", False))
+        if not use_points:
             return float(ex.get("wot_base_stable", 150.0))
         pts = ex.get("points") or [[2700, 150.0], [3900, 115.0], [4600, 155.0],
                                    [5300, 160.0], [6300, 160.0], [6900, 160.0]]

@@ -79,6 +79,8 @@ export interface EqTubeConfig {
     return_pipe_length?: number;
     return_tap?: string;    // "center" | "cyl1_end" | "cyl6_end"
     icv_sigma?: number;     // FIT parameter (Phase 4A), not measured
+    rail_friction?: number;      // 0.1 kills the 2700-WOT cross-feed collapse
+    rail_tap_friction?: number;
 }
 
 export interface IntakeConfig {

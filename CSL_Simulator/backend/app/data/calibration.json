@@ -12,7 +12,36 @@
   "thr_sigma": {
     "_comment": "Calibrated pedal->sigma breakpoints (Phase 4B). Lives HERE, not in ThrottleConfig: it is a fitted, run-traceable, foldable calibration curve (ThrottleConfig keeps only the physical offset/gamma). Anchors: 0.0->0.001 and 1.0->0.96 keep the closed/WOT terminations unchanged. enabled=false or null sigmas -> geometric legacy path.",
     "enabled": false,
-    "points": [[0.0, 0.001], [0.20, null], [0.30, null], [0.45, null], [0.65, null], [0.85, null], [1.0, 0.96]],
+    "points": [
+      [
+        0.0,
+        0.001
+      ],
+      [
+        0.2,
+        null
+      ],
+      [
+        0.3,
+        null
+      ],
+      [
+        0.45,
+        null
+      ],
+      [
+        0.65,
+        null
+      ],
+      [
+        0.85,
+        null
+      ],
+      [
+        1.0,
+        0.96
+      ]
+    ],
     "fit_meta": null
   },
   "icv": {
@@ -21,21 +50,46 @@
     "fit_meta": null
   },
   "exvanos_base": {
-    "_comment": "WOT: folded stable datum wot_base_stable (per-rpm points table is the STALE 268-cam fit, kept only for reference; use_stale_shape_fit=false). Part load: surface {rpms, loads, values[load][rpm]} bilinear (Phase 4C fit; its load=100 row is anchored to the WOT fit) or part_load_const when null. is_wot short-circuits to the WOT datum, so the validated WOT row cannot regress from part-load fitting.",
-    "fit_cam_deg": 268,
-    "stale": true,
-    "use_stale_shape_fit": false,
+    "_comment": "WOT: per-rpm points (Phase-3 measured-geometry fit, fit_cam_deg 260, use_shape_fit=true). wot_base_stable is the flat fallback datum (set use_shape_fit=false to fold). Part load: surface (Phase 4C) or part_load_const. is_wot short-circuits to the WOT table, so the WOT row cannot regress from part-load fitting. +-5 pert map at the fitted bases: 6300/6900 smooth (<=3.3pp); 5300 -5 smooth, +5 dips -15pp (converged); 2700/3900 sit on sharp lever-ceiling PEAKS (+-5 loses 7-20pp, converged, no collapse). Hard cliffs: 3900@b150 and 6900@b177 blow up. See EXHAUST_STABILIZATION_NOTES Stage 57.",
+    "fit_cam_deg": 260,
+    "stale": false,
     "wot_base_stable": 150.0,
     "part_load_const": 150.0,
     "scale": 1.0,
     "points": [
-      [2700, 150.0],
-      [3900, 115.0],
-      [4600, 155.0],
-      [5300, 160.0],
-      [6300, 160.0],
-      [6900, 160.0]
+      [
+        2700,
+        130.0
+      ],
+      [
+        3900,
+        130.0
+      ],
+      [
+        4600,
+        145.0
+      ],
+      [
+        5300,
+        155.0
+      ],
+      [
+        6300,
+        170.0
+      ],
+      [
+        6900,
+        170.0
+      ]
     ],
-    "surface": null
+    "surface": null,
+    "use_shape_fit": true,
+    "fit_meta": {
+      "date": "2026-07-05",
+      "commit": "565d0b20ff36",
+      "exe_sig": "1435648:1783119758",
+      "csv": "phase3_basefit.csv",
+      "note": "Measured-geometry rail WOT fit (alpha 0.4, rail/tap fric 0.1). BEST-ACHIEVABLE points: fitted row [87.5, 91.8, 116.6, 112.6, 110.7, 109.8] vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] -> r 0.05, max_norm_shape_err 0.176, peak 5300 vs stock 3900: the r>=0.95 gate is NOT met. 2700/3900 are base-lever CEILINGS (b130; lower bases REVERSE), 6900 is a floor (b177 blows up), i.e. the low-rpm charge deficit of the measured geometry is outside the EXVANOS lever range. Ratio-wise 4600-6900 sit at 1.02-1.05 of stock (legacy datum was 0.79-0.87 everywhere). Part-load calibration is insulated by the p=VE/VE_WOT normalization. Header-length hypothesis falsified (650mm primaries: 2700 -5.9pp, 6900 blow-up)."
+    }
   }
 }

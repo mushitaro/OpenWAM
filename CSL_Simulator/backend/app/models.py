@@ -20,16 +20,16 @@ class ExhaustLayoutType(str, Enum):
 
 # 1. Intake System
 class InletConfig(BaseModel):
-    # Wired into the generator (the old 200/100 defaults were unwired dummies;
-    # these defaults reproduce the legacy hardcoded 350mm x phi200 duct, so the
-    # default deck stays byte-identical -- golden_deck_check.py enforces it).
-    duct_length: float = 350.0 # mm
-    duct_diameter: float = 200.0 # mm (inlet-side inner diameter)
+    # MEASURED car defaults (2026-07, PLAN_PARTLOAD_CALIBRATION.md Phase 3.5):
+    # 400mm duct, phi190 inlet, opening into the plenum through a 550x190 slot.
+    # The legacy 350xphi200 straight duct is pinned in golden_deck_check.py.
+    duct_length: float = 400.0 # mm
+    duct_diameter: float = 190.0 # mm (inlet-side inner diameter)
     # Plenum-side slot opening (measured car: 550x190 mm). None -> circular
     # (= duct_diameter). The 1D solver's D is an AREA schedule, so a slot maps
     # to its area-equivalent diameter Deq = sqrt(4*W*H/pi), NOT hydraulic dia.
-    exit_width: Optional[float] = None   # mm
-    exit_height: Optional[float] = None  # mm
+    exit_width: Optional[float] = 550.0  # mm
+    exit_height: Optional[float] = 190.0 # mm
     filter_diameter: float = 300.0       # mm (slot Deq used when exit_* given)
     filter_thickness: float = 20.0       # mm
 
@@ -53,8 +53,9 @@ class ThrottleConfig(BaseModel):
 class RunnerConfig(BaseModel):
     # Intake runner geometry (promoted from hardcoded constants + OPENWAM_RUNNER_SC /
     # OPENWAM_RUNNER_FRIC_MULT). The runner bore = ITB diameter (intake.itb.diameter).
-    upper_length: float = 15.0      # mm (throttle -> eq-tube branch)
-    lower_length: float = 25.0      # mm (eq-tube branch -> port split)
+    # MEASURED car (2026-07): 10mm throttle->EQ tap, 60mm tap->port split.
+    upper_length: float = 10.0      # mm (throttle -> eq-tube branch)
+    lower_length: float = 60.0      # mm (eq-tube branch -> port split)
     entry_diameter: float = 70.0    # mm (velocity-stack mouth, tapers to ITB bore)
     length_scale: float = 1.0       # global ram-length scalar (was OPENWAM_RUNNER_SC)
     friction_multiplier: float = 1.0  # intake-tract friction scale (was OPENWAM_RUNNER_FRIC_MULT)
@@ -63,8 +64,8 @@ class EqTubeConfig(BaseModel):
     # Equalization tube (Gleichdruckrohr). Promoted from OPENWAM_EQ_* / OPENWAM_NO_EQTUBE
     # / OPENWAM_EQ_CHAIN. Defaults reproduce the validated Stage-35/56 plenum model.
     enabled: bool = True
-    model: str = "plenum"           # "plenum" (validated) | "chain" | "rail" (measured car:
-                                    # ICV-vented common rail; PLAN_PARTLOAD_CALIBRATION.md)
+    model: str = "rail"             # "rail" (measured car: ICV-vented common rail; DEFAULT
+                                    # since Phase 3.5) | "plenum" (legacy) | "chain"
     stub_diameter: float = 30.0     # mm (phi30 is the smallest stable area ratio; phi10 NaN'd)
     stub_length: float = 75.0       # mm (per-cylinder stub base length)
     stub_friction: float = 0.02     # part-throttle resonance damping
@@ -79,17 +80,26 @@ class EqTubeConfig(BaseModel):
     rail_diameter: float = 21.0        # mm common-rail inner diameter
     rail_length: float = 570.0         # mm tap-1..tap-6 span (5 segments)
     rail_tap_diameter: float = 30.0    # mm numerical stability floor (physical: 21)
-    rail_tap_length: float = 30.0      # mm runner-tee -> rail-tee stub
+    rail_tap_length: float = 30.0      # mm runner-tee -> rail-tee stub (10mm re-collapses
+                                       # 2700/6300 WOT -- keep 30, Phase-3 A/B)
     return_pipe_diameter: float = 21.0 # mm rubber return hose
     return_pipe_length: float = 250.0  # mm
     return_tap: str = "center"         # "center" | "cyl1_end" | "cyl6_end"
     icv_sigma: float = 0.15            # ICV effective open-area ratio (of the return
                                        # pipe bore); FIT parameter (Phase 4A), not measured
+    # Rail-mode damping (Phase 3.2/3.3): 0.02-0.03 lets a runner-to-runner
+    # cross-feed mode collapse one END cylinder at 2700 WOT (converged collapse,
+    # spread ~1.0). 0.1 on both the taps and the rail/return kills it (0.2
+    # equivalent -> insensitive/robust); physically defensible for drilled tap
+    # ports + a corrugated rubber rail. Legacy plenum/chain stubs keep
+    # stub_friction 0.02.
+    rail_friction: float = 0.1         # rail segments + return hose
+    rail_tap_friction: float = 0.1     # tap stubs
 
 class IntakeConfig(BaseModel):
     type: str = "CSL Replica"
     inlet: InletConfig = InletConfig()
-    plenum_vol: float = 10.5 # Liters
+    plenum_vol: float = 22.9 # Liters (measured 2026-07; legacy model was 10.5)
     bellmouth: BellmouthConfig = BellmouthConfig()
     itb: ITBConfig = ITBConfig() # New ITB Module
     throttle: ThrottleConfig = ThrottleConfig()

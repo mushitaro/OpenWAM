@@ -1,0 +1,34 @@
+{
+  "tag": "phase3-fitted",
+  "alpha": 0.4,
+  "base": 150.0,
+  "base_by_rpm": {
+    "2700": 130.0,
+    "3900": 130.0,
+    "4600": 145.0,
+    "5300": 155.0,
+    "6300": 170.0,
+    "6900": 170.0
+  },
+  "ve_by_rpm": {
+    "2700": 87.45,
+    "3900": 91.8,
+    "4600": 116.6,
+    "5300": 112.62,
+    "6300": 110.72,
+    "6900": 109.78
+  },
+  "metrics": {
+    "r": 0.0513,
+    "max_shape_err": 0.1755,
+    "peak_rpm_sim": 5300,
+    "gate": "NOT MET (documented)"
+  },
+  "fit_meta": {
+    "date": "2026-07-05",
+    "commit": "565d0b20ff36",
+    "exe_sig": "1435648:1783119758",
+    "csv": "phase3_basefit.csv",
+    "note": "Measured-geometry rail WOT fit (alpha 0.4, rail/tap fric 0.1). BEST-ACHIEVABLE points: fitted row [87.5, 91.8, 116.6, 112.6, 110.7, 109.8] vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] -> r 0.05, max_norm_shape_err 0.176, peak 5300 vs stock 3900: the r>=0.95 gate is NOT met. 2700/3900 are base-lever CEILINGS (b130; lower bases REVERSE), 6900 is a floor (b177 blows up), i.e. the low-rpm charge deficit of the measured geometry is outside the EXVANOS lever range. Ratio-wise 4600-6900 sit at 1.02-1.05 of stock (legacy datum was 0.79-0.87 everywhere). Part-load calibration is insulated by the p=VE/VE_WOT normalization. Header-length hypothesis falsified (650mm primaries: 2700 -5.9pp, 6900 blow-up)."
+  }
+}

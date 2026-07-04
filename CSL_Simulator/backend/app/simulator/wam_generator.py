@@ -828,9 +828,14 @@ class WAMGenerator:
                     # defaults to the phi30 NUMERICAL floor: phi52 runner : phi21
                     # tap = 6.1:1 area ratio exceeds the ~3:1 Type-12 stability
                     # limit (Stage 35; risk R1). OPENWAM_EQ_RAIL_TAP_DIA overrides
-                    # (meters) for the physical-phi21 A/B.
+                    # (meters) for the physical-phi21 A/B (persistent-NaN + cyl
+                    # collapse at 6900 WOT -> phi30 stays). Tap friction 0.1 (not
+                    # the plenum stubs' 0.02): with 0.02 a rail cross-feed mode
+                    # collapses an end cylinder at 2700 WOT (Phase 3.2).
                     eq_pipe_dia = _ce("OPENWAM_EQ_RAIL_TAP_DIA",
                                       c.intake.eq_tube.rail_tap_diameter / 1000.0, 0.030)
+                    eq_pipe_fric = _ce("OPENWAM_EQ_FRIC",
+                                       getattr(c.intake.eq_tube, "rail_tap_friction", 0.1), 0.1)
                     eq_stub_len = c.intake.eq_tube.rail_tap_length / 1000.0
                     eq_label = f"EqRail_Tap_{cyl_idx}"
                     cid_eq_end = self._create_branch_junction()
@@ -922,8 +927,10 @@ class WAMGenerator:
             eq = c.intake.eq_tube
             rail_dia = _ce("OPENWAM_EQ_RAIL_DIA", eq.rail_diameter / 1000.0, 0.021)
             rail_len = eq.rail_length / 1000.0
-            # rubber/alloy rail: slightly rougher than the polished stubs
-            rail_fric = float(os.environ.get("OPENWAM_EQ_RAIL_FRIC", "0.03"))
+            # corrugated-rubber rail + return: 0.1 damps the runner-to-runner
+            # cross-feed mode (2700 WOT end-cyl collapse at 0.03; Phase 3.2)
+            rail_fric = _ce("OPENWAM_EQ_RAIL_FRIC",
+                            getattr(eq, "rail_friction", 0.1), 0.1)
             n_seg = len(self._rail_tee_cids) - 1
             seg_len = rail_len / n_seg
             return_tap = eq.return_tap or "center"
