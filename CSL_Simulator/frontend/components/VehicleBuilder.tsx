@@ -115,13 +115,20 @@ const VehicleBuilder = () => {
         simulation: { mesh_size: 0.01, openwam_version: 2200, duration_cycles: 30, step_size: 1.0 },
         intake: {
             type: "CSL Replica",
-            inlet: { duct_length: 200, duct_diameter: 100 },
+            // duct defaults == backend models.py (the legacy hardcoded 350xφ200 duct;
+            // exit_width/height model the measured 550x190 plenum-side slot when set)
+            inlet: { duct_length: 350, duct_diameter: 200, exit_width: null, exit_height: null, filter_diameter: 300, filter_thickness: 20 },
             plenum_vol: 10.5,
             bellmouth: { length: 150, diameter: 52, taper_angle: 3.5 },
             itb: { fitted: true, diameter: 52, plate_thickness: 2, discharge_coeff_map: "default_butterfly" },
             throttle: { idle_offset_deg: 2.0, pedal_gamma: 1.4 },
             runner: { upper_length: 15, lower_length: 25, entry_diameter: 70, length_scale: 1.0, friction_multiplier: 1.0 },
-            eq_tube: { enabled: true, model: "plenum", stub_diameter: 30, stub_length: 75, stub_friction: 0.02, volume_scale: 1.0, mistune_spread: 0.0 }
+            eq_tube: {
+                enabled: true, model: "plenum", stub_diameter: 30, stub_length: 75, stub_friction: 0.02, volume_scale: 1.0, mistune_spread: 0.0,
+                // "rail" model (measured car): φ21x570 common rail -> ICV -> plenum return
+                rail_diameter: 21, rail_length: 570, rail_tap_diameter: 30, rail_tap_length: 30,
+                return_pipe_diameter: 21, return_pipe_length: 250, return_tap: "center", icv_sigma: 0.15
+            }
         },
         engine: {
             cam_profile: "Stock CSL",
@@ -446,6 +453,11 @@ const VehicleBuilder = () => {
                     <>
                         <SectionHeader title={type === "intake_duct" ? "Intake Duct" : "Plenum"} id={getPredictedID(selection)} />
                         <InputRow label="Duct Length" unit="mm" value={config.intake.inlet.duct_length} onChange={(v: any) => updateConfig("intake", "inlet.duct_length", v)} />
+                        <InputRow label="Duct Inlet Dia" unit="mm" value={config.intake.inlet.duct_diameter} onChange={(v: any) => updateConfig("intake", "inlet.duct_diameter", v)} />
+                        <InputRow label="Exit Slot W" unit="mm" value={config.intake.inlet.exit_width ?? ""} onChange={(v: any) => updateConfig("intake", "inlet.exit_width", v === "" || v == null ? null : v)} />
+                        <InputRow label="Exit Slot H" unit="mm" value={config.intake.inlet.exit_height ?? ""} onChange={(v: any) => updateConfig("intake", "inlet.exit_height", v === "" || v == null ? null : v)} />
+                        <div className="text-[10px] text-neutral-600 mb-2">Slot empty = circular exit (= inlet dia). Measured car: 550×190.</div>
+                        <InputRow label="Filter Thickness" unit="mm" value={config.intake.inlet.filter_thickness} onChange={(v: any) => updateConfig("intake", "inlet.filter_thickness", v)} />
                         <InputRow label="Plenum Vol" unit="L" value={config.intake.plenum_vol} onChange={(v: any) => updateConfig("intake", "plenum_vol", v)} />
                         {type === "plenum" && (
                             <div className="text-[11px] text-neutral-600 mt-3 leading-snug">
@@ -486,16 +498,40 @@ const VehicleBuilder = () => {
                                 <div className="mb-3">
                                     <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Model</label>
                                     <select value={config.intake.eq_tube.model} onChange={(e) => updateConfig("intake", "eq_tube.model", e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 outline-none">
-                                        <option value="plenum">Plenum (validated)</option>
+                                        <option value="plenum">Plenum (legacy)</option>
                                         <option value="chain">Continuous chain</option>
+                                        <option value="rail">Common rail + ICV (measured car)</option>
                                     </select>
                                 </div>
-                                <InputRow label="Stub Diameter" unit="mm" value={config.intake.eq_tube.stub_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_diameter", v)} />
-                                <InputRow label="Stub Length" unit="mm" value={config.intake.eq_tube.stub_length} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_length", v)} />
-                                <InputRow label="Stub Friction" unit="-" value={config.intake.eq_tube.stub_friction} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_friction", v)} />
-                                <InputRow label="Volume Scale" unit="×" value={config.intake.eq_tube.volume_scale} onChange={(v: any) => updateConfig("intake", "eq_tube.volume_scale", v)} />
-                                <InputRow label="Mistune Spread" unit="frac" value={config.intake.eq_tube.mistune_spread} onChange={(v: any) => updateConfig("intake", "eq_tube.mistune_spread", v)} />
-                                <div className="text-[10px] text-neutral-600">φ30 min stable; mistune detunes cyl-2 collapse</div>
+                                {config.intake.eq_tube.model === "rail" ? (
+                                    <>
+                                        <InputRow label="Rail Diameter" unit="mm" value={config.intake.eq_tube.rail_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_diameter", v)} />
+                                        <InputRow label="Rail Length" unit="mm" value={config.intake.eq_tube.rail_length} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_length", v)} />
+                                        <InputRow label="Tap Diameter" unit="mm" value={config.intake.eq_tube.rail_tap_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_tap_diameter", v)} />
+                                        <InputRow label="Tap Length" unit="mm" value={config.intake.eq_tube.rail_tap_length} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_tap_length", v)} />
+                                        <InputRow label="Return Pipe Dia" unit="mm" value={config.intake.eq_tube.return_pipe_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.return_pipe_diameter", v)} />
+                                        <InputRow label="Return Pipe Len" unit="mm" value={config.intake.eq_tube.return_pipe_length} onChange={(v: any) => updateConfig("intake", "eq_tube.return_pipe_length", v)} />
+                                        <div className="mb-3">
+                                            <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Return Tap</label>
+                                            <select value={config.intake.eq_tube.return_tap} onChange={(e) => updateConfig("intake", "eq_tube.return_tap", e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 outline-none">
+                                                <option value="center">Center (measured)</option>
+                                                <option value="cyl1_end">Cyl-1 end</option>
+                                                <option value="cyl6_end">Cyl-6 end</option>
+                                            </select>
+                                        </div>
+                                        <InputRow label="ICV σ (fit)" unit="-" value={config.intake.eq_tube.icv_sigma} onChange={(v: any) => updateConfig("intake", "eq_tube.icv_sigma", v)} />
+                                        <div className="text-[10px] text-neutral-600">φ21×570 rail taps all runners; returns to plenum through the ICV (throttle bypass). Tap φ30 = numerical floor (R1). ICV σ is calibrated, not measured.</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <InputRow label="Stub Diameter" unit="mm" value={config.intake.eq_tube.stub_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_diameter", v)} />
+                                        <InputRow label="Stub Length" unit="mm" value={config.intake.eq_tube.stub_length} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_length", v)} />
+                                        <InputRow label="Stub Friction" unit="-" value={config.intake.eq_tube.stub_friction} onChange={(v: any) => updateConfig("intake", "eq_tube.stub_friction", v)} />
+                                        <InputRow label="Volume Scale" unit="×" value={config.intake.eq_tube.volume_scale} onChange={(v: any) => updateConfig("intake", "eq_tube.volume_scale", v)} />
+                                        <InputRow label="Mistune Spread" unit="frac" value={config.intake.eq_tube.mistune_spread} onChange={(v: any) => updateConfig("intake", "eq_tube.mistune_spread", v)} />
+                                        <div className="text-[10px] text-neutral-600">φ30 min stable; mistune detunes cyl-2 collapse</div>
+                                    </>
+                                )}
                             </>
                         )}
                     </>

@@ -60,12 +60,18 @@ MEASURABLE: list[Param] = [
           "(行程容積＋隙間容積)/隙間容積。ビュレット水置換で燃焼室容積を計測して算出"),
 
     # --- 吸気系 -----------------------------------------------------------
-    Param("intake.plenum_vol", "プレナム容積", "L", "吸気系", "float", 1.0, 20.0,
-          "水置換 または CAD 容積"),
+    Param("intake.plenum_vol", "プレナム容積", "L", "吸気系", "float", 1.0, 30.0,
+          "水置換 または CAD 容積（実測CSLプレナム=22.9L）"),
     Param("intake.inlet.duct_length", "吸気ダクト長", "mm", "吸気系", "float", 0.0, 1000.0,
           "エアダクト/スノーケル長"),
-    Param("intake.inlet.duct_diameter", "吸気ダクト内径", "mm", "吸気系", "float", 30.0, 200.0,
-          "ダクト内径"),
+    Param("intake.inlet.duct_diameter", "吸気ダクト内径", "mm", "吸気系", "float", 30.0, 250.0,
+          "ダクト入口側内径"),
+    Param("intake.inlet.exit_width", "ダクト出口開口 幅", "mm", "吸気系", "float", 50.0, 800.0,
+          "プレナム側スロット開口の幅（矩形開口。円形なら空欄）"),
+    Param("intake.inlet.exit_height", "ダクト出口開口 高さ", "mm", "吸気系", "float", 50.0, 800.0,
+          "プレナム側スロット開口の高さ（円形なら空欄）"),
+    Param("intake.inlet.filter_thickness", "パネルフィルタ厚", "mm", "吸気系", "float", 5.0, 80.0,
+          "フィルタ媒体の厚み（実測~20mm）"),
     Param("intake.bellmouth.length", "ベルマウス長", "mm", "吸気系", "float", 0.0, 400.0,
           "ファンネル（ベルマウス）長"),
     Param("intake.bellmouth.diameter", "ベルマウス開口径", "mm", "吸気系", "float", 20.0, 120.0,
@@ -90,6 +96,14 @@ MEASURABLE: list[Param] = [
           "EQチューブ・スタブの径"),
     Param("intake.eq_tube.stub_length", "EQスタブ長", "mm", "吸気系", "float", 10.0, 300.0,
           "EQチューブ・スタブ基部長"),
+    Param("intake.eq_tube.rail_diameter", "EQ共通レール内径", "mm", "吸気系", "float", 5.0, 40.0,
+          "共通レール（rail モデル）の内径（実測 φ21）"),
+    Param("intake.eq_tube.rail_length", "EQ共通レール長", "mm", "吸気系", "float", 100.0, 1000.0,
+          "タップ1〜6のスパン（実測 570mm）"),
+    Param("intake.eq_tube.return_pipe_diameter", "EQ帰還パイプ内径", "mm", "吸気系", "float", 5.0, 40.0,
+          "レール→ICV→プレナムのゴムパイプ内径（実測 φ21）"),
+    Param("intake.eq_tube.return_pipe_length", "EQ帰還パイプ長", "mm", "吸気系", "float", 50.0, 800.0,
+          "帰還パイプ長（実測 250mm）"),
 
     # --- ヘッド・バルブ ----------------------------------------------------
     Param("engine.head.valves_per_cyl", "1気筒バルブ数", "", "ヘッド・バルブ", "int", 2.0, 5.0,
@@ -153,7 +167,10 @@ MEASURABLE: list[Param] = [
 # Fast lookup by path (used by the import parser).
 BY_PATH: dict[str, Param] = {p.path: p for p in MEASURABLE}
 
-SHEET_SCHEMA = 1  # bump when the sheet layout / column contract changes
+# v2: measured-geometry columns added (duct slot exit / filter thickness / EQ
+# rail dims); import matches by dotted path, so v1 sheets remain readable.
+# icv_sigma is deliberately NOT here: it is a FIT parameter, not measurable.
+SHEET_SCHEMA = 2  # bump when the sheet layout / column contract changes
 
 
 def get_by_path(d: Any, path: str) -> Any:

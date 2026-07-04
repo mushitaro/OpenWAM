@@ -550,18 +550,30 @@ class WAMGenerator:
         # Pipe End -> Filter Start: Type 6 Direct Pipe-to-Pipe Connection
         c_pipe_to_filter = self._create_pipe_to_pipe_connection()
         
-        # Intake Pipe: Low friction (smooth carbon), D=200mm
+        # Intake Pipe: Low friction (smooth carbon). Geometry from config
+        # (intake.inlet): measured car = 400mm, inlet phi190, opening into the
+        # plenum through a 550x190 slot. A slot exit is modelled by its AREA-
+        # equivalent diameter (the 1D D is an area schedule); the taper is
+        # carried by d_start/d_end. Defaults (350/phi200, no slot) reproduce the
+        # legacy hardcoded duct byte-for-byte (golden_deck_check.py).
         # NOTE: pipe wall temps are in degC (OpenWAM applies degCToK on read).
         # The intake tract was authored in KELVIN by mistake (300/313/400), so
         # OpenWAM saw 300/313/400 degC = 573/586/673 K walls that cooked the
         # intake charge to ~600 K (VE ~50%). Corrected to the intended values in
         # degC: snorkel/filter ~27 C, bellmouth/runners ~40 C, port ~127 C.
-        self._add_pipe(intake_pipe_id, "CSL_Intake_Pipe", 0.350, 0.200, 0.200, 27,
+        inl = c.intake.inlet
+        duct_len = inl.duct_length / 1000.0
+        duct_d_in = inl.duct_diameter / 1000.0
+        _has_slot = bool(inl.exit_width and inl.exit_height)
+        duct_d_out = (math.sqrt(4.0 * (inl.exit_width / 1000.0)
+                                * (inl.exit_height / 1000.0) / math.pi)
+                      if _has_slot else duct_d_in)
+        self._add_pipe(intake_pipe_id, "CSL_Intake_Pipe", duct_len, duct_d_in, duct_d_out, 27,
                        cid_amb, c_pipe_to_filter, friction=0.05, dx_mesh=0.05)
-        
+
         # 3. Panel Filter (Between Pipe and Plenum)
-        # Spec: "Plenum face size", ~20mm thick.
-        # Estimate: 600mm x 150mm => ~340mm equivalent diameter. Using 300mm conservatively.
+        # Sits on the duct's plenum-side face: when a slot exit is given the
+        # filter spans that slot (its Deq); else the legacy circular estimate.
         filter_id = self.pipe_counter; self.pipe_counter += 1
         
         # Start: Use same Type 6 connection as Pipe End
@@ -576,9 +588,10 @@ class WAMGenerator:
         cid_plenum_in = self.connection_counter
         self._add_con_plenum_pipe_v2(plenum_id, filter_id, 1) # Filter End -> Plenum
         
-        # Panel Filter: Short (20mm), Wide (300mm), High Friction (Filter Media)
-        # Friction 0.5-1.0 typical for filter media in 1D
-        self._add_pipe(filter_id, "CSL_Panel_Filter", 0.020, 0.300, 0.300, 27,
+        # Panel Filter: thin, wide, high friction (filter media; 0.5-1.0 typical in 1D)
+        filt_len = inl.filter_thickness / 1000.0
+        filt_dia = duct_d_out if _has_slot else inl.filter_diameter / 1000.0
+        self._add_pipe(filter_id, "CSL_Panel_Filter", filt_len, filt_dia, filt_dia, 27,
                        cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
 
 
@@ -631,11 +644,22 @@ class WAMGenerator:
         # stubs tee into a row of short tube segments (volume distributed along the
         # tube, no central cavity), which is what the real S54 Gleichdruckrohr is and
         # should not Helmholtz-resonate. Select with OPENWAM_EQ_CHAIN=1.
-        self._eq_chain = (bool(os.environ.get("OPENWAM_EQ_CHAIN")) or c.intake.eq_tube.model == "chain") and not self._skip_eqtube
+        # "rail" model (PLAN_PARTLOAD_CALIBRATION.md): the measured car's EQ system
+        # is a phi21x570 COMMON RAIL tapping all six runners, returning to the MAIN
+        # PLENUM via a phi21x250 hose through the ICV -- an intentionally OPEN
+        # throttle-bypass (the physical low-load effective-area path), unlike the
+        # closed central-plenum/chain models. Rail wins over a stray EQ_CHAIN env.
+        self._eq_rail = (bool(os.environ.get("OPENWAM_EQ_RAIL"))
+                         or c.intake.eq_tube.model == "rail") and not self._skip_eqtube
+        self._rail_tee_cids = []   # per-cylinder rail tees, linked after the loop
+        self._eq_chain = (bool(os.environ.get("OPENWAM_EQ_CHAIN")) or c.intake.eq_tube.model == "chain") and not self._skip_eqtube and not self._eq_rail
         self._eq_tee_cids = []  # filled per-cylinder in chain mode, linked after the loop
         if self._skip_eqtube:
             print("DEBUG: OPENWAM_NO_EQTUBE=1 -> equalization tube DISABLED")
             eq_tube_id = None  # do NOT consume a plenum id: keep ids contiguous
+        elif self._eq_rail:
+            print("DEBUG: eq_tube model=rail -> ICV-vented common-rail eq system")
+            eq_tube_id = None  # no central plenum in rail mode
         elif self._eq_chain:
             print("DEBUG: OPENWAM_EQ_CHAIN=1 -> continuous balance-tube eq-tube")
             eq_tube_id = None  # no central plenum in chain mode
@@ -650,7 +674,7 @@ class WAMGenerator:
         # smaller stub diameter causes. OPENWAM_EQ_VOL_MULT default 1.0 = byte-identical.
         eq_tube_vol *= _ce("OPENWAM_EQ_VOL_MULT", c.intake.eq_tube.volume_scale, 1.0)
         # degC: intake-side equalization tube, ~40 C (was 313 = read as 313 C = 586 K)
-        if not self._skip_eqtube and not self._eq_chain:
+        if not self._skip_eqtube and not self._eq_chain and not self._eq_rail:
             self._add_plenum(eq_tube_id, "Equalization_Tube", eq_tube_vol, 40)
             print(f"DEBUG: Equalization Tube Plenum ID={eq_tube_id} Vol={eq_tube_vol*1e6:.1f}cc")
 
@@ -681,6 +705,16 @@ class WAMGenerator:
             # reserve a new valve index after the 6 throttles (26..31) -> 32
             self._mouth_valve_id = 26 + c.engine.cylinders
             print(f"DEBUG: OPENWAM_INTAKE_V2=1 -> trumpet-mouth valve id={self._mouth_valve_id} Cd={self._mouth_cd}")
+
+        # ICV (rail return valve): a fixed-Cd valve on the EqRail_Return -> Plenum_Main
+        # Type-11 connection (the same proven mechanism as the INTAKE_V2 mouth valve).
+        # sigma = effective open-area ratio of the return-pipe bore; env > config >
+        # default (fit lever, Phase 4A). Valve index appended after the throttles
+        # (and after the mouth valve when INTAKE_V2 is on).
+        if self._eq_rail:
+            self._icv_valve_id = 26 + c.engine.cylinders + (1 if self._intake_v2 else 0)
+            self._icv_sigma = _ce("OPENWAM_ICV_SIGMA", c.intake.eq_tube.icv_sigma, 0.15)
+            print(f"DEBUG: EQ rail ICV valve id={self._icv_valve_id} sigma={self._icv_sigma}")
 
         # 5. Per-Cylinder: Bellmouth → [Type 9 Throttle] → Runner_Upper → [Type 12] → Runner_Lower → [Type 12] → Ports
         for i in range(c.engine.cylinders):
@@ -786,8 +820,22 @@ class WAMGenerator:
                 eq_mistune = _ce("OPENWAM_EQ_MISTUNE", c.intake.eq_tube.mistune_spread, 0.0)
                 _mt_pat = [1.0, -1.0, 0.6, -0.6, 0.2, -0.2]  # zero-sum, non-monotonic
                 eq_stub_len = (c.intake.eq_tube.stub_length / 1000.0) * (1.0 + eq_mistune * _mt_pat[i % 6])
+                eq_label = f"EqTube_Stub_{cyl_idx}"
 
-                if self._eq_chain:
+                if self._eq_rail:
+                    # Rail model: a short tap stub from the runner tee to the rail
+                    # tee (linked by rail segments after the loop). Tap diameter
+                    # defaults to the phi30 NUMERICAL floor: phi52 runner : phi21
+                    # tap = 6.1:1 area ratio exceeds the ~3:1 Type-12 stability
+                    # limit (Stage 35; risk R1). OPENWAM_EQ_RAIL_TAP_DIA overrides
+                    # (meters) for the physical-phi21 A/B.
+                    eq_pipe_dia = _ce("OPENWAM_EQ_RAIL_TAP_DIA",
+                                      c.intake.eq_tube.rail_tap_diameter / 1000.0, 0.030)
+                    eq_stub_len = c.intake.eq_tube.rail_tap_length / 1000.0
+                    eq_label = f"EqRail_Tap_{cyl_idx}"
+                    cid_eq_end = self._create_branch_junction()
+                    self._rail_tee_cids.append(cid_eq_end)
+                elif self._eq_chain:
                     # Chain model: the stub tees into the continuous balance tube. Its
                     # far end is a Type-12 tee shared with the adjacent tube segments
                     # (linked after the cylinder loop). No central plenum.
@@ -797,7 +845,7 @@ class WAMGenerator:
                     cid_eq_end = self.connection_counter
                     self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
 
-                self._add_pipe(eq_pipe_id, f"EqTube_Stub_{cyl_idx}", eq_stub_len,
+                self._add_pipe(eq_pipe_id, eq_label, eq_stub_len,
                                eq_pipe_dia, eq_pipe_dia, 40,
                                cid_eq_branch, cid_eq_end, friction=eq_pipe_fric, dx_mesh=0.025,
                                init_p=intake_map_bar)
@@ -865,8 +913,69 @@ class WAMGenerator:
                                friction=eq_pipe_fric, dx_mesh=0.025,
                                init_p=intake_map_bar)
 
+        # --- COMMON RAIL (eq_tube model="rail"): link the per-cylinder tap tees
+        # with rail segments, then return to Plenum_Main through the ICV. The
+        # rail volume (~197cc) + return hose (~87cc) enter DISTRIBUTED (vs the
+        # legacy lumped 141cc plenum), and the ICV vents the rail UPSTREAM of
+        # the throttles -- the physical idle/low-load air path.
+        if self._eq_rail and len(self._rail_tee_cids) >= 2:
+            eq = c.intake.eq_tube
+            rail_dia = _ce("OPENWAM_EQ_RAIL_DIA", eq.rail_diameter / 1000.0, 0.021)
+            rail_len = eq.rail_length / 1000.0
+            # rubber/alloy rail: slightly rougher than the polished stubs
+            rail_fric = float(os.environ.get("OPENWAM_EQ_RAIL_FRIC", "0.03"))
+            n_seg = len(self._rail_tee_cids) - 1
+            seg_len = rail_len / n_seg
+            return_tap = eq.return_tap or "center"
+
+            # segment plan; "center" splits the middle segment (tees 3-4 for 6
+            # cyl) with a 7th tee so the return hose leaves mid-rail (measured
+            # car). Every tee stays <= 3 pipes (Type-12 discipline).
+            segs = []
+            if return_tap == "cyl1_end":
+                self._rail_return_cid = self._rail_tee_cids[0]
+                for s in range(n_seg):
+                    segs.append((self._rail_tee_cids[s], self._rail_tee_cids[s + 1],
+                                 seg_len, f"EqRail_Seg_{s+1}"))
+            elif return_tap == "cyl6_end":
+                self._rail_return_cid = self._rail_tee_cids[-1]
+                for s in range(n_seg):
+                    segs.append((self._rail_tee_cids[s], self._rail_tee_cids[s + 1],
+                                 seg_len, f"EqRail_Seg_{s+1}"))
+            else:  # "center"
+                mid = (n_seg - 1) // 2      # 5 segments -> index 2 = tees 3..4
+                self._rail_return_cid = self._create_branch_junction()
+                for s in range(n_seg):
+                    a, b = self._rail_tee_cids[s], self._rail_tee_cids[s + 1]
+                    if s == mid:
+                        segs.append((a, self._rail_return_cid, seg_len / 2.0,
+                                     f"EqRail_Seg_{s+1}a"))
+                        segs.append((self._rail_return_cid, b, seg_len / 2.0,
+                                     f"EqRail_Seg_{s+1}b"))
+                    else:
+                        segs.append((a, b, seg_len, f"EqRail_Seg_{s+1}"))
+            for a, b, ln, lab in segs:
+                seg_id = self.pipe_counter; self.pipe_counter += 1
+                self._add_pipe(seg_id, lab, ln, rail_dia, rail_dia, 40,
+                               a, b, friction=rail_fric, dx_mesh=0.025,
+                               init_p=intake_map_bar)
+
+            # return hose -> ICV (fixed-Cd valve on the Type-11 plenum connection;
+            # same proven mechanism as the INTAKE_V2 trumpet-mouth valve).
+            ret_id = self.pipe_counter; self.pipe_counter += 1
+            ret_dia = eq.return_pipe_diameter / 1000.0
+            ret_len = eq.return_pipe_length / 1000.0
+            cid_ret_plenum = self._add_con_plenum_pipe_v2(
+                plenum_id, ret_id, 1, valve_idx=self._icv_valve_id)
+            self._add_pipe(ret_id, "EqRail_Return", ret_len, ret_dia, ret_dia, 40,
+                           self._rail_return_cid, cid_ret_plenum,
+                           friction=rail_fric, dx_mesh=0.025,
+                           init_p=intake_map_bar)
+
     def _generate_simplified_exhaust(self, c):
         print("DEBUG: Generating SIMPLIFIED Exhaust")
+        # first exhaust pipe id (49 legacy; higher when the EQ rail adds pipes)
+        self._exhaust_pid_start = self.pipe_counter
         # Define Port Geometry
         port_len_ex = c.engine.head.exhaust_port.length / 1000.0
         port_dia_ex = c.engine.head.exhaust_port.diameter / 1000.0
@@ -895,6 +1004,9 @@ class WAMGenerator:
 
     def _generate_full_exhaust(self, c):
         print("DEBUG: Generating FULL Exhaust (CSL 3-Stage Topology)")
+        # first exhaust pipe id (39 legacy; higher when the EQ rail adds pipes).
+        # _finalize_pipes' intake/exhaust split keys off this, NOT the magic 39.
+        self._exhaust_pid_start = self.pipe_counter
         port_len_ex = c.engine.head.exhaust_port.length / 1000.0
         port_dia_ex = c.engine.head.exhaust_port.diameter / 1000.0   # 48mm (header side)
         valve_dia_ex = c.engine.head.exhaust_valve.diameter / 1000.0  # 30.5mm (valve side)
@@ -1195,8 +1307,11 @@ class WAMGenerator:
             pass
             
         # +1 valve when INTAKE_V2 adds the soft-Cd trumpet mouth (appended last, index 32)
+        # +1 valve when the EQ rail adds the ICV (index 26+n_cyl[+1 if INTAKE_V2])
         intake_v2 = getattr(self, "_intake_v2", False)
-        total_valves = 25 + len(self.throttle_valves) + (1 if intake_v2 else 0)
+        eq_rail = getattr(self, "_eq_rail", False)
+        total_valves = (25 + len(self.throttle_valves) + (1 if intake_v2 else 0)
+                        + (1 if eq_rail else 0))
         self.wam_lines.append(f"{total_valves}")
         for i in range(12): self._add_valve_def(i+1, "intake.vlv", c.engine.head.intake_valve.diameter/1000.0, control_ids)
         for i in range(12): self._add_valve_def(i+13, "exhaust.vlv", c.engine.head.exhaust_valve.diameter/1000.0, control_ids)
@@ -1215,6 +1330,11 @@ class WAMGenerator:
         # 26+cylinders (=32), after the throttles, leaving all legacy ids unmoved.
         if intake_v2:
             self._add_valve_fixed_cd(self._mouth_valve_id, self._mouth_cd, self._mouth_cd)
+
+        # EQ-rail ICV: fixed-Cd valve on the EqRail_Return -> Plenum_Main Type-11
+        # connection. sigma = effective open-area ratio of the return-pipe bore.
+        if eq_rail:
+            self._add_valve_fixed_cd(self._icv_valve_id, self._icv_sigma, self._icv_sigma)
 
         # Append Buffered Valves
         self.wam_lines.extend(self.wam_lines_valves)
@@ -1449,6 +1569,9 @@ class WAMGenerator:
 
     def _finalize_pipes(self):
         # Explicitly rebuild pipe lines to prevent corruption
+        # intake/exhaust boundary: first exhaust pipe id (legacy 39; the EQ rail
+        # adds intake pipes, so the boundary is recorded by the exhaust generator)
+        _xstart = getattr(self, "_exhaust_pid_start", 39)
         sorted_pids = sorted(self.pipes.keys())
         for pid in sorted_pids:
             p = self.pipes[pid]
@@ -1461,7 +1584,7 @@ class WAMGenerator:
             # damping the over-resonant intake oscillation suppresses the spurious
             # junction-entropy heating (Stage 16 cont.). Default 1.0 (no change).
             fric = p['friction']
-            if pid < 39:
+            if pid < _xstart:
                 fric *= float(os.environ.get("OPENWAM_IN_FRIC", "1.0"))
             self.wam_lines_pipes.append(f"{fric}")
             # Line 3: Wall Temp, Pressure, Velocity
@@ -1479,7 +1602,7 @@ class WAMGenerator:
             # each pipe is scaled by area (A_ref/A_pipe) for rough continuity, and
             # signed +/- so the flow points from the airbox toward the cylinders.
             v_init = 0.0
-            if pid < 39:
+            if pid < _xstart:
                 v_ref = float(os.environ.get("OPENWAM_IN_VINIT", "0.0"))
                 if v_ref != 0.0:
                     import math as _m
@@ -1506,7 +1629,7 @@ class WAMGenerator:
             # this stays an opt-in diagnostic, not a behaviour change.
             t_wall = p['wall_temp']
             t_gas = t_wall
-            if pid >= 39:
+            if pid >= _xstart:
                 tg = os.environ.get("OPENWAM_EXH_TGAS", "wall")
                 t_gas = t_wall if tg == "wall" else float(tg)
             self.wam_lines_pipes.append(f"{t_wall} {t_gas} {p_init:.5f} {v_init:.4f}")
@@ -1520,7 +1643,7 @@ class WAMGenerator:
             # (more realistic, pulsating-flow) intake heat rejection cools the
             # charge and recovers VE. Default 1.0 (unchanged).
             htc = 1.0
-            if pid < 39:
+            if pid < _xstart:
                 htc = float(os.environ.get("OPENWAM_IN_HMULT", "1.0"))
             self.wam_lines_pipes.append(f"1 {htc} 1.0")
             # Line 5: Composition
@@ -1840,20 +1963,31 @@ class WAMGenerator:
         breakpoint table; None when no calibrated curve is configured (-> the
         geometric default path, legacy behaviour preserved byte-for-byte).
 
-        Source: OPENWAM_THR_SIGMA_BP = "p0:s0,p1:s1,..." (pedal->sigma, ascending),
-        e.g. "0.0:0.001,0.2:0.11,0.45:0.30,0.65:0.55,1.0:0.96". Linear interpolation
-        between breakpoints, clamped to the table ends. Anchor pedal 1.0 -> 0.96 to
-        keep the validated WOT termination unchanged.
+        Sources, in priority order (PLAN_PARTLOAD_CALIBRATION.md §1.2):
+          1. env OPENWAM_THR_SIGMA_BP = "p0:s0,p1:s1,..." (study override),
+             e.g. "0.0:0.001,0.2:0.11,0.45:0.30,0.65:0.55,1.0:0.96"
+          2. instance attr ``_sigma_bp`` = [[pedal, sigma], ...] -- injected by
+             simulation_service from calibration.json (thr_sigma.points)
+          3. None -> geometric path (legacy)
+        Linear interpolation between breakpoints, clamped to the table ends.
+        Anchor pedal 1.0 -> 0.96 to keep the validated WOT termination unchanged.
         """
         import os
         spec = os.environ.get("OPENWAM_THR_SIGMA_BP")
-        if not spec:
-            return None
-        try:
-            pts = sorted((float(p), float(s))
-                         for p, s in (tok.split(":") for tok in spec.split(",")))
-        except Exception:
-            return None
+        pts = None
+        if spec:
+            try:
+                pts = sorted((float(p), float(s))
+                             for p, s in (tok.split(":") for tok in spec.split(",")))
+            except Exception:
+                pts = None
+        if pts is None:
+            attr = getattr(self, "_sigma_bp", None)
+            if attr:
+                try:
+                    pts = sorted((float(p), float(s)) for p, s in attr)
+                except Exception:
+                    pts = None
         if not pts:
             return None
         ro = max(0.0, min(1.0, ro))

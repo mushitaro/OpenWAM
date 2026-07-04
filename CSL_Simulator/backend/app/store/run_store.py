@@ -164,8 +164,8 @@ def get_run_store(data_dir: str) -> RunStore:
 def extract_geometry(config) -> dict:
     """Flatten the measured SimConfig geometry into the surrogate's input vector
     (SURROGATE_DESIGN.md §1). Defensive getattr so a partial config never crashes
-    instrumentation. Runner upper/lower lengths are still hardcoded in
-    wam_generator (0.015/0.025 m); recorded as constants until promoted in M2.
+    instrumentation. Includes the EQ topology selector + rail dims + icv_sigma
+    (surrogate features: the rail/ICV change the breathing physics).
     """
     def g(obj, *path, default=None):
         cur = obj
@@ -185,9 +185,19 @@ def extract_geometry(config) -> dict:
         "bellmouth_dia_mm": g(intake, "bellmouth", "diameter"),
         "duct_len_mm": g(intake, "inlet", "duct_length"),
         "duct_dia_mm": g(intake, "inlet", "duct_diameter"),
+        "duct_exit_w_mm": g(intake, "inlet", "exit_width"),
+        "duct_exit_h_mm": g(intake, "inlet", "exit_height"),
         "itb_dia_mm": g(intake, "itb", "diameter"),
-        "runner_upper_len_mm": 15.0,   # hardcoded in wam_generator (M2: -> SimConfig)
-        "runner_lower_len_mm": 25.0,
+        "runner_upper_len_mm": g(intake, "runner", "upper_length", default=15.0),
+        "runner_lower_len_mm": g(intake, "runner", "lower_length", default=25.0),
+        # EQ system topology (plenum | chain | rail) + rail dims
+        "eq_model": g(intake, "eq_tube", "model", default="plenum"),
+        "eq_rail_dia_mm": g(intake, "eq_tube", "rail_diameter"),
+        "eq_rail_len_mm": g(intake, "eq_tube", "rail_length"),
+        "eq_return_dia_mm": g(intake, "eq_tube", "return_pipe_diameter"),
+        "eq_return_len_mm": g(intake, "eq_tube", "return_pipe_length"),
+        "eq_return_tap": g(intake, "eq_tube", "return_tap"),
+        "icv_sigma": g(intake, "eq_tube", "icv_sigma"),
         # head / valvetrain
         "intake_port_len_mm": g(eng, "head", "intake_port", "length"),
         "intake_port_dia_mm": g(eng, "head", "intake_port", "diameter"),

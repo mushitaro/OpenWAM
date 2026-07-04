@@ -29,6 +29,11 @@ export interface CalibrationResponse {
 export interface InletConfig {
     duct_length: number;
     duct_diameter: number;
+    // plenum-side slot opening (measured car 550x190); null = circular exit
+    exit_width?: number | null;
+    exit_height?: number | null;
+    filter_diameter?: number;
+    filter_thickness?: number;
 }
 
 export interface BellmouthConfig {
@@ -59,12 +64,21 @@ export interface RunnerConfig {
 
 export interface EqTubeConfig {
     enabled: boolean;
-    model: string;          // "plenum" | "chain"
+    model: string;          // "plenum" | "chain" | "rail" (ICV-vented common rail)
     stub_diameter: number;
     stub_length: number;
     stub_friction: number;
     volume_scale: number;
     mistune_spread: number;
+    // "rail" model (measured car; PLAN_PARTLOAD_CALIBRATION.md)
+    rail_diameter?: number;
+    rail_length?: number;
+    rail_tap_diameter?: number;
+    rail_tap_length?: number;
+    return_pipe_diameter?: number;
+    return_pipe_length?: number;
+    return_tap?: string;    // "center" | "cyl1_end" | "cyl6_end"
+    icv_sigma?: number;     // FIT parameter (Phase 4A), not measured
 }
 
 export interface IntakeConfig {

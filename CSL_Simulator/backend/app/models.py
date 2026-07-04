@@ -20,8 +20,18 @@ class ExhaustLayoutType(str, Enum):
 
 # 1. Intake System
 class InletConfig(BaseModel):
-    duct_length: float = 200.0 # mm
-    duct_diameter: float = 100.0 # mm (Airbox Snorkel)
+    # Wired into the generator (the old 200/100 defaults were unwired dummies;
+    # these defaults reproduce the legacy hardcoded 350mm x phi200 duct, so the
+    # default deck stays byte-identical -- golden_deck_check.py enforces it).
+    duct_length: float = 350.0 # mm
+    duct_diameter: float = 200.0 # mm (inlet-side inner diameter)
+    # Plenum-side slot opening (measured car: 550x190 mm). None -> circular
+    # (= duct_diameter). The 1D solver's D is an AREA schedule, so a slot maps
+    # to its area-equivalent diameter Deq = sqrt(4*W*H/pi), NOT hydraulic dia.
+    exit_width: Optional[float] = None   # mm
+    exit_height: Optional[float] = None  # mm
+    filter_diameter: float = 300.0       # mm (slot Deq used when exit_* given)
+    filter_thickness: float = 20.0       # mm
 
 class BellmouthConfig(BaseModel):
     length: float = 150.0 # mm (Bellmouth funnel, Plenum to ITB)
@@ -53,12 +63,28 @@ class EqTubeConfig(BaseModel):
     # Equalization tube (Gleichdruckrohr). Promoted from OPENWAM_EQ_* / OPENWAM_NO_EQTUBE
     # / OPENWAM_EQ_CHAIN. Defaults reproduce the validated Stage-35/56 plenum model.
     enabled: bool = True
-    model: str = "plenum"           # "plenum" (validated) | "chain" (continuous balance tube)
+    model: str = "plenum"           # "plenum" (validated) | "chain" | "rail" (measured car:
+                                    # ICV-vented common rail; PLAN_PARTLOAD_CALIBRATION.md)
     stub_diameter: float = 30.0     # mm (phi30 is the smallest stable area ratio; phi10 NaN'd)
     stub_length: float = 75.0       # mm (per-cylinder stub base length)
     stub_friction: float = 0.02     # part-throttle resonance damping
     volume_scale: float = 1.0       # central-plenum (141cc) acoustic-coupling scale
     mistune_spread: float = 0.0     # per-cyl stub-length half-spread (detunes cyl-2 collapse)
+    # --- "rail" model (measured 2026-07): a phi21x570mm common rail taps all six
+    # runners and returns to the MAIN PLENUM via a phi21x250mm hose through the
+    # ICV (idle valve) -- a throttle-bypass path, i.e. the physical low-load
+    # effective-area lever (Stage 49 gap). Tap diameter defaults to the phi30
+    # NUMERICAL floor (phi52:phi21 = 6.1:1 area ratio exceeds the ~3:1 Type-12
+    # stability limit, Stage 35); the physical phi21 stays available for A/B.
+    rail_diameter: float = 21.0        # mm common-rail inner diameter
+    rail_length: float = 570.0         # mm tap-1..tap-6 span (5 segments)
+    rail_tap_diameter: float = 30.0    # mm numerical stability floor (physical: 21)
+    rail_tap_length: float = 30.0      # mm runner-tee -> rail-tee stub
+    return_pipe_diameter: float = 21.0 # mm rubber return hose
+    return_pipe_length: float = 250.0  # mm
+    return_tap: str = "center"         # "center" | "cyl1_end" | "cyl6_end"
+    icv_sigma: float = 0.15            # ICV effective open-area ratio (of the return
+                                       # pipe bore); FIT parameter (Phase 4A), not measured
 
 class IntakeConfig(BaseModel):
     type: str = "CSL Replica"
