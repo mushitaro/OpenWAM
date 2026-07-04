@@ -134,11 +134,18 @@ class SimulationService:
         alpha, w, _thr = calib.mouth_rad(cal)
         rad_off = os.environ.get("OPENWAM_MOUTH_RAD_OFF")
         rad_explicit = os.environ.get("OPENWAM_MOUTH_RAD")
+        pl_alpha = calib.part_load_alpha(cal)
         if rad_explicit is not None:
             env["OPENWAM_MOUTH_RAD"] = rad_explicit
             env["OPENWAM_MOUTH_RAD_W"] = os.environ.get("OPENWAM_MOUTH_RAD_W", str(w))
         elif is_wot and not rad_off:
             env["OPENWAM_MOUTH_RAD"] = str(alpha)      # §3.2 monostabilize WOT
+            env["OPENWAM_MOUTH_RAD_W"] = str(w)
+        elif not is_wot and pl_alpha is not None and not rad_off:
+            # Phase 4D: opt-in part-load damping (calibration.json
+            # mouth_rad.part_load_alpha; null = legacy no-damping). MOUTH_RAD is
+            # in _RESULT_ENV, so the deck-cache key stays correct.
+            env["OPENWAM_MOUTH_RAD"] = str(pl_alpha)
             env["OPENWAM_MOUTH_RAD_W"] = str(w)
         return env
 
@@ -304,10 +311,51 @@ class SimulationService:
             rpms = [r for r in rpms if int(r) in want] or rpms
         loads_all = [float(l) for l in load_axis]
         loads = [100.0] if mode == "wot_quick" else loads_all
+        # CSL_LOAD_SUBSET: value list ("20,45,100") or ">=10" (the calibration
+        # target rows: ICV duty control makes <10% un-fittable, plan §0.3-6).
+        _lsub = os.environ.get("CSL_LOAD_SUBSET")
+        if _lsub and mode != "wot_quick":
+            _l = _lsub.strip()
+            if _l.startswith(">="):
+                thr = float(_l[2:])
+                loads = [l for l in loads if l >= thr] or loads
+            else:
+                lwant = {float(x) for x in _l.split(",") if x.strip()}
+                loads = [l for l in loads if l in lwant] or loads
         loads = [l for l in loads if l in loads_all] or loads
 
         stock = M.load_stock_wot(self.data_dir)
         stock_axis = M.stock_on_axis(rpms, stock)
+
+        _kf = maps.get("kf_rf_soll", {})
+
+        def _kf_stock(rpm, load):
+            """Part-load stock VE% from the ECU fill-target map (nearest cell)."""
+            kx, ky, kv = _kf.get("x_axis"), _kf.get("y_axis"), _kf.get("values")
+            if not (kx and ky and kv):
+                return None
+            xi = min(range(len(kx)), key=lambda i: abs(kx[i] - rpm))
+            yi = min(range(len(ky)), key=lambda i: abs(ky[i] - load))
+            try:
+                return float(kv[yi][xi]) * 100.0
+            except (IndexError, TypeError, ValueError):
+                return None
+
+        def _sha1(x):
+            return (hashlib.sha1(json.dumps(x, sort_keys=True).encode())
+                    .hexdigest()[:10] if x else None)
+
+        _alpha, _w, _ = calib.mouth_rad(cal)
+        _calib_log = {
+            "schema_version": cal.get("schema_version", 1),
+            "alpha": _alpha, "w": _w,
+            "thr_choke": cal.get("thr_choke", 1),
+            "part_load_alpha": calib.part_load_alpha(cal),
+            "icv_sigma": calib.icv_sigma(cal),
+            "thr_sigma_sha1": _sha1(calib.thr_sigma_points(cal)),
+            "exvanos_surface_sha1": _sha1(
+                (cal.get("exvanos_base") or {}).get("surface")),
+        }
 
         total = len(rpms) * len(loads)
         done = {"n": 0}
@@ -345,11 +393,18 @@ class SimulationService:
                         ayi = min(range(len(a_y)), key=lambda i: abs(a_y[i] - load_tps))
                         exhaust_cam = a_vals[ayi][ai]
                         env_b = os.environ.get("OPENWAM_EXVANOS_BASE")
-                        ex_base = float(env_b) if env_b else calib.exvanos_base_for(cal, rpm, is_wot)
+                        ex_base = float(env_b) if env_b else calib.exvanos_base_for(
+                            cal, rpm, is_wot, load=load_tps)
                         scale = float(os.environ.get("OPENWAM_EXVANOS_SCALE", str(ex_scale)))
                         point_config.engine.vanos_exhaust_bias = float((ex_base - exhaust_cam) * scale)
                 except Exception:
                     pass
+
+                # fitted ICV effective area (env > calibration.json > SimConfig;
+                # deck-baked, so the deck cache keys stay correct by content)
+                _icv = calib.icv_sigma(cal)
+                if _icv is not None:
+                    point_config.intake.eq_tube.icv_sigma = _icv
 
                 # --- generate deck (WOT uses the validated 20deg BTDC) & run ---
                 sub = f"{model_name}_{run_id}_{int(rpm)}_{int(load_tps)}"
@@ -357,6 +412,8 @@ class SimulationService:
                 wam_path = os.path.join(self.simulator_dir, wam_filename)
                 log_path = os.path.join(self.simulator_dir, sub + ".log")
                 gen = WAMGenerator(point_config, self.simulator_dir)
+                # calibrated sigma(pedal) table (deck-baked operating angle)
+                gen._sigma_bp = calib.thr_sigma_points(cal)
                 content = gen.generate(ignition_timing=20.0) if is_wot else gen.generate()
                 with open(wam_path, "w") as f:
                     f.write(content)
@@ -411,7 +468,15 @@ class SimulationService:
                 nan_free = ("nan" not in output.lower()) and math.isfinite(mass_g) and mass_g > 0
                 ve_in_band = M.VE_BAND[0] <= ve <= M.VE_BAND[1]
                 valid = bool(converged and cyl_ok and ve_in_band and nan_free and not blew_up)
-                ve_stock = stock_axis[rpms.index(rpm)] if abs(load_tps - 100.0) < 0.5 else None
+                # stock target: WOT row = measured wideband; part load = the ECU
+                # fill-target map kf_rf_soll (narrowband+log provenance) -- this
+                # activates the per-row shape metrics on every part-load row.
+                if abs(load_tps - 100.0) < 0.5:
+                    ve_stock = stock_axis[rpms.index(rpm)]
+                    stock_source = "wideband"
+                else:
+                    ve_stock = _kf_stock(rpm, load_tps)
+                    stock_source = "ecu_map" if ve_stock is not None else None
 
                 health = {
                     "converged": bool(converged),
@@ -428,6 +493,7 @@ class SimulationService:
                     "rpm": rpm, "tps": load_tps,
                     "ve_sim": round(ve, 2),
                     "ve_stock": (round(ve_stock, 2) if ve_stock is not None else None),
+                    "stock_source": stock_source,
                     "mass_mg": round(mass_mg, 4),
                     "power_kw": round((mass_mg * rpm / 10000.0) * 1.5, 2),
                     "health": health,
@@ -439,8 +505,7 @@ class SimulationService:
                         "schema_version": 1,
                         "sim_binary_sig": sim_sig,
                         "sim_code_commit": code_commit,
-                        "calib": {"alpha": calib.mouth_rad(cal)[0], "w": calib.mouth_rad(cal)[1],
-                                  "thr_choke": cal.get("thr_choke", 1)},
+                        "calib": _calib_log,
                         "geometry": geometry,
                         "op": {"rpm": rpm, "load_tps": load_tps},
                         "vanos": {
@@ -455,8 +520,9 @@ class SimulationService:
                             "converged": bool(converged),
                             "slope": health["slope"], "cyc": ncyc, "blew_up": bool(blew_up),
                         },
-                        "measured": ({"ve": round(ve_stock, 3), "source": "wideband",
-                                      "confidence": 1.0} if ve_stock is not None else None),
+                        "measured": ({"ve": round(ve_stock, 3), "source": stock_source,
+                                      "confidence": (1.0 if stock_source == "wideband" else 0.7)}
+                                     if ve_stock is not None else None),
                         "meta": {"user_hash": "local", "engine_hash": engine_hash,
                                  "ts": datetime.datetime.now().isoformat(timespec="seconds"),
                                  "app_version": APP_VERSION, "run_id": run_id},
@@ -512,6 +578,19 @@ class SimulationService:
             healths = [cells[li][ri]["health"] for ri in range(len(rpms))]
             rows.append(M.row_metrics(l, sim_row, stock_row, rpms, healths))
 
+        # cross-row load-profile metric (§5 #8): needs the load=100 row of THIS
+        # run; injected into each part-load row and folded into its status.
+        if len(loads) > 1 and 100.0 in loads:
+            wi = loads.index(100.0)
+            for li, l in enumerate(loads):
+                if li == wi or l >= wot_thr:
+                    continue
+                dp = M.wot_ratio_maxdp_row(cells[li], cells[wi])
+                rows[li]["wot_ratio_maxdp"] = None if dp is None else round(dp, 4)
+                if dp is not None:
+                    rows[li]["status"] = M.status_worst(rows[li]["status"],
+                                                        M.dp_status(dp))
+
         overall = M.overall(rows, flat)
         stock_curve = [{"rpm": r, "ve": round(v, 2)}
                        for r, v in zip(rpms, stock_axis) if v is not None]
@@ -521,7 +600,7 @@ class SimulationService:
             "mode": mode,
             "run_id": run_id,
             "sim_binary_sig": sim_sig,
-            "calib": {"alpha": calib.mouth_rad(cal)[0], "w": calib.mouth_rad(cal)[1]},
+            "calib": _calib_log,
             "axes": {"rpm": rpms, "load": loads},
             "cells": cells,
             "rows": rows,
@@ -596,11 +675,19 @@ class SimulationService:
                 ai = min(range(len(a_x)), key=lambda i: abs(a_x[i] - rpm))
                 ayi = min(range(len(a_y)), key=lambda i: abs(a_y[i] - load))
                 env_b = os.environ.get("OPENWAM_EXVANOS_BASE")
-                ex_base = float(env_b) if env_b else calib.exvanos_base_for(cal, rpm, is_wot)
+                ex_base = float(env_b) if env_b else calib.exvanos_base_for(
+                    cal, rpm, is_wot, load=load)
                 scale = float(os.environ.get("OPENWAM_EXVANOS_SCALE", str(ex_scale)))
                 point_config.engine.vanos_exhaust_bias = float((ex_base - a_vals[ayi][ai]) * scale)
         except Exception:
             pass
+
+        # fitted ICV area / sigma(pedal) -- identical to the map path so the
+        # waveform reflects the same calibrated deck as the cell it explains
+        _icv = calib.icv_sigma(cal)
+        if _icv is not None:
+            point_config.intake.eq_tube.icv_sigma = _icv
+        _sigma_bp = calib.thr_sigma_points(cal)
 
         n_cyc = self._WAVE_N_CYC
 
@@ -610,12 +697,14 @@ class SimulationService:
         # monitor only the pipes we actually return: intake runners + exhaust
         # ports + collector outlets (one wave per cylinder + collector).
         _disc = WAMGenerator(point_config, self.simulator_dir)
+        _disc._sigma_bp = _sigma_bp
         _disc.generate(ignition_timing=20.0) if is_wot else _disc.generate()
         pipe_labels = {pid: _disc.pipes[pid].get("label", f"pipe{pid}") for pid in _disc.pipes}
         _keep = re.compile(r"^(Runner_Lower_\d+|Port_Ex_\d+_1|Col_Out_)")
         mon_pids = sorted(pid for pid, lab in pipe_labels.items() if _keep.match(lab))
 
         gen = WAMGenerator(point_config, self.simulator_dir)
+        gen._sigma_bp = _sigma_bp
         gen._fast_output_override = False                  # pipe monitoring ON
         # duration line = "<INS angular period, deg> <run length, cycles>". Token1
         # is the instantaneous SAMPLING STEP in degrees (fixed 1.0 -> rpm-independent

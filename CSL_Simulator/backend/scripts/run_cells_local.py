@@ -122,6 +122,12 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         cycles = int(job.get("cycles", args.cycles))
         cfg = build_config(job, cycles)
 
+        # mirror the app's calibration injection (priority: explicit job set >
+        # calibration.json > SimConfig default) so fit steps compose like the app
+        _icv = calib.icv_sigma(cal)
+        if _icv is not None and "intake.eq_tube.icv_sigma" not in (job.get("set") or {}):
+            cfg.intake.eq_tube.icv_sigma = _icv
+
         # --- VANOS coordination (identical to run_ve_map_generation) --------
         intake_base = calib.intake_vanos_base(cal)
         ex_scale = calib.exvanos_scale(cal)
@@ -260,22 +266,44 @@ def parse_jobs(args):
     return jobs
 
 
-async def amain(args):
+class _RunOpts:
+    def __init__(self, cycles=30, conc=None, timeout=900):
+        self.cycles = cycles
+        self.conc = conc or max(1, min(12, (os.cpu_count() or 8) - 1))
+        self.timeout = timeout
+
+
+async def run_all(jobs, csv_path, cycles=30, conc=None, timeout=900):
+    """Programmatic entry (fit_partload.py): run jobs, append to csv, resume by
+    job id. Returns ALL rows for these jobs read back from the csv."""
     os.environ["OPENWAM_FAST_OUTPUT"] = "1"   # deck-side (matches the app Run path)
+    opts = _RunOpts(cycles=cycles, conc=conc, timeout=timeout)
     svc = SimulationService(data_dir=DATA_DIR, simulator_dir=SIM_DIR)
     cal = calib.load(DATA_DIR)
-    jobs = parse_jobs(args)
-    done = done_ids(args.csv)
+    done = done_ids(csv_path)
     todo = [j for j in jobs if job_id(j) not in done]
     print(f"# {len(jobs)} jobs, {len(jobs)-len(todo)} done, {len(todo)} to run "
-          f"(conc={args.conc}, cycles={args.cycles})", flush=True)
-    sem = asyncio.Semaphore(args.conc)
+          f"(conc={opts.conc}, cycles={opts.cycles})", flush=True)
+    sem = asyncio.Semaphore(opts.conc)
     lock = asyncio.Lock()
-    tasks = [asyncio.create_task(run_job(svc, cal, sem, j, args, lock, args.csv))
+    tasks = [asyncio.create_task(run_job(svc, cal, sem, j, opts, lock, csv_path))
              for j in todo]
     for t in asyncio.as_completed(tasks):
         await t
-    print("# sweep complete")
+    print("# sweep complete", flush=True)
+    want = {job_id(j) for j in jobs}
+    rows = []
+    with open(csv_path, newline="") as f:
+        for row in csv.DictReader(f):
+            if row.get("id") in want:
+                rows.append(row)
+    return rows
+
+
+async def amain(args):
+    jobs = parse_jobs(args)
+    await run_all(jobs, args.csv, cycles=args.cycles, conc=args.conc,
+                  timeout=args.timeout)
 
 
 def main():

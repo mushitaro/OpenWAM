@@ -15,6 +15,7 @@ import os
 # ---- traffic-light thresholds (verbatim from §5) ---------------------------
 R_GREEN, R_YELLOW = 0.95, 0.85               # shape correlation
 ERR_GREEN, ERR_YELLOW = 0.05, 0.12           # max normalized shape error
+DP_GREEN, DP_YELLOW = 0.05, 0.12             # wot_ratio_maxdp (§5 metric #8)
 VE_BAND = (30.0, 160.0)                       # sane VE band; >300 = blow-up
 VE_BLOWUP = 300.0
 SLOPE_TOL = 0.3                               # |dVE/dcycle| convergence
@@ -114,6 +115,45 @@ def tilt(curve, rpm_axis):
     if overall == 0:
         return float("nan")
     return (sum(hi) / len(hi) - sum(lo) / len(lo)) / overall
+
+
+# ---- cross-row load-profile metric (§5 metric #8) ---------------------------
+def _health_ok(h):
+    return bool(h.get("converged") and h.get("cyl_ok") and h.get("ve_in_band"))
+
+
+def wot_ratio_maxdp_row(cells_row, wot_cells_row):
+    """max over rpm of |sim/sim_WOT - stock/stock_WOT| for one part-load row.
+
+    The WOT-ratio removes the absolute per-rpm level (provenance: the part-load
+    target kf_rf_soll is narrowband+log = shape-only), leaving the LOAD-PROFILE
+    error. Uses only rpms where BOTH the part-load and the WOT cell pass the
+    health gates and both stock targets exist. None when no rpm qualifies (the
+    health gate already reddens such a row).
+    """
+    worst = None
+    for c, w in zip(cells_row, wot_cells_row):
+        if not c or not w:
+            continue
+        if not (_health_ok(c.get("health", {})) and _health_ok(w.get("health", {}))):
+            continue
+        s, k = c.get("ve_sim"), c.get("ve_stock")
+        sw, kw = w.get("ve_sim"), w.get("ve_stock")
+        if s is None or k is None or not sw or not kw:
+            continue
+        d = abs(s / sw - k / kw)
+        worst = d if worst is None else max(worst, d)
+    return worst
+
+
+def dp_status(dp):
+    if dp is None or (isinstance(dp, float) and math.isnan(dp)):
+        return "green"          # no qualifying rpm -> health gate carries it
+    if dp <= DP_GREEN:
+        return "green"
+    if dp <= DP_YELLOW:
+        return "yellow"
+    return "red"
 
 
 # ---- stock (measured) target ------------------------------------------------

@@ -1,0 +1,4 @@
+id,tag,rpm,load,base,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+75168aa7fa7e,phase0-legacy,5300,65.0,150.0,,,,{},90.23,107.3,0.8409,29,0.6509,0,1,0.0047,0,1,0,0,186.7
+8585ec01e743,phase0-legacy,5300,45.0,150.0,,,,{},81.37,101.9,0.7985,25,0.1541,1,1,0.0101,0,1,0,1,189.9
+73a199df31f3,phase0-legacy,5300,20.0,150.0,,,,{},44.43,83.9,0.5295,26,0.2634,1,1,0.0032,0,1,0,1,246.2

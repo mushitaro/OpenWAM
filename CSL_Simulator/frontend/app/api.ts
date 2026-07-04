@@ -259,6 +259,7 @@ export interface VeCell {
     tps: number;
     ve_sim: number;
     ve_stock: number | null;
+    stock_source?: "wideband" | "ecu_map" | null;  // WOT = measured wideband; part load = kf_rf_soll
     mass_mg: number;
     power_kw: number;
     health: CellHealth;

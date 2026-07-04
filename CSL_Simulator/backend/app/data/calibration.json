@@ -1,15 +1,27 @@
 {
-  "schema_version": 1,
-  "_comment": "PROVISIONAL model-calibration scaffold (UX_APP_DEV_SPEC.md §4.C / §10). These are FOLDABLE constants, NOT final physics. EXVANOS_BASE(rpm) was fitted at the 268/264 cams; the engine was since corrected to the stock 260/260 cams and real measured intake dimensions are pending, so this fit MUST be re-fitted. The UX (dims -> Run -> metrics -> Tune -> export) does NOT depend on these final values, only on the model being stable/sweepable. Each Run record logs the calib block (alpha,w) so a future re-fit is traceable. Env vars (OPENWAM_MOUTH_RAD / _W / OPENWAM_EXVANOS_BASE / _SCALE) still override at runtime for studies.",
+  "schema_version": 2,
+  "_comment": "Model-calibration constants (UX_APP_DEV_SPEC.md 4.C/10; schema v2 per PLAN_PARTLOAD_CALIBRATION.md 4.0). All null/absent fit fields = LEGACY behaviour, so this schema lands BEFORE the fits. thr_sigma.points / icv.sigma / exvanos_base.surface are written by scripts/fit_partload.py (atomic tmp+replace, with fit_meta provenance); mouth_rad.alpha and exvanos_base.wot_base_stable are re-fitted in Phase 3 on the measured geometry. Env vars (OPENWAM_MOUTH_RAD/_W, OPENWAM_EXVANOS_BASE/_SCALE, OPENWAM_THR_SIGMA_BP, OPENWAM_ICV_SIGMA) still override at runtime for studies.",
   "mouth_rad": {
     "alpha": 0.4,
     "w": 0.005,
-    "wot_tps_threshold": 85.0
+    "wot_tps_threshold": 85.0,
+    "part_load_alpha": null
   },
   "thr_choke": 1,
   "intake_vanos_base": 130.0,
+  "thr_sigma": {
+    "_comment": "Calibrated pedal->sigma breakpoints (Phase 4B). Lives HERE, not in ThrottleConfig: it is a fitted, run-traceable, foldable calibration curve (ThrottleConfig keeps only the physical offset/gamma). Anchors: 0.0->0.001 and 1.0->0.96 keep the closed/WOT terminations unchanged. enabled=false or null sigmas -> geometric legacy path.",
+    "enabled": false,
+    "points": [[0.0, 0.001], [0.20, null], [0.30, null], [0.45, null], [0.65, null], [0.85, null], [1.0, 0.96]],
+    "fit_meta": null
+  },
+  "icv": {
+    "_comment": "Fitted ICV effective open-area ratio (Phase 4A; rail model only). null -> SimConfig intake.eq_tube.icv_sigma default. Physically the ICV is ECU duty-cycle controlled (risk R3): we fit ONE constant for loads >= 10% and do NOT table it.",
+    "sigma": null,
+    "fit_meta": null
+  },
   "exvanos_base": {
-    "_comment": "FOLDED to the stable datum for M1 (§4.C 'foldable scaffold'). The per-rpm WOT shape-fit `points` below was fitted at 268-deg cams and is now STALE (cams corrected to 260; it destabilizes 3900 -> diverges at cyc ~23). use_stale_shape_fit=false folds EXVANOS_BASE to wot_base_stable=150 (the validated-stable baseline), so the model is stable/sweepable. Shape won't fully match stock until the real-geometry re-fit (M2); re-enable the shape-fit then.",
+    "_comment": "WOT: folded stable datum wot_base_stable (per-rpm points table is the STALE 268-cam fit, kept only for reference; use_stale_shape_fit=false). Part load: surface {rpms, loads, values[load][rpm]} bilinear (Phase 4C fit; its load=100 row is anchored to the WOT fit) or part_load_const when null. is_wot short-circuits to the WOT datum, so the validated WOT row cannot regress from part-load fitting.",
     "fit_cam_deg": 268,
     "stale": true,
     "use_stale_shape_fit": false,
@@ -23,6 +35,7 @@
       [5300, 160.0],
       [6300, 160.0],
       [6900, 160.0]
-    ]
+    ],
+    "surface": null
   }
 }

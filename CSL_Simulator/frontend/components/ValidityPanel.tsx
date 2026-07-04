@@ -52,6 +52,7 @@ const ValidityPanel: React.FC<{ overall: RunOverall; rows: RunRow[] }> = ({ over
                             <th className="p-1.5">load</th>
                             <th className="p-1.5">r</th>
                             <th className="p-1.5">shapeErr</th>
+                            <th className="p-1.5">maxΔp</th>
                             <th className="p-1.5">peak</th>
                             <th className="p-1.5">range s/k</th>
                             <th className="p-1.5">tilt s/k</th>
@@ -66,6 +67,7 @@ const ValidityPanel: React.FC<{ overall: RunOverall; rows: RunRow[] }> = ({ over
                                 <td className="p-1.5">{row.load}%</td>
                                 <td className={`p-1.5 ${TEXT[statusOf(row.r, 0.95, 0.85, true)]}`}>{fmt(row.r)}</td>
                                 <td className={`p-1.5 ${TEXT[statusOf(row.max_shape_err, 0.05, 0.12, false)]}`}>{fmt(row.max_shape_err)}</td>
+                                <td className={`p-1.5 ${row.wot_ratio_maxdp == null ? "text-slate-600" : TEXT[statusOf(row.wot_ratio_maxdp, 0.05, 0.12, false)]}`}>{fmt(row.wot_ratio_maxdp)}</td>
                                 <td className="p-1.5">{row.peak_match == null ? "—" : row.peak_match ? "✓" : "✗"}</td>
                                 <td className="p-1.5">{fmt(row.range_sim_pp, 1)}/{fmt(row.range_stock_pp, 1)}</td>
                                 <td className="p-1.5">{fmt(row.tilt_sim, 2)}/{fmt(row.tilt_stock, 2)}</td>
