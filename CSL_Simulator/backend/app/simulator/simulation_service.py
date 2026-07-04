@@ -162,7 +162,7 @@ class SimulationService:
                 for c in range(n)]
 
     async def _run_solver(self, exe, wam_filename, cwd, env, log_path, deck_text,
-                          timeout=900, min_cyc=25, slope_thresh=0.3, patience=2, poll=4.0,
+                          timeout=1800, min_cyc=25, slope_thresh=0.3, patience=2, poll=4.0,
                           early_stop=True, no_cache=False):
         """Run the solver with the Stage-56 speed levers: slope-based EARLY STOP
         (kill once |dVE/dcyc| over the last 5 cycles < slope_thresh for `patience`

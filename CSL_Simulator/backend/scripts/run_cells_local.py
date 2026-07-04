@@ -328,7 +328,7 @@ def main():
                     help="OPENWAM_MOUTH_RAD for ALL cells ('off' disables)")
     ap.add_argument("--again", type=float, default=None)
     ap.add_argument("--tag", default="")
-    ap.add_argument("--cycles", type=int, default=30)
+    ap.add_argument("--cycles", type=int, default=60)
     ap.add_argument("--conc", type=int, default=max(1, min(12, (os.cpu_count() or 8) - 1)))
     ap.add_argument("--timeout", type=int, default=900)
     args = ap.parse_args()

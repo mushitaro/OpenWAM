@@ -276,15 +276,15 @@ class EnvironmentConfig(BaseModel):
 class SimulationConfig(BaseModel):
     openwam_version: int = 2200
     step_size: float = 1.0 # degrees
-    # Engine cycles to run. The intake VE does NOT settle in a handful of cycles:
-    # the airbox + equalization-tube plenums and the cylinder residual take ~25-30
-    # cycles to reach steady breathing (the startup hot-charge transient decays
-    # asymptotically -- trapped mass at 5300 rpm climbs from ~0.53 g at cycle 6 to
-    # ~0.62 g/97% VE by cycle ~29). A default of 10 reports a badly under-converged
-    # VE (~65-70% of the true value). 30 lands within ~1% of the converged VE.
+    # Engine cycles to run (the deck's HARD CAP -- convergence is judged by the
+    # VE slope and the runner early-stops well before this when settled). The
+    # legacy geometry converged in ~25-30 cycles; the MEASURED geometry (22.9L
+    # plenum + rail) needs up to ~45-50 at WOT (2700 b130: cyc43, 3900 b130:
+    # cyc45), so 30 truncated every WOT cell un-converged. 60 is the safe cap;
+    # thanks to the slope early-stop, converged cells cost the same as before.
     # (The transient runner overrides this from duration_sec; this default only
-    # applies to steady, direct-SimConfig use.) Stage 36.
-    duration_cycles: int = 30
+    # applies to steady, direct-SimConfig use.) Stage 36 -> Stage 57.
+    duration_cycles: int = 60
 
 class SimConfig(BaseModel):
     simulation: SimulationConfig = SimulationConfig()
