@@ -545,6 +545,22 @@ export const uploadBinary = async (file: File): Promise<any> => {
     }
 };
 
+// Base VE map (kf_rf_soll shape): ECU relative-charge target, fractional values.
+export interface EcuVeMap { x_axis: number[]; y_axis: number[]; values: number[][]; }
+
+// Base VE map extracted from the currently-uploaded BIN (the per-vehicle
+// ground truth). Returns null when no BIN is uploaded (404) or on any error,
+// so callers fall back to the repo kf_rf_soll (via fetchMaps).
+export const fetchBinVeMap = async (): Promise<EcuVeMap | null> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/binary/ve_map`);
+        if (!response.ok) return null;
+        return (await response.json()) as EcuVeMap;
+    } catch {
+        return null;
+    }
+};
+
 export const patchBinary = async (optimizationConfig: any): Promise<any> => {
     try {
         const response = await fetch(`${API_BASE_URL}/binary/patch`, {

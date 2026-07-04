@@ -5,7 +5,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { Play, Activity, Settings2, Info, Wrench, BarChart2, Save, Upload, Download, History, Square, FileSpreadsheet } from "lucide-react";
-import { runTuning, fetchLastTuning, runSimulation, fetchLastRun, cancelRuns, CalibrationResponse, RunResponse, OptimizationResponse, SimConfig, WS_BASE_URL, downloadMeasurementSheet, importMeasurementSheet, SheetImportResult } from "../app/api";
+import { runTuning, fetchLastTuning, runSimulation, fetchLastRun, cancelRuns, fetchMaps, fetchBinVeMap, CalibrationResponse, RunResponse, OptimizationResponse, SimConfig, EcuVeMap, WS_BASE_URL, downloadMeasurementSheet, importMeasurementSheet, SheetImportResult } from "../app/api";
 import VETableComparison from "./VETableComparison";
 import BinaryPatchManager from "./BinaryPatchManager";
 import SimulationDebugPanel from "./SimulationDebugPanel";
@@ -17,15 +17,31 @@ import VeSurfaceChart from "./VeSurfaceChart";
 import VeWaveformChart from "./WaveformChart";
 import TuningResults from "./TuningResults";
 
+// Nearest-breakpoint lookup into an ECU VE map (kf_rf_soll shape). The run axes
+// ARE the map's axes for this engine, so nearest == exact. Values are fractional
+// (1.202 = 120.2 %) -> multiply by 100 to match VE% used everywhere else.
+const nearestIdx = (axis: number[], v: number) =>
+    axis.reduce((best, a, i) => (Math.abs(a - v) < Math.abs(axis[best] - v) ? i : best), 0);
+function ecuBaseAt(map: EcuVeMap | null, rpm: number, load: number): number | null {
+    if (!map?.values?.length) return null;
+    const val = map.values?.[nearestIdx(map.y_axis, load)]?.[nearestIdx(map.x_axis, rpm)];
+    return typeof val === "number" ? val * 100 : null;
+}
+
 // Adapt the structured RunResponse into the matrix shape VETableComparison expects
-// ([loadRow][rpmCol]). Off-WOT rows have no measured stock -> 0 / corr 1.
-function runToCalibration(run: RunResponse): CalibrationResponse {
+// ([loadRow][rpmCol]). Base resolution per cell: ECU base map (uploaded BIN, else
+// repo kf_rf_soll) -> measured WOT stock -> 0. This fills the part-load Base VE /
+// Correction that measured data alone leaves at 0. §5 validity is untouched (it
+// reads ve_stock server-side); this is display-only.
+function runToCalibration(run: RunResponse, baseMap: EcuVeMap | null): CalibrationResponse {
     const rpm = run.axes.rpm;
     const load = run.axes.load;
+    const baseAt = (c: RunResponse["cells"][number][number]) =>
+        ecuBaseAt(baseMap, c.rpm, c.tps) ?? c.ve_stock ?? null;
     const sim = run.cells.map((row) => row.map((c) => c.ve_sim));
-    const target = run.cells.map((row) => row.map((c) => (c.ve_stock ?? 0)));
+    const target = run.cells.map((row) => row.map((c) => baseAt(c) ?? 0));
     const correction = run.cells.map((row) =>
-        row.map((c) => (c.ve_stock && c.ve_stock > 0 ? c.ve_sim / c.ve_stock : 1)));
+        row.map((c) => { const b = baseAt(c); return b && b > 0 ? c.ve_sim / b : 1; }));
     return { curve: [], matrix: { rpm, load, target, sim, correction } } as CalibrationResponse;
 }
 
@@ -72,6 +88,22 @@ const VehicleBuilder = () => {
         } catch { /* backend not up yet */ }
         return () => { try { ws?.close(); } catch { } };
     }, []);
+
+    // Base VE map source: prefer the uploaded BIN's KF_RF_SOLL (per-vehicle
+    // ground truth), fall back to the repo kf_rf_soll. Feeds the part-load Base
+    // VE / Correction table (display only; §5 validity reads ve_stock server-side
+    // and is unaffected). Refreshed on mount and after a BIN upload.
+    const [ecuBaseMap, setEcuBaseMap] = useState<EcuVeMap | null>(null);
+    const refreshBaseMap = async () => {
+        const bin = await fetchBinVeMap();
+        if (bin?.values?.length) { setEcuBaseMap(bin); return; }
+        try {
+            const maps = await fetchMaps();
+            const rf = maps?.kf_rf_soll;
+            if (rf?.values?.length) setEcuBaseMap({ x_axis: rf.x_axis, y_axis: rf.y_axis, values: rf.values });
+        } catch { /* backend down -> base stays null -> per-cell falls back to ve_stock */ }
+    };
+    useEffect(() => { refreshBaseMap(); }, []);
 
     // Builder State
     const [selection, setSelection] = useState<SelectionType | null>({ type: "environment" });
@@ -842,7 +874,7 @@ const VehicleBuilder = () => {
                                             <ValidityPanel overall={runData.overall} rows={runData.rows} />
                                             <div className="h-72 flex-shrink-0"><VeOverlayChart runData={runData} /></div>
                                             <div className="min-h-[340px] flex-shrink-0">
-                                                <VETableComparison calibrationResult={runToCalibration(runData)} />
+                                                <VETableComparison calibrationResult={runToCalibration(runData, ecuBaseMap)} onBinUploaded={refreshBaseMap} />
                                             </div>
                                         </div>
                                     )}

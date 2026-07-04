@@ -220,6 +220,21 @@ async def get_topology(config: SimConfig):
 
 
 # --- Binary patcher (not on the M1 path; minimal upload/download) -----------
+def _extract_bin_ve_map():
+    """Extract the uploaded BIN's base VE map (KF_RF_SOLL, 0xD356, 24x20,
+    fractional rl-ratio) and pair it with the canonical axes from
+    csl_ecu_maps.json. The BIN's *values* are the per-vehicle ground truth;
+    the axes are fixed for the MSS54 CSL platform, so we reuse the repo axes
+    (avoids depending on the BIN axis-word scaling). Shape matches the repo
+    kf_rf_soll object so the frontend treats both identically."""
+    data = binary_service.read_binary(UPLOADED_BIN)
+    values = binary_service.read_table_generic(
+        data, binary_service.ADDR_VE_MAP, 24, 20, binary_service.VE_FACTOR)
+    with open(os.path.join(DATA_DIR, "csl_ecu_maps.json"), "r") as f:
+        ax = json.load(f).get("kf_rf_soll", {})
+    return {"x_axis": ax.get("x_axis", []), "y_axis": ax.get("y_axis", []), "values": values}
+
+
 @app.post("/binary/upload")
 async def binary_upload(file: UploadFile = File(...)):
     if binary_service is None:
@@ -227,7 +242,29 @@ async def binary_upload(file: UploadFile = File(...)):
     data = await file.read()
     with open(UPLOADED_BIN, "wb") as f:
         f.write(data)
-    return {"status": "ok", "filename": file.filename, "bytes": len(data)}
+    # Extract the base VE map so the frontend can use THIS BIN as the base
+    # reference immediately (falls back to None -> repo kf_rf_soll on the client).
+    ve_map = None
+    try:
+        ve_map = _extract_bin_ve_map()
+    except Exception as e:
+        print(f"WARN: BIN VE-map extraction failed: {e}")
+    return {"status": "ok", "filename": file.filename, "bytes": len(data), "ve_map": ve_map}
+
+
+@app.get("/binary/ve_map")
+async def binary_ve_map():
+    """Base VE map (KF_RF_SOLL) extracted from the currently-uploaded BIN.
+    Lets the frontend restore the BIN-sourced base after a reload. 404 when no
+    BIN has been uploaded -> client falls back to the repo kf_rf_soll."""
+    if binary_service is None:
+        raise HTTPException(status_code=503, detail="BinaryService unavailable")
+    if not os.path.exists(UPLOADED_BIN):
+        raise HTTPException(status_code=404, detail="no uploaded binary")
+    try:
+        return _extract_bin_ve_map()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"BIN VE-map extraction failed: {e}")
 
 
 @app.post("/binary/patch")

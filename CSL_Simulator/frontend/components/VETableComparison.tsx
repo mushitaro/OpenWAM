@@ -6,11 +6,14 @@ import { Upload, FileJson, X } from "lucide-react";
 
 interface VETableComparisonProps {
     calibrationResult: CalibrationResponse | null;
+    // Called after a BIN is uploaded so the parent can re-fetch the BIN-sourced
+    // base VE map and refresh the Base VE / Correction table immediately.
+    onBinUploaded?: () => void;
 }
 
 type ViewMode = 'target' | 'sim' | 'reference' | 'diff_target' | 'diff_ref' | 'correction';
 
-const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult }) => {
+const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult, onBinUploaded }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('correction');
     const [referenceData, setReferenceData] = useState<number[][] | null>(null);
     const [referenceName, setReferenceName] = useState<string | null>(null);
@@ -60,7 +63,9 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
             // Dynamically import API to avoid circular deps if any
             const { uploadBinary } = await import("../app/api");
             await uploadBinary(file);
-            alert(`Successfully uploaded ${file.name}. \nPlease 'Run Flow Simulation' to update the Base Map comparison.`);
+            // Pull the just-uploaded BIN's VE map into the base immediately.
+            onBinUploaded?.();
+            alert(`Successfully uploaded ${file.name}.\nBase VE / Correction now reference this BIN.`);
         } catch (error) {
             console.error(error);
             alert("Failed to upload binary.");
