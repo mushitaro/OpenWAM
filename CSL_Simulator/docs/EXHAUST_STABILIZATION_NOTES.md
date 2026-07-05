@@ -1,512 +1,251 @@
-# Exhaust port-merge stabilization — small-plenum approach (PARTIAL)
+# 排気ポート合流部の安定化 — 小プレナム方式(PARTIAL)
 
-_2026-05-29. Stage 2 of the exhaust NaN work (Stage 1 = `9d2b460`)._
+_2026-05-29。排気 NaN 対策の Stage 2(Stage 1 = `9d2b460`)。_
 
-## Problem
-The generator built each exhaust port-merge (2 valve ports + 1 primary header
-meeting at one node) as a **plenumless Type-12 Riemann junction**
-(`_create_branch_junction`). Under exhaust blowdown this junction diverged to
-NaN and aborted the run within ~3 % of the first cycle.
+## 問題
+ジェネレータは各排気ポート合流部(2 つのバルブポート + 1 本のプライマリヘッダが 1 つのノードで合流)を**プレナムレスの Type-12 リーマン・ジャンクション**(`_create_branch_junction`)として構築していた。排気ブローダウン下でこのジャンクションは NaN に発散し、初回サイクルの ~3 % 以内で実行を中断させていた。
 
-## Root cause (confirmed on Linux, clean run `base.log`, 4000 RPM / WOT)
-Failure chain:
-1. The cylinder→exhaust-valve boundary momentarily computes an unphysical
-   near-vacuum / cryogenic state — `INFO: Calculated pressure at E.O.:
-   0.100 bar`, `temperature at E.O.: −82.8 °C`. **This is the seed.**
-2. `Sonic condition in boundary: 51` (the cyl-3 exhaust-valve / port node).
-3. **Negative density** at the `Port_Ex_3` pipes' valve-side node
-   (`U[0] = −1.33e-04`); the `Transforma2Area` floored-density/pressure guards
-   catch it (these are the `floored non-physical …` warnings).
-4. Cascade to **NaN** at `Port_Ex_3_1/2` and `Header_3`.
+## 根本原因(Linux で確認、クリーン実行 `base.log`、4000 RPM / WOT)
+破綻の連鎖:
+1. 気筒→排気バルブ境界が一瞬、非物理的な準真空/極低温状態を計算する — `INFO: Calculated pressure at E.O.: 0.100 bar`、`temperature at E.O.: −82.8 °C`。**これがシードである。**
+2. `Sonic condition in boundary: 51`(気筒 3 の排気バルブ/ポートのノード)。
+3. `Port_Ex_3` パイプ群のバルブ側ノードで**負の密度**(`U[0] = −1.33e-04`)。`Transforma2Area` のフロア済み密度/圧力ガードがこれを捕捉する(これが `floored non-physical …` 警告)。
+4. `Port_Ex_3_1/2` と `Header_3` で **NaN** へカスケード。
 
-The Type-12 junction is an **amplifier** (one Riemann state shared by 3 pipe
-ends), but the **seed is the cylinder→exhaust-valve boundary**, upstream of it.
+Type-12 ジャンクションは**増幅器**(1 つのリーマン状態を 3 本のパイプ端が共有)だが、**シードはその上流にある気筒→排気バルブ境界**である。
 
-## What the small-plenum change does — and does not — fix
-Per-cylinder port-merge is now a small 0D plenum instead of a Type-12 junction.
+## 小プレナム変更が直すもの — 直さないもの
+気筒ごとのポート合流部は、Type-12 ジャンクションに代わって小型 0D プレナムになった。
 
-- `models.py`: `ExhaustConfig.port_junction_vol` (cc), default **20**.
-- `wam_generator.py`, `_generate_full_exhaust`: per-cylinder plenum
-  `PortJunc_Ex_{n}` of `port_junction_vol/1e6` m³ via
-  `_add_plenum(..., allow_small=True)`. The two `Port_Ex` pipes attach at
-  end 1, the `Header` at end 0, via `_add_con_plenum_pipe_v2` (now returns its
-  connection id). `allow_small=True` bypasses the global 50 cc clamp and uses a
-  0.1 cc absolute floor.
+- `models.py`: `ExhaustConfig.port_junction_vol`(cc)、デフォルト **20**。
+- `wam_generator.py` の `_generate_full_exhaust`: 気筒ごとのプレナム `PortJunc_Ex_{n}`(容積 `port_junction_vol/1e6` m³)を `_add_plenum(..., allow_small=True)` で生成。2 本の `Port_Ex` パイプは端 1 に、`Header` は端 0 に、`_add_con_plenum_pipe_v2`(接続 id を返すようになった)で接続する。`allow_small=True` はグローバルな 50 cc クランプをバイパスし、0.1 cc の絶対フロアを用いる。
 
-### Measured at 4000 RPM / WOT (60 s budget, ~3–6 % reached)
+### 4000 RPM / WOT での測定(60 s 予算、~3–6 % 到達)
 | port_junction_vol | BC-NaN | Sonic | floored | no-mass | abort |
 |---|---|---|---|---|---|
-| plenumless Type-12 (before) | hundreds → abort | flooding | many | — | — |
+| プレナムレス Type-12(変更前) | 数百 → 中断 | 多発 | 多数 | — | — |
 | **20 cc** | **8** | 0 | 40 | 0 | 0 |
 | 50 cc | 102 | 203 | 40 | 0 | 0 |
 | 100 cc | 44 | 0 | 40 | 0 | 0 |
 
-**Conclusions:**
-- The junction plenum is a large, real improvement (hundreds → single digits)
-  and **20 cc is the best volume** (bigger is not better — 50 cc is worse).
-- It is **NOT a complete fix**: a residual ~8 BC-NaN remain, and `floored = 40`
-  is **constant across all volumes**, which confirms the residual seed is
-  upstream of the junction — the **cylinder→exhaust-valve boundary** producing
-  negative density at the port's valve-side node (step 1 above), independent of
-  junction volume.
-- Plenums 7 → 13 (one per cylinder); pipes unchanged (75).
+**結論:**
+- ジャンクションプレナムは大きく実質的な改善(数百 → 1 桁)であり、**最良の容積は 20 cc**(大きいほど良いわけではない — 50 cc は悪化)。
+- **完全な修正ではない**: 残留 ~8 の BC-NaN が残り、`floored = 40` は**全容積で一定**。これは残留シードがジャンクションの上流にあることを裏付ける — ジャンクション容積とは無関係に、**気筒→排気バルブ境界**がポートのバルブ側ノードで負の密度を生成している(上記ステップ 1)。
+- プレナム数 7 → 13(気筒ごとに 1 個)。パイプ数は不変(75)。
 
-## Stage 3 (DONE, partial): fixed the seed — `ae8fb14`
-Confirmed the seed and fixed it at the source. Two commits beyond Stage 2:
+## Stage 3(DONE、部分的): シードを修正 — `ae8fb14`
+シードを確認し、発生源で修正した。Stage 2 以降の 2 コミット:
 
-### 3a. Cold-start cylinder over-expansion (the real seed)
-`INFO: Calculated ... at E.O.` instrumentation (4000 RPM/WOT, 6-cycle smoke)
-showed the cryogenic state is a **first-cycle startup artifact, not a steady
-defect**:
-- cyl 4, cycle 1: **0.100 bar / −82.8 °C (~190 K)** ← seed
-- cyl 1, cycle 2: **0.917 bar / +45 °C** ← already healthy
+### 3a. コールドスタート時の気筒過膨張(真のシード)
+`INFO: Calculated ... at E.O.` の計装(4000 RPM/WOT、6 サイクルスモーク)により、極低温状態は**定常的な欠陥ではなく初回サイクルの起動アーティファクト**であることが判明:
+- 気筒 4、サイクル 1: **0.100 bar / −82.8 °C(~190 K)** ← シード
+- 気筒 1、サイクル 2: **0.917 bar / +45 °C** ← すでに健全
 
-Root cause: OpenWAM imposes one initial condition (`P=1.013 bar, M=0.6 g`) on
-**every** cylinder regardless of its crank angle at t=0. A cylinder starting
-near TDC (tiny volume) holds an unphysically cold charge; its first expansion
-integrates to a near-vacuum. Fix (`TCilindro4T::ActualizaPropiedades`): floor
-the converged cylinder temperature to **250 K** and let the existing lines
-rebuild `P` and sound speed consistently. Real gas exchange never approaches
-the floor, so steady operation is untouched.
+根本原因: OpenWAM は t=0 のクランク角に関係なく、**すべての**気筒に単一の初期条件(`P=1.013 bar, M=0.6 g`)を課す。TDC 付近(微小容積)で開始する気筒は非物理的に低温の充填を保持し、その初回膨張が準真空まで積分される。修正(`TCilindro4T::ActualizaPropiedades`): 収束後の気筒温度を **250 K** でフロアし、既存の行に `P` と音速を整合的に再構築させる。実際のガス交換はこのフロアに近づくことがないため、定常運転は影響を受けない。
 
-### 3b. Density/pressure consistency clamp (`TTubo::Transforma2Area`)
-The Stage-1 density and pressure floors fire **independently**, so a cell could
-end up with floored density `~1e-8` yet a finite floored pressure — a
-thermodynamically inconsistent pair (implies ~infinite T) giving an
-astronomical sound speed, which collapsed the CFL timestep to ~6e-14 and
-aborted with "plenum too small". Fix: bound density from below for the current
-pressure so a floored vacuum cell has a physical sound speed (≤ ~1029 m/s),
-scaling species partial densities to preserve mass fractions.
+### 3b. 密度/圧力の整合性クランプ(`TTubo::Transforma2Area`)
+Stage-1 の密度フロアと圧力フロアは**独立に**発火するため、セルがフロア済み密度 `~1e-8` かつ有限のフロア済み圧力という状態になり得た — 熱力学的に不整合なペア(T ~無限大を意味する)が天文学的な音速を与え、CFL タイムステップを ~6e-14 まで潰し、"plenum too small" で中断していた。修正: 現在の圧力に対して密度を下から拘束し、フロア済みの真空セルが物理的な音速(≤ ~1029 m/s)を持つようにする。その際、質量分率を保存するよう化学種の部分密度をスケーリングする。
 
-### Measured effect (4000 RPM/WOT, 6-cycle smoke, `port_junction_vol=20`)
-| stage | BC-NaN | Sonic | abort timestep | failure mode |
+### 測定された効果(4000 RPM/WOT、6 サイクルスモーク、`port_junction_vol=20`)
+| ステージ | BC-NaN | Sonic | 中断時タイムステップ | 破綻モード |
 |---|---|---|---|---|
-| Stage 2 (seed unfixed) | 41 | 0 | — (timeout) | network-wide NaN incl. intake pipe 10 |
-| + 3a cold-start floor | 20 | 0 | 6.6e-14 | `plenum 7 too small` (CFL collapse) |
-| + 3b consistency clamp | **12** | 0 | **1.96e-7** | `StudyInflowOutflowMass` (cociente≥2) |
+| Stage 2(シード未修正) | 41 | 0 | —(タイムアウト) | 吸気パイプ 10 を含むネットワーク全域の NaN |
+| + 3a コールドスタートフロア | 20 | 0 | 6.6e-14 | `plenum 7 too small`(CFL 崩壊) |
+| + 3b 整合性クランプ | **12** | 0 | **1.96e-7** | `StudyInflowOutflowMass`(cociente≥2) |
 
-The intake cascade is **gone**; remaining NaN are local to the exhaust port
-nodes (pipes 45/46) and the abort is no longer NaN/CFL but the **0D junction
-plenum mass-flux limit** (`StudyInflowOutflowMass`, `TOpenWAM.cpp:2526`:
-mass into the 20cc plenum > 2× its mass in one step).
+吸気側のカスケードは**消滅**。残る NaN は排気ポートノード(パイプ 45/46)に局在し、中断はもはや NaN/CFL ではなく **0D ジャンクションプレナムの質量流束限界**(`StudyInflowOutflowMass`、`TOpenWAM.cpp:2526`: 1 ステップでの 20cc プレナムへの流入質量 > その保有質量の 2×)である。
 
-## Stage 4 (in progress): junction architecture — small-plenum vs plenumless
-The `cociente≥2` abort is intrinsic to a *tiny 0D plenum* absorbing blowdown
-flux; enlarging it hurts wave fidelity, and the small plenums also shrink the
-timestep so much the 480-point sweep was projected at **25–33 h @ 8×** (old
-pre-seed-fix data). A **plenumless Type-12 Riemann junction** has no
-mass-storage stability limit and no timestep penalty — it only diverged before
-because of the cold-start seed, which is now fixed.
+## Stage 4(進行中): ジャンクションアーキテクチャ — 小プレナム vs プレナムレス
+`cociente≥2` 中断は、ブローダウン流束を吸収する*微小 0D プレナム*に本質的なもの。拡大すれば波動忠実度が損なわれ、さらに小プレナムはタイムステップを大きく縮めるため、480 点スイープの見積りは **25–33 h @ 8×** だった(シード修正前の旧データ)。**プレナムレスの Type-12 リーマン・ジャンクション**には質量貯蔵の安定限界もタイムステップペナルティもない — 以前に発散したのはコールドスタートのシードが原因にすぎず、それは今や修正済みである。
 
-`wam_generator._generate_full_exhaust` now selects topology by
-`exhaust.port_junction_vol`:
-- `> 0`  → small 0D plenum per cylinder (Stage 2 behaviour);
-- `<= 0` → plenumless Type-12 (ports + header share one branch junction; plenum
-  count returns 13→7).
+`wam_generator._generate_full_exhaust` は `exhaust.port_junction_vol` でトポロジを選択するようになった:
+- `> 0`  → 気筒ごとの小型 0D プレナム(Stage 2 の挙動)。
+- `<= 0` → プレナムレス Type-12(ポート群 + ヘッダが 1 つの分岐ジャンクションを共有。プレナム数は 13→7 に戻る)。
 
-### A/B result (4000 RPM/WOT, 6-cycle, seed fixed) — plenumless WINS
-| topology | NaN | Sonic | abort | failure |
+### A/B 結果(4000 RPM/WOT、6 サイクル、シード修正済み)— プレナムレスの勝ち
+| トポロジ | NaN | Sonic | 中断 | 破綻 |
 |---|---|---|---|---|
-| small plenum 20cc | 12 | 0 | **yes** | `StudyInflowOutflowMass` (cociente≥2) |
-| small plenum 50cc | 102 | 203 | no | timestep crawl (133 h/sweep) |
-| small plenum 100cc | 44 | 0 | no | timestep crawl (133 h/sweep) |
-| small plenum 200cc | **0** | 0 | **yes** | `StudyInflowOutflowMass` |
-| **plenumless Type-12** | **0** | 135 (all guarded) | **none** | — (stable) |
+| 小プレナム 20cc | 12 | 0 | **あり** | `StudyInflowOutflowMass`(cociente≥2) |
+| 小プレナム 50cc | 102 | 203 | なし | タイムステップ低速化(133 h/sweep) |
+| 小プレナム 100cc | 44 | 0 | なし | タイムステップ低速化(133 h/sweep) |
+| 小プレナム 200cc | **0** | 0 | **あり** | `StudyInflowOutflowMass` |
+| **プレナムレス Type-12** | **0** | 135(すべてガード済み) | **なし** | —(安定) |
 
-The small-plenum approach aborts or crawls at *every* volume. Plenumless
-Type-12 is **stable with zero NaN and zero aborts** — the Stage-1
-`TCCRamificacion` guards (entropy-ratio fallback, sound-speed floor, guarded
-normal shock) handle the 135 sonic events cleanly, and the seed fix removed the
-NaN that originally motivated the plenum. **Decision: default to plenumless
-Type-12** (`port_junction_vol = 0`).
+小プレナム方式は*どの*容積でも中断か低速化に陥る。プレナムレス Type-12 は **NaN ゼロ・中断ゼロで安定** — Stage-1 の `TCCRamificacion` ガード(エントロピー比フォールバック、音速フロア、ガード付き垂直衝撃波)が 135 件のソニックイベントをクリーンに処理し、そもそもプレナム導入の動機だった NaN はシード修正で除去された。**決定: デフォルトはプレナムレス Type-12**(`port_junction_vol = 0`)。
 
-## Stage 5 (in progress): the runtime "hang" was a Zeno timestep collapse
-A step-resolved trace (`OPENWAM_DTSTEP=N`, commit `2cf2c97`) overturned the
-"slow run" assumption. The flow solver is fast (**0.28 ms/step single-thread,
-27 % of 2 cycles reached in 0.2 s wall**). The run then **freezes at one crank
-angle**: at the cyl-3 exhaust blowdown (**Theta ≈ 847 deg, pacing pipe =
-Port_Ex_3**) the global timestep `dt = Courant·dx/VTotalMax` collapses to
-**exactly 0** while the main loop spins (48 000+ steps at the same Theta, no
-wall-clock progress). Not slowness — a Zeno deadlock.
+## Stage 5(進行中): 実行時の「ハング」は Zeno 的タイムステップ崩壊だった
+ステップ分解トレース(`OPENWAM_DTSTEP=N`、コミット `2cf2c97`)が「遅い実行」という仮定を覆した。流れソルバは高速である(**シングルスレッドで 0.28 ms/step、壁時計 0.2 s で 2 サイクルの 27 % に到達**)。その後、実行は**単一のクランク角でフリーズ**する: 気筒 3 の排気ブローダウン(**Theta ≈ 847 deg、律速パイプ = Port_Ex_3**)で、グローバルタイムステップ `dt = Courant·dx/VTotalMax` が**正確に 0** へ崩壊し、メインループは空転する(同一 Theta で 48 000+ ステップ、壁時計は進まない)。遅いのではない — Zeno 的デッドロックである。
 
-### Cause chain (confirmed by gdb backtraces + warning trace)
-1. The **cyl-3 exhaust-valve boundary** (`TCCCilindro::FlujoSalienteCilindro`,
-   Type-8) emits a pathological characteristic pair (Landa/Beta) during the
-   supercritical blowdown. `TransformaContorno` turns the huge `(L−B)` into a
-   velocity of **Mach ~90 (V = 3–5e4 m/s)** at the port's valve-side node.
-2. `VTotalMax = |v| + a` diverges → `dt → 0`.
-3. The density floor in `Transforma2Area` only caught `U[0] ≤ 0`, so the tiny-
-   but-positive floored density next to finite momentum re-inflated `V`.
+### 原因の連鎖(gdb バックトレース + 警告トレースで確認)
+1. **気筒 3 の排気バルブ境界**(`TCCCilindro::FlujoSalienteCilindro`、Type-8)が、超臨界ブローダウン中に病的な特性量ペア(Landa/Beta)を放出する。`TransformaContorno` が巨大な `(L−B)` を、ポートのバルブ側ノードにおける **Mach ~90(V = 3–5e4 m/s)** の速度に変換する。
+2. `VTotalMax = |v| + a` が発散 → `dt → 0`。
+3. `Transforma2Area` の密度フロアは `U[0] ≤ 0` しか捕捉しなかったため、微小だが正のフロア済み密度が有限の運動量と隣り合い、`V` を再膨張させた。
 
-### What the velocity clamp fixes (commit `2cf2c97`)
-Bounding `|V|` to Mach ~5 in `Transforma2Area` (rebuilding momentum+energy)
-**removes the `dt=0` freeze** — the run advances past Theta 847 again. But the
-**valve boundary still emits the bad state every blowdown** (the clamp fires
-~20×/cyl-3 event), so a residual remains:
+### 速度クランプが直すもの(コミット `2cf2c97`)
+`Transforma2Area` で `|V|` を Mach ~5 に拘束する(運動量+エネルギーを再構築)と、**`dt=0` フリーズは解消** — 実行は再び Theta 847 を越えて進む。しかし**バルブ境界は依然ブローダウンのたびに不良状態を放出する**(クランプは気筒 3 の 1 イベントあたり ~20× 発火)ため、残留が残る:
 
-| topology (2-cycle, all guards) | NaN | abort | dt=0 freeze |
+| トポロジ(2 サイクル、全ガード) | NaN | 中断 | dt=0 フリーズ |
 |---|---|---|---|
-| plenumless Type-12 | 92 | 0 | broken, but NaN at cyl-3 junction |
-| small plenum 30 cc | **0** | **0** | still Zeno-frozen (~step 850) |
-| small plenum 50 cc | 0 | 1 | abort (StudyInflowOutflowMass) |
+| プレナムレス Type-12 | 92 | 0 | 解消、ただし気筒 3 ジャンクションで NaN |
+| 小プレナム 30 cc | **0** | **0** | 依然 Zeno フリーズ(~step 850) |
+| 小プレナム 50 cc | 0 | 1 | 中断(StudyInflowOutflowMass) |
 
-The 30 cc plenum + velocity clamp reaches **zero NaN / zero abort**, but the
-underlying valve-boundary velocity explosion still stalls the timestep. **The
-true root cause is the exhaust-valve boundary (`TCCCilindro`) producing a
-supersonic / near-vacuum port state at cyl-3 blowdown** — every guard so far
-(`Transforma2Area` density/pressure/velocity floors) is downstream
-firefighting. Next: fix the seed in `FlujoSalienteCilindro` (bound the emitted
-characteristic / throat state to the physical post-shock solution), not the
-pipe cells.
+30 cc プレナム + 速度クランプは **NaN ゼロ / 中断ゼロ**に到達するが、根底にあるバルブ境界の速度爆発は依然としてタイムステップを停滞させる。**真の根本原因は、気筒 3 のブローダウンで超音速/準真空のポート状態を生成する排気バルブ境界(`TCCCilindro`)である** — これまでの全ガード(`Transforma2Area` の密度/圧力/速度フロア)は下流での消火活動にすぎない。次: パイプセルではなく、`FlujoSalienteCilindro` 内でシードを修正する(放出される特性量/スロート状態を物理的な衝撃波後解に拘束する)。
 
-### Diagnostics added (`2cf2c97`, opt-in, zero cost when unset)
-- `OPENWAM_DTDIAG=1` — per-1%-progress: `dt`, pacing pipe, `ms/step`
-  (separates step-count from per-step cost).
-- `OPENWAM_DTSTEP=N` — every N steps: `dt`/`Theta`/pacing pipe, independent of
-  the progress gate, so a `dt→0` stall is visible even when % is frozen.
+### 追加された診断(`2cf2c97`、オプトイン、未設定時はコストゼロ)
+- `OPENWAM_DTDIAG=1` — 進捗 1 % ごと: `dt`、律速パイプ、`ms/step`(ステップ数とステップ単価を分離する)。
+- `OPENWAM_DTSTEP=N` — N ステップごと: `dt`/`Theta`/律速パイプ。進捗ゲートから独立しているため、% が凍結していても `dt→0` の停滞が見える。
 
-## Stage 6 — corrections, the real hang, and where it stands
+## Stage 6 — 訂正、真のハング、そして現状
 
-Several Stage-5 hypotheses were **falsified by direct measurement** (recorded
-here so they are not re-tried):
+Stage-5 の仮説のいくつかは**直接測定により棄却された**(再試行しないようここに記録する):
 
-1. **Valve boundary is NOT the seed.** `OPENWAM_VLVDIAG=1` (probe in
-   `TCCCilindro::FlujoSalienteCilindro`) logged **zero** supersonic emissions —
-   the valve boundary's output characteristics are healthy (Mach < 3). The
-   Mach-90 velocity is at the first *internal* port cell, not the boundary.
-2. **Mesh is NOT the cause.** A 10/20/30/45 mm exhaust-port sweep gave NaN
-   ~92–102 at every size. 20 mm only "FINISHED CORRECTLY" because the gas mass
-   had collapsed to ~1e-77 g — a dead system that integrates instantly, not a
-   valid run.
-3. **Cylinder temperature floor is not the lone seed.** A 250/600/800 K floor
-   sweep (`OPENWAM_TFLOOR`) still hit NaN ~92–102; 600 K only "finished" with
-   the mass collapsed. Raising it just relocates the cascade.
-4. **An entropy-level floor in `TransformaContorno` made it worse** (NaN 5→90 at
-   2000 rpm): flooring `E` to 1e-6 corrupts the pressure of cells with a
-   legitimately small entropy. Reverted — do not reintroduce.
+1. **バルブ境界はシードではない。** `OPENWAM_VLVDIAG=1`(`TCCCilindro::FlujoSalienteCilindro` 内のプローブ)が記録した超音速放出は**ゼロ**件 — バルブ境界の出力特性量は健全(Mach < 3)。Mach 90 の速度は境界ではなく、ポートの最初の*内部*セルにある。
+2. **メッシュは原因ではない。** 10/20/30/45 mm の排気ポートスイープは、どのサイズでも NaN ~92–102 だった。20 mm が "FINISHED CORRECTLY" になったのは、ガス質量が ~1e-77 g まで崩壊していたからにすぎない — 瞬時に積分される死んだ系であり、有効な実行ではない。
+3. **気筒温度フロアは唯一のシードではない。** 250/600/800 K のフロアスイープ(`OPENWAM_TFLOOR`)でも NaN ~92–102 に達した。600 K が「完走」したのも質量が崩壊した状態でのこと。フロアを上げてもカスケードの位置が変わるだけ。
+4. **`TransformaContorno` でのエントロピーレベルフロアは悪化を招いた**(2000 rpm で NaN 5→90): `E` を 1e-6 にフロアすると、正当に小さいエントロピーを持つセルの圧力が破壊される。リバート済み — 再導入しないこと。
 
-### The real hang: unbounded plenum iteration (`b444abc`)
-gdb (single-thread, deterministic) caught the small-plenum "slow" run with
-**100 % wall time inside `TDepVolCte::ActualizaPropiedades` and the global step
-counter frozen** — not a NaN, not a Zeno `dt` collapse, a genuine
-**non-terminating loop**: the plenum sound-speed `while(!Converge)` fixed-point
-iteration (tol 1e-6) has no cap, and a small port-merge plenum hit by the
-blowdown enthalpy transient makes the sequence oscillate forever. Fixed by
-capping at 200 iters with under-relaxation past 50 (commit `b444abc`). This
-removes the **worst failure mode (unbounded hang)** for any small-plenum config.
+### 真のハング: 上限なしのプレナム反復(`b444abc`)
+gdb(シングルスレッド、決定論的)が小プレナムの「遅い」実行を捕捉した: **壁時計時間の 100 % が `TDepVolCte::ActualizaPropiedades` 内にあり、グローバルステップカウンタは凍結** — NaN でも Zeno 的 `dt` 崩壊でもなく、正真正銘の**停止しないループ**である: プレナム音速の `while(!Converge)` 不動点反復(tol 1e-6)には上限がなく、ブローダウンのエンタルピー過渡に叩かれた小さなポート合流プレナムでは数列が永久に振動する。200 反復で打ち切り、50 反復を超えたら不足緩和を適用して修正(コミット `b444abc`)。これにより、あらゆる小プレナム構成における**最悪の破綻モード(上限なしハング)**が除去される。
 
-### Severity finding (RPM sweep, plenumless, single-thread)
-| RPM | BC-NaN | reaches | note |
+### 深刻度の知見(RPM スイープ、プレナムレス、シングルスレッド)
+| RPM | BC-NaN | 到達 | 備考 |
 |---|---|---|---|
-| 2000 | **5** | 24 % | nearly clean; NaN at cyl-1 port, `Entropia→0 ⇒ Landa=inf` |
+| 2000 | **5** | 24 % | ほぼクリーン。気筒 1 ポートで NaN、`Entropia→0 ⇒ Landa=inf` |
 | 3000 | 77 | 27 % | |
 | 4000 | 92 | 27 % | |
 
-The NaN count scales strongly with blowdown severity (RPM). The remaining seed
-at 2000 rpm is a near-zero Riemann entropy at the cyl-1 first blowdown
-(`p=(a/E)^Gamma4` overflows). A naive `E` floor backfired (#4); the correct fix
-must keep `a` and `E` thermodynamically consistent (as the density/pressure
-consistency clamp did for `Transforma2Area`), and belongs at the cell-state
-level, not the boundary transform.
+NaN 数はブローダウンの激しさ(RPM)に強くスケールする。2000 rpm で残るシードは、気筒 1 の初回ブローダウンにおけるほぼゼロのリーマンエントロピーである(`p=(a/E)^Gamma4` がオーバーフロー)。素朴な `E` フロアは裏目に出た(#4)。正しい修正は `a` と `E` を熱力学的に整合したまま保つ必要があり(密度/圧力整合性クランプが `Transforma2Area` で行ったように)、境界変換ではなくセル状態レベルに属する。
 
-## Stage 7 — the NaN seed FIXED at source; the freeze fully characterized
+## Stage 7 — NaN シードを発生源で修正。フリーズは完全に特性把握済み
 
-### ✅ Root-cause fix: isentropic cylinder init (`b6f955c`) — NaN 92 → 0
-The cold-start seed was traced to a prior `[ANTIGRAVITY]` modification in
-`TCilindro::IniciaVariables` that forced **every closed-cycle cylinder to
-P = 1 bar / 60 C at t=0** and took its mass from the *current* volume. A
-cylinder sitting in the combustion/expansion window at t=0 then held a near-TDC
-charge at only 1 bar, so its first expansion over-expanded to a cryogenic
-near-vacuum (E.O. ~0.1 bar / -82.8 C) — the seed for the whole exhaust-port NaN
-cascade. Restoring OpenWAM's original isentropic init (full RCA charge,
-`P = Pinit*(Vrca/V)^gamma`) makes a near-TDC cylinder start hot and pressurised.
+### ✅ 根本原因の修正: 等エントロピー気筒初期化(`b6f955c`)— NaN 92 → 0
+コールドスタートのシードは、`TCilindro::IniciaVariables` に対する過去の `[ANTIGRAVITY]` 改変に遡った。この改変は **t=0 で閉サイクル中のすべての気筒を P = 1 bar / 60 C に強制**し、その質量を*現在の*容積から取っていた。t=0 で燃焼/膨張ウィンドウに位置する気筒は、TDC 付近の充填をわずか 1 bar で保持することになり、初回膨張が極低温の準真空(E.O. ~0.1 bar / -82.8 C)まで過膨張した — これが排気ポート NaN カスケード全体のシードである。OpenWAM 本来の等エントロピー初期化(フル RCA 充填、`P = Pinit*(Vrca/V)^gamma`)を復元すると、TDC 付近の気筒は高温・加圧状態で開始する。
 
-Measured (4000 rpm/WOT, plenumless, single thread): **BC-NaN 92 → 0**,
-E.O. pressure **0.10 → 0.74 bar**. The NaN cascade is gone at the hardest point.
-The trapped mass is now healthy and monotonic across the map (0.64 → 0.70 g for
-1500 → 4000 rpm).
+測定(4000 rpm/WOT、プレナムレス、シングルスレッド): **BC-NaN 92 → 0**、E.O. 圧力 **0.10 → 0.74 bar**。最も厳しい点で NaN カスケードは消滅。トラップ質量はマップ全域で健全かつ単調になった(1500 → 4000 rpm で 0.64 → 0.70 g)。
 
-### ⚠️ Remaining: a dt→0 freeze at the cyl-3 first blowdown (no NaN)
-With the NaN gone, the run is stable but **freezes** (dt = 0) at one cell — the
-cyl-3 exhaust port (`Port_Ex_3`, pipe 45/46) at Theta ~860 deg, *after*
-cylinders 4 and 1 have completed clean gas exchange. `OPENWAM_TVDDIAG` localized
-it exactly: the true eigenvalue `|Alpha|` stays healthy (~1.5e3 m/s) but the TVD
-source-projection `Beta = DeltaB/DeltaU` blows up to **~1e21**, making
-`VTotalMax = |Alpha|+|Beta|` non-finite and `dt = Courant*dx/VTotalMax = 0`.
-Origin: a near-vacuum port cell makes the Roe density ratio (`Rm`, and the
-`1/Amed`/`1/Amed2` eigenvector scaling) explode.
+### ⚠️ 残件: 気筒 3 初回ブローダウンでの dt→0 フリーズ(NaN なし)
+NaN が消えた後、実行は安定だが、1 つのセルで**フリーズ**(dt = 0)する — Theta ~860 deg、気筒 3 の排気ポート(`Port_Ex_3`、パイプ 45/46)であり、気筒 4 と 1 がクリーンなガス交換を完了した*後*である。`OPENWAM_TVDDIAG` が正確に局所化した: 真の固有値 `|Alpha|` は健全(~1.5e3 m/s)なままだが、TVD ソース射影 `Beta = DeltaB/DeltaU` が **~1e21** まで吹き上がり、`VTotalMax = |Alpha|+|Beta|` が非有限となって `dt = Courant*dx/VTotalMax = 0` になる。起源: 準真空のポートセルが Roe 密度比(`Rm`、および `1/Amed`/`1/Amed2` の固有ベクトルスケーリング)を爆発させる。
 
-**Fixes that do NOT work (all tested, all reverted):**
-- Capping `VTotalMax`, `Beta`, the dimensional wave speeds, an upper density
-  cap, or a first-order TVD fallback (zero `Beta` at the degenerate interface)
-  so `dt > 0`: the run *finishes* but the gas mass collapses to ~1e-77 g — by
-  the time the runaway is visible the domain is already corrupted, so any larger
-  dt just propagates the blow-up.
-- Flooring the Roe `Amed2`, capping `Rm`, an absolute density floor, or a naive
-  entropy floor: the freeze persists or the mass collapses.
+**効かない修正(すべて試験済み、すべてリバート済み):**
+- `dt > 0` にするための `VTotalMax` や `Beta`、次元付き波速のキャップ、密度上限キャップ、一次精度 TVD フォールバック(退化した界面で `Beta` をゼロにする): 実行は*完走*するがガス質量が ~1e-77 g まで崩壊する — 暴走が見える頃には領域はすでに破壊されており、dt を大きくしても吹き上がりが伝播するだけ。
+- Roe の `Amed2` のフロア、`Rm` のキャップ、絶対密度フロア、素朴なエントロピーフロア: フリーズが持続するか、質量が崩壊する。
 
-**The actual origin (found via a density probe at the frozen cell):** the
-conserved density at the cyl-3 port boundary node is **1e+97** (a runaway
-*spike*, not a vacuum) next to a 1e-6 neighbour. It comes from
-`Transforma1Area`: `rho = Gamma*area*P/(a*ARef)^2`, where the boundary sound
-speed `a = (Landa+Beta)/2` collapsed to ~0 because the **Type-12 junction
-(`TCCRamificacion`) Riemann solve emitted `Landa ≈ -Beta`** during the violent
-cyl-3 blowdown. So the seed is the *junction characteristic output* (a ~ 0),
-upstream of every cell/TVD guard tried — which is exactly why all of them only
-move the symptom. The remaining fix belongs in the junction Riemann solver
-(floor the emitted sound speed / guard the Landa+Beta degeneracy so the adjacent
-pipe density cannot blow up), not in `Transforma2Area` or the TVD scheme. That
-is a careful change with regression risk across every junction in the model, so
-it is left as the next deliberate step rather than another reactive guard.
+**実際の起源(凍結セルでの密度プローブにより発見):** 気筒 3 ポートの境界ノードの保存密度が **1e+97**(真空ではなく暴走*スパイク*)で、その隣は 1e-6。出どころは `Transforma1Area`: `rho = Gamma*area*P/(a*ARef)^2` で、境界音速 `a = (Landa+Beta)/2` が ~0 に潰れたため。これは激烈な気筒 3 ブローダウン中に **Type-12 ジャンクション(`TCCRamificacion`)のリーマン解が `Landa ≈ -Beta` を放出**したことによる。つまりシードは、これまで試したあらゆるセル/TVD ガードの上流にある*ジャンクションの特性量出力*(a ~ 0)である — 全ガードが症状を移動させるだけだったのはまさにこのためだ。残る修正はジャンクションのリーマンソルバに属する(放出音速をフロアする/Landa+Beta の退化をガードし、隣接パイプの密度が吹き上がれないようにする)のであって、`Transforma2Area` や TVD スキームではない。これはモデル内のすべてのジャンクションに回帰リスクが及ぶ慎重を要する変更のため、もう 1 つの反応的なガードとしてではなく、次の意図的なステップとして残す。
 
-**Conclusion:** the cyl-3 first-blowdown drives the port cell into a state where
-the TVD Roe linearization is degenerate and has no stable timestep. This is a
-scheme-level limitation for this extreme cold-manifold transient, not a simple
-bug. Resolving it needs either a proper conservative cell-state repair (replace
-the degenerate cell with a neighbour-consistent quiescent state *before* the
-Roe projection) or a HLL/HLLC-style flux at near-vacuum interfaces — a larger
-change than a guard. Kept defensive: the Roe `sqrt` guards (`b39e09a`) prevent
-a real latent NaN; `OPENWAM_TVDDIAG` pinpoints any recurrence.
+**結論:** 気筒 3 の初回ブローダウンは、TVD Roe 線形化が退化し安定なタイムステップが存在しない状態へポートセルを追い込む。これはこの極端なコールドマニホールド過渡に対するスキームレベルの限界であり、単純なバグではない。解決には、適切な保存的セル状態修復(Roe 射影の*前*に、退化セルを隣接整合な静止状態で置換する)か、準真空界面での HLL/HLLC 型流束のいずれかが必要 — ガードより大きな変更である。防御策は維持: Roe の `sqrt` ガード(`b39e09a`)が実在の潜在 NaN を防ぎ、`OPENWAM_TVDDIAG` が再発を正確に特定する。
 
-### Data-usability note for the VE sweep
-At the freeze the state is healthy (NaN=0, mass ~0.70 g) and the **first-cycle
-trapped mass is already recorded**, so a sweep can still harvest a (first-cycle,
-not multi-cycle-converged) trapped mass per point by reading the last
-`INFO: Trapped mass:` before the timeout. The load (TPS) axis, however, is still
-not differentiating (0.30 vs 1.00 give nearly the same mass) — the intake/
-throttle boundary flow-limiting bug (Stage-4 todo) is the next functional issue
-once the run completes.
+### VE スイープ向けデータ有用性の注記
+フリーズ時点の状態は健全(NaN=0、質量 ~0.70 g)で、**初回サイクルのトラップ質量はすでに記録済み**のため、タイムアウト前の最後の `INFO: Trapped mass:` を読み取れば、スイープは各点の(初回サイクルの、複数サイクル収束ではない)トラップ質量をなお収穫できる。ただし負荷(TPS)軸は依然として差が出ていない(0.30 vs 1.00 がほぼ同じ質量を与える)— 吸気/スロットル境界の流量制限バグ(Stage-4 todo)が、実行が完走するようになった後の次の機能的課題である。
 
-## Logging / safety
-- `TTubo::ComunicacionTubo_CC` BC-NaN `printf` is bounded by a **thread-safe
-  `std::atomic<int>`** (cap 50 each for LEFT/RIGHT). The pipe loop is
-  OpenMP-parallel; the earlier plain `static int` was a benign race that still
-  bounded output, now made correct.
-- `scripts/run_safe.sh <wam> <log> [timeout_s] [maxbytes]` — capped runner
-  (`timeout` + `head -c`). The hard guarantee against a disk-flooding run.
-- `scripts/smoke_sp.py [rpm] [cycles] [timeout]` — end-to-end smoke that
-  generates, runs (log in /tmp, capped), and prints health + a verdict.
-- `scripts/vol_scan.py [budget_s] [vols_csv]` — sweeps `port_junction_vol` and
-  reports NaN/progress per volume.
+## ロギング / 安全対策
+- `TTubo::ComunicacionTubo_CC` の BC-NaN `printf` は**スレッドセーフな `std::atomic<int>`** で上限化されている(LEFT/RIGHT 各 50 件)。パイプループは OpenMP 並列である。以前の素の `static int` は、出力の上限化自体はできていた良性のレースであり、今回正しくした。
+- `scripts/run_safe.sh <wam> <log> [timeout_s] [maxbytes]` — 上限付きランナー(`timeout` + `head -c`)。ディスクを溢れさせる実行に対するハードな保証。
+- `scripts/smoke_sp.py [rpm] [cycles] [timeout]` — 生成し、実行し(ログは /tmp、上限付き)、健全性 + 判定を表示するエンドツーエンドのスモーク。
+- `scripts/vol_scan.py [budget_s] [vols_csv]` — `port_junction_vol` をスイープし、容積ごとの NaN/進捗を報告する。
 
-## Environment gotchas (remote container)
-- Never `pgrep -f` / `pkill -f` on `OpenWAM` or `claude`: the pattern matches
-  this agent's own argv (which embeds the whole system prompt, megabytes) and
-  pollutes output / can self-kill the shell. Use `pkill -x OpenWAM`.
-- A diverging run + unbounded logging = OOM. Always run via `run_safe.sh` or
-  `smoke_sp.py` (both cap the log).
-- Do **not** batch dependent steps in one parallel tool block: if any command
-  in the block exits non-zero, all siblings are cancelled (this repeatedly
-  wiped out edits/commits during development).
+## 環境の落とし穴(リモートコンテナ)
+- `OpenWAM` や `claude` に対して `pgrep -f` / `pkill -f` を決して使わない: パターンがこのエージェント自身の argv(システムプロンプト全体、数メガバイトを内包)にマッチし、出力を汚染する/シェルを自滅させ得る。`pkill -x OpenWAM` を使うこと。
+- 発散する実行 + 上限なしのロギング = OOM。必ず `run_safe.sh` または `smoke_sp.py` 経由で実行する(どちらもログを上限化する)。
+- 依存関係のあるステップを 1 つの並列ツールブロックにまとめては**ならない**: ブロック内のいずれかのコマンドが非ゼロで終了すると、兄弟コマンドがすべてキャンセルされる(開発中、これで編集/コミットが繰り返し消失した)。
 
-## Stage 6-7 — the freeze is a density runaway; junction is the last root
+## Stage 6-7 — フリーズは密度暴走、ジャンクションが最後の根本原因
 
-After the cold-start seed fix (Stage 3) removed the cylinder-side seed, the
-4000 RPM/WOT run no longer NaNs immediately but **freezes** at the cyl-3
-blowdown (Theta ~847 deg, ~29 % of 2 cycles). A step-resolved trace
-(`OPENWAM_DTSTEP`, `OPENWAM_TVDDIAG` extended to dump raw cell state) pinned the
-mechanism precisely:
+コールドスタートのシード修正(Stage 3)で気筒側のシードを除去した後、4000 RPM/WOT の実行はもはや即座には NaN 化しないが、cyl-3 のブローダウン(Theta ~847 deg、2 サイクルの ~29 %)で**フリーズ**する。ステップ分解トレース(`OPENWAM_DTSTEP`、生セル状態をダンプするよう拡張した `OPENWAM_TVDDIAG`)により、機構が正確に特定された:
 
-1. The plenum 0D solver had an **uncapped fixed-point loop**
-   (`TDepVolCte::ActualizaPropiedades`) that could spin forever on a small
-   port-junction plenum — a true hang, not slowness. Fixed with an iteration
-   cap + under-relaxation (`b444abc`).
-2. With plenumless Type-12, the freeze is a **density runaway**: at the exhaust-
-   port area change the TVD area-source term `Bvector[1] ~ rho*a^2*dArea` forms
-   a positive feedback — high rho -> large source -> higher rho next step. The
-   conserved density `U[0]` grows by orders of magnitude per step
-   (`Frho -> 1e90+`), which blows up the Roe differences and the antidiffusion
-   `Beta = DeltaB/DeltaU -> 1e21`, so `VTotalMax = |Alpha|+|Beta| -> inf` and
-   `dt = Courant*dx/VTotalMax -> 0`. The pre-existing density guard only floored
-   the LOW end.
+1. プレナムの 0D ソルバには**上限なしの不動点ループ**(`TDepVolCte::ActualizaPropiedades`)があり、小さいポート・ジャンクション・プレナムで無限に回り続けることがあった — これはスローダウンではなく真のハングである。反復回数上限+アンダーリラクゼーションで修正(`b444abc`)。
+2. プレナムレスな Type-12 では、フリーズは**密度暴走**である: 排気ポートの面積変化点で TVD 面積ソース項 `Bvector[1] ~ rho*a^2*dArea` が正のフィードバックを形成する — rho が高いと source が大きくなり、次ステップで rho がさらに高くなる。保存密度 `U[0]` はステップごとに桁違いに増大し(`Frho -> 1e90+`)、これが Roe 差分とアンチ拡散 `Beta = DeltaB/DeltaU -> 1e21` を吹き飛ばし、`VTotalMax = |Alpha|+|Beta| -> inf`、したがって `dt = Courant*dx/VTotalMax -> 0` となる。既存の密度ガードは下限しかフロアしていなかった。
 
-### What helped (committed)
-- **Upper density ceiling** in `Transforma2Area` (50x ambient, rescaling
-  momentum/energy) — breaks the `U[0]` runaway. Alone: reach 29 % -> 34 %.
-- **Straight (constant-area) exhaust port** option
-  (`OPENWAM_EX_PORT_STRAIGHT=1`) — removes the area-source driver. Standalone
-  29 % -> 51 %; with the density ceiling, **reaches 99 %**.
+### 効果があったもの(コミット済み)
+- `Transforma2Area` における**密度上限**(周囲の 50 倍、運動量/エネルギーを再スケール)— `U[0]` の暴走を断ち切る。単独で 29 % -> 34 % に到達。
+- **ストレート(一定断面積)排気ポート**オプション(`OPENWAM_EX_PORT_STRAIGHT=1`)— 面積ソース駆動源を除去する。単独で 29 % -> 51 %、密度上限と組み合わせると**99 % に到達**。
 
-### What did NOT help
-- Bounding `rhomed`/`Amed` at the 3 TVD source-term sites (`CalculaB/Bmas/Bmen`)
-  — no benefit, slight regression; reverted.
-- A `VTotalMax`/`dt` ceiling — let an unstable dt through and blew the run up
-  (mass -> 1e-77 "dead-system" finish); reverted.
-- Raising the throttle K ceiling for the freeze — unrelated (intake side).
+### 効果がなかったもの
+- 3 箇所の TVD ソース項サイト(`CalculaB/Bmas/Bmen`)で `rhomed`/`Amed` を上限管理する — 利益なし、わずかに悪化。取り消し。
+- `VTotalMax`/`dt` の上限 — 不安定な dt を通過させてしまい実行を吹き飛ばした(質量が 1e-77 の「死んだ系」で終了)。取り消し。
+- フリーズに対してスロットル K 上限を引き上げる — 無関係(吸気側の話)。
 
-### Remaining root (open)
-Even straight ports + density ceiling do **not** yield a *physically valid*
-multi-cycle run: a residual NaN still appears at the **Type-12 port-merge
-junction** (`TCCRamificacion`, boundary 46/51) under sustained supersonic
-blowdown. The first NaN is `Landa=Beta=-nan` with finite entropy — i.e. the
-**pipe** feeds an already-NaN characteristic into the junction, which
-propagates it. The density ceiling fires *after* the W-update has already
-consumed runaway intermediate values, so it cannot fully prevent the cascade.
-With enough NaN the gas mass drains to ~0 and the run "completes" dead.
+### 残る根本原因(未解決)
+ストレートポート+密度上限をもってしても、*物理的に妥当な*マルチサイクル実行は得られない: 持続的な超音速ブローダウン下で **Type-12 ポート合流ジャンクション**(`TCCRamificacion`、境界 46/51)に残留 NaN が依然として現れる。最初の NaN は有限のエントロピーを伴う `Landa=Beta=-nan` である — すなわち**パイプ**が既に NaN 化した特性曲線をジャンクションに供給し、それが伝播している。密度上限は W 更新が既に暴走した中間値を消費した*後に*発動するため、カスケードを完全には防げない。十分な NaN が発生すると気体質量は ~0 まで枯渇し、実行は「死んだ」まま「完了」する。
 
-This is a robustness limit of the Lax-Wendroff/TVD scheme with strong source
-terms at a valve-adjacent Riemann junction under extreme blowdown. The
-defensible next step is a more dissipative, positivity-preserving flux at the
-exhaust ports/junction (HLL/HLLC-style) rather than more post-hoc clamps.
-`OPENWAM_EX_PORT_STRAIGHT=1` + the density ceiling is the most stable
-configuration found and the recommended base for that work.
+これは、バルブ隣接リーマン・ジャンクションにおいて強いソース項を持つ極端なブローダウン下での Lax-Wendroff/TVD スキームの頑健性限界である。妥当な次の一手は、その場しのぎのクランプを重ねることではなく、排気ポート/ジャンクションにおいてより散逸的で正値性保存のフラックス(HLL/HLLC 系)を導入することである。`OPENWAM_EX_PORT_STRAIGHT=1` + 密度上限が、現時点で見出された最も安定な構成であり、その作業のための推奨ベースである。
 
-### Diagnostics added this stage (opt-in, env-gated)
-- `OPENWAM_TVDDIAG=1` — on `dt < 1e-9`, dump pacing pipe, max Alpha/Beta cell,
-  and that cell's `DeltaB/DeltaU/Bvector/Frho/U0/U1`.
-- `OPENWAM_EX_PORT_STRAIGHT=1` — constant-area exhaust ports.
-- `OPENWAM_THRDIAG=1` — runtime throttle Cd/K (intake side).
+### 本ステージで追加した診断(オプトイン、env ゲート)
+- `OPENWAM_TVDDIAG=1` — `dt < 1e-9` の時点で、律速パイプ、最大 Alpha/Beta セル、およびそのセルの `DeltaB/DeltaU/Bvector/Frho/U0/U1` をダンプする。
+- `OPENWAM_EX_PORT_STRAIGHT=1` — 一定断面積の排気ポート。
+- `OPENWAM_THRDIAG=1` — 実行時スロットル Cd/K(吸気側)。
 
-## Stage 8 — positivity-preserving limiter (interior + boundary + junction)
+## Stage 8 — 正値性保存リミッタ(内部+境界+ジャンクション)
 
-Implemented a-posteriori positivity preservation at the three layers where the
-density runaway / NaN originates (commit in this stage):
+密度暴走/NaN が発生する 3 層すべてに事後的な正値性保存を実装した(本ステージでコミット):
 
-- **Interior** (`TVD_Limitador`): any cell whose updated density is
-  non-positive / non-finite / >50x ambient is recomputed with the 1st-order
-  pure-upwind (HLL-like) flux. Positivity-preserving under CFL; high-order kept
-  elsewhere.
-- **Boundary** (`ActualizaValoresNuevos`): a non-physical junction-supplied
-  (a,v,p) falls back to the adjacent interior cell (zeroth-order extrapolation).
-- **Junction** (`TCCRamificacion`): the real root. A Type-12 Riemann junction
-  under sustained supersonic/reversing flow leaves a non-finite Landa/Beta in a
-  connected pipe end; reset it to a quiescent positivity-preserving state
-  (a=|incident|, v=0). This drops BC-NaN from 102 -> 0 through the first
-  blowdown.
+- **内部**(`TVD_Limitador`): 更新後の密度が非正/非有限/周囲の 50 倍超であるセルは、1 次精度の純風上(HLL 的)フラックスで再計算される。CFL 条件下で正値性保存、それ以外の場所では高次精度を維持。
+- **境界**(`ActualizaValoresNuevos`): ジャンクションから供給された非物理的な (a,v,p) は、隣接する内部セルへフォールバックする(0 次補外)。
+- **ジャンクション**(`TCCRamificacion`): 真の根本原因。持続的な超音速/逆流下の Type-12 リーマン・ジャンクションは、接続されたパイプ端に非有限の Landa/Beta を残す; これを静止した正値性保存状態(a=|入射|、v=0)にリセットする。これにより最初のブローダウンを通して BC-NaN が 102 -> 0 になる。
 
-### Measured (4000 RPM/WOT, single thread)
-| config | reach | NaN | trapped mass |
+### 実測(4000 RPM/WOT、シングルスレッド)
+| 構成 | 到達点 | NaN | トラップ質量 |
 |---|---|---|---|
-| taper, pre-stage-8 | 29% (freeze) | — | (frozen) |
-| taper + all layers | 31%, **NaN=0 to 30%** | 102 @ 31% | 0.71 -> 0.42 g |
-| **straight + all layers** | **99% (completes)** | **51** (was 102) | 0.35-0.45 g (NOT drained to 1e-77) |
+| テーパー、Stage-8 前 | 29%(フリーズ) | — | (フリーズ) |
+| テーパー+全層 | 31%、**NaN=0(30%まで)** | 102 @ 31% | 0.71 -> 0.42 g |
+| **ストレート+全層** | **99%(完走)** | **51**(旧 102) | 0.35-0.45 g(1e-77 まで枯渇しない) |
 
-Straight ports + the full positivity stack is the first config that both
-**completes and keeps finite physical mass**. The first NaN has moved from
-cycle-1/3% all the way to **cycle-2/83%**, now originating at the cyl-2
-exhaust-valve boundary (`TCCCilindro` "Calculating outflow" error, boundary
-52/53) rather than the junction — i.e. each layer pushed the failure
-downstream/later.
+ストレートポート+正値性フルスタックは、**完走し、かつ有限の物理的質量を保つ**最初の構成である。最初の NaN はサイクル1/3% から**サイクル2/83%**にまで移動しており、発生源はジャンクションではなく cyl-2 排気バルブ境界(`TCCCilindro`「Calculating outflow」エラー、境界 52/53)になっている — すなわち各層が失敗を下流/後方へ押しやったということである。
 
-### Still open
-A fully clean (NaN=0 throughout) multi-cycle run at 4000 RPM/WOT is not yet
-achieved; the residual is a distributed instability during the multi-cylinder
-blowdown overlap, surfacing at whichever valve/junction is most stressed. The
-complete fix remains a positivity-preserving HLLC flux for the whole exhaust
-network; the Stage-8 layers are its foundation and already make the run
-complete with finite mass. Milder RPMs (gentler blowdown) are the candidate
-clean-running region for an interim VE sweep.
+### 依然として未解決
+4000 RPM/WOT での完全にクリーンな(全域で NaN=0)マルチサイクル実行はまだ達成されていない; 残る問題は、複数気筒のブローダウンがオーバーラップする際の分散的な不安定性であり、最もストレスのかかっているバルブ/ジャンクションのどこかに表面化する。完全な修正は排気ネットワーク全体に対する正値性保存 HLLC フラックスのままであり、Stage-8 の各層はその基盤であって、既に有限質量での完走を実現している。より穏やかな rpm(緩やかなブローダウン)が、暫定的な VE スイープのための候補となるクリーン動作領域である。
 
-## Stage 9 — HLLC Riemann flux (NaN eliminated; mass-coupling exposed)
+## Stage 9 — HLLC リーマンフラックス(NaN を排除、質量結合の問題が露呈)
 
-Implemented an HLLC approximate Riemann solver for the 3 gas equations
-(`TTubo::HLLCFlux`, opt-in `OPENWAM_HLLC=1`), replacing only the hyperbolic part
-of the TVD interface flux (source split + species advection unchanged). HLLC is
-positivity-preserving by construction.
+3 つの気体方程式に対する HLLC 近似リーマンソルバを実装した(`TTubo::HLLCFlux`、オプトインの `OPENWAM_HLLC=1`)。これは TVD 界面フラックスの双曲部分のみを置き換える(ソース分割+化学種移流は変更なし)。HLLC は構成上、正値性保存である。
 
-### Result (4000 RPM/WOT, tapered port, single thread)
-- **BC-NaN = 0 through the cyl-3 blowdown**, and the junction reset never fires
-  -- the gas state stays physical where every TVD variant produced NaN. This is
-  the qualitative breakthrough: HLLC cures the density runaway at the flux
-  level.
-- It is **slow** at the blowdown: the CFL timestep drops to ~5e-9 s (pacing the
-  exhaust ports) because HLLC resolves the genuine supersonic vent (sonic
-  events 754 -> 5107). A coarser exhaust port mesh (`exhaust_port_mesh=0.030`)
-  roughly doubles the reach per wall-second (31% -> 44%).
-- **New failure exposed:** with NaN gone, the cylinder trapped mass now
-  oscillates non-physically across cylinders during the overlap -- cyl4 0.70 g
-  (healthy), cyl1 0.42 g, cyl5 **3776 g** (rho ~ 7000 kg/m^3). The HLLC pipe
-  flux is conservative, but the **cylinder<->valve<->junction mass exchange**
-  (`TCilindro4T` FMasa += -massflow*dt) is not bounded: an extreme but finite
-  throat state makes the valve draw absurd mass into the cylinder.
+### 結果(4000 RPM/WOT、テーパーポート、シングルスレッド)
+- cyl-3 ブローダウンを通して **BC-NaN = 0**、かつジャンクションのリセットは一度も発動しない — あらゆる TVD バリアントが NaN を生成していた箇所で、気体状態は物理的なままである。これが質的なブレークスルーである: HLLC はフラックスのレベルで密度暴走を治癒する。
+- ブローダウン時は**遅い**: CFL タイムステップが ~5e-9 s まで低下する(排気ポートが律速)。これは HLLC が真の超音速ベントを解像しているためである(音速イベント 754 -> 5107)。より粗い排気ポートメッシュ(`exhaust_port_mesh=0.030`)により、壁時計秒あたりの到達距離がおよそ倍になる(31% -> 44%)。
+- **新たに露呈した失敗:** NaN が消えたことで、気筒トラップ質量がオーバーラップ中に気筒間で非物理的に振動するようになった -- cyl4 0.70 g(健全)、cyl1 0.42 g、cyl5 **3776 g**(rho ~ 7000 kg/m^3)。HLLC のパイプフラックスは保存的だが、**気筒<->バルブ<->ジャンクションの質量交換**(`TCilindro4T` の `FMasa += -massflow*dt`)には上限がない: 極端だが有限のスロート状態が、バルブに不合理な質量を気筒内へ引き込ませてしまう。
 
-### Next (open)
-The remaining root is the **valve-boundary / cylinder mass coupling** under the
-(now finite) extreme blowdown, not the pipe flux. Candidates: bound the
-per-step valve mass exchange to a physical fraction of the cylinder/port mass;
-or make the cylinder<->valve solve use the HLLC contact state. HLLC itself is
-the correct foundation and should become the default for the exhaust once the
-mass-coupling bound is in. TVD remains default for now; `OPENWAM_HLLC=1` opts in.
+### 次(未解決)
+残る根本原因はパイプフラックスではなく、(今や有限になった)極端なブローダウン下での**バルブ境界/気筒質量結合**である。候補: ステップあたりのバルブ質量交換を気筒/ポート質量の物理的な割合に上限設定する; あるいは気筒<->バルブの解を HLLC のコンタクト状態を用いるようにする。HLLC 自体は正しい基盤であり、質量結合の上限が入り次第、排気側のデフォルトになるべきである。TVD は当面デフォルトのままとし、`OPENWAM_HLLC=1` でオプトインする。
 
-## Stage 10 — valve↔cylinder mass coupling (partial; the new frontier)
+## Stage 10 — バルブ↔気筒の質量結合(部分的; 新たなフロンティア)
 
-With HLLC making the pipe flux NaN-free, the remaining failure is the
-cylinder↔valve mass exchange running away during the valve-overlap blowdown.
-Localised with MASSDIAG / MASSDIAG-ADM / PATHDIAG / CHOKEDIAG:
+HLLC によりパイプフラックスが NaN フリーになったことで、残る失敗はバルブ・オーバーラップのブローダウン中に暴走する気筒↔バルブ質量交換である。MASSDIAG / MASSDIAG-ADM / PATHDIAG / CHOKEDIAG により局在化した:
 
-- The spike is **intake-side** (cyl mass -> 3776 g is `Intake mass 3822 g`, not
-  exhaust): during overlap a cylinder draws a non-physical backflow through the
-  intake valve, FMasa climbing 7 -> 30 -> hundreds of g at a near-frozen Theta
-  (dt ~ 2e-8, tiny steps each adding ~0.1 g).
-- The valve sizes its choked massflow from the **boundary-node density**
-  `Frho[FNodoFin]`, which reaches ~300 kg/m^3 there. That node is a *boundary*
-  node, NOT covered by the interior TVD positivity limiter (cells 1..FNin-2) nor
-  the `Transforma2Area` cap, so it is the uncapped state feeding the valve.
+- スパイクは**吸気側**である(気筒質量 -> 3776 g は `Intake mass 3822 g` であり、排気ではない): オーバーラップ中に気筒が吸気バルブを通じて非物理的な逆流を引き込み、ほぼ凍結した Theta(dt ~ 2e-8、各ステップが ~0.1 g ずつ加算する微小ステップ)のもとで FMasa が 7 -> 30 -> 数百 g へと上昇する。
+- バルブはそのチョーク流量を**境界ノード密度** `Frho[FNodoFin]` から求めるが、これはそこで ~300 kg/m^3 に達する。そのノードは*境界*ノードであり、内部 TVD 正値性リミッタ(セル 1..FNin-2)にも `Transforma2Area` の上限にも覆われていない -- したがってバルブに供給される状態は上限のないものである。
 
-### What helped (committed)
-- Choked-flow ceiling on the exhaust valve (`Cd*A*rho*a`) -- bounds the exhaust
-  backflow (PATHDIAG: exhaust FGasto held at the growing sonic ceiling).
+### 効果があったもの(コミット済み)
+- 排気バルブへのチョーク流量上限(`Cd*A*rho*a`)-- 排気逆流に上限を設ける(PATHDIAG: 排気 FGasto が増大する音速上限に張り付く)。
 
-### What did NOT work (reverted)
-- **Hard cylinder-mass cap** (rho_cyl <= 60): discarding the "excess" mass
-  breaks conservation -> reintroduces NaN.
-- **Boundary-node `Frho` cap** (in `ActualizaPropiedadesGas`): desyncs `Frho`
-  from the conserved `FU0`/`FPresion0` the same node also exposes, so the valve
-  and the pipe see inconsistent states -> NaN.
+### 効果がなかったもの(取り消し)
+- **気筒質量のハード上限**(rho_cyl <= 60): 「超過」質量を捨てると保存則が破れる -> NaN が再発する。
+- **境界ノード `Frho` の上限**(`ActualizaPropiedadesGas` 内): `Frho` が、同じノードが公開している保存量 `FU0`/`FPresion0` から非同期になり、バルブとパイプが矛盾した状態を見ることになる -> NaN。
 
-### The real fix (open)
-The valve↔cylinder↔junction states must be made **mutually consistent** rather
-than clamped independently: either (a) cap the boundary-node CONSERVED state
-(U0/energy) so `Frho`, `P`, `a` all stay consistent and the valve sees one
-physical state, or (b) give the cylinder boundary (`TCCCilindro`) the HLLC
-contact-state massflow instead of the characteristic-throat formula, which
-over-predicts under the extreme port state. This is the natural continuation of
-the HLLC work and the last barrier to a clean multi-cycle exhaust run.
+### 本当の修正(未解決)
+バルブ↔気筒↔ジャンクションの状態は、個別にクランプするのではなく**相互に一貫させる**必要がある: (a) 境界ノードの保存量(U0/エネルギー)に上限を設け、`Frho`、P、a がすべて一貫し、バルブが単一の物理状態を見るようにするか、(b) 気筒境界(`TCCCilindro`)に、極端なポート状態下で過大予測する特性曲線スロート式の代わりに、HLLC のコンタクト状態流量を与えるかのいずれかである。これは HLLC 作業の自然な延長であり、クリーンなマルチサイクル排気実行に対する最後の障壁である。
 
-### Net position after Stage 9-10
-- HLLC (`OPENWAM_HLLC=1`): pipe flux is NaN-free through the cyl-3 blowdown that
-  froze every TVD variant -- the density-runaway root is cured.
-- Exhaust valve massflow is choked-bounded.
-- The intake-valve / boundary-node coupling under overlap is the remaining
-  non-physical mass source; the principled fix is boundary-state consistency
-  (above), not more independent clamps.
+### Stage 9-10 後の現在地
+- HLLC(`OPENWAM_HLLC=1`): あらゆる TVD バリアントを凍結させていた cyl-3 ブローダウンを通して、パイプフラックスは NaN フリーである -- 密度暴走の根本原因は治癒された。
+- 排気バルブ流量はチョーク上限で抑えられている。
+- オーバーラップ下の吸気バルブ/境界ノード結合が、残る非物理的な質量源である; 王道の修正は(上述の)境界状態の一貫性であって、さらなる個別クランプではない。
 
-## Stage 11 — STABLE & CONVERGING: physical-density cap (`fc718b4`)
+## Stage 11 — 安定かつ収束: 物理的密度上限(`fc718b4`)
 
-The root of the valve mass runaway was a **units bug in the density ceiling**:
-`Transforma2Area` capped the AREA-WEIGHTED conserved density `U[0]=rho*area`
-against a fixed 50, so a small-area cell (the exhaust port, area ~7e-4) kept
-`U[0] < 50` while the PHYSICAL density `rho = U[0]/area` reached hundreds. The
-valve reads `Frho = U[0]/area` to size its choked massflow, so the cap was
-effectively absent there. Fix: cap `rho = U[0]/area` at 50x ambient
-(`U0max = 50*area`), rescaling momentum/energy/species consistently (V and T
-preserved).
+バルブ質量暴走の根本原因は、**密度上限における単位バグ**であった: `Transforma2Area` は面積加重保存密度 `U[0]=rho*area` を固定値 50 に対して上限管理していたが、面積の小さいセル(排気ポート、面積 ~7e-4)では `U[0] < 50` を保ったまま、物理密度 `rho = U[0]/area` は数百に達していた。バルブはそのチョーク流量を求めるために `Frho = U[0]/area` を読むため、上限はそこでは事実上存在しないに等しかった。修正: `rho = U[0]/area` を周囲の 50 倍で上限管理する(`U0max = 50*area`)、運動量/エネルギー/化学種を一貫して再スケールする(V と T は保存)。
 
-### Result — first NaN-free, mass-physical, COMPLETING multi-cycle run
-4000 RPM/WOT, HLLC, tapered (real) port, single thread:
-- **FIN=1, NaN=0, 7 s** (2 cycles) / **29 s** (6 cycles).
-- 6-cycle trapped mass per IVC: cycle 1 is the startup transient (0.4-4.4 g),
-  then it **converges and stays bounded**: cycles 2-6 oscillate in a tight band
-  around **~0.27 g** (0.20-0.32 g). Stable, converged, physical.
+### 結果 — 初の NaN フリー、質量が物理的、完走するマルチサイクル実行
+4000 RPM/WOT、HLLC、テーパー(実形状)ポート、シングルスレッド:
+- **FIN=1、NaN=0、7 s**(2 サイクル)/ **29 s**(6 サイクル)。
+- IVC ごとの 6 サイクル・トラップ質量: サイクル 1 は起動過渡(0.4-4.4 g)、その後は**収束して有界に留まる**: サイクル 2-6 は **~0.27 g** 周辺の狭い帯(0.20-0.32 g)で振動する。安定、収束、物理的。
 
-The exhaust is now **numerically solved** -- the "physical model limit" the
-prior session suspected was a chain of code/units bugs (cold-start init,
-density runaway, area-weighted cap, valve coupling), all now fixed.
+排気は今や**数値的に解けている** -- 前回セッションが疑っていた「物理モデルの限界」は、コード/単位バグの連鎖(コールドスタート初期化、密度暴走、面積加重上限、バルブ結合)であり、今やすべて修正された。
 
-### Open: calibration, not stability
-The converged ~0.27 g is LOW (VE ~ 42 %, expected ~110 %). This is now a physics
-calibration / numerical-dissipation question (HLLC + the caps may under-fill),
-NOT a crash. Candidates: the density/positivity caps are slightly aggressive and
-shave mass at the port each cycle; or HLLC's extra dissipation at the
-valve-adjacent junction damps the intake ram. Next: verify mass conservation
-per cycle, then tune the cap thresholds / confirm the VE against the stock curve
-on a converged (cycle >= 4) basis. Recommended base config:
-`OPENWAM_HLLC=1`, tapered port, `port_junction_vol=0`.
+### 未解決: 較正であって安定性ではない
+収束した ~0.27 g は低い(VE ~ 42 %、期待値は ~110 %)。これはもはや物理較正/数値散逸の問題であり(HLLC + 上限が充填を過小評価しているかもしれない)、クラッシュではない。候補: 密度/正値性の上限がわずかに攻撃的で、サイクルごとにポートで質量を削っている; あるいは HLLC がバルブ隣接ジャンクションで追加の散逸を与え、吸気ラムを減衰させている。次: サイクルあたりの質量保存を検証し、その後、収束した(サイクル >= 4 の)基準で上限しきい値を調整/VE を stock カーブに対して確認する。推奨ベース構成: `OPENWAM_HLLC=1`、テーパーポート、`port_junction_vol=0`。
 
-## Stage 12 — converged VE sweep: stable, but a uniform ~0.4x under-fill
+## Stage 12 — 収束 VE スイープ: 安定だが一様な ~0.4 倍の充填不足
 
-With HLLC + the physical-density cap the model now runs the **whole RPM range
-stably** (converged VE sweep, 6 cycles/point):
+HLLC + 物理的密度上限により、モデルは今や**全 rpm レンジで安定に**動作する(収束 VE スイープ、1 点あたり 6 サイクル):
 
 | RPM | VE_sim | VE_stock | ratio | NaN |
 |---|---|---|---|---|
@@ -517,42 +256,24 @@ stably** (converged VE sweep, 6 cycles/point):
 | 6000 | 38 | 109 | 0.35 | 0 |
 | 7000 | 34 | 105 | 0.32 | 0 |
 
-The shape is roughly flat at **ratio ~0.4** (uniform under-fill), not an
-RPM-dependent collapse -- i.e. a systematic calibration constant, not broken
-physics. NaN=0 at 5/6 points.
+形状はおおむね **ratio ~0.4** でフラットであり(一様な充填不足)、rpm 依存の崩壊ではない -- すなわち、壊れた物理ではなく系統的な較正定数である。6 点中 5 点で NaN=0。
 
-### Root of the under-fill (FILLDIAG, `b9f18bb`)
-During intake the manifold is healthy -- port at full atmosphere (p_port
-~1.01 bar, rho ~1.5 kg/m^3), intake valve Cd 0.64. But **p_cyl ~ p_port**, so
-there is almost no induction pressure differential and only ~0.20 g of fresh air
-enters (VE_fresh ~31 %). The cylinder reaches ~1 bar but ~700 K at IVC: it is
-hot and under-drawn, not starved by the intake path. The descending piston is
-not building the expected induction vacuum.
+### 充填不足の根本原因(FILLDIAG、`b9f18bb`)
+吸気中、マニホールドは健全である -- ポートは完全大気圧(p_port ~1.01 bar、rho ~1.5 kg/m^3)、吸気バルブ Cd 0.64。しかし **p_cyl ~ p_port** であり、誘導圧力差がほぼ存在せず、新気は ~0.20 g しか入らない(VE_fresh ~31 %)。気筒は IVC で ~1 bar に達するが ~700 K である: これは高温で吸引不足なのであって、吸気経路で飢餓状態にあるのではない。降下するピストンが期待される誘導真空を形成していない。
 
-### Next (calibration, distinct from the stability work)
-This is an engine-cycle calibration question -- induction vacuum / residual /
-scavenging -- not a solver crash. Candidates to check: cylinder volume vs crank
-(does FVolumen expand correctly on intake?), valve-timing/VANOS phasing,
-trapped-mass sampling angle, and whether HLLC's port dissipation damps the
-intake ram. The exhaust stability mission (the original "physical model limit")
-is COMPLETE: the run is NaN-free, mass-physical, and converges across the full
-RPM range.
+### 次(較正、安定性作業とは別)
+これはエンジンサイクル較正の問題である -- 誘導真空/残留ガス/掃気 -- であってソルバーのクラッシュではない。確認すべき候補: 気筒容積がクランク角に対して正しく変化しているか(FVolumen は吸気時に正しく膨張するか)、バルブタイミング/VANOS のフェージング、トラップ質量のサンプリング角、そして HLLC のポート散逸が吸気ラムを減衰させていないか。排気安定化ミッション(元々の「物理モデルの限界」)は**完了**である: 実行は NaN フリー、質量は物理的であり、全 rpm レンジで収束する。
 
-## Stage 13 — VE calibration: it's intake VALVE-TIMING / wave-tuning, not a flat offset
+## Stage 13 — VE 較正: これは吸気バルブタイミング/波動チューニングの問題であり、一様なオフセットではない
 
-The "uniform ~0.4x VE" turned out NOT to be a numerical dissipation constant.
-VLVWIN traced the intake valve over a converged cycle and found:
-- the intake port gas is **600-870 K all cycle** (not ~313 K), so the cylinder
-  fills with hot gas (IVC ~565 K) -> low density -> low VE;
-- the hot intake comes from **backflow**: the intake valve goes SAL (cylinder ->
-  runner) for ~90 deg around BDC because IVC was at **620 deg (80 deg after
-  BDC)**, pushing hot compressed charge back into the runner and contaminating
-  it cycle-after-cycle.
+「一様な ~0.4 倍の VE」は数値散逸定数ではないことが判明した。VLVWIN が収束サイクルにわたって吸気バルブをトレースし、以下を見出した:
+- 吸気ポートの気体は全サイクルを通して **600-870 K** である(~313 K ではない)。したがって気筒は高温の気体で充填され(IVC ~565 K)-> 密度が低い -> VE が低い。
+- この高温吸気は**逆流**に由来する: IVC が **620 deg(BDC の 80 deg 後)**だったため、吸気バルブが BDC 周辺の ~90 deg にわたって SAL(気筒 -> ランナー)側になり、高温に圧縮された充填ガスをランナーへ押し戻し、サイクルを追うごとにランナーを汚染していた。
 
-### Intake-timing sweep (4000 RPM/WOT, HLLC, converged) — huge, wave-tuned effect
+### 吸気タイミングスイープ(4000 RPM/WOT、HLLC、収束)— 巨大で波動チューニング的な効果
 | IVO / dur -> IVC | VE % |
 |---|---|
-| 360 / 260 -> 620 (old default) | 38 |
+| 360 / 260 -> 620(旧デフォルト) | 38 |
 | 340 / 230 -> 570 | **203** |
 | 345 / 200 -> 545 | 81 |
 | 350 / 195 -> 545 | 38 |
@@ -560,917 +281,482 @@ VLVWIN traced the intake valve over a converged cycle and found:
 | 345 / 210 -> 555 | 46 |
 | 355 / 195 -> 550 | 51 |
 
-VE swings 37 -> 203 % with valve timing, and is **non-monotonic** (same IVC,
-very different VE depending on IVO/duration) -- i.e. the model has real intake
-wave-tuning behaviour, and the old default timing sat in a bad trough.
+VE はバルブタイミングにより 37 -> 203 % まで振れ、かつ**非単調**である(同じ IVC でも、IVO/継続期間次第で VE が大きく異なる) -- すなわちこのモデルには実際の吸気波動チューニング挙動があり、旧デフォルトタイミングは悪いトラフに座っていた。
 
-### Interpretation & open question
-Two things are now clear:
-1. The exhaust stability work is complete and correct -- VE responds to physics.
-2. The VE sensitivity to timing is **larger than a real engine** (2x from a
-   5-10 deg shift), which suggests the intake wave dynamics are under-damped /
-   resonating more strongly than reality (manifold/equalisation-tube model, port
-   friction, or HLLC's low numerical dissipation amplifying the ram wave).
+### 解釈と未解決の問題
+今や 2 点が明らかである:
+1. 排気安定化作業は完了しており正しい -- VE は物理に応答している。
+2. タイミングに対する VE の感度は**実エンジンより大きい**(5-10 deg のシフトで 2 倍)。これは、吸気波動ダイナミクスが実際より過小減衰/強く共鳴している(マニホールド/均圧管モデル、ポート摩擦、あるいは HLLC の低い数値散逸がラム波を増幅している)ことを示唆する。
 
-Calibrating VE to the stock curve is therefore a multi-factor intake-tuning task
-(set the real S54 VANOS timing AND damp the over-resonant manifold), distinct
-from the now-finished stability work. `OPENWAM_IVO` / `OPENWAM_IN_DUR` expose the
-timing for that work.
+したがって VE を stock カーブに較正することは、(実 S54 VANOS タイミングを設定し、かつ過共鳴のマニホールドを減衰させるという)複数要因の吸気チューニング課題であり、今完了した安定性作業とは別物である。`OPENWAM_IVO` / `OPENWAM_IN_DUR` がその作業のためにタイミングを公開する。
 
-## Stage 13 — VE calibration: NOT over-resonance, NOT overlap; hot-charge feedback
+## Stage 13 — VE 較正: 過共鳴ではなく、オーバーラップでもなく; 高温充填フィードバック
 
-Systematic elimination of the uniform ~0.4x VE under-fill (all env-gated probes):
+一様な ~0.4 倍の VE 充填不足の系統的な除外(すべて env ゲート付きプローブ):
 
-1. **Over-resonance — RULED OUT.** At a FIXED realistic S54 cam
-   (IVO=348, dur=252 -> IVC=600) the converged VE is a SMOOTH 38-46% across
-   2000-7000 rpm (not jagged). The earlier wild swings (38% at IVC620 -> 203% at
-   IVC570) come only from moving IVC into specific backflow/ram troughs; at a
-   sensible fixed IVC the response is smooth and uniformly low.
-2. **Hot intake — CONFIRMED, system-wide.** Gas temperature is ~600-700 K not
-   only at the valve-side port (pipe 7) but also at the plenum-side bellmouth
-   (pipe 3), fed by the 10.5 L plenum initialised at 313 K. Air composition
-   (R=287), cold init (313 K) and geometry are all correct, so the gas genuinely
-   carries high energy (T = a^2/(gamma R) with correct R). The hot charge ->
-   ~0.4x ambient density at IVC -> ~0.4x VE.
-3. **Overlap backflow — RULED OUT.** Sweeping IVO to remove valve overlap
-   (IVO 360 -> 400, overlap +2 -> -38 deg) does NOT cool the intake or raise VE
-   (VE 46 -> 28%); later IVO just shortens the effective intake.
+1. **過共鳴 — 棄却。** 固定された現実的な S54 カム(IVO=348、dur=252 -> IVC=600)では、収束 VE は 2000-7000 rpm にわたって **38-46% と滑らかに一様**である(ギザギザではない)。以前の激しい振れ(IVC620 での 38% -> IVC570 での 203%)は、IVC を特定の逆流/ラムのトラフへ動かした場合にのみ生じる; 妥当な固定 IVC では応答は滑らかで一様に低い。
+2. **高温吸気 — 確認、系全体で。** 気体温度はバルブ側ポート(パイプ 7)だけでなく、プレナム側ベルマウス(パイプ 3)でも ~600-700 K であり、これは 313 K で初期化された 10.5 L プレナムから供給されている。気体組成(R=287)、コールド初期化(313 K)、ジオメトリはすべて正しいため、気体は本当に高エネルギーを持っている(正しい R での T = a^2/(gamma R))。高温充填 -> IVC で周囲密度の ~0.4 倍 -> VE ~0.4 倍。
+3. **オーバーラップ逆流 — 棄却。** バルブオーバーラップを除去するように IVO をスイープしても(IVO 360 -> 400、オーバーラップ +2 -> -38 deg)、吸気は冷えず VE も上がらない(VE 46 -> 28%); IVO を遅らせることは単に実効吸気期間を短くするだけである。
 
-### Remaining mechanism (the calibration frontier)
-The hot intake is a **charge-temperature feedback**: the late-ish IVC pushes
-warming charge back into the port during the intake stroke (VLVWIN SAL phases at
-513-543 and 589-634 deg), heating the runner; the next cycle draws that hot gas,
-and the cold 10.5 L plenum does not fully flush the small runner between events.
-The trapped charge stabilises hot (~565 K) -> uniform low VE.
+### 残る機構(較正のフロンティア)
+高温吸気は**充填温度フィードバック**である: やや遅めの IVC が、吸気行程中に温まった充填ガスをポートへ押し戻し(VLVWIN の SAL 位相は 513-543 および 589-634 deg)、ランナーを加熱する; 次のサイクルはその高温ガスを吸い込み、冷たい 10.5 L プレナムはイベントの合間に小さなランナーを完全にはフラッシュしない。トラップされた充填ガスは高温(~565 K)で安定化する -> 一様に低い VE。
 
-This is a genuine intake gas-dynamics calibration coupling cam timing, runner
-volume and backflow -- solvable but it needs tuning against real S54 data
-(actual VANOS map + a measured VE point), not a single code fix. The exhaust
-STABILITY mission is complete and unaffected; this is the accuracy work that the
-now-stable solver makes possible.
+これは、カムタイミング、ランナー容積、逆流を結びつける本物の吸気ガスダイナミクス較正の課題である -- 解決可能だが、単一のコード修正ではなく実 S54 データ(実際の VANOS マップ+実測 VE 点)に対するチューニングが必要である。排気の**安定性**ミッションは完了しており影響を受けない; これは、今や安定したソルバーが可能にした精度向上の作業である。
 
-## Stage 14 — CSL 268deg cam + IVO/IVC sweep: timing IS the lever, VE ~ stock
+## Stage 14 — CSL 268deg カム + IVO/IVC スイープ: タイミングこそがレバーであり、VE は stock 相当
 
-Two corrections landed together: (1) the cam base was set to the true **CSL
-hardware** — 268deg intake / 264deg exhaust (the standard S54B32 is 260/260),
-and (2) the **MSS54 VANOS reference offsets** (`K_EVAN1_OFFSET=-2`,
-`K_AVAN1_OFFSET=+1` deg KW, DME unit "W"=Winkel) were wired into
-`_add_valve_def`. Because IVC = IVO + duration, the +8deg intake bump pushes IVC
-later, so the IVO base was re-swept (`scripts/ivo_sweep.py`).
+2 つの修正が同時に着地した: (1) カムのベースを真の **CSL 実機**値 — 吸気 268deg / 排気 264deg(標準の S54B32 は 260/260)に設定し、(2) **MSS54 VANOS 基準オフセット**(`K_EVAN1_OFFSET=-2`、`K_AVAN1_OFFSET=+1` deg KW、DME 単位「W」=Winkel)を `_add_valve_def` に組み込んだ。IVC = IVO + duration であるため、+8deg の吸気シフトは IVC を後ろへ押しやり、そのため IVO のベースが再スイープされた(`scripts/ivo_sweep.py`)。
 
-### Metric fix
-`ve_first_cycle_sweep.py` took the *peak* trapped mass, which is a START-UP
-overshoot (e.g. 0.67 g at t=5 ms) — not the settled value. The mass then
-plateaus (~0.40 g held over consecutive dumps) before the cyl-3 freeze degrades
-it. The **median** of the physical readings is robust to both the overshoot and
-the freeze tail and lands on the plateau; the sweep reports the median.
+### 指標の修正
+`ve_first_cycle_sweep.py` はトラップ質量の*ピーク*を取っていたが、これは起動時のオーバーシュート(例: t=5 ms で 0.67 g)であり -- 落ち着いた値ではない。質量はその後(~0.40 g で連続するダンプにわたって)プラトーに達し、その後 cyl-3 のフリーズがそれを劣化させる。物理的な読み取り値の**中央値**は、オーバーシュートとフリーズの尾の両方に頑健であり、プラトーに着地する; このスイープでは中央値を報告する。
 
-### Result — first probe vs clean re-run
-An initial coarse probe suggested per-RPM optima reaching 96-102% VE. A cleaner,
-reproducible 5-RPM x 5-IVO sweep (`scripts/data/ivo_sweep_268cam.csv`, and
-independently re-run later) tempered that: the absolute fill is lower and noisier
-(the cyl-3 exhaust freeze still corrupts some points — e.g. 3000/knob-320
-collapses to 39%). The reproducible signal is the AVERAGE median-VE per static
-IVO base over 3000-7000 RPM.
+### 結果 — 最初のプローブとクリーンな再実行の比較
+最初の粗いプローブでは、rpm ごとの最適値が 96-102% VE に達することが示唆された。より綺麗で再現性のある 5-RPM x 5-IVO スイープ(`scripts/data/ivo_sweep_268cam.csv`、および独立して後で再実行)はそれを緩和した: 絶対的な充填量はより低くノイジーである(cyl-3 排気フリーズは依然として一部の点を汚染する — 例えば 3000/knob-320 は 39% まで崩壊する)。再現性のある信号は、静的 IVO ベースごとの 3000-7000 RPM にわたる**平均中央値 VE**である。
 
-Effective IVO = knob + 2 (the -2 deg K_EVAN1 offset); IVC[deg ABDC] = effIVO + 268 - 540.
+実効 IVO = knob + 2(-2 deg の K_EVAN1 オフセット); IVC[deg ABDC] = effIVO + 268 - 540。
 
-| IVO knob | IVC ABDC | avg VE | per-RPM [3k,4k,5k,6k,7k] | worst |
+| IVO knob | IVC ABDC | 平均 VE | rpm 別 [3k,4k,5k,6k,7k] | 最悪値 |
 |---|---|---|---|---|
-| 320 | 50 | 81% | 39, 85, 92, 93, 98 | 39% (3k collapse) |
+| 320 | 50 | 81% | 39, 85, 92, 93, 98 | 39%(3k 崩壊) |
 | **330** | **60** | **84%** | 62, 96, 85, 91, 88 | **62%** |
 | 340 | 70 | 82% | 71, 90, 80, 84, 85 | 71% |
 | 350 | 80 | 75% | 67, 76, 76, 75, 80 | 67% |
-| 360 (old) | 90 | 67% | 62, 63, 66, 69, 75 | 62% |
+| 360(旧) | 90 | 67% | 62, 63, 66, 69, 75 | 62% |
 
-Every RPM still traces an inverted-U in IVC with the peak in the 50-70 ABDC band,
-i.e. **far** above the old IVO=360 (IVC 90 ABDC, the falling edge at every RPM).
-The best SINGLE static base is **knob 330 (IVC ~60 ABDC)**: highest average (84%)
-and best worst-case (62%, vs knob 320's 39% collapse at 3000). An independent
-re-run reproduced 4000/330 -> 96% to the digit.
+すべての rpm が依然として IVC に対して逆 U 字を描き、ピークは 50-70 ABDC 帯にある。すなわち、旧 IVO=360(IVC 90 ABDC、すべての rpm で下降エッジ)を**はるかに**上回る位置にある。単一の静的ベースとして最良なのは **knob 330(IVC ~60 ABDC)**である: 平均が最高(84%)、最悪ケースも最良(62%、対する knob 320 の 3000 での 39% 崩壊)。独立した再実行では 4000/330 -> 96% が小数点まで再現された。
 
 
-### What changed in code
-- Default `base_open_intake` 360 -> **330** (IVC ~60 ABDC), still env-tunable via
-  `OPENWAM_IVO`. This is the robust static centre; it does not encode a per-RPM
-  schedule.
+### コードで変更した点
+- デフォルト `base_open_intake` 360 -> **330**(IVC ~60 ABDC)、`OPENWAM_IVO` により引き続き env でチューニング可能。これは頑健な静的中心値であり、rpm ごとのスケジュールを符号化するものではない。
 
-### Honest caveats
-- These are FIRST-CYCLE median VE (the exhaust freeze still caps the run), so the
-  absolute numbers are a trend, not converged VE. Residuals remain at every RPM
-  (avg 84% vs stock 95-109%); the unresolved induction-depression shortfall
-  (Stage 13) is the main remaining gap, not the IVO base.
-- The first-cycle noise does not reliably pin the RPM *direction* of the optimum,
-  so RPM-dependent IVC tuning stays in the VANOS map (`kf_evan1_soll`) as future
-  work, to be validated once the exhaust converges.
+### 正直な留意点
+- これらは第一サイクルの中央値 VE である(排気フリーズが依然として実行を制限している)ため、絶対値はトレンドであって収束 VE ではない。残差はすべての rpm で残っている(平均 84% 対 stock 95-109%); 未解決の誘導減圧不足(Stage 13)が主要な残存ギャップであり、IVO ベースの問題ではない。
+- 第一サイクルのノイズは最適値の rpm *方向*を確実には特定できないため、rpm 依存の IVC チューニングは VANOS マップ(`kf_evan1_soll`)側の今後の課題として残る。これは排気が収束してから検証されるべきである。
 
-### This overturns Stage 12's framing
-Stage 12's "uniform ~0.4x under-fill, looks like a flat calibration constant"
-was an **artifact of a single wrong static IVC** (90 deg ABDC, the old IVO=360),
-which sits far down the falling edge at *every* RPM. It is not a flat offset and
-not a physics limit: **intake-valve TIMING is the dominant VE lever**, confirming
-Stage 13's wave-tuning result with hard numbers.
+### これは Stage 12 の見立てを覆す
+Stage 12 の「一様な ~0.4 倍の充填不足、フラットな較正定数のように見える」は、**単一の誤った静的 IVC**(90 deg ABDC、旧 IVO=360)のアーティファクトであった。これは*どの* rpm でも下降エッジのはるか下に位置する。これはフラットなオフセットでも物理的限界でもない: **吸気バルブタイミングが支配的な VE レバーである**ことが、Stage 13 の波動チューニングの結果を確固たる数値で裏付けた。
 
-## Stage 15 — converged VE is physical, not the freeze: it's the hot intake charge
+## Stage 15 — 収束 VE は物理的であり、フリーズのせいではない: 高温吸気充填のせいである
 
-With `OPENWAM_HLLC=1` the cyl-3 blowdown freeze is gone (NaN=0) and the run
-completes 10-20 cycles. This lets us read the *converged* (not first-cycle) VE
-for the first time, and it is sobering:
+`OPENWAM_HLLC=1` により cyl-3 ブローダウンのフリーズは消え(NaN=0)、実行は 10-20 サイクル完走する。これにより初めて*収束*(第一サイクルではない)VE を読むことができ、それは厳しい結果であった:
 
-- At 4000 RPM / IVO 330, the converged trapped mass plateaus at **~0.36 g
-  (~57% VE)**, oscillating 0.28-0.42 g. The Stage-14 "84-96%" was a **first-cycle
-  median inflated by the start-up overshoot** (0.7-0.9 g, then 2.7 g spike), not
-  the settled value. The ~0.4-0.5x under-fill is **real and physical**, exactly
-  as Stage 13 suspected — the freeze was only hiding it.
+- 4000 RPM / IVO 330 において、収束トラップ質量は **~0.36 g(~57% VE)**でプラトーに達し、0.28-0.42 g で振動する。Stage-14 の「84-96%」は**起動時のオーバーシュート(0.7-0.9 g、その後 2.7 g のスパイク)によって水増しされた第一サイクルの中央値**であり、落ち着いた値ではなかった。~0.4-0.5 倍の充填不足は、Stage 13 が疑っていたとおり**実在し物理的である** -- フリーズはそれを隠していただけである。
 
-### Bug found and fixed: intake temps were Kelvin-as-Celsius
-`OPENWAM_INTEMP` showed the whole intake tract (bellmouth pipe-3 *and* port
-pipe-7) sitting at **~600 K**, not ambient. Root cause: OpenWAM reads pipe wall
-temps and the atmosphere temp as **degC** (`degCToK()` everywhere —
-TTubo.cpp:1152/2518, TOpenWAM.cpp:623, TBloqueMotor.cpp:67), but the generator
-wrote them in **Kelvin**:
-- atmosphere `ambient_temp` 298 -> read as 298 degC = **571 K** inlet air;
-- intake walls 300/313/400 -> read as degC = **573/586/673 K**.
-(The exhaust 700/800 and the engine-block "60" were correctly authored in degC —
-800 degC = 1073 K is right for a WOT header — so the bug was intake-only.)
+### 発見・修正したバグ: 吸気温度がケルビンをセ氏として扱われていた
+`OPENWAM_INTEMP` は、吸気管路全体(ベルマウスのパイプ3*および*ポートのパイプ7)が周囲温度ではなく **~600 K** にあることを示していた。根本原因: OpenWAM はパイプ壁温度と大気温度を**degC(セ氏)**として読む(`degCToK()` が随所で使われる — TTubo.cpp:1152/2518、TOpenWAM.cpp:623、TBloqueMotor.cpp:67)が、生成器はそれらを**ケルビン**で書き込んでいた:
+- 大気 `ambient_temp` 298 -> degC として読まれ 298 degC = **571 K** の入気;
+- 吸気壁 300/313/400 -> degC として読まれ **573/586/673 K**。
+(排気の 700/800 とエンジンブロックの「60」は正しく degC で記述されていた — 800 degC = 1073 K は WOT ヘッダーとして妥当である -- したがってこのバグは吸気側のみであった。)
 
-Fix: write the atmosphere temp as `ambient_temp - 273.15` and the intake walls in
-degC (snorkel/filter 27, bellmouth/runners 40, port 127). This is a genuine
-correctness fix and lifted the converged VE **50% -> ~57%** — but did NOT cool the
-charge, because the heat is not coming from the walls.
+修正: 大気温度を `ambient_temp - 273.15` として、吸気壁を degC で(スノーケル/フィルタ 27、ベルマウス/ランナー 40、ポート 127)書き込む。これは正真正銘の正しさの修正であり、収束 VE を **50% -> ~57%** に引き上げた -- しかし充填ガスは冷えなかった。なぜなら熱源は壁ではないからである。
 
-### Where the heat actually comes from (OPENWAM_VLVWIN)
-Mapping the cyl-1 intake valve over a converged cycle (Theta: 360 = gas-exchange
-TDC, 540 = BDC, IVC ~600) shows the real mechanism:
+### 実際の熱源はどこか(OPENWAM_VLVWIN)
+収束サイクルにわたって cyl-1 吸気バルブをマッピングすると(Theta: 360 = ガス交換 TDC、540 = BDC、IVC ~600)、実際の機構が示される:
 
-| phase | Theta | dir | p_cyl | T_port |
+| 位相 | Theta | 方向 | p_cyl | T_port |
 |---|---|---|---|---|
-| valve shut (prev-cycle residue) | 272-317 | -- | 1.6-1.8 | 650-855 K |
-| overlap, just after IVO | 347-362 | **SAL (back)** | 1.46->0.69 | 543-654 K |
-| intake stroke | 377-407 | ENT (fill) | low | -- |
-| wave reversals | 423-438, 513-528 | SAL | swinging | ~600 K |
-| late IVC | 589 | SAL (back) | 1.39 | 615 K |
+| バルブ閉(前サイクルの残留) | 272-317 | -- | 1.6-1.8 | 650-855 K |
+| オーバーラップ、IVO 直後 | 347-362 | **SAL(逆流)** | 1.46->0.69 | 543-654 K |
+| 吸気行程 | 377-407 | ENT(充填) | 低 | -- |
+| 波動反転 | 423-438, 513-528 | SAL | 変動 | ~600 K |
+| 遅い IVC | 589 | SAL(逆流) | 1.39 | 615 K |
 
-The VLVWIN snapshots show SAL (back-flow) into the port at overlap and late IVC,
-with the port at 600-800 K. **An early read of these snapshots (1.4-1.8 bar
-"back-pressure") was WRONG and is corrected in Stage 16** — those p_cyl values
-were instantaneous samples, not the exhaust-stroke mean. Diagnostics used:
-`OPENWAM_HLLC`, `OPENWAM_INTEMP`, `OPENWAM_VLVWIN`.
+VLVWIN のスナップショットは、オーバーラップおよび遅い IVC においてポートへの SAL(逆流)を示しており、ポートは 600-800 K にある。**これらのスナップショットの初期の解釈(1.4-1.8 bar の「背圧」)は誤りであり、Stage 16 で修正される** -- これらの p_cyl の値は瞬間サンプルであって、排気行程の平均ではなかった。使用した診断: `OPENWAM_HLLC`、`OPENWAM_INTEMP`、`OPENWAM_VLVWIN`。
 
-## Stage 16 — it is NOT back-pressure: it's hot-gas recirculation through the valve
+## Stage 16 — 背圧ではない: バルブを通る高温ガスの再循環である
 
-Stage 15 guessed the hot charge came from a restrictive exhaust. A proper
-time-averaged measurement (`scripts/exhaust_backpressure_diag.py`, last converged
-cycle) **disproves that**:
+Stage 15 は高温充填の原因を排気の絞りと推測した。適切な時間平均計測(`scripts/exhaust_backpressure_diag.py`、最終収束サイクル)は**これを否定する**:
 
-- **Exhaust-stroke cylinder pressure: mean 1.02 bar** (min 0.87, max 1.43) — a
-  perfectly normal back-pressure (real CSL WOT ~1.1-1.3 bar abs).
-- The exhaust static-pressure profile from port -> tail is **flat at ~1.01 bar**
-  (every component drop < 0.005 bar): **the exhaust is NOT restrictive**, there is
-  no localised loss artifact in the cat/muffler/junctions.
+- **排気行程の気筒圧力: 平均 1.02 bar**(min 0.87、max 1.43)— まったく正常な背圧(実車 CSL WOT ~1.1-1.3 bar abs)。
+- ポート -> テールの排気静圧プロファイルは **~1.01 bar でフラット**(各コンポーネントの降下 < 0.005 bar): **排気は絞られておらず**、触媒/マフラー/ジャンクションに局所的な損失アーティファクトはない。
 
-Decomposing the trapped state at IVC (same INS.DAT):
+IVC におけるトラップ状態の分解(同一 INS.DAT):
 
-| quantity | value | reading |
+| 項目 | 値 | 解釈 |
 |---|---|---|
-| trapped P_cyl | 1.29 bar | healthy (slight ram, above MAP) |
-| trapped T | **574 K** | the problem |
-| trapped mass | 0.43 g | VE ~67% |
-| intake port mean P (fill) | 0.99 bar | manifold delivers fine, ~0.02 bar drop |
-| if same P but T=298 K | -- | VE would be ~130% |
+| トラップ P_cyl | 1.29 bar | 健全(わずかなラム、MAP より上) |
+| トラップ T | **574 K** | これが問題 |
+| トラップ質量 | 0.43 g | VE ~67% |
+| 吸気ポート平均 P(充填) | 0.99 bar | マニホールドの供給は良好、降下 ~0.02 bar |
+| 同じ P で T=298 K なら | -- | VE は ~130% になるはず |
 
-So the under-fill is **purely a charge-TEMPERATURE problem**: P and delivery are
-fine, but the trapped charge is ~574 K, almost exactly the residual/exhaust
-temperature (~563 K). **The cylinder is recirculating its own hot gas instead of
-exchanging it for fresh air.**
+つまり充填不足は**純粋に充填ガスの温度の問題**である: P と供給は正常だが、トラップされた充填ガスは ~574 K で、残留ガス/排気温度(~563 K)にほぼ一致する。**気筒は新気と交換する代わりに、自分自身の高温ガスを再循環させている。**
 
-### The thermal-boundary fixes do NOT move it (heat is gas-borne, not wall-borne)
-Two genuine Kelvin-as-degC bugs were found and fixed (OpenWAM reads pipe/plenum
-temps and the ambient temp as degC, `degCToK()`), but **neither cools the charge**:
-1. intake pipe walls + engine ambient (Stage 15 fix): 300/313/400 / 298 ->
-   573/586/673 / 571 K, corrected to 27/40/127 degC / ambient. VE 50% -> ~57%.
-2. **the intake air SOURCE plenums** (this stage): `Ambient_Intake` (the 1000 m3
-   reservoir feeding the intake) and `Plenum_Main` (10.5 L airbox) and the
-   `Equalization_Tube` were 300/313 = read as 573/586 K. Corrected to ambient /
-   40 degC. **VE unchanged (~52-57%), intake still ~570 K.**
+### 熱境界の修正では動かない(熱はガス由来であって壁由来ではない)
+Kelvin を degC として与えていた真正のバグ 2 件を発見・修正した(OpenWAM は管/プレナム温度と外気温度を degC として読む、`degCToK()`)が、**どちらも充填ガスを冷やさない**:
+1. 吸気管壁 + エンジン周囲(Stage 15 の修正): 300/313/400 / 298 -> 573/586/673 / 571 K となっていたのを 27/40/127 degC / 外気に修正。VE 50% -> ~57%。
+2. **吸気の空気ソースプレナム**(本ステージ): `Ambient_Intake`(吸気へ給気する 1000 m3 リザーバ)と `Plenum_Main`(10.5 L エアボックス)と `Equalization_Tube` が 300/313 = 573/586 K として読まれていた。外気 / 40 degC に修正。**VE は不変(~52-57%)、吸気は依然 ~570 K。**
 
-That the air source being 573 K vs 25 K changes nothing proves the ~570 K intake
-is **not** an init/boundary temperature — it is hot cylinder gas convected back
-through the intake valve during gas exchange and not flushed out by fresh air.
-(The plenum/source fixes are kept anyway: a 573 K air source is plainly wrong and
-will matter once the recirculation is cured.)
+空気ソースが 573 K でも 25 K でも何も変わらないことは、~570 K の吸気が初期化/境界温度では**ない**ことを証明する — これはガス交換中に吸気バルブを通って逆流・対流してくる高温の気筒ガスであり、新気で掃き出されていないのである。(プレナム/ソースの修正はいずれにせよ維持する: 573 K の空気ソースは明白に誤りであり、再循環が解消されれば効いてくる。)
 
-### RESOLVED: it is a numerical artifact, not valve timing or any physics
+### 解決済み: これは数値的アーティファクトであり、バルブタイミングでもいかなる物理でもない
 
-Two decisive tests settle it:
+2 つの決定的テストで決着する:
 
-**1. Overlap/IVC sweep (trapped T vs timing).** Sweeping the IVO base over a huge
-range and reading the *converged* trapped state:
+**1. オーバーラップ/IVC スイープ(トラップ T vs タイミング)。** IVO ベースを広大な範囲でスイープし、*収束後の*トラップ状態を読む:
 
-| IVO knob | overlap | IVC ABDC | trapped P | trapped T | VE |
+| IVO ノブ | オーバーラップ | IVC ABDC | トラップ P | トラップ T | VE |
 |---|---|---|---|---|---|
 | 300 | 64 deg | 30 | 1.23 | 569 K | 68% |
 | 330 | 34 deg | 60 | 1.28 | 570 K | 69% |
 | 360 | 4 deg  | 90 | 1.43 | 594 K | 67% |
 | 380 | 0 deg  | 110 | 1.27 | 590 K | 67% |
 
-Trapped T and VE are **flat (~570 K, ~67%) across overlap 0-64 deg and IVC
-30-110 deg ABDC**. With *zero overlap* (IVO 380) the charge is still 590 K. So it
-is **not** overlap back-flow and **not** late-IVC back-flow. (This also retires
-the Stage-14 IVO sensitivity as a first-cycle/freeze artifact: the converged VE
-is ~67% regardless of IVO.)
+トラップ T と VE は**オーバーラップ 0-64 deg、IVC 30-110 deg ABDC の全域でフラット(~570 K、~67%)**。*オーバーラップゼロ*(IVO 380)でも充填ガスは依然 590 K。よってオーバーラップ逆流でも**なく**、遅い IVC の逆流でも**ない**。(これにより Stage-14 の IVO 感度も初回サイクル/フリーズのアーティファクトとして退けられる: 収束後の VE は IVO によらず ~67%。)
 
-**2. Combustion OFF (zero fuel LHV).** With no combustion — no physical heat
-source anywhere — the intake is **still ~550-595 K** (bellmouth and port) and VE
-still ~57%. A bellmouth surrounded by a 25 degC air source, 40 degC walls and a
-40 degC plenum **cannot** sit at 570 K in steady state without a heat source:
-this is thermodynamically impossible physically.
+**2. 燃焼 OFF(燃料 LHV ゼロ)。** 燃焼なし — どこにも物理的熱源がない — でも吸気は**依然 ~550-595 K**(ベルマウスとポート)、VE も依然 ~57%。25 degC の空気ソース、40 degC の壁、40 degC のプレナムに囲まれたベルマウスが、熱源なしで定常的に 570 K に留まることは**あり得ない**: これは物理として熱力学的に不可能である。
 
-**Conclusion: the ~570 K intake charge — and therefore the entire ~57-67% VE
-ceiling — is a NUMERICAL ARTIFACT in the solver's intake gas handling**, not
-back-pressure, not valve timing, not scavenging, not boundary temps, not
-combustion residual. The solver is spuriously raising the intake gas internal
-energy (or the intake-pipe density/temperature, T=P/(rho*R), is being driven low
-by a mass-handling error). All converged runs used `OPENWAM_HLLC=1`; whether the
-artifact is HLLC-specific could not be isolated because the non-HLLC scheme
-freezes before converging.
+**結論: ~570 K の吸気充填 — したがって ~57-67% の VE 天井の全体 — は、ソルバの吸気ガス処理における数値的アーティファクトである**。背圧でも、バルブタイミングでも、掃気でも、境界温度でも、燃焼残留でもない。ソルバは吸気ガスの内部エネルギーを不当に上昇させている(あるいは吸気管の密度/温度、T=P/(rho*R)、が質量処理の誤りで低密度側へ駆動されている)。収束した全ランは `OPENWAM_HLLC=1` を使用した; アーティファクトが HLLC 固有かどうかは、非 HLLC スキームが収束前にフリーズするため切り分けできなかった。
 
-**Next session starts here:** instrument the intake energy balance — is internal
-energy gained with no heat input (energy-equation / flux source-term bug) or is
-intake mass lost (density driven low -> high T at fixed P)? Suspects: the HLLC
-flux energy term, the Type-12 intake junctions, and the intake-valve BC. Repro:
-sweep `OPENWAM_IVO` watching trapped T (flat = not timing); zero the fuel LHV in
-the .wam ("0.98 44000000 750" -> "0.98 1 750") and check the intake is still hot.
+**次セッションはここから開始:** 吸気エネルギー収支を計装する — 熱入力なしに内部エネルギーが増えているのか(エネルギー方程式/フラックスのソース項のバグ)、それとも吸気質量が失われているのか(密度が低く駆動される -> 固定 P で高 T)? 容疑者: HLLC フラックスのエネルギー項、Type-12 吸気ジャンクション、吸気バルブ BC。再現手順: `OPENWAM_IVO` をスイープしてトラップ T を観察(フラットならタイミングではない); .wam の燃料 LHV をゼロ化("0.98 44000000 750" -> "0.98 1 750")して吸気が依然高温であることを確認。
 
-## Stage 16 (cont.) — answer: it's energy GAIN (A), localised to the cylinder/valve→airbox, NOT a pipe mass-leak (B)
+## Stage 16(続き)— 回答: エネルギー増加 (A)、局在は気筒/バルブ→エアボックス、管の質量リーク (B) ではない
 
-The Stage-16 next-step instrumentation is done. A per-pipe energy/mass-flux
-balance probe (`OPENWAM_ENBAL`, see below) was added and run on the
-combustion-OFF deck (the decisive artifact case). The result settles the A-vs-B
-question and localises the heat source.
+Stage-16 の次ステップの計装は完了。管ごとのエネルギー/質量フラックス収支プローブ(`OPENWAM_ENBAL`、下記参照)を追加し、燃焼 OFF デッキ(決定的なアーティファクトのケース)で実行した。結果は A-vs-B の問いに決着をつけ、熱源を局在化する。
 
-### The probe
-`OPENWAM_ENBAL=1` makes every pipe (id ≤ `OPENWAM_ENBAL_MAX`, default 16) print,
-once per crank-angle window (`OPENWAM_ENBAL_WIN` deg, default 720), the
-time-averaged mass flux and total-enthalpy flux carried by the gas at BOTH ends:
-`mdot = rho*u*A` [kg/s] and `Hdot = mdot*(cp*T + u^2/2)` [W], plus the
-flux-weighted end temperatures. In a converged steady state mass is conserved
-(`<mdotL> == <mdotR>`) and the net advected enthalpy gain (`<HdotL> - <HdotR>`)
-must equal the wall heat (~0 for 40 °C walls). Across a Type-12 junction the
-downstream pipe's `<HdotL>` should match the upstream pipe's `<HdotR>`; a step
-there localises a junction defect. Implemented in
-`TTubo::CalculaResultadosMedios` (per-pipe member accumulators, OpenMP-safe).
+### プローブ
+`OPENWAM_ENBAL=1` は全ての管(id ≤ `OPENWAM_ENBAL_MAX`、デフォルト 16)に、クランク角ウィンドウ(`OPENWAM_ENBAL_WIN` deg、デフォルト 720)ごとに 1 回、両端でガスが運ぶ時間平均の質量フラックスと全エンタルピーフラックスを出力させる: `mdot = rho*u*A` [kg/s] と `Hdot = mdot*(cp*T + u^2/2)` [W]、およびフラックス加重の端温度。収束した定常状態では質量は保存され(`<mdotL> == <mdotR>`)、正味の移流エンタルピー増加(`<HdotL> - <HdotR>`)は壁熱(40 °C の壁なら ~0)に等しくなければならない。Type-12 ジャンクションをまたいでは、下流管の `<HdotL>` は上流管の `<HdotR>` に一致すべきで、そこにステップがあればジャンクションの欠陥が局在化できる。`TTubo::CalculaResultadosMedios` に実装(管ごとのメンバ積算器、OpenMP セーフ)。
 
-### Finding 1 — the φ10 eq-tube stub blows up at the Type-12 junction (a SEPARATE, real defect)
-With the eq-tube ENABLED (default), `EqTube_Stub` (a φ10 pipe) carries, at its
-**junction-side** node, **2.76 kg/s at 2771 K and a 10 MW enthalpy flux**, with
-gross mass non-conservation (ΔM ≈ −2.76 kg/s sustained over a full 720° window).
-That is ~4× the *entire* engine's airflow through one φ10 stub — physically
-impossible, and combustion is OFF so 2771 K cannot be physical. The neighbouring
-φ52 runners balance to a few %. This is the **small-area-at-junction density
-runaway** (same class as the Stage-10 exhaust port): the Benson constant-pressure
-junction (`TCCRamificacion`) weights the common sound speed by section area
-(`FSeccionTubo`), so the φ52 runners (27× the stub area) dominate and the φ10
-stub is driven into the 50× density cap.
+### 所見 1 — φ10 の eq-tube スタブが Type-12 ジャンクションで吹き上がる(別個の実在欠陥)
+eq-tube 有効(デフォルト)では、`EqTube_Stub`(φ10 の管)がその**ジャンクション側**ノードで **2771 K の 2.76 kg/s、10 MW のエンタルピーフラックス**を運び、質量の大幅な非保存を伴う(ΔM ≈ −2.76 kg/s が 720° ウィンドウ全体で持続)。これはエンジン*全体*の空気流量の ~4× が 1 本の φ10 スタブを通る勘定 — 物理的に不可能であり、燃焼は OFF なので 2771 K が物理であるはずもない。隣の φ52 ランナーは数 % 以内でバランスする。これは**ジャンクションにおける小断面積の密度暴走**(Stage-10 の排気ポートと同類)である: Benson の等圧ジャンクション(`TCCRamificacion`)は共通音速を断面積(`FSeccionTubo`)で重み付けするため、φ52 ランナー(スタブの 27× の面積)が支配し、φ10 スタブは 50× の密度キャップまで駆動される。
 
-**Confirmation (`OPENWAM_EQ_DIA=0.052`, enlarge the stub to the runner diameter):**
-the stub flux collapses 2.76 → ~2e-4 kg/s and 10 MW → ~hundreds of W — the
-runaway is gone, proving it is an area-mismatch effect. (Aside: the generated
-stub is φ10 while the comment and the eq-tube volume both say the real S54
-component is φ20 — a modelling inconsistency worth fixing.)
+**確認(`OPENWAM_EQ_DIA=0.052`、スタブをランナー径まで拡大):** スタブのフラックスは 2.76 → ~2e-4 kg/s、10 MW → ~数百 W に崩落 — 暴走は消え、面積ミスマッチ効果であることが証明された。(余談: 生成されるスタブは φ10 だが、コメントと eq-tube 容積はどちらも実物の S54 コンポーネントは φ20 だとしている — 修正に値するモデリングの不整合。)
 
-### Finding 2 — but the eq-tube is NOT the root of the hot intake
-Enlarging the stub (`EQ_DIA=0.052`) did **not** cool the intake (it got hotter),
-and **removing the eq-tube entirely** (`OPENWAM_NO_EQTUBE=1`: skip the eq-tube
-plenum + φ10 stubs, junction ① auto-reduces to a clean 2-pipe Runner_Upper↔
-Runner_Lower pass-through) leaves the intake still hot. So the stub runaway is a
-*symptom amplifier* (it spreads contamination further upstream), not the source.
+### 所見 2 — しかし eq-tube は高温吸気の根源ではない
+スタブ拡大(`EQ_DIA=0.052`)は吸気を冷やさ**なかった**(むしろ熱くなった)し、**eq-tube の完全除去**(`OPENWAM_NO_EQTUBE=1`: eq-tube プレナム + φ10 スタブをスキップ、ジャンクション ① は自動的にクリーンな 2 管の Runner_Upper↔Runner_Lower パススルーに縮約)でも吸気は依然高温のまま。よってスタブの暴走は*症状の増幅器*(汚染をさらに上流へ広げる)であって、源ではない。
 
-### Finding 3 — the heat localises to the AIRBOX PLENUM, fed by cylinder backflow
-With the eq-tube removed the temperature profile is clean and the jump is sharp:
+### 所見 3 — 熱はエアボックスのプレナムに局在し、気筒逆流で供給される
+eq-tube を除去すると温度プロファイルはクリーンで、ジャンプは鋭い:
 
-| pipe | location | flux-weighted T |
+| 管 | 位置 | フラックス加重 T |
 |---|---|---|
-| 1 (CSL_Intake_Pipe) | touches 25 °C ambient reservoir | **~290 K (cold ✓)** |
-| 2 (Panel_Filter) | filter | ~280–450 K |
-| — **Plenum_Main** (10.5 L airbox) — | | **← T jumps here** |
-| 3 (Bellmouth) | plenum side | **~570–706 K (hot)** |
-| 4–7 (runners/ports) | | ~560–680 K |
+| 1 (CSL_Intake_Pipe) | 25 °C 外気リザーバに接する | **~290 K(冷たい ✓)** |
+| 2 (Panel_Filter) | フィルタ | ~280–450 K |
+| — **Plenum_Main**(10.5 L エアボックス)— | | **← ここで T がジャンプ** |
+| 3 (Bellmouth) | プレナム側 | **~570–706 K(高温)** |
+| 4–7(ランナー/ポート) | | ~560–680 K |
 
-The pipes themselves nearly conserve mass and energy (ΔM, ΔH are a few % of the
-through-flux). The 0-D plenum energy equation (`TDepVolCte::ActualizaPropiedades`
-/ `TDeposito::EntalpiaEntrada`) is the standard well-mixed Benson form (inflow
-enthalpy relative to the plenum state, outflow implicit) and is **correct** — it
-is simply being *fed* hot gas. The hot gas enters the plenum as **backflow from
-the cylinders** convected through the (WOT-open) throttle and the bellmouths.
+管そのものは質量とエネルギーをほぼ保存する(ΔM、ΔH は通過フラックスの数 %)。0-D プレナムのエネルギー方程式(`TDepVolCte::ActualizaPropiedades` / `TDeposito::EntalpiaEntrada`)は標準的な完全混合 Benson 形(流入エンタルピーはプレナム状態に対する相対値、流出は陰的)で**正しい** — 単に高温ガスを*供給されている*だけである。高温ガスは、(WOT 開の)スロットルとベルマウスを通って対流する**気筒からの逆流**としてプレナムに入る。
 
-### Conclusion: hypothesis (A), at the gas-exchange boundary
-- **Mass-leak (B) is ruled out at the pipe level** (every intake pipe conserves
-  mass to a few %; the gross ΔM was only the φ10 stub area artifact).
-- **Energy is being gained (A):** with combustion OFF a motoring cycle must
-  *return* its compression work, so the intake should stay cool. Instead net
-  positive enthalpy is deposited in the airbox every cycle (hot cylinder gas
-  recirculated into the intake and not balanced by the cold fresh charge),
-  driving the trapped charge to ≈ the residual temperature (~570 K) → low
-  density → the ~57–67 % VE ceiling. This is **system-level energy
-  non-conservation at the cylinder↔intake-valve gas exchange**, not a pipe or
-  plenum bug.
+### 結論: 仮説 (A)、ガス交換境界で
+- **質量リーク (B) は管レベルで棄却**(全ての吸気管は数 % 以内で質量を保存; 大きな ΔM は φ10 スタブの面積アーティファクトだけだった)。
+- **エネルギーが増加している (A):** 燃焼 OFF ならモータリングサイクルは圧縮仕事を*返す*はずで、吸気は冷たいままのはず。実際には毎サイクル、正味の正のエンタルピーがエアボックスに堆積し(高温の気筒ガスが吸気へ再循環され、冷たい新気充填で相殺されない)、トラップ充填を ≈ 残留温度(~570 K)へ駆動 → 低密度 → ~57–67 % の VE 天井。これは**気筒↔吸気バルブのガス交換におけるシステムレベルのエネルギー非保存**であり、管やプレナムのバグではない。
 
-### Next session starts here (revised target)
-1. **Primary:** the intake-valve BC `TCCCilindro::FlujoSalienteCilindro` (cyl→
-   port backflow) / `FlujoEntranteCilindro` (fill) and the cylinder energy
-   accounting (`TCilindro4T`). Instrument the **per-cycle net enthalpy** the
-   intake valve exchanges with the cylinder (motoring should integrate to ≈ the
-   wall-heat loss, not a positive deposit). A positive net deposit per cycle is
-   the spurious energy. Watch whether it is HLLC-specific (it should not be — the
-   valve BC is the Benson characteristic method, independent of the pipe flux).
-2. **Secondary, concrete:** the `TCCRamificacion` area-weighted constant-pressure
-   junction is unsafe at large area ratios (φ52:φ10). Either fix the small-area
-   branch handling (energy/mass-consistent junction) or, minimally, correct the
-   stub geometry (φ10 → φ20, matching the real component and the eq-tube volume).
+### 次セッションはここから開始(改訂ターゲット)
+1. **第一:** 吸気バルブ BC `TCCCilindro::FlujoSalienteCilindro`(気筒→ポート逆流)/ `FlujoEntranteCilindro`(充填)と気筒のエネルギー会計(`TCilindro4T`)。吸気バルブが気筒と交換する**サイクルごとの正味エンタルピー**を計装する(モータリングなら積分は ≈ 壁熱損失となるはずで、正の堆積にはならない)。サイクルごとの正味の正の堆積が偽のエネルギーである。HLLC 固有かどうかを観察(そうではないはず — バルブ BC は Benson の特性法で、管フラックスから独立)。
+2. **第二、具体策:** `TCCRamificacion` の面積加重等圧ジャンクションは大きな面積比(φ52:φ10)で危険。小断面積ブランチの処理を修正する(エネルギー/質量整合のジャンクション)か、最低限、スタブ形状を修正する(φ10 → φ20、実コンポーネントと eq-tube 容積に一致)。
 
-### Reusable assets added this session
-- `OPENWAM_ENBAL` / `OPENWAM_ENBAL_MAX` / `OPENWAM_ENBAL_WIN` — per-pipe energy/
-  mass-flux balance (TTubo.cpp).
-- `OPENWAM_NO_EQTUBE=1` — generate the deck without the equalization tube
-  (isolates the eq-tube/stub) (`wam_generator.py`).
-- `OPENWAM_EQ_DIA=<m>` — override the eq-tube stub diameter (area-mismatch test)
-  (`wam_generator.py`).
-- `scripts/intake_energy_balance.py` — runs the combustion-OFF ENBAL case
-  (baseline / no-eqtube / big-stub) and prints the localisation table.
+### 本セッションで追加した再利用可能な資産
+- `OPENWAM_ENBAL` / `OPENWAM_ENBAL_MAX` / `OPENWAM_ENBAL_WIN` — 管ごとのエネルギー/質量フラックス収支(TTubo.cpp)。
+- `OPENWAM_NO_EQTUBE=1` — イコライゼーションチューブなしでデッキを生成(eq-tube/スタブの切り分け)(`wam_generator.py`)。
+- `OPENWAM_EQ_DIA=<m>` — eq-tube スタブ径のオーバーライド(面積ミスマッチテスト)(`wam_generator.py`)。
+- `scripts/intake_energy_balance.py` — 燃焼 OFF の ENBAL ケース(baseline / no-eqtube / big-stub)を実行し、局在化テーブルを出力。
 
-## Stage 17 — it is NOT the cylinder/valve: the heat lives in the intake tract itself
+## Stage 17 — 気筒/バルブではない: 熱は吸気経路そのものに宿る
 
-Stage 16 (cont.) concluded the spurious energy entered "at the cylinder<->intake-
-valve gas exchange". Deeper instrumentation this stage **overturns that** and
-exonerates the cylinder and the valve. Three decisive measurements:
+Stage 16(続き)は、偽のエネルギーは「気筒<->吸気バルブのガス交換で」入ると結論した。本ステージのより深い計装は**それを覆し**、気筒とバルブの容疑を晴らす。3 つの決定的計測:
 
-### Probe: per-cycle intake-valve mass & enthalpy balance (`OPENWAM_VLVENE`)
-For the cyl-1 intake valve it sums, each cycle, the fill mass (port->cyl) and the
-backflow mass (cyl->port) and the enthalpy each carries (`m*cp*T`), giving the
-NET enthalpy the valve deposits in the port. Converged combustion-OFF cycle:
+### プローブ: サイクルごとの吸気バルブ質量 & エンタルピー収支(`OPENWAM_VLVENE`)
+cyl-1 の吸気バルブについて、各サイクル、充填質量(port->cyl)と逆流質量(cyl->port)、およびそれぞれが運ぶエンタルピー(`m*cp*T`)を積算し、バルブがポートへ堆積させる正味エンタルピーを得る。収束した燃焼 OFF サイクル:
 ```
 fill=0.257 g  back=0.059 g  net=0.198 g  (back/fill=0.23)
 Hin_port(back)=33 J  Hout_port(fill)=149 J  netH->port = -116 J
 Tfill=562 K  Tback=539 K   inflowClampHits=0/1032
 ```
-- The intake valve **NET COOLS the port** (-116 J/cycle): it removes more
-  enthalpy as cold-side fill than it deposits as hot backflow. So the valve is
-  NOT the port's heat source.
-- Backflow is modest (back/fill 0.23), not the dominant "sloshing" imagined.
-- The Stage-10 inflow choked-clamp **never fires** during normal fill (0 hits),
-  so it is not throttling the charge.
+- 吸気バルブは**ポートを正味で冷却する**(-116 J/cycle): 高温の逆流として堆積させる以上のエンタルピーを、冷側の充填として持ち去る。よってバルブはポートの熱源ではない。
+- 逆流は穏やか(back/fill 0.23)で、想像されていたような支配的な「スロッシング」ではない。
+- Stage-10 の流入チョーククランプは通常の充填中に**一度も作動しない**(0 ヒット)ので、充填を絞ってはいない。
 
-### Test 1 — it is a genuine hot equilibrium, NOT an unconverged transient
-A 40-cycle combustion-OFF run: the port temperature plateaus at ~556-562 K from
-cycle ~8 onward (cyc8 563, cyc12 557, cyc16 574, cyc19 559 — flat, oscillating,
-no downward drift). 10-20 cycles was enough; the ~560 K is the steady state.
-(Startup is violent: cycle 1 fills 10.2 g at 2468 K — a ~16x overfill spike that
-dumps a large amount of heat into the intake very early.)
+### テスト 1 — 真正の高温平衡であり、未収束の過渡ではない
+40 サイクルの燃焼 OFF ラン: ポート温度はサイクル ~8 以降 ~556-562 K でプラトーになる(cyc8 563、cyc12 557、cyc16 574、cyc19 559 — フラット、振動あり、下降ドリフトなし)。10-20 サイクルで十分だった; ~560 K が定常状態である。(始動は暴力的: サイクル 1 は 2468 K で 10.2 g を充填 — ~16x の過充填スパイクが、ごく初期に大量の熱を吸気へ投棄する。)
 
-### Test 2 — 10x cylinder heat rejection cools the CYLINDER but not the intake
-With combustion OFF and Woschni cw1 and the intake/exhaust HT adjust both x10,
-the cylinder cools sharply (Tback 540 -> 440 K) but the **intake barely moves**
-(port ~530-543 K, bellmouth still ~560 K) and VE is unchanged. The bellmouth sits
-at 560 K while the cylinder is 440 K and the filtered inlet is ~300 K — i.e. the
-intake gas is hotter than BOTH the cylinder and the inlet. **The heat source is
-in the intake tract, independent of the cylinder temperature.**
+### テスト 2 — 気筒の放熱 10x は気筒を冷やすが、吸気は冷やさない
+燃焼 OFF で Woschni cw1 と吸気/排気の HT adjust を共に x10 にすると、気筒は急激に冷える(Tback 540 -> 440 K)が、**吸気はほとんど動かず**(ポート ~530-543 K、ベルマウスは依然 ~560 K)、VE も不変。気筒が 440 K、フィルタ後の入口が ~300 K なのに、ベルマウスは 560 K に座っている — すなわち吸気ガスは気筒と入口の双方より熱い。**熱源は吸気経路の中にあり、気筒温度から独立している。**
 
-### What is ruled out now (with data)
-- the intake valve / cylinder (net-cools the port; 10x cylinder cooling doesn't
-  cool the intake);
-- the equalization tube (`OPENWAM_NO_EQTUBE=1` doesn't cool the intake);
-- intake oscillation magnitude via friction (`OPENWAM_IN_FRIC=10` doesn't cool —
-  friction ADDS irreversible heat, it doesn't damp the source);
-- a literal plenum heat source (`FHeatPower=0`, not set by the deck);
-- per-component enthalpy-flux non-conservation: every intake pipe is conservative
-  (finite-volume) and the junctions/throttle balance `<HdotL> ~ <HdotR>`.
+### 現時点で棄却されたもの(データ付き)
+- 吸気バルブ/気筒(ポートを正味冷却; 気筒冷却 10x でも吸気は冷えない);
+- イコライゼーションチューブ(`OPENWAM_NO_EQTUBE=1` でも吸気は冷えない);
+- 摩擦による吸気振動の振幅(`OPENWAM_IN_FRIC=10` でも冷えない — 摩擦は不可逆熱を加えるのであって、源を減衰させない);
+- 文字通りのプレナム熱源(`FHeatPower=0`、デッキでは未設定);
+- コンポーネント単位のエンタルピーフラックス非保存: 全ての吸気管は保存的(有限体積)で、ジャンクション/スロットルは `<HdotL> ~ <HdotR>` でバランスする。
 
-### The remaining mechanism (next session)
-Enthalpy-FLUX conservation does NOT preclude **entropy generation**: an
-irreversible element (the Type-9 throttle `TCCPerdidadePresion`, the Type-12
-constant-pressure junctions `TCCRamificacion`) can pass the gas at conserved
-total enthalpy while raising its entropy (T up, p down). Under the oscillating
-intake the gas traverses these elements many times per cycle, and the
-irreversible heat has nowhere to leave except the weak intake-pipe walls, so the
-nearly-closed recirculation equilibrates hot (~560 K). Two candidate readings,
-to be settled next:
-- **(H1) startup-transient heat trapped in a slow-dissipating loop** — the 10 g/
-  2468 K cycle-1 spike injects the heat and the weak wall cooling bleeds it off
-  over many cycles. Test: a long (>=60-cycle) run — does the intake keep cooling?
-- **(H2) steady distributed entropy generation** — the irreversible elements
-  source heat every cycle at steady state. Test: instrument entropy
-  (s = cv*ln(p/rho^gamma)) generation across the throttle and each junction.
+### 残るメカニズム(次セッション)
+エンタルピーフラックスの保存は**エントロピー生成**を排除しない: 不可逆要素(Type-9 スロットル `TCCPerdidadePresion`、Type-12 等圧ジャンクション `TCCRamificacion`)は、全エンタルピーを保存したままガスを通しつつ、そのエントロピーを上げ得る(T 上昇、p 低下)。振動する吸気の下でガスはこれらの要素をサイクルあたり何度も通過し、不可逆熱は弱い吸気管壁以外に出て行き場がないため、ほぼ閉じた再循環は高温(~560 K)で平衡する。次に決着させるべき 2 つの候補解釈:
+- **(H1) 始動過渡の熱が、散逸の遅いループに閉じ込められている** — 10 g / 2468 K のサイクル 1 スパイクが熱を注入し、弱い壁冷却が多数サイクルかけてそれを抜く。テスト: 長い(>=60 サイクル)ラン — 吸気は冷え続けるか?
+- **(H2) 定常的な分布エントロピー生成** — 不可逆要素が定常状態でも毎サイクル熱を供給する。テスト: スロットルと各ジャンクションをまたぐエントロピー(s = cv*ln(p/rho^gamma))生成を計装する。
 
-Either way the target has moved OFF the cylinder/valve and ONTO the intake
-irreversible elements (throttle + constant-pressure junctions) and the loop's
-weak thermal dissipation.
+いずれにせよ、ターゲットは気筒/バルブから外れ、吸気の不可逆要素(スロットル + 等圧ジャンクション)とループの弱い熱散逸へと移った。
 
-### Assets added this stage
-- `OPENWAM_VLVENE` (+`_CYL`) — per-cycle intake-valve mass/enthalpy balance
-  (`TCCCilindro`); reports fill/back mass, net enthalpy to port, and whether the
-  inflow choked-clamp fires.
-- `OPENWAM_IN_FRIC=<x>` — multiply intake-pipe friction (damping test)
-  (`wam_generator.py`).
+### 本ステージで追加した資産
+- `OPENWAM_VLVENE`(+`_CYL`)— サイクルごとの吸気バルブ質量/エンタルピー収支(`TCCCilindro`); 充填/逆流質量、ポートへの正味エンタルピー、流入チョーククランプの作動有無を報告。
+- `OPENWAM_IN_FRIC=<x>` — 吸気管摩擦を乗算(減衰テスト)(`wam_generator.py`)。
 
-## Stage 18 — H2 confirmed; the whole engine runs hot; a trapped-pumping-heat equilibrium
+## Stage 18 — H2 確認; エンジン全体が高温で回る; トラップされたポンピング熱の平衡
 
-Continuing Stage 17 with an entropy probe and longer runs.
+エントロピープローブとより長いランで Stage 17 を継続する。
 
-### Entropy probe (`OPENWAM_ENBAL` now also prints flux-weighted s = cv*ln(p/rho^gamma))
-Along the (no-eqtube) intake path the specific entropy is:
+### エントロピープローブ(`OPENWAM_ENBAL` がフラックス加重の s = cv*ln(p/rho^gamma) も出力するように)
+(no-eqtube の)吸気経路に沿った比エントロピーは:
 ```
 pipe1 L7146 R8154 | pipe2 L8154 R8461 | [PLENUM] | pipe3 L9425 R9415
 [throttle] pipe4 L9415 R9417 | [junc1] pipe5 L9417 R9425 | [junc2] pipe6/7 L9425 R9382
 ```
-- Across the **throttle** (pipe3.R->pipe4.L) and **both junctions** the entropy is
-  **flat (ds~0)** -- they are NOT the entropy-generation site. The whole
-  post-plenum intake sits at a **uniform** s~9420: the gas is already hot/
-  high-entropy when it leaves the plenum and just advects unchanged.
-- The big jump is across the **plenum** (cold 352 K filter gas meeting the hot
-  reservoir) -- a consequence of the plenum being hot, not a localised generator.
+- **スロットル**(pipe3.R->pipe4.L)と**両ジャンクション**をまたいでエントロピーは**フラット(ds~0)** -- これらはエントロピー生成サイトではない。プレナム以降の吸気全体は**一様**な s~9420 に座る: ガスはプレナムを出る時点で既に高温/高エントロピーで、あとは変化せず移流するだけである。
+- 大きなジャンプは**プレナム**をまたぐ箇所(冷たい 352 K のフィルタガスが高温リザーバに出会う)-- プレナムが高温であることの帰結であって、局所的な生成器ではない。
 
-### H2 confirmed (not a slow transient)
-A 60-cycle combustion-OFF run holds ~557-574 K from cycle 8 through cycle 27
-(flat, no downward drift) => the ~560 K intake is a **steady equilibrium**, not
-startup heat slowly decaying (H1 rejected).
+### H2 確認(緩慢な過渡ではない)
+60 サイクルの燃焼 OFF ランはサイクル 8 からサイクル 27 まで ~557-574 K を保つ(フラット、下降ドリフトなし)=> ~560 K の吸気は**定常平衡**であり、始動熱がゆっくり減衰しているのではない(H1 棄却)。
 
-### The exhaust IS carrying the heat away (correctly)
-Exhaust ports/headers run **600-800 K** (hotter than the intake) combustion-OFF,
-so heat does leave via the exhaust. The whole engine is hot: intake ~560 K,
-cylinder ~540 K, exhaust ~600-800 K. A real *motored* engine has a ~310 K intake
-and an only-modestly-warm exhaust; here everything is 200-400 K too hot.
+### 排気は熱を運び去ってはいる(正しく)
+燃焼 OFF でも排気ポート/ヘッダは **600-800 K**(吸気より高温)で回っており、熱は排気経由でちゃんと出て行く。エンジン全体が高温: 吸気 ~560 K、気筒 ~540 K、排気 ~600-800 K。実物の*モータリング*エンジンは吸気 ~310 K、排気もほどほどに温かい程度; ここでは全てが 200-400 K 熱すぎる。
 
-### Synthesis -- the mechanism (why the single-element hunts kept failing)
-With combustion OFF the only net energy input to the closed engine loop is the
-**piston pumping work** (gas-exchange losses, ~3-4 kW here, ~ the 116 J/cycle/
-valve measured at the intake). In a real engine that heat leaves almost entirely
-with the exhaust because the intake is **flushed** by fresh charge (high VE).
-Here VE is low (~57-67 %), so the intake is **poorly flushed**: the pumping/
-irreversible heat accumulates in the recirculating intake instead of being swept
-through, the intake equilibrates hot, the hot charge lowers density, VE drops
-further -- a self-consistent hot recirculation equilibrium. No single pipe,
-junction, throttle, valve or the cylinder is "the" source (each conserves
-enthalpy flux, and the junctions/throttle conserve entropy too); the heat is the
-**loop's own trapped pumping heat**, distributed.
+### 総合 -- メカニズム(単一要素の犯人捜しが失敗し続けた理由)
+燃焼 OFF では、閉じたエンジンループへの唯一の正味エネルギー入力は**ピストンのポンピング仕事**(ガス交換損失、ここでは ~3-4 kW、吸気で計測した 116 J/cycle/valve にほぼ相当)。実エンジンではその熱はほぼ全て排気とともに出て行く。吸気が新気充填で**フラッシュ**される(高 VE)からである。ここでは VE が低い(~57-67 %)ため吸気の**フラッシュが不良**: ポンピング/不可逆熱は掃き通される代わりに再循環する吸気に蓄積し、吸気は高温で平衡し、高温充填が密度を下げ、VE はさらに落ちる -- 自己無撞着な高温再循環平衡。単一の管、ジャンクション、スロットル、バルブ、気筒のいずれも「唯一の」源ではない(各々エンタルピーフラックスを保存し、ジャンクション/スロットルはエントロピーも保存する); 熱は**ループ自身のトラップされたポンピング熱**であり、分布している。
 
-### Therefore the real lever is intake FLUSHING (breaking the low-VE feedback)
-The question collapses back to "why is fresh-charge flushing poor" -- why the
-first-pass VE is low before the thermal feedback locks in. Candidates not yet
-closed: the intake-valve effective flow (Cd x area at lift, see
-`docs/valve_discharge_coefficient_theory.md`), the intake-wave phasing into the
-cylinder, and the residual-gas fraction / scavenging. A productive next attempt:
-force the trapped charge cold (or VE high) for a few cycles and see whether the
-loop then *stays* cool (flushing wins) or re-heats (a real per-cycle source);
-and audit the intake-valve Cd x area actually applied at full lift.
+### 従って真のレバーは吸気のフラッシング(低 VE フィードバックを断つこと)
+問いは「なぜ新気のフラッシングが悪いのか」に還元される -- 熱フィードバックが固定化する前の、初回パスの VE がなぜ低いのか。未クローズの候補: 吸気バルブの有効流量(リフトにおける Cd x 面積、`docs/valve_discharge_coefficient_theory.md` 参照)、気筒への吸気波の位相、残留ガス率/掃気。生産的な次の一手: トラップ充填を数サイクル強制的に冷たく(または VE を高く)して、その後ループが冷たいまま*留まる*か(フラッシングの勝ち)、再加熱するか(実在するサイクル毎の源)を見る; また、フルリフトで実際に適用されている吸気バルブの Cd x 面積を監査する。
 
-### Honest status
-The artifact is now thoroughly characterised and many suspects are eliminated
-with data, but it has NOT been reduced to a single fixable line -- it behaves like
-an emergent low-VE/hot-intake feedback of the whole gas-exchange model, not a
-local bug. VE is unchanged (~57-67 %). Next session: pursue the flushing lever
-above, or validate the gas-exchange against reference data to decide model
-limitation vs code defect.
+### 正直な現状
+アーティファクトは今や徹底的に特徴付けられ、多くの容疑者がデータで排除されたが、修正可能な単一行にはまだ還元されていない -- 局所バグではなく、ガス交換モデル全体の創発的な低 VE/高温吸気フィードバックのように振る舞う。VE は不変(~57-67 %)。次セッション: 上記フラッシングのレバーを追うか、参照データに対してガス交換を検証してモデル限界かコード欠陥かを判定する。
 
-### Assets added this stage
-- `OPENWAM_ENBAL` now also reports flux-weighted specific entropy at each pipe end
-  (`sflux[L,R]`), for locating irreversible entropy generation across elements.
+### 本ステージで追加した資産
+- `OPENWAM_ENBAL` が各管端のフラックス加重比エントロピー(`sflux[L,R]`)も報告するようになり、要素をまたぐ不可逆エントロピー生成の位置特定に使える。
 
-## Stage 19 — forced cool-start: the breathing geometry is SOUND (VE 62% -> 88% when cold)
+## Stage 19 — 強制冷間スタート: 呼吸ジオメトリは健全(冷間で VE 62% -> 88%)
 
-Decisive test of "missing/wrong real component vs solver heating". `OPENWAM_TPIN=<K>`
-pins the INTAKE pipes (id<=38) to a cold target T at **constant pressure** each
-step (so density rises to the correct ambient value) and rebuilds the conserved
-state + primitives consistently. It answers: with properly-cool, ambient-density
-charge at the port, can the breathing fill the cylinder?
+「実在コンポーネントの欠落/誤り vs ソルバの加熱」の決定的テスト。`OPENWAM_TPIN=<K>` は吸気管(id<=38)を毎ステップ、**等圧**のまま冷たい目標 T にピン留めし(そのため密度は正しい外気の値まで上がる)、保存状態 + プリミティブを整合的に再構築する。これが答える問い: ポートに適切に冷たく外気密度の充填ガスがあれば、呼吸は気筒を満たせるか?
 
-### Result (combustion-OFF, 4000 RPM WOT, intake pinned to 310 K)
-| case | net fill / intake valve | VE | back/fill |
+### 結果(燃焼 OFF、4000 RPM WOT、吸気を 310 K にピン留め)
+| ケース | 正味充填 / 吸気バルブ | VE | back/fill |
 |---|---|---|---|
-| baseline (hot ~560 K) | 0.198 g | **~62%** | 0.23 |
+| baseline(高温 ~560 K) | 0.198 g | **~62%** | 0.23 |
 | **TPIN=310 K** | **0.282 g** | **~88%** | **0.10** |
 
-INTEMP confirms the intake holds 310 K everywhere under the pin. VE jumps
-62% -> ~88% (and would be ~92% scaled to 298 K), i.e. **most of the deficit is the
-hot charge, not the geometry**. Cooling the intake also roughly halves the
-backflow (less thermal expansion pushing back).
+INTEMP により、ピン下で吸気は至る所 310 K を保つことを確認。VE は 62% -> ~88% にジャンプ(298 K に換算すれば ~92% になるはず)、すなわち**不足の大半は高温充填であって、ジオメトリではない**。吸気を冷やすと逆流もおよそ半減する(押し返す熱膨張が減る)。
 
-### Conclusion (answers "did the model omit a real component?")
-**No major breathing component is missing or mis-sized.** Given proper-density
-cool air, the existing valve/port/runner/ITB/airbox geometry fills the cylinder to
-~88-92 % VE -- right at the stock CSL target band (95-109 %). So:
-- The ~57-67 % VE ceiling is **dominantly the ~570 K hot-charge artifact**, not a
-  flow restriction or a component omission.
-- A residual ~10-20 % gap remains under the cold pin -- attributable to the minor
-  dimension items (exhaust valve 30.5 vs ~28 mm; eq-tube stub phi10 vs phi20),
-  intake-wave tuning, and the small remaining backflow -- i.e. ordinary
-  calibration, NOT the headline fault.
+### 結論(「モデルは実在コンポーネントを省いたか?」への回答)
+**主要な呼吸コンポーネントに欠落も寸法誤りもない。** 適正密度の冷気を与えれば、既存のバルブ/ポート/ランナー/ITB/エアボックスのジオメトリは気筒を ~88-92 % VE まで満たす -- stock CSL のターゲット帯(95-109 %)のすぐそばである。よって:
+- ~57-67 % の VE 天井は**支配的に ~570 K の高温充填アーティファクト**であり、流路の絞りでもコンポーネントの欠落でもない。
+- 冷間ピン下でも残余 ~10-20 % のギャップが残る -- 軽微な寸法項目(排気バルブ 30.5 vs ~28 mm; eq-tube スタブ phi10 vs phi20)、吸気波チューニング、残る小さな逆流に帰せられる -- すなわち通常の較正であり、主役の欠陥ではない。
 
-### Therefore the fix is to stop the spurious intake heating (not to add parts)
-Combined with Stage 18 (the heat is the loop's own trapped pumping heat under poor
-flushing), and the fact that a cold intake gives ~88 % VE -> good flushing, the
-hot state may be a **breakable feedback attractor**: break it once (cold) and the
-high VE should flush the heat out and keep it cold. Tested next via
-`OPENWAM_TPIN_STEPS=<N>` (pin cold for N steps, then release): does it stay cold
-(attractor broken -> fixable by initialisation / a transient cooler) or re-heat
-(a genuine per-cycle source remains)?
+### 従って修正は偽の吸気加熱を止めること(部品を足すことではない)
+Stage 18(熱はフラッシング不良の下でのループ自身のトラップされたポンピング熱)と、冷たい吸気が ~88 % VE -> 良好なフラッシングを与える事実を併せると、高温状態は**破壊可能なフィードバックのアトラクタ**かもしれない: 一度(冷やして)壊せば、高い VE が熱をフラッシュして冷たいまま保つはずである。次は `OPENWAM_TPIN_STEPS=<N>`(N ステップ冷間ピンし、その後解放)でテストする: 冷たいまま留まるか(アトラクタ破壊 -> 初期化/過渡的クーラーで修正可能)、それとも再加熱するか(真正のサイクル毎の源が残る)?
 
-### Assets
-- `OPENWAM_TPIN=<K>` -- pin intake pipes to T=K at constant p (forced cool-start).
-- `OPENWAM_TPIN_STEPS=<N>` -- release the pin after N steps (attractor test).
+### 資産
+- `OPENWAM_TPIN=<K>` -- 吸気管を等圧で T=K にピン留め(強制冷間スタート)。
+- `OPENWAM_TPIN_STEPS=<N>` -- N ステップ後にピンを解放(アトラクタテスト)。
 
-### Timed-release (OPENWAM_TPIN_STEPS): the hot state is NOT a breakable attractor
-Pinned cold for ~6 cycles then released, the intake **re-heats to ~560 K within
-~3 cycles** and VE collapses back to ~62%:
+### 時限解放(OPENWAM_TPIN_STEPS): 高温状態は破壊可能なアトラクタではない
+~6 サイクル冷間ピンして解放すると、吸気は **~3 サイクル以内に ~560 K へ再加熱**し、VE は ~62% へ崩落して戻る:
 ```
 cyc5=319K(pinned)  cyc6=345  cyc7=509  cyc8=552  cyc9=565  ... cyc14=549K
 ```
-So it is **not** merely trapped start-up heat (H1) and **not** a bistable state you
-can break once: there is a **genuine, fast per-cycle heat source** that
-regenerates the hot intake. The source is hot cylinder/residual gas convected back
-into the intake during gas exchange -- the motored cylinder runs hot (~540 K at the
-intake event, vs ~330 K expected) and leaks that heat upstream faster than it is
-swept out. Curing the VE therefore requires reducing that cylinder->intake heat
-leak (motored cylinder running too hot / over-strong backflow heating), after
-which -- per Stage 19 -- the sound geometry should deliver ~88-92 % VE.
+よって、単に閉じ込められた始動熱(H1)では**なく**、一度壊せば済む双安定状態でも**ない**: 高温吸気を再生させる**真正の、速いサイクル毎の熱源**がある。源はガス交換中に吸気へ逆流・対流する高温の気筒/残留ガスである -- モータリングされた気筒は高温で回り(吸気イベント時 ~540 K、期待値 ~330 K に対して)、その熱を掃き出されるより速く上流へ漏らす。従って VE の治癒には、その気筒->吸気の熱リーク(モータリング気筒の過熱/過強な逆流加熱)の低減が必要で、それが済めば -- Stage 19 の通り -- 健全なジオメトリが ~88-92 % VE を出すはずである。
 
-**Net for next session:** geometry is sound (Stage 19); the one fault is a real
-per-cycle cylinder->intake heat leak that pins the intake at ~560 K (this stage).
-Target it directly: why is the motored cylinder ~540 K at IVC and why does that
-heat reach the intake (residual fraction / scavenging / overlap backflow / cylinder
-heat rejection), not the intake plumbing.
+**次セッションへの正味:** ジオメトリは健全(Stage 19); 唯一の欠陥は、吸気を ~560 K にピン留めする実在のサイクル毎の気筒->吸気熱リーク(本ステージ)。これを直接狙う: なぜモータリング気筒は IVC で ~540 K なのか、そしてなぜその熱が吸気へ届くのか(残留ガス率/掃気/オーバーラップ逆流/気筒の放熱)であって、吸気の配管ではない。
 
-## Stage 20 — residual/scavenging REFUTED: residual ~9%, the cylinder is hot only because the intake is
+## Stage 20 — 残留ガス/掃気は棄却: 残留ガスは~9%、気筒が高温なのは吸気が高温だからにすぎない
 
-Target (1) from Stage 19 was the residual-gas fraction / scavenging. A full-cycle
-cyl-1 trace (`OPENWAM_CYLDIAG`, combustion-OFF, converged) rules it out.
+Stage 19 のターゲット (1) は残留ガス割合/掃気であった。全サイクルの cyl-1 トレース(`OPENWAM_CYLDIAG`、燃焼 OFF、収束状態)によりこれは棄却される。
 
-### Full converged cycle (Theta: 360 = gas-exch TDC, ~600 IVC, 720/0 = compression TDC)
-| phase | Theta | T (K) | m (g) |
+### 収束済みフルサイクル(Theta: 360 = ガス交換 TDC、~600 IVC、720/0 = 圧縮 TDC)
+| フェーズ | Theta | T (K) | m (g) |
 |---|---|---|---|
-| compression TDC | 0 | **1206** | 0.39 |
-| expansion -> BDC | 181 | 502 | 0.43 |
-| exhaust stroke | 200-340 | 480-520 | 0.43 -> 0.05 |
-| **gas-exch TDC / EVC** | 362 | 505 | **0.037** |
-| intake fill | 400-520 | 450-560 | 0.04 -> 0.43 |
-| late-IVC backflow | 523-543 | 485-526 | 0.41 -> 0.31 |
-| IVC trapped | ~600 | **~570** | 0.39 |
+| 圧縮 TDC | 0 | **1206** | 0.39 |
+| 膨張 -> BDC | 181 | 502 | 0.43 |
+| 排気行程 | 200-340 | 480-520 | 0.43 -> 0.05 |
+| **ガス交換 TDC / EVC** | 362 | 505 | **0.037** |
+| 吸気充填 | 400-520 | 450-560 | 0.04 -> 0.43 |
+| 遅い IVC の逆流 | 523-543 | 485-526 | 0.41 -> 0.31 |
+| IVC トラップ | ~600 | **~570** | 0.39 |
 
-### Findings
-- **Scavenging is good and the residual fraction is LOW (~9 %)**: the cylinder
-  mass clears to ~0.037 g every exhaust stroke (minM 0.034-0.037 g vs trapped
-  ~0.39 g). The residual is ~467 K, not extreme. So a high / hot residual is NOT
-  why the charge is hot.
-- The cylinder **peaks at 1206 K at TDC** (pure motored compression, CR~11.5,
-  no combustion) and **sheds heat to the 333 K walls** on the way down; the
-  exhaust-stroke gas is ~480-520 K.
-- **The cylinder is ~570 K at IVC simply because it FILLS with the ~560 K hot
-  port gas** (fill T climbs 538->563 K over Theta 483-523). It is not an
-  independent cylinder/residual heat problem.
+### 所見
+- **掃気は良好で、残留ガス割合は低い(~9 %)**: 気筒質量は排気行程ごとに ~0.037 g までクリアされる(minM 0.034-0.037 g、対するトラップ質量 ~0.39 g)。残留ガスは ~467 K であり、極端ではない。したがって、高い/高温の残留ガスは充填ガスが高温である理由ではない。
+- 気筒は**TDC で 1206 K にピークする**(純粋なモータリング圧縮、CR~11.5、燃焼なし)、そして下降時に **333 K の壁へ熱を放出する**; 排気行程のガスは ~480-520 K である。
+- **気筒が IVC で ~570 K であるのは、単に ~560 K の高温ポートガスで充填されるからである**(充填温度は Theta 483-523 にかけて 538->563 K へ上昇する)。これは独立した気筒/残留ガスの熱問題ではない。
 
-### Net: the root is back in the intake gas, and target (1) is closed
-The cylinder does not independently run hot from poor breathing; it inherits the
-hot intake. Residual/scavenging (Stage-19 target 1) is therefore NOT the lever.
-Combined with: intake pipes/junctions/throttle conserve enthalpy flux AND entropy
-(Stage 18); forcing the intake cold gives 88 % VE and good fill (Stage 19);
-releasing re-heats in ~3 cycles (genuine per-cycle source). The surviving,
-thermodynamically-consistent reading is that the intake gas is heated **above the
-temperature of every stream that feeds it** (300 K ambient in; <=530 K cylinder
-backflow), which can only be a **genuine energy non-conservation at the
-cylinder/intake gas-exchange boundaries (valve BC / multi-cylinder plenum mixing)
-under the oscillating flow** -- a subtlety the per-element enthalpy-flux/entropy
-checks do not capture (they balance the net advected fluxes but not necessarily
-the transient, direction-correlated boundary work). That boundary energy audit is
-the next target; residual/scavenging/cylinder-heat-rejection are eliminated.
+### 総括: 根本原因は吸気ガスに戻り、ターゲット (1) はクローズ
+気筒は貧弱な呼吸によって独立に高温化しているのではなく、高温の吸気を受け継いでいるだけである。したがって残留ガス/掃気(Stage-19 ターゲット 1)はレバーではない。以下と合わせると: 吸気パイプ/ジャンクション/スロットルはエンタルピー流束とエントロピーの両方を保存する(Stage 18); 吸気を強制的に低温にすると VE 88 % と良好な充填が得られる(Stage 19); 解放すると ~3 サイクルで再加熱される(真のサイクルごとの熱源)。生き残った、熱力学的に一貫した解釈は、吸気ガスが**それを供給するあらゆる流れの温度より高く**加熱されているということである(入ってくる周囲空気は 300 K、気筒逆流は <=530 K)。これは、振動流のもとでの**気筒/吸気のガス交換境界(バルブ境界条件/複数気筒プレナム混合)における真のエネルギー非保存**でしかありえない -- 要素ごとのエンタルピー流束/エントロピーチェックでは捉えられない微妙な点である(それらは正味の移流フラックスを収支させるが、過渡的で方向相関のある境界仕事までは必ずしも収支させない)。その境界エネルギー監査が次のターゲットであり、残留ガス/掃気/気筒熱放出は排除された。
 
-### Assets
-- `OPENWAM_CYLDIAG=1` -- full-cycle (0-720) cyl-1 T/m/P/V trace + per-cycle
-  residual estimate (minM, its T, trapped mass, residual fraction).
+### 資産
+- `OPENWAM_CYLDIAG=1` -- フルサイクル(0-720)cyl-1 の T/m/P/V トレース + サイクルごとの残留ガス推定(minM、その T、トラップ質量、残留ガス割合)。
 
-## Stage 21 — plenum EXONERATED: it's a hot recirculation loop, no local energy source found
+## Stage 21 — プレナムは無罪放免: これは高温再循環ループであり、局所的なエネルギー源は見つからなかった
 
-`OPENWAM_PLENDIAG=<dep>` audits a plenum's energy balance: per window it compares
-the plenum's own T to the mass-flux-weighted INFLOW T from every connection.
+`OPENWAM_PLENDIAG=<dep>` はプレナムのエネルギー収支を監査する: ウィンドウごとに、プレナム自身の T を、あらゆる接続からの質量流束加重の流入温度 T と比較する。
 
-### Result (Plenum_Main = dep 2, combustion-OFF, converged)
+### 結果(Plenum_Main = dep 2、燃焼 OFF、収束状態)
 ```
 T_plenum = 573 K   <T_in>(massflux-wtd) = 579-580 K   => inflow hotter by 6-7 K (OK)
 con1..con6 (6 bellmouths): ~579-580 K each, ~17% of inflow each
 con0 (filter): ~0% of the plenum inflow
 ```
-- **No energy creation at the plenum:** converged, the plenum is ~6-7 K COOLER
-  than its inflow -- exactly conservation with a small wall loss. (The startup
-  windows showed "plenum hotter"; that is the transient, gone by convergence.)
-- **The plenum inflow is dominated by hot bellmouth backflow (~580 K, all six
-  cylinders ~equally); fresh filter air is a negligible fraction of the inflow.**
-  The intake is a hot recirculation loop that barely exchanges with the 25 C
-  source -- which is precisely why earlier work found the source temperature
-  irrelevant to the converged intake T.
+- **プレナムでのエネルギー生成はない:** 収束状態では、プレナムはその流入より ~6-7 K **低い**-- 小さな壁損失を伴う正確な保存則どおりである。(起動時のウィンドウでは「プレナムの方が高温」と出ていたが、それは収束までに消える過渡現象である。)
+- **プレナムへの流入は高温のベルマウス逆流(~580 K、6 気筒ほぼ均等)が支配的であり、フィルタからの新気は流入のごく僅かな割合にすぎない。**吸気は 25℃ の供給源とほとんど熱交換しない高温再循環ループであり -- これはまさに、以前の作業で供給源温度が収束吸気温度に無関係であることが判明した理由である。
 
-### Where this leaves the hunt (suspects eliminated, no single-line bug)
-Every localisable element has now been checked and **none creates energy**:
-- pipes: conservative finite-volume (conserve mass & energy by construction);
-- Type-9 throttle + Type-12 junctions: conserve enthalpy flux AND entropy (St.18);
-- plenum: conservative, slightly wall-cooled (this stage);
-- cylinder: scavenges well (~9% residual), peaks 1206 K then sheds to walls, and
-  net-COOLS the through-flow (exhaust ~500 K < intake ~560 K) (St.20);
-- intake valve: net-cools the port (St.17).
-Yet the recirculating intake sits at ~570-580 K. The only consistent reading is
-the Stage-18 synthesis: this is a **system-level emergent equilibrium** -- the
-near-closed intake recirculation traps the cylinder's pumping/compression heat
-because the fresh-air throughflow is too weak to flush it -- not a single-component
-bug. The forced-cool test (St.19) is the actionable counterpart: hold the intake
-cold and VE is ~88-92 % (geometry sound); release and it re-heats in ~3 cycles.
+### この探索が行き着いた先(容疑者は排除されたが、単一行のバグはない)
+局在化可能なあらゆる要素が今やチェック済みであり、**どれもエネルギーを生成していない**:
+- パイプ: 保存的な有限体積法(構成上、質量とエネルギーを保存する);
+- Type-9 スロットル + Type-12 ジャンクション: エンタルピー流束とエントロピーの両方を保存する(Stage 18);
+- プレナム: 保存的で、わずかに壁で冷却される(本ステージ);
+- 気筒: 良好に掃気する(~9% 残留)、1206 K にピークしてから壁へ放熱し、通過流を正味で**冷却する**(排気 ~500 K < 吸気 ~560 K)(Stage 20);
+- 吸気バルブ: ポートを正味で冷却する(Stage 17)。
+それでも再循環する吸気は ~570-580 K に留まる。唯一整合する解釈は Stage-18 の総合見解である: これは**システムレベルで創発する平衡**である -- ほぼ閉じた吸気再循環が気筒のポンピング/圧縮熱を閉じ込めている、新気の通過流がそれをフラッシュするには弱すぎるからであって、単一コンポーネントのバグではない。強制冷却テスト(Stage 19)がこれに対応する実行可能な対策である: 吸気を低温に保つと VE は ~88-92 % になる(ジオメトリは健全); 解放すると ~3 サイクルで再加熱する。
 
-### Practical options for VE (since there is no single line to fix)
-1. **Enhance flushing / break the recirculation** so fresh air actually displaces
-   the hot intake gas: stronger intake-pipe wall heat rejection toward ambient
-   (a real radiator effect the 0-D/1-D walls under-model), or a cooler/larger
-   effective fresh-air path, or revisiting the bellmouth<->plenum backflow that
-   dominates the plenum inflow (why so much backflow vs net forward draw?).
-2. **Reduce the irreversible heat generation** of the gas-exchange (valve/junction
-   throttling under the strong oscillation) -- e.g. a less oscillatory intake
-   model -- so the trapped heat is smaller.
-3. **Accept it as a model-fidelity limit and calibrate empirically** -- apply an
-   intake-charge-temperature correction (or a VE multiplier) tuned to the stock
-   curve, documenting it as a known 1-D gas-exchange limitation, and proceed to
-   the ECU-calibration work that the (otherwise sound) model enables.
+### VE のための実践的な選択肢(修正すべき単一行が存在しないため)
+1. **フラッシングを強化する/再循環を断ち切る**ことで、新気が実際に高温吸気ガスを置換するようにする: 周囲へ向けたより強い吸気パイプ壁熱放出(0-D/1-D の壁が過小評価している実際のラジエータ効果)、あるいはより低温/より大きい実効新気経路、またはプレナム流入を支配するベルマウス<->プレナム逆流を再検討する(なぜ正味の前方吸引に比べてこれほど逆流が多いのか?)。
+2. ガス交換の**不可逆熱生成を低減する**(強い振動下でのバルブ/ジャンクションの絞り) -- 例えば振動の少ない吸気モデル -- ことで、トラップされる熱を小さくする。
+3. **モデル忠実度の限界として受け入れ、経験的に較正する** -- stock カーブに合わせて調整した吸気充填温度補正(または VE 乗数)を適用し、既知の 1-D ガス交換上の限界として文書化した上で、(それ以外は健全な)モデルが可能にする ECU 較正作業へ進む。
 
-### Assets
-- `OPENWAM_PLENDIAG=<dep>` -- per-window plenum T vs mass-flux-weighted inflow T,
-  with a per-connection breakdown (which stream feeds the plenum, and how hot).
+### 資産
+- `OPENWAM_PLENDIAG=<dep>` -- ウィンドウごとのプレナム T 対質量流束加重の流入 T、接続ごとの内訳付き(どの流れがプレナムに供給しているか、それはどれだけ高温か)。
 
-## Stage 22 — intake wall heat rejection does NOT recover VE (it depressurises the closed recirculation)
+## Stage 22 — 吸気壁熱放出は VE を回復しない(閉じた再循環を減圧するだけである)
 
-Per the user's real-hardware note (aluminium bellmouths = heat sink, carbon airbox
-= insulator, silicone bellmouth-throttle joint = insulator), tested the intake
-wall heat-rejection lever.
+ユーザーの実機に関する指摘(アルミ製ベルマウス = ヒートシンク、カーボン製エアボックス = 断熱材、シリコン製ベルマウス・スロットル継手 = 断熱材)に基づき、吸気壁熱放出レバーをテストした。
 
-### First: what the model already does with the walls
-The generator writes the pipe thermal flag `FTctpt=2` => `nmTempConstante`: the
-intake-pipe walls are held at a FIXED temperature (40 C). So the wall **material
-is not represented** and currently does not matter -- the wall is already an
-ideal "aluminium-to-ambient" cold sink, and the gas is cooled toward 40 C at the
-rate set by the per-pipe heat-transfer coefficient `FCoefAjusTC` (default 1.0,
-the `1 1.0 1.0` multiplier line) x the Reynolds film coefficient. (The carbon
-airbox being an insulator is consistent with the 0-D plenum having no wall heat
-loss; the silicone joint likewise.)
+### まず: モデルが壁について既に行っていること
+生成器はパイプの熱フラグ `FTctpt=2` => `nmTempConstante` を書き込む: 吸気パイプの壁は**固定温度**(40℃)に保たれる。したがって壁の**材質は表現されておらず**、現状では問題にならない -- 壁は既に理想的な「アルミから周囲への」冷たいシンクであり、ガスはパイプごとの熱伝達係数 `FCoefAjusTC`(デフォルト 1.0、`1 1.0 1.0` の乗数行)× レイノルズ膜係数で決まる速度で 40℃ へ向けて冷却される。(カーボン製エアボックスが断熱材であることは、0-D プレナムに壁熱損失がないことと整合する; シリコン継手も同様。)
 
-### Test: boost intake wall heat rejection (`OPENWAM_IN_HMULT=<x>` -> FCoefAjusTC)
-| x | bellmouth T | port T | port P | VE | stable? |
+### テスト: 吸気壁熱放出を強化する(`OPENWAM_IN_HMULT=<x>` -> FCoefAjusTC)
+| x | ベルマウス T | ポート T | ポート P | VE | 安定か? |
 |---|---|---|---|---|---|
-| 1 (base) | ~560 K | ~560 K | ~1.0 bar | ~62% | yes |
-| 5 | ~400 K | ~370-450 K | **0.45-0.83 bar** | **~56%** | marginal (20 fallbacks) |
-| 20 | ~320 K | **6808 K / vacuum** | 0.01 bar | broken | NO (port blows up) |
+| 1(ベース) | ~560 K | ~560 K | ~1.0 bar | ~62% | はい |
+| 5 | ~400 K | ~370-450 K | **0.45-0.83 bar** | **~56%** | ぎりぎり(フォールバック 20 回) |
+| 20 | ~320 K | **6808 K / 真空** | 0.01 bar | 壊れる | いいえ(ポートが吹き上がる) |
 
-- Cooling **drops the intake PRESSURE with the temperature** (0.45-0.83 bar at
-  x5): density rho = p/RT barely changes, so **VE does not improve** (it is
-  slightly worse). Heat removal contracts/depressurises the gas rather than
-  densifying it.
-- Aggressive cooling (x20) **destabilises the small port pipes** (vacuum / 6808 K
-  cells, positivity fallbacks) -- the same fragility the stability work fought.
+- 冷却は温度とともに**吸気圧を低下させる**(x5 で 0.45-0.83 bar): 密度 rho = p/RT はほとんど変化しないため、**VE は改善しない**(むしろわずかに悪化する)。熱の除去はガスを高密度化するのではなく、収縮/減圧させる。
+- 積極的な冷却(x20)は**小さなポートパイプを不安定化させる**(真空/6808 K のセル、正値性フォールバック) -- 安定化作業が戦ってきたのと同じ脆弱性である。
 
-### Why cooling fails -- it ties Stage 19 + Stage 21 together
-The intake is a **near-closed hot recirculation** that excludes fresh air
-(Stage 21: the plenum inflow is ~all bellmouth backflow, ~0% filter). So when you
-cool that trapped gas, the atmosphere **cannot refill it to keep pressure up** --
-it just goes to vacuum. The Stage-19 forced-cool gave 88 % VE only because it held
-PRESSURE constant (it injected the mass to reach ambient density); real heat
-rejection cannot do that against a closed loop. **=> wall material / heat rejection
-will NOT recover VE; the root is the recirculation / poor fresh-air flushing.**
+### なぜ冷却は失敗するのか -- Stage 19 と Stage 21 を結びつける
+吸気は新気を排除する**ほぼ閉じた高温再循環**である(Stage 21: プレナム流入はほぼ全てベルマウス逆流であり、フィルタは ~0%)。したがってそのトラップされたガスを冷却しても、大気が**それを再充填して圧力を維持することができず** -- 単に真空に向かうだけである。Stage-19 の強制冷却が VE 88 % を与えたのは、それが圧力を一定に保っていたからにすぎない(周囲密度に達するよう質量を注入していた); 実際の熱放出は閉じたループに対してそれを行うことができない。**=> 壁材質/熱放出は VE を回復しない; 根本原因は再循環/貧弱な新気フラッシングである。**
 
-### So the lever is breaking the recirculation (why do the bellmouths back-flow so
-much into the plenum instead of drawing forward at WOT?). That intake-wave / valve
-backflow question -- not heat rejection, not the wall material -- is the path to VE.
+### したがってレバーは再循環を断ち切ることである(なぜベルマウスは WOT で前方へ吸い込む代わりにこれほどプレナムへ逆流するのか?)。その吸気波動/バルブ逆流の問題こそが -- 熱放出でも壁材質でもなく -- VE への道筋である。
 
-### Assets
-- `OPENWAM_IN_HMULT=<x>` -- multiply intake-pipe wall heat-transfer (FCoefAjusTC).
+### 資産
+- `OPENWAM_IN_HMULT=<x>` -- 吸気パイプ壁熱伝達(FCoefAjusTC)を乗算する。
 
-## Stage 23 — fabricated VE table + binary endianness bug found and fixed (user was right)
+## Stage 23 — 捏造された VE テーブルとバイナリのエンディアン・バグを発見・修正(ユーザーは正しかった)
 
-The user flagged that the "stock VE table" looked wrong (recalling the real CSL is
-LOW at 2000-4500 rpm then >110% higher up) and suspected a prior AI had fabricated
-tables "all over the place." Verified directly against the MSS54 binary -- correct
-on both counts.
+ユーザーは「stock VE テーブル」がおかしいと指摘し(実車の CSL は 2000-4500 rpm で低く、それより上は 110% 超になると記憶している)、以前の AI がテーブルを「あちこちで」捏造したのではないかと疑っていた。MSS54 バイナリに対して直接検証したところ、両方の点で正しかった。
 
-### Root causes
-1. **Endianness bug in `binary_service.py`:** it read the MSS54 binary
-   LITTLE-endian (`<H`). The binary is BIG-endian. LE decoded the RPM axis to
-   non-monotonic garbage (22530, 26115, 19460, 5125, ...) and a `160/65535`
-   scaling, yielding a fake VE curve. Reading `>H` and dividing the raw word by
-   1000 reproduces `csl_ecu_maps.json` `kf_rf_soll` EXACTLY across the full 24x20
-   map (verified True). Real WOT target (kf_rf_soll last row, rl ratio):
+### 根本原因
+1. **`binary_service.py` のエンディアン・バグ:** これは MSS54 バイナリをリトルエンディアン(`<H`)で読んでいた。バイナリは実際にはビッグエンディアンである。LE は rpm 軸を非単調なゴミ値(22530, 26115, 19460, 5125, ...)にデコードし、`160/65535` のスケーリングと相まって偽の VE カーブを生んでいた。`>H` で読み、生のワード値を 1000 で割ると、24x20 のマップ全体にわたって `csl_ecu_maps.json` の `kf_rf_soll` と**完全に**一致する(検証済み、True)。実際の WOT ターゲット(kf_rf_soll の最終行、rl 比):
    ```
    1300rpm 67%  1400 78%  1600 95%  2100 93%  2200 88%  2400 87%  (the 2000-2400 dip)
    2700 104%  3100 104%  3900 116%(peak)  4600 111%  5300 110% ... 7900 102%
    ```
-   This is PEAKY exactly as the user described -- not the smooth curve I had been
-   using as "target."
-2. **Fabricated `stock_csl_ve.json`:** a smooth monotonic curve
-   (2000:90 3000:95 4000:102 5500:110-peak ...) with NO dip -- does not match the
-   real ECU target at all. A prior AI (Gemini 3.1 Pro lineage) appears to have
-   generated it. Several scripts + `calibration_service.load_target_data()` used
-   it as "stock."
-3. **Silent Gaussian fallback** in `mock_data_generator.get_stock_ve`
-   (`0.85 + 0.15*exp(-((rpm-5500)^2)/2000^2)`) -- another fabricated smooth curve
-   that masked missing data.
+   これはユーザーが説明したとおり正確に**ピーキー**である -- 私が「ターゲット」として使っていた滑らかなカーブではない。
+2. **捏造された `stock_csl_ve.json`:** ディップの一切ない滑らかで単調なカーブ(2000:90 3000:95 4000:102 5500:110-peak ...)-- 実際の ECU ターゲットとはまったく一致しない。以前の AI(Gemini 3.1 Pro 系列と見られる)がこれを生成したようである。複数のスクリプトと `calibration_service.load_target_data()` がこれを「stock」として使用していた。
+3. `mock_data_generator.get_stock_ve` における**サイレントなガウシアン・フォールバック**(`0.85 + 0.15*exp(-((rpm-5500)^2)/2000^2)`)-- 欠落データを覆い隠していた、もう一つの捏造された滑らかなカーブ。
 
-### Fixes (user decision: "make the binary the single source of truth")
-- `binary_service.py`: `ENDIAN=">"`, all `read_axis`/`read_table_generic`/
-  `read_table_16x16_uint16` use big-endian; `VE_FACTOR = 1/1000` (rl ratio, was
-  160/65535). 1-byte VANOS tables unchanged (endianness irrelevant); VANOS
-  16x16 read/write round-trip verified stable.
-- `stock_csl_ve.json`: regenerated from the binary `kf_rf_soll` WOT row (now
-  carries the real dip+peak). Fabricated original backed up to
-  `/tmp/stock_csl_ve.fabricated.bak.json`.
-- `mock_data_generator.get_stock_ve`: the Gaussian fallback now RAISES instead of
-  fabricating a curve (the real comparison path reads kf_rf_soll).
+### 修正(ユーザーの決定: 「バイナリを唯一の信頼できる情報源にする」)
+- `binary_service.py`: `ENDIAN=">"`、すべての `read_axis`/`read_table_generic`/`read_table_16x16_uint16` がビッグエンディアンを使用; `VE_FACTOR = 1/1000`(rl 比、以前は 160/65535)。1 バイトの VANOS テーブルは変更なし(エンディアンは無関係); VANOS 16x16 の読み書き往復は安定していることを検証済み。
+- `stock_csl_ve.json`: バイナリの `kf_rf_soll` の WOT 行から再生成した(今や本物のディップ+ピークを含む)。捏造されたオリジナルは `/tmp/stock_csl_ve.fabricated.bak.json` にバックアップした。
+- `mock_data_generator.get_stock_ve`: ガウシアン・フォールバックは、カーブを捏造する代わりに今や例外を送出する(本物の比較経路は kf_rf_soll を読む)。
 
-### Verified
-- VE map (fixed binary) == csl_ecu_maps.json across full 24x20: True.
-- VANOS intake x_axis (fixed binary) == json: True.
-- stock_csl_ve.json[1300]=0.67 (dip), [3900]=1.157 (peak): correct.
+### 検証済み
+- VE マップ(修正後バイナリ)== csl_ecu_maps.json、24x20 全体で: True。
+- VANOS 吸気 x_axis(修正後バイナリ)== json: True。
+- stock_csl_ve.json[1300]=0.67(ディップ)、[3900]=1.157(ピーク): 正しい。
 
-### Impact on the VE investigation
-The "4000 rpm should be ~102%" premise came from the fabricated smooth table; the
-REAL target there is ~116% (3900) / ~111% (4600) -- still high, so the converged
-collapse to ~47-62% (hot-recirculation feedback, Stages 16-22) remains a real
-defect. But ALL prior sim-vs-"stock" deltas were computed against fabricated
-numbers and must be recomputed against the corrected stock_csl_ve.json. The low
-2000-2400 rpm dip is now expected behaviour, not a fault to chase.
+### VE 調査への影響
+「4000 rpm は ~102% であるべき」という前提は捏造された滑らかなテーブルに由来していた; そこでの**実際の**ターゲットは ~116%(3900)/ ~111%(4600)であり -- それでも高いため、~47-62% への収束崩壊(高温再循環フィードバック、Stage 16-22)は依然として本物の欠陥である。しかし以前のシムと「stock」の差分は**すべて**捏造された数値に対して計算されており、修正後の stock_csl_ve.json に対して再計算しなければならない。2000-2400 rpm の低いディップは今や期待される挙動であり、追いかけるべき不具合ではない。
 
-## Stage 24 — the VE measurement is corrupted by a STARTUP shock, not (only) thermal feedback
+## Stage 24 — VE 測定は(熱フィードバックだけでなく)起動時ショックによって汚染されている
 
-Per the user's request to (a) measure VE at the REAL kf_rf_soll breakpoints with NO
-interpolation, and (b) compare initial / cold-pinned / converged VE, a per-breakpoint
-sweep (`ve_breakpoint_compare.py`, working-dir-isolated for parallel safety) was
-built. It exposed a more fundamental problem than the thermal feedback.
+(a)実際の kf_rf_soll ブレークポイントで補間なしに VE を測定すること、(b)初期/コールドピン留め/収束の各 VE を比較すること、というユーザーの要望に基づき、ブレークポイントごとのスイープ(`ve_breakpoint_compare.py`、並列安全のため作業ディレクトリを分離)を構築した。これにより、熱フィードバックよりも根本的な問題が露呈した。
 
-### The first cycle already diverges at the 4th cylinder to fill
-At EVERY rpm the trapped mass per IVC (firing order 1-5-3-6-2-4) is:
+### 第一サイクルは 4 番目に充填する気筒で既に発散している
+どの rpm でも、IVC ごとのトラップ質量(点火順序 1-5-3-6-2-4)は次のようになる:
 ```
 cyl(IVC order):  0.73  0.84  0.77 | 1.03  3.30  2.76  1.86 ...
                  (healthy 1-3)    | (4th fill onward EXPLODES to 3.3 g = ~515% VE)
 ```
-So the "initial VE" I was about to trust is itself corrupted from the 4th fill of
-cycle 1. The earlier first-cycle CSVs (clean 100-123%) only looked clean because
-they sampled the first 6 IVCs and the explosion starts at the 4th-6th.
+つまり、私が信頼しようとしていた「初期 VE」自体が、サイクル 1 の 4 番目の充填から既に汚染されている。以前の第一サイクル CSV(クリーンな 100-123%)がクリーンに見えたのは、最初の 6 回の IVC をサンプリングしていたためで、爆発は 4 番目から 6 番目にかけて始まる。
 
-### Root cause: a startup over-speed shock in the intake network, not cylinder init
-- Ordering proof: `Sonic condition in boundary` messages start at the very first
-  steps (687 sonic events BEFORE the 4th IVC), then 7450 during the over-fill.
-  The intake network goes supersonic at startup FIRST; the cylinder over-fill is a
-  CONSEQUENCE. Many boundaries choke simultaneously (13, 27, 6, 34, 20, 41, 51 ...),
-  i.e. it is network-wide, not one valve.
-- It is NOT the cold-start cylinder-temperature artifact: sweeping the existing
-  `OPENWAM_TFLOOR` (-23 / +20 / +60 C) leaves the 1.03->3.30 g over-fill unchanged.
-  The existing floor fixes T but the problem is MASS (over-fill), driven by the
-  supersonic intake transient.
-- The `[DEBUG_INIT]` line prints P=0.057 bar at cyl4 TDC, but that is printed BEFORE
-  the isentropic-init assignment below it, so it is not the live seed.
+### 根本原因: 気筒の初期化ではなく、吸気ネットワークの起動オーバースピード・ショック
+- 順序の証明: 「Sonic condition in boundary」メッセージは最初のステップから始まり(4 番目の IVC より前に 687 件のソニックイベント)、その後過充填の間に 7450 件発生する。吸気ネットワークは起動時に**先に**超音速化し、気筒の過充填はその**結果**である。多数の境界(13, 27, 6, 34, 20, 41, 51 ...)が同時にチョークしており、すなわちこれは単一バルブではなくネットワーク全体の問題である。
+- これはコールドスタート気筒温度アーティファクトではない: 既存の `OPENWAM_TFLOOR`(-23 / +20 / +60℃)をスイープしても、1.03->3.30 g の過充填は変化しない。既存のフロアは T を固定するが、問題は超音速吸気過渡によって駆動される MASS(過充填)である。
+- `[DEBUG_INIT]` の行は cyl4 の TDC で P=0.057 bar を出力するが、これはその下の等エントロピー初期化の代入より**前に**出力されるため、実際に使われている(生きている)シードではない。
 
-### Why this matters for the whole VE investigation
-Every VE number in Stages 15-23 (converged ~50-57%, "flat across rpm") was measured
-on a network that takes a supersonic startup shock and an internal over-fill spike
-each run. The "flat ~55%" and the "hot recirculation" may be partly the system
-ringing down from that shock rather than a pure physical steady state. The user's
-hypothesis (peaky tuning exists in the breathing; feedback flattens it) CANNOT be
-cleanly tested until the startup shock is removed so a clean limit cycle is reached.
+### これが VE 調査全体にとって重要な理由
+Stage 15-23 のすべての VE 数値(収束 ~50-57%、「rpm にわたってフラット」)は、実行ごとに超音速起動ショックと内部過充填スパイクを起こすネットワークの上で測定されたものである。「フラットな ~55%」と「高温再循環」は、純粋な物理的定常状態というより、そのショックからシステムが鳴り止んでいく過程の一部かもしれない。ユーザーの仮説(呼吸にはピーキーなチューニングが存在するが、フィードバックがそれを平坦化する)は、起動ショックが除去され、クリーンなリミットサイクルに到達するまでは、きれいに検証することができない。
 
-### Next: kill the startup supersonic shock (user-approved direction)
-Candidate levers, in order of likely payoff:
-1. Initialise the intake/plenum pipes at the correct steady MAP and a small forward
-   velocity instead of quiescent 1 atm / v=0, so the first valve openings don't set
-   up a shock. (The pipes currently start at rest; the first induction is a step.)
-2. Ramp the engine speed / valve action over the first cycle (soft-start) instead
-   of full 4000 rpm gas exchange from t=0.
-3. A gentler boundary Cd ramp on the ITB/valve BCs for the first cycle.
-The goal is a clean limit cycle so init/cold/converged VE can finally be compared
-at the real breakpoints.
+### 次: 起動時の超音速ショックを潰す(ユーザー承認済みの方向性)
+候補レバー、見込まれる効果の高い順:
+1. 吸気/プレナムのパイプを、静止した 1 atm / v=0 の代わりに、正しい定常 MAP と小さな前方速度で初期化し、最初のバルブ開放がショックを立ち上げないようにする。(現状パイプは静止状態から始まり、最初の誘導はステップ入力になっている。)
+2. t=0 からのフル 4000 rpm ガス交換ではなく、最初のサイクルにわたってエンジン回転数/バルブ動作をランプさせる(ソフトスタート)。
+3. 最初のサイクルにおける ITB/バルブ境界条件でのより穏やかな Cd ランプ。
+目標は、init/cold/converged の VE をようやく実際のブレークポイントで比較できるよう、クリーンなリミットサイクルを得ることである。
 
-### Assets
-- `scripts/ve_breakpoint_compare.py` (modes init|cold|conv; per-run working dir).
-- `scripts/ve_breakpoint_summary.py` (overlay + shape correlation vs target).
-- Diagnosis logs: /tmp/div/divc.log (sonic ordering), TFLOOR sweep.
+### 資産
+- `scripts/ve_breakpoint_compare.py`(モード init|cold|conv; 実行ごとの作業ディレクトリ)。
+- `scripts/ve_breakpoint_summary.py`(オーバーレイ+ターゲットに対する形状相関)。
+- 診断ログ: /tmp/div/divc.log(ソニックの発生順序)、TFLOOR スイープ。
 
-## Stage 25 — the startup shock does NOT bias the converged VE (decisive A/B)
+## Stage 25 — 起動時ショックは収束 VE を偏らせない(決定的な A/B 比較)
 
-Following the user's approved "kill the startup shock" direction, three
-initial-state-consistency levers were implemented and tested at 4000 rpm WOT:
+ユーザーが承認した「起動時ショックを潰す」方向性に従い、3 つの初期状態一貫性レバーを実装し、4000 rpm WOT で試験した:
 
-1. `OPENWAM_IN_VINIT` — seed intake pipes with a small forward mean velocity
-   (area-scaled toward the cylinders). Sweep 0/10/30/60 m/s: over-fill UNCHANGED
-   (1.03->3.30 g at the 5th IVC); 10 m/s made sonic WORSE (85k vs 62k). Not the
-   driver. (Knob retained, default 0 = no change.)
-2. Cylinder closed-cycle init vacuum bug — FIXED in TCilindro.cpp (separate commit):
-   cyls 4 & 5 were seeded at 0.057 bar / 177 K (a 491 cc volume holding a 62 cc
-   RCA charge). After the fix they seed at 1.013 bar / 333 K / 0.731 g. Correct,
-   but the over-fill/sonic transient PERSISTED -> the vacuum seed was not the root.
-3. `OPENWAM_EXH_TGAS` — exhaust pipes were seeded with HOT gas (gas temp = wall
-   temp = 600-800 C) while the cylinders are at 60 C, a ~540 K thermal step at the
-   first exhaust-valve opening (and the hot gas has a high sound speed ~590 m/s).
-   Cold-seeding (40 C) cut sonic 62k->54k but DEEPENED the over-fill (3.3->9.5 g):
-   denser cold exhaust backflows harder. Default kept "wall" (opt-in diagnostic).
+1. `OPENWAM_IN_VINIT` — 吸気パイプに小さな前方平均速度をシードする(気筒に向けて面積スケーリング)。0/10/30/60 m/s のスイープ: 過充填は**変化なし**(第 5 IVC で 1.03->3.30 g); 10 m/s はソニックを悪化させた(85k 対 62k)。原因ではない。(ノブは維持、デフォルト 0 = 変更なし。)
+2. 気筒閉サイクル初期化の真空バグ -- TCilindro.cpp で修正(別コミット): cyl 4 と 5 は 0.057 bar / 177 K でシードされていた(491 cc の容積が 62 cc の RCA 充填ガスを保持している状態)。修正後は 1.013 bar / 333 K / 0.731 g でシードされる。正しいが、過充填/ソニック過渡は**持続した** -> 真空シードは根本原因ではなかった。
+3. `OPENWAM_EXH_TGAS` — 排気パイプは高温ガスでシードされていた(ガス温度 = 壁温度 = 600-800℃)一方で気筒は 60℃ であり、最初の排気バルブ開放時に ~540 K の熱的ステップが生じていた(そして高温ガスは音速が高い ~590 m/s)。低温シード(40℃)はソニックを 62k->54k に減らしたが、過充填を**悪化させた**(3.3->9.5 g): より高密度な低温排気の方が強く逆流する。デフォルトは「wall」のまま維持(オプトイン診断)。
 
-### The decisive experiment
-Run 12 cycles for EXH_TGAS=40 (sonic 54k, over-fill 9.5 g) vs EXH_TGAS=wall
-(sonic 62k, over-fill 3.3 g) and compare the CONVERGED trapped mass:
+### 決定的な実験
+EXH_TGAS=40(ソニック 54k、過充填 9.5 g)対 EXH_TGAS=wall(ソニック 62k、過充填 3.3 g)で 12 サイクル実行し、**収束**トラップ質量を比較する:
 ```
 EXH_TGAS=40    converged last6 (g): 0.336 0.340 0.318 0.311 0.347 0.336
 EXH_TGAS=wall  converged last6 (g): 0.284 0.373 0.368 0.350 0.319 0.310
 ```
-Two startups differing by ~3x in over-fill and ~15% in sonic count converge to the
-SAME limit cycle (~0.33 g). => The startup shock is a decaying transient; it does
-NOT bias the converged state. The Stage 15-23 converged VE numbers are numerically
-trustworthy.
+過充填で ~3 倍、ソニックカウントで ~15% 異なる 2 つの起動が、**同じ**リミットサイクル(~0.33 g)に収束する。=> 起動時ショックは減衰する過渡現象であり、収束状態を偏らせ**ない**。Stage 15-23 の収束 VE 数値は数値的に信頼できる。
 
-### What this reframes
-- The original worry ("is the converged VE corrupted by the startup shock?") is
-  answered: NO. Converged VE is startup-independent.
-- The over-fill is driven by a PRESSURE transient (9 g in ~560 cc => ~15 bar at
-  IVC), i.e. a wave slams the port and rams gas in. It is robust to every
-  initial-state lever tried, because the limit cycle forgets the initial state.
-- Consequence for the init/cold/converged comparison the user wanted: there is NO
-  clean first-cycle ("init") VE available -- the first 3 trapped-mass prints are
-  just initial conditions of mid-cycle cylinders, and from the 4th IVC the over-fill
-  corrupts it. A clean "init VE" would require suppressing the over-fill, which the
-  limit cycle is indifferent to.
-- The real open question is now PHYSICAL, not numerical: the converged VE is
-  ~0.33 g ~= 54% (vs ~120% for a cold atmospheric fill of 541 cc). That ~2x
-  suppression is the "feedback / hot recirculation" effect, and it lives in the
-  (trustworthy) converged state -- so it can be characterised directly.
+### これが見直すもの
+- 当初の懸念(「収束 VE は起動時ショックによって汚染されているのか?」)に答えが出た: いいえ。収束 VE は起動状態に依存しない。
+- 過充填は圧力過渡によって駆動されている(560 cc に 9 g => IVC で ~15 bar)。すなわち、波がポートを叩いてガスを押し込んでいる。これはあらゆる初期状態レバーに対して頑健である。なぜならリミットサイクルは初期状態を忘れるからである。
+- ユーザーが望んでいた init/cold/converged 比較への帰結: クリーンな第一サイクル(「init」)VE は利用できない -- 最初の 3 つのトラップ質量プリントはサイクル途中の気筒の初期条件にすぎず、4 番目の IVC からは過充填がそれを汚染する。クリーンな「init VE」を得るには過充填を抑制する必要があるが、リミットサイクルはそれに無頓着である。
+- 本当に未解決の問題は今や数値的ではなく**物理的**である: 収束 VE は ~0.33 g ~= 54%(541 cc の低温大気充填では ~120% であるのに対して)。その ~2 倍の抑制が「フィードバック/高温再循環」効果であり、それは(信頼できる)収束状態の中に存在するため、直接特性評価できる。
 
-### Recommended next step
-Measure the CONVERGED VE at the real kf_rf_soll breakpoints (it is trustworthy) and
-look at the rpm SHAPE: is it peaky (intake/exhaust tuning surviving) or flat
-(suppressed)? This tests the user's hypothesis using the measurement we can trust,
-without needing a clean first-cycle VE.
+### 推奨される次のステップ
+実際の kf_rf_soll ブレークポイントで**収束**VE を測定し(これは信頼できる)、rpm 形状を見る: ピーキーか(吸気/排気チューニングが生き残っている)、フラットか(抑制されている)。これは、クリーンな第一サイクル VE を必要とせずに、信頼できる測定を用いてユーザーの仮説を検証する。
 
-### Assets
-- Knobs: OPENWAM_IN_VINIT (intake seed velocity), OPENWAM_EXH_TGAS (exhaust gas
-  seed temp), OPENWAM_INITDIAG (true post-init cylinder state probe).
+### 資産
+- ノブ: OPENWAM_IN_VINIT(吸気シード速度)、OPENWAM_EXH_TGAS(排気ガスシード温度)、OPENWAM_INITDIAG(真の初期化後気筒状態プローブ)。
 
-## Stage 26 — converged VE vs RPM at the real breakpoints: FLAT and ~half the target
+## Stage 26 — 実際のブレークポイントにおける収束 VE 対 rpm: フラットでターゲットのおよそ半分
 
-Using the (trustworthy, startup-independent) converged state, VE was measured at all
-15 real kf_rf_soll breakpoints (1600-7900 rpm, no interpolation), 10 cycles, last
-full cycle, magnitude-filtered. 3 workers, per-run working dir.
-Asset: docs/analysis/converged_ve_vs_rpm_breakpoints.{png,csv}.
+(信頼できる、起動状態非依存の)収束状態を用いて、VE を 15 個すべての実際の kf_rf_soll ブレークポイント(1600-7900 rpm、補間なし)で測定した。10 サイクル、最後のフルサイクル、大きさによるフィルタリング。3 ワーカー、実行ごとの作業ディレクトリ。
+資産: docs/analysis/converged_ve_vs_rpm_breakpoints.{png,csv}。
 
-Result (11 NaN-free points; 1600/3100/3900/4600 had boundary-NaN events and are
-marked unreliable -- 3900 in particular reads a spurious 104% from a NaN transient):
+結果(NaN フリーの 11 点; 1600/3100/3900/4600 は境界 NaN イベントがあり信頼性なしとマークされている -- 特に 3900 は NaN 過渡から偽の 104% を読んでいる):
 ```
 sim VE:    mean 52.4%   range 45-58%   CV 8%
 target VE: mean 101.1%  range 87-110%  CV 8%
 shape Pearson r (sim vs target) = +0.36   mean ratio sim/target = 0.52
 ```
 
-Two distinct findings:
-1. MAGNITUDE: the converged sim breathes at ~52% of the target across the WHOLE rpm
-   range -- a roughly uniform ~2x VE deficit, not an rpm-localised error.
-2. SHAPE: the sim does NOT reproduce the target's tuning. The target is peaky (dip
-   to 87% at 2200-2400, broad peak ~116% at 3900, staying 100-110% up top); the sim
-   is essentially flat ~52%. The two normalised shapes barely correlate (r=0.36) and
-   the sim's own wiggle (peak at 2700, dip at 6300) does not line up with the real
-   intake/exhaust resonance peaks.
+2 つの異なる所見:
+1. 大きさ: 収束シムは rpm レンジ**全体**にわたってターゲットの ~52% で呼吸している -- rpm に局在した誤差ではなく、おおむね一様な ~2 倍の VE 不足である。
+2. 形状: シムはターゲットのチューニングを再現していない。ターゲットはピーキーである(2200-2400 で 87% までディップ、3900 で広いピーク ~116%、上のほうでは 100-110% を維持); シムは本質的にフラットな ~52% である。正規化された 2 つの形状はほとんど相関せず(r=0.36)、シム自身の揺れ(2700 でピーク、6300 でディップ)は実際の吸気/排気共鳴ピークと一致していない。
 
-Interpretation. This reframes the user's hypothesis. The hypothesis was "peaky
-tuning exists in the breathing but the hot-recirculation feedback flattens it in the
-converged state." Stage 25 showed the converged state is startup-independent and
-trustworthy, and there is no clean first-cycle VE to compare against. Stage 26 shows
-the converged breathing is BOTH suppressed (~2x) AND de-tuned (flat). So either:
-  (a) the hot recirculation / residual-gas feedback is strong enough to both halve
-      the charge AND wash out the acoustic tuning, or
-  (b) the breathing model is missing the tuning independently of the feedback (port
-      areas / valve Cd / runner lengths / exhaust pulse tuning not resonating), and
-      the ~2x deficit is a separate, roughly-constant restriction.
-A ~uniform 2x deficit that is flat in rpm smells more like (b)-type steady
-restriction (e.g. an effective flow area / Cd / a persistent back-pressure or
-residual fraction) than like rpm-selective acoustic detuning, because real tuning
-losses are rpm-dependent (bad between peaks, good on a peak) -- here even the target
-PEAK rpms (1800, 3900) are suppressed to ~50%.
+解釈。これはユーザーの仮説を見直すものである。仮説は「呼吸にはピーキーなチューニングが存在するが、高温再循環フィードバックが収束状態でそれを平坦化する」というものであった。Stage 25 は収束状態が起動状態に依存せず信頼できることを示し、比較対象となるクリーンな第一サイクル VE は存在しない。Stage 26 は収束した呼吸が抑制(~2 倍)されて**おり、かつ**デチューン(フラット)されていることを示す。したがって、以下のいずれかである:
+  (a) 高温再循環/残留ガスフィードバックが、充填ガスを半減させ、かつ音響チューニングを洗い流すのに十分なほど強い、または
+  (b) 呼吸モデルがフィードバックとは独立にチューニングを欠いている(ポート面積/バルブ Cd/ランナー長/排気パルスチューニングが共鳴していない)、そして ~2 倍の不足は別個の、おおむね一定の制限である。
+rpm に対してフラットな~一様な 2 倍の不足は、rpm 選択的な音響デチューンというより (b) 型の定常的な制限(例えば実効流路面積/Cd/持続的な背圧または残留ガス割合)のように見える。なぜなら実際のチューニング損失は rpm 依存だからである(ピーク間では悪く、ピークでは良い) -- ここではターゲットの**ピーク** rpm(1800、3900)でさえ ~50% まで抑制されている。
 
-### Recommended next step
-Decompose the ~2x deficit at one mid-rpm peak (e.g. 3900, the target's max) into its
-contributors, in the converged state: residual-gas fraction (trapped burned mass /
-total), mean intake-port pressure during induction (is the manifold pulling vacuum?),
-and exhaust back-pressure during overlap. That isolates whether the charge is short
-because (i) fresh air never arrives (intake restriction / no ram) or (ii) it arrives
-but is displaced by hot residuals / back-pressure (the feedback). That single
-decomposition decides between (a) and (b) and points at the specific lever.
+### 推奨される次のステップ
+中間 rpm の一つのピーク(例えばターゲットの最大値である 3900)における ~2 倍の不足を、収束状態においてその構成要素に分解する: 残留ガス割合(トラップされた燃焼済み質量/全質量)、誘導中の平均吸気ポート圧力(マニホールドは真空を引いているか?)、およびオーバーラップ中の排気背圧。これにより、充填が不足しているのが (i) 新気がそもそも到達しない(吸気制限/ラムなし)からなのか、(ii) 到達はするが高温残留ガス/背圧(フィードバック)によって押しのけられているからなのかが切り分けられる。この単一の分解が (a) と (b) のどちらであるかを決定し、具体的なレバーを指し示す。
 
-### Assets
-- scripts/ve_breakpoint_conv_parallel.py (parallel converged sweep, per-run wd)
-- scripts/ve_breakpoint_plot.py (overlay + normalized-shape + stats)
+### 資産
+- scripts/ve_breakpoint_conv_parallel.py(並列収束スイープ、実行ごとの作業ディレクトリ)
+- scripts/ve_breakpoint_plot.py(オーバーレイ+正規化形状+統計)
 - docs/analysis/converged_ve_vs_rpm_breakpoints.{png,csv}
 
-## Stage 27 — the ~2x VE deficit IS the spurious ~560 K charge (numerical, not combustion)
+## Stage 27 — ~2倍の VE 不足の正体は、偽の ~560 K の充填ガスである(数値的問題であり燃焼ではない)
 
-Decomposed the flat ~52% converged VE at clean breakpoints (5300 & 2900 rpm, FIN=1,
-NaN=0) with a new probe OPENWAM_VEDIAG (prints the trapped state at the end of gas
-exchange: in-cylinder T, IVC pressure, trapped mass, fresh/residual split).
+クリーンなブレークポイント(5300 及び 2900 rpm、FIN=1、NaN=0)における、フラットな ~52% の収束 VE を、新しいプローブ OPENWAM_VEDIAG(ガス交換終了時のトラップ状態: 筒内 T、IVC 圧力、トラップ質量、新気/残留の内訳を出力する)で分解した。
 
-Trapped state (mean over the converged cycle, 5300 rpm):
+トラップ状態(収束サイクルにわたる平均、5300 rpm):
 ```
 Ttrap ~ 567 K     <- HOT (a normal fresh charge is ~320-350 K)
 P_IC  ~ 1.26 bar  <- ~atmospheric (NOT a vacuum -> intake is NOT choked/restricted)
@@ -1478,159 +764,83 @@ Mtrap ~ 0.37 g    <- ~58% of the 0.64 g atmospheric reference
 residual ~ 0%     <- the charge is fresh, not displaced by burned gas
 ```
 
-Decisive arithmetic. m = P V / (R T). With P, V fixed and residuals ~0, the ONLY
-reason Mtrap is half is that T is ~1.7x too high:
-  567 K / 330 K = 1.72  ->  58% x 1.72 = ~100% == the ~110% target.
-So the entire rpm-flat 2x VE deficit is exactly the charge sitting at ~567 K instead
-of ~330 K. Not intake restriction (P is fine), not residual dilution (resid ~0).
+決定的な算術。m = P V / (R T)。P、V が固定され残留ガスが ~0 であるとき、Mtrap が半分になる**唯一の**理由は、T が ~1.7 倍高すぎることである:
+  567 K / 330 K = 1.72  ->  58% x 1.72 = ~100% == ~110% のターゲットとほぼ一致。
+したがって、rpm に対してフラットな 2 倍の VE 不足のすべては、充填ガスが ~330 K ではなく ~567 K にあることに正確に一致する。吸気制限ではない(P は問題ない)、残留ガス希釈でもない(残留 ~0)。
 
-Where the heat comes from -- three eliminations:
-1. The air ARRIVES hot. ENBAL flux-weighted temperatures show the WHOLE intake tree
-   (pipes 1-38, atmosphere inlet through the ports) sits at ~555-580 K. The cylinder
-   is filled with already-hot manifold air; it does not heat cold air internally.
-2. NOT the EqTube stub runaway. The phi10 EqTube_Stub pipes (5,11,17,23,29,35) do go
-   berserk in ENBAL (-2.78 kg/s, 2771 K, -10 MW each) but widening them to phi52
-   (OPENWAM_EQ_DIA=0.052) or removing them (OPENWAM_NO_EQTUBE=1) leaves the charge at
-   ~550-571 K and VE unchanged. The stub is a local symptom confined to its branch,
-   not the bulk-intake heat source (confirms the PR #11 read).
-3. NOT combustion. With the fuel LHV zeroed (44000000 -> 1, deck verified) the
-   converged trapped state is BYTE-IDENTICAL (567 K, same Mtrap, same IVC pressure).
-   No chemical energy is entering, yet the intake still sustains ~567 K -> the heat
-   is a NUMERICAL energy-generation artifact in the gas-exchange bookkeeping.
+熱の出所 -- 3 つの排除:
+1. 空気は**高温で到着する**。ENBAL の流束加重温度は、吸気ツリー**全体**(パイプ 1-38、大気入口からポートまで)が ~555-580 K にあることを示す。気筒は既に高温のマニホールド空気で充填されており、内部で冷たい空気を加熱しているのではない。
+2. EqTube スタブの暴走ではない。phi10 の EqTube_Stub パイプ(5, 11, 17, 23, 29, 35)は ENBAL で確かに暴走する(-2.78 kg/s、2771 K、それぞれ -10 MW)が、それを phi52 に広げても(OPENWAM_EQ_DIA=0.052)、あるいは除去しても(OPENWAM_NO_EQTUBE=1)、充填ガスは ~550-571 K のままで VE は変化しない。このスタブはその枝に限定された局所的な症状であり、バルク吸気の熱源ではない(PR #11 の読みを裏付ける)。
+3. 燃焼ではない。燃料の LHV をゼロにしても(44000000 -> 1、デッキで検証済み)、収束したトラップ状態は**バイト同一**である(567 K、同じ Mtrap、同じ IVC 圧力)。化学エネルギーは一切投入されていないのに、吸気は依然として ~567 K を維持している -> この熱はガス交換の帳簿処理における**数値的なエネルギー生成アーティファクト**である。
 
-Conclusion. The flat ~52% VE (independently reproduced in the user's Gemini trials,
-and unmoved there by butterfly->venturi throttle swaps and small-opening tuning) is
-NOT a tuning/throttle problem and NOT a feedback/residual problem. It is one bug: the
-gas exchange creates enthalpy out of nothing, the manifold equilibrates ~240 K too
-hot, the charge density drops ~1.7x, and VE halves uniformly across rpm. Fixing the
-spurious enthalpy should drop the charge to ~330 K and lift VE to ~100-110%, matching
-the target shape's level (the tuning shape is a second-order question on top).
+結論。フラットな ~52% の VE(ユーザーの Gemini トライアルでも独立に再現され、そこではバタフライ->ベンチュリのスロットル交換や小開度チューニングによっても動かなかった)は、チューニング/スロットルの問題ではなく、フィードバック/残留ガスの問題でもない。それは 1 つのバグである: ガス交換が無から エンタルピーを生成し、マニホールドは ~240 K 高温すぎる状態で平衡し、充填密度は ~1.7 倍低下し、VE は rpm 全体にわたって一様に半減する。この偽のエンタルピーを修正すれば、充填ガスは ~330 K まで下がり、VE はターゲット形状のレベルである ~100-110% まで上昇するはずである(チューニング形状はその上に乗る二次的な問題である)。
 
-### Fix target (next)
-The energy must be created at a BOUNDARY, not inside the pipes: ENBAL shows each
-intake pipe conserves enthalpy internally (dH(in-out) ~ few kW) except the stubs.
-The suspect is the intake-valve / cylinder gas-exchange flux -- TCCCilindro (or the
-valve boundary in TCC*) FlujoEntranteCilindro / FlujoSalienteCilindro -- where hot
-cylinder gas backflows into the port during overlap/early intake and the enthalpy
-carried out vs back in does not balance over a cycle. Localise by running ENBAL on
-the port pipe immediately at the valve and checking the per-cycle net enthalpy across
-the valve boundary (should be ~wall heat ~0 in a converged motoring cycle).
+### 修正ターゲット(次)
+エネルギーはパイプの内部ではなく**境界**で生成されているに違いない: ENBAL は、スタブを除く各吸気パイプが内部でエンタルピーを保存していることを示す(dH(in-out) ~ 数 kW)。容疑者は吸気バルブ/気筒ガス交換流束 -- TCCCilindro(または TCC* 内のバルブ境界)の FlujoEntranteCilindro / FlujoSalienteCilindro -- であり、そこではオーバーラップ/吸気初期に高温の気筒ガスがポートへ逆流し、サイクルにわたって持ち出されるエンタルピーと持ち込まれるエンタルピーが収支しない。ポートパイプでバルブのすぐ手前において ENBAL を実行し、バルブ境界を横切るサイクルあたりの正味エンタルピーを確認することで局在化する(収束したモータリングサイクルでは ~壁熱 ~0 であるべき)。
 
-### Assets
-- OPENWAM_VEDIAG: trapped-state probe (T, P_IC, mass, fresh/residual) at IVC.
-- (existing) OPENWAM_ENBAL, OPENWAM_EQ_DIA, OPENWAM_NO_EQTUBE.
+### 資産
+- OPENWAM_VEDIAG: IVC におけるトラップ状態プローブ(T、P_IC、質量、新気/残留)。
+- (既存)OPENWAM_ENBAL、OPENWAM_EQ_DIA、OPENWAM_NO_EQTUBE。
 
-## Stage 28 — proof the deficit is removable heat, and where the heat is NOT
+## Stage 28 — 不足分が除去可能な熱であることの証明、および熱がどこに「ない」か
 
-Two independent "remove the intake heat" levers both recover VE toward the target,
-proving the geometry/breathing is sound and the ~570 K charge is the entire fault:
+「吸気の熱を除去する」2 つの独立したレバーはいずれも VE をターゲットに向けて回復させ、ジオメトリ/呼吸は健全であり ~570 K の充填ガスこそが唯一の欠陥であることを証明する:
 
-| intake thermal treatment            | charge T | VE   |
+| 吸気の熱的処置                        | 充填温度 | VE   |
 |-------------------------------------|----------|------|
-| baseline (default wall HT)          | 567 K    | 57%  |
-| OPENWAM_IN_HMULT=10 (10x wall HT)   | 479 K    | 76%  |
-| OPENWAM_TPIN=313 (pin gas to 313 K) | 342 K    | ~99% (5/6 cyl) |
+| ベースライン(デフォルトの壁熱伝達)          | 567 K    | 57%  |
+| OPENWAM_IN_HMULT=10(壁熱伝達 10 倍)   | 479 K    | 76%  |
+| OPENWAM_TPIN=313(ガスを 313 K に固定) | 342 K    | ~99%(6 気筒中 5 気筒) |
 
-(IN_HMULT=50 destabilises -- the intake goes sonic; not pursued.)
+(IN_HMULT=50 は不安定化する -- 吸気がソニックになる; 追求せず。)
 
-So the spurious heat is fully REMOVABLE: pin/cool the intake and VE -> ~100%, exactly
-matching the target level. This rules out any flow/geometry restriction.
+したがって、偽の熱は完全に**除去可能**である: 吸気を固定/冷却すると VE -> ~100% となり、ターゲットのレベルと正確に一致する。これにより、流路/ジオメトリの制限は排除される。
 
-Where the heat enters -- localisation via OPENWAM_VLVENE (per-cycle intake-valve mass
-& enthalpy balance, cyl 1, converged, combustion OFF):
+熱がどこから入るか -- OPENWAM_VLVENE(サイクルごとの吸気バルブ質量・エンタルピー収支、cyl 1、収束、燃焼 OFF)による局在化:
 ```
 fill (port->cyl) 0.243 g @ Tfill=571 K  carries 143 J OUT of the port
 back (cyl->port) 0.047 g @ Tback=581 K  carries  28 J INTO the port
 net mass admitted 0.196 g | net enthalpy to port = -114 J  (valve COOLS the port)
 ```
-Key: at convergence the intake valve net-REMOVES enthalpy from the port (-114 J/cyc),
-and the gas FILLING the cylinder is already 571 K. So the steady hot intake is NOT
-sustained by hot valve backflow -- the port is already hot upstream of the valve. The
-heat source is therefore in the intake interior (junctions / open end), not the valve
-gas exchange, and the default wall heat transfer is too weak to remove it (hence the
-equilibrium ABOVE wall temp: a per-cycle source balances wall loss at 567 K; 10x wall
-HT drops the balance to 479 K; the source is numerical -- combustion-OFF identical).
+鍵となる点: 収束時、吸気バルブはポートからエンタルピーを正味で**除去している**(-114 J/サイクル)。そして気筒を**充填している**ガスは既に 571 K である。したがって、定常的な高温吸気は高温のバルブ逆流によって維持されているのでは**ない** -- ポートはバルブより上流で既に高温なのである。したがって熱源はバルブのガス交換ではなく吸気内部(ジャンクション/開放端)にあり、デフォルトの壁熱伝達はそれを除去するには弱すぎる(したがって平衡が壁温度を**上回る**理由が説明される: サイクルごとの熱源が 567 K で壁損失と釣り合っている; 壁熱伝達 10 倍でその釣り合いは 479 K まで下がる; 熱源は数値的である -- 燃焼 OFF でも同一)。
 
-Eliminations recap (Stages 27-28): not throttle, not tuning, not residuals
-(resid~0%), not intake restriction (P_IC~1 atm), not combustion (LHV->1 identical),
-not the EqTube stub (remove/widen no change), not the intake valve backflow (net
-cools the port). Remaining suspects for the per-cycle numerical source: the Type-12
-junctions (TCCRamificacion: the phi10 stub there hits 2771 K / 10 MW) other than the
-EqTube one, and the open-end atmosphere BC (re-inducting hot expelled air instead of
-flushing ambient).
+排除項目のまとめ(Stage 27-28): スロットルではない、チューニングではない、残留ガスでもない(残留~0%)、吸気制限でもない(P_IC~1 atm)、燃焼でもない(LHV->1 でも同一)、EqTube スタブでもない(除去/拡幅しても変化なし)、吸気バルブ逆流でもない(ポートを正味で冷却している)。サイクルごとの数値的熱源として残る容疑者は、EqTube のもの以外の Type-12 ジャンクション(TCCRamificacion: そこの phi10 スタブは 2771 K / 10 MW に達する)と、開放端の大気境界条件(周囲空気をフラッシュする代わりに、排出された高温空気を再吸入している)である。
 
-### Decision point
-The deficit is one numerical heat source in the intake interior. Fixing it properly
-(junction / open-end energy conservation) is a deep MoC task; alternatively a
-physically-motivated intake wall heat-rejection model (the real aluminium manifold
-sinks far more heat than the default film coefficient) removes the heat and recovers
-VE now. Both are viable; this is a strategy choice for the user.
+### 決断点
+この不足は吸気内部にある 1 つの数値的熱源である。それを適切に修正すること(ジャンクション/開放端のエネルギー保存)は深い MoC(特性曲線法)の課題である; あるいは、物理的に動機づけられた吸気壁熱放出モデル(実際のアルミ製マニホールドはデフォルトの膜係数よりもはるかに多くの熱を吸収する)は、その熱を除去して今すぐ VE を回復させる。どちらも実行可能であり、これはユーザーにとっての戦略選択である。
 
-### Assets
-- OPENWAM_VLVENE (intake-valve per-cycle mass/enthalpy balance), OPENWAM_VEDIAG,
-  OPENWAM_IN_HMULT, OPENWAM_TPIN, OPENWAM_ENBAL.
+### 資産
+- OPENWAM_VLVENE(吸気バルブのサイクルごとの質量/エンタルピー収支)、OPENWAM_VEDIAG、OPENWAM_IN_HMULT、OPENWAM_TPIN、OPENWAM_ENBAL。
 
-## Stage 29 — the "junction/open-end energy bug" hypothesis is FALSIFIED by direct measurement
+## Stage 29 — 「ジャンクション/開放端エネルギーバグ」仮説は直接測定によって反証された
 
-Per the user's choice to fix the root cause in the junctions / open end, instrumented
-the branch junctions and tested the throttle directly. The discrete intake elements
-do NOT create the energy.
+ジャンクション/開放端で根本原因を修正するというユーザーの選択に基づき、分岐ジャンクションを計測し、スロットルを直接テストした。個別の吸気要素はエネルギーを生成して**いない**。
 
-Direct junction energy balance (new OPENWAM_JUNCENE probe in TCCRamificacion:
-per-junction net mass & enthalpy flux summed over all connected pipe ends over a
-window; net != 0 => the junction creates/destroys energy):
-- All EXHAUST junctions (CC 46-63): net ~+/-0.1 kW out of ~30-180 kW throughput
-  (<0.5%). Clean -- the core Riemann-junction numerics conserve energy.
-- INTAKE port-split junctions (CC 8,15,22,29,36,43): net ~-0.6 kW. Clean.
-- INTAKE EqTube-stub junctions (CC 6,13,20,27,34,41): the probe reads a huge
-  ~141 MW, BUT this is a MEASUREMENT artifact of the phi10 stub runaway: removing
-  the stub (OPENWAM_NO_EQTUBE) makes every junction clean (<2 kW) AND leaves the
-  charge just as hot (~570 K). So the stub "creation" is not the real source.
+直接ジャンクション・エネルギー収支(TCCRamificacion 内の新しい OPENWAM_JUNCENE プローブ: ジャンクションごとに、接続されたすべてのパイプ端にわたるウィンドウ内の正味質量・エンタルピー流束を合計する; 正味が 0 でなければ => そのジャンクションはエネルギーを生成/破壊している):
+- すべての排気ジャンクション(CC 46-63): スループット ~30-180 kW に対し正味 ~+/-0.1 kW(<0.5%)。クリーン -- 中核のリーマン・ジャンクション数値解法はエネルギーを保存している。
+- 吸気ポート分岐ジャンクション(CC 8,15,22,29,36,43): 正味 ~-0.6 kW。クリーン。
+- 吸気 EqTube スタブのジャンクション(CC 6,13,20,27,34,41): プローブは巨大な ~141 MW を示すが、これは phi10 スタブの暴走による**測定アーティファクト**である: スタブを除去すると(OPENWAM_NO_EQTUBE)すべてのジャンクションがクリーンになり(<2 kW)、それでも充填ガスは同じくらい高温のままである(~570 K)。したがってこのスタブの「生成」は本当の熱源ではない。
 
-Throttle test (new OPENWAM_NO_THROTTLE: replace the Type-10 quadratic-loss throttle
-BC with a lossless Type-12 union): charge 602 K / VE 57% -- NOT cooler. The throttle
-BC is not the source either.
+スロットルのテスト(新しい OPENWAM_NO_THROTTLE: Type-10 二次損失スロットル境界条件を、損失のない Type-12 の結合に置き換える): 充填ガス 602 K / VE 57% -- 冷えて**いない**。スロットル境界条件も熱源ではない。
 
-Eliminations now: not throttle, not tuning, not residuals, not intake restriction,
-not combustion, not the EqTube stub, not the intake-valve backflow (net cools the
-port), not the Type-12 junctions, not the throttle BC. The SAME junction/pipe code
-conserves energy perfectly on the exhaust side -> the core scheme is sound.
+これまでの排除項目: スロットルではない、チューニングではない、残留ガスでもない、吸気制限でもない、燃焼でもない、EqTube スタブでもない、吸気バルブ逆流でもない(ポートを正味で冷却している)、Type-12 ジャンクションでもない、スロットル境界条件でもない。**同一の**ジャンクション/パイプ・コードが排気側では完璧にエネルギーを保存している -> 中核のスキームは健全である。
 
-What remains. A rough global balance at 5300 rpm: the valve takes ~+114 J/cyc net
-enthalpy FROM each port (VLVENE), so the cylinders draw ~684 J/cycle from the intake;
-the ambient reservoir supplies the net fresh charge (~1.18 g/cyc) at 300 K ~= 355 J;
-the ~330 J/cycle (~15 kW) shortfall is what keeps the manifold hot. It is not created
-in any discrete BC we can probe, and the intake wall heat transfer at default is too
-weak to remove it (IN_HMULT=10 drops the equilibrium 567->479 K; the source is
-balanced by wall loss ABOVE wall temp, so a finite per-cycle source exists).
+残るもの。5300 rpm でのおおまかな全体収支: バルブは各ポートから正味 ~+114 J/サイクルのエンタルピーを取っている(VLVENE)。したがって気筒は吸気から ~684 J/サイクルを引き出している; 周囲の貯留層は正味の新気(~1.18 g/サイクル)を 300 K ~= 355 J で供給している; ~330 J/サイクル(~15 kW)の不足分が、マニホールドを高温に保っているものである。これはわれわれがプローブできるいかなる個別の境界条件でも生成されておらず、デフォルトの吸気壁熱伝達はそれを除去するには弱すぎる(IN_HMULT=10 は平衡を 567->479 K に下げる; 熱源は壁温度を**上回る**位置で壁損失と釣り合っているので、有限のサイクルごとの熱源が存在する)。
 
-Reinterpretation. The hot intake behaves like PHYSICAL hot backflow (motoring
-compression heats the charge to ~830 K at TDC; ~19% of the fill backflows into the
-port at ~580 K during overlap) that the unrealistically weak default intake-wall heat
-transfer fails to remove, so the airbox/runners equilibrate hot and re-heat the
-incoming fresh air. The two working fixes (IN_HMULT, TPIN) both REMOVE heat. There is
-no localizable junction/open-end "energy creation" bug to delete -- the discrete
-elements conserve energy.
+再解釈。高温吸気は、モータリング圧縮が TDC で充填ガスを ~830 K まで加熱し、オーバーラップ中に充填ガスの ~19% が ~580 K でポートへ逆流するという**物理的な高温逆流**のように振る舞っており、それを非現実的に弱いデフォルトの吸気壁熱伝達が除去できずにいる。したがってエアボックス/ランナーは高温で平衡し、入ってくる新気を再加熱する。効果のあった 2 つの修正(IN_HMULT、TPIN)はいずれも熱を**除去する**ものである。削除すべき局在化可能なジャンクション/開放端の「エネルギー生成」バグは存在しない -- 個別要素はエネルギーを保存している。
 
-### Recommended re-scope (needs a user decision)
-The root-cause-in-the-junctions premise did not hold. The tractable, physically
-grounded levers are: (a) realistic intake-wall heat rejection (the default film
-coefficient is far too low for an aluminium manifold venting to ambient), and/or
-(b) check whether the ~19% overlap backflow is itself too large (valve overlap /
-timing / port volume). (a) is the smaller, safer change and already shows the right
-trend.
+### 推奨される再スコープ(ユーザーの決定が必要)
+「根本原因はジャンクションにある」という前提は成立しなかった。扱いやすく物理的に裏付けのあるレバーは: (a) 現実的な吸気壁熱放出(デフォルトの膜係数は、周囲へベントするアルミ製マニホールドとしてはあまりに低すぎる)、および/または (b) ~19% のオーバーラップ逆流それ自体が大きすぎないか確認する(バルブオーバーラップ/タイミング/ポート容積)。(a) はより小さく安全な変更であり、既に正しい傾向を示している。
 
-### Assets
-- OPENWAM_JUNCENE (per-junction energy balance, TCCRamificacion).
-- OPENWAM_NO_THROTTLE (lossless-union throttle test).
+### 資産
+- OPENWAM_JUNCENE(ジャンクションごとのエネルギー収支、TCCRamificacion)。
+- OPENWAM_NO_THROTTLE(無損失結合スロットルのテスト)。
 
-## Stage 30 — the backflow IS significant; it traces to high cylinder pressure at gas-exchange TDC (exhaust back-pressure)
+## Stage 30 — 逆流は確かに大きい; それはガス交換 TDC での高い気筒圧力(排気背圧)に起因する
 
-Per the user's choice to check whether the ~19% backflow is too large, mapped the
-intake-valve flow crank-by-crank (OPENWAM_VLVWIN, now OPENWAM_VLVWIN_STEP for finer
-resolution) and swept IVO at 5300 rpm WOT converged.
+~19% の逆流が大きすぎるかどうかを確認するというユーザーの選択に基づき、吸気バルブの流れをクランク角ごとにマッピングし(OPENWAM_VLVWIN、より細かい解像度のため今は OPENWAM_VLVWIN_STEP)、5300 rpm WOT 収束状態で IVO をスイープした。
 
-Crank-resolved intake valve (cyl 1, IVO=330/30 BTDC-gx, EVC=366):
+クランク角分解された吸気バルブ(cyl 1、IVO=330/gx-TDC 前 30 度、EVC=366):
 ```
 Theta  p_cyl  p_port  T_port  dir
 333    1.16   1.17    514K    fill   intake cracks open near gx-TDC
@@ -1639,57 +849,37 @@ Theta  p_cyl  p_port  T_port  dir
 364    1.45   1.46    579K    BACK   just after TDC: cylinder pushes into port
 574-598 1.26  1.20    ~585K   BACK   late-IVC: compression pushes into port
 ```
-Two backflow events: a short reversion just after gas-exchange TDC, and a late-IVC
-reversion during early compression.
+2 つの逆流イベント: ガス交換 TDC 直後の短い逆転と、圧縮初期における遅い IVC 時点の逆転。
 
-IVO sweep (overlap = 366 - IVO):
+IVO スイープ(オーバーラップ = 366 - IVO):
 ```
 IVO=330  (+36 deg overlap):  Ttrap 567 K  VE 57%
 IVO=366  ( 0 deg overlap):   Ttrap 603 K  VE 46%   <- worse
 IVO=390  (-24 deg overlap):  Ttrap 424 K  VE 68%   <- much cooler
 ```
-Non-monotonic: removing overlap (366) is WORSE, but opening the intake LATE (390,
-into the descending-piston vacuum) is much cooler. So the heater is not "overlap"
-per se -- it is opening the intake valve while the cylinder still holds hot,
-PRESSURISED residual gas near gas-exchange TDC, which drives that gas into the port.
-Opening into the intake-stroke vacuum (IVO=390) avoids it.
+非単調である: オーバーラップを除去する(366)とむしろ悪化するが、吸気を**遅く**開く(390、降下するピストンの真空に向けて)とはるかに冷える。したがって熱源は「オーバーラップ」そのものではなく、気筒がガス交換 TDC 付近でまだ高温で**加圧された**残留ガスを保持している間に吸気バルブを開くことであり、それがそのガスをポートへ押し込むのである。吸気行程の真空へ開く(IVO=390)ことでそれを回避できる。
 
-Root of the high near-TDC cylinder pressure: at gas-exchange TDC the cylinder sits at
-~1.6 bar (VLVWIN p_cyl=1.62 at Theta=359), not the ~1.0-1.1 bar of a well-scavenged
-cylinder. The exhaust valve is still open (EVC=366), so cyl ~ exhaust-port pressure:
-the exhaust is NOT providing a scavenging vacuum, it is holding the cylinder at
-~1.6 bar of back-pressure. The trapped hot residuals at 1.6 bar / ~640 K then expand
-into the intake the moment the intake valve opens.
+TDC 付近での高い気筒圧力の根本原因: ガス交換 TDC において気筒は ~1.6 bar にある(VLVWIN では Theta=359 で p_cyl=1.62)。これは十分に掃気された気筒の ~1.0-1.1 bar ではない。排気バルブはまだ開いており(EVC=366)、したがって気筒 ~ 排気ポート圧力である: 排気は掃気用の真空を提供しておらず、気筒を ~1.6 bar の背圧に保っている。1.6 bar / ~640 K でトラップされた高温残留ガスは、吸気バルブが開いた瞬間に吸気側へ膨張する。
 
-So the chain is: exhaust back-pressure -> cylinder ~1.6 bar at gas-exchange TDC ->
-hot (~640 K) residual reversion into the intake port -> hot intake manifold ->
-~1.7x low charge density -> the rpm-flat 2x VE deficit. This finally connects the
-intake VE deficit back to the EXHAUST back-pressure (the Stage 1-16 subject).
+したがって連鎖は: 排気背圧 -> ガス交換 TDC での気筒 ~1.6 bar -> 高温(~640 K)の残留ガスが吸気ポートへ逆流 -> 高温の吸気マニホールド -> ~1.7 倍の低い充填密度 -> rpm に対してフラットな 2 倍の VE 不足、である。これでようやく吸気 VE 不足が排気背圧(Stage 1-16 の主題)に結び付いた。
 
-Partial fixes (none reaches the TPIN ideal of 342 K / ~99%):
+部分的な修正(いずれも TPIN の理想値 342 K / ~99% には届かない):
   IVO=390 alone           424 K / 68%
   IN_HMULT=10 alone        479 K / 76%
   IVO=390 + IN_HMULT=10    446 K / 61%  (no better -- within cyl-to-cyl scatter)
-The timing/wall levers each remove part of the heat but cannot fully fix it because
-the heat keeps being re-injected each cycle by the back-pressure-driven reversion.
+タイミング/壁のレバーはそれぞれ熱の一部を除去するが、背圧に駆動された逆転によってサイクルごとに熱が再注入され続けるため、完全には修正できない。
 
-### Recommended next step
-Attack the exhaust back-pressure at gas-exchange TDC so the cylinder scavenges down to
-~1 bar (then there is no hot pressurised residual to reverse into the intake). Measure
-the exhaust-port pressure through the overlap window and find why it sits ~1.6 bar
-(collector/Riemann-junction reflection, exhaust runner length/tuning, or the
-port-merge model). This is the same exhaust back-pressure thread from the earlier
-stages, now with a direct VE payoff target.
+### 推奨される次のステップ
+ガス交換 TDC での排気背圧を攻撃し、気筒が ~1 bar まで掃気できるようにする(そうすれば、吸気側へ逆流する高温加圧残留ガスは存在しなくなる)。オーバーラップ・ウィンドウを通じて排気ポート圧力を測定し、それがなぜ ~1.6 bar にあるのかを見つける(コレクタ/リーマン・ジャンクションの反射、排気ランナー長/チューニング、あるいはポート合流モデル)。これは初期ステージからの排気背圧の話の続きであり、今や VE への直接的な効果というターゲットを得た。
 
-### Assets
-- OPENWAM_VLVWIN_STEP (finer crank resolution for the valve-window probe).
+### 資産
+- OPENWAM_VLVWIN_STEP(バルブウィンドウ・プローブのより細かいクランク角解像度)。
 
-## Stage 31 — CORRECTION: it is not exhaust back-pressure, and exhaust pipe length does not matter
+## Stage 31 — 訂正: 排気背圧ではなく、排気パイプ長は問題ではない
 
-Measured the EXHAUST-valve window crank-by-crank (new OPENWAM_EXHWIN) and swept the
-exhaust primary length, per the user's request to check the exhaust pipe system.
+新しい OPENWAM_EXHWIN で排気バルブ・ウィンドウをクランク角ごとに測定し、ユーザーの要望に従って排気パイプ系を確認するため排気1次長をスイープした。
 
-EXHAUST-port pressure through the overlap window (cyl 1, 5300 rpm WOT, converged):
+オーバーラップ・ウィンドウを通じた排気ポート圧力(cyl 1、5300 rpm WOT、収束状態):
 ```
 Theta  p_cyl  p_export  T_export
 334    1.15   1.06      502 K
@@ -1697,111 +887,63 @@ Theta  p_cyl  p_export  T_export
 354    1.61   1.03      586 K   <- cylinder spikes to 1.6 bar, port stays ~1.0 bar
 364    1.46   0.92      579 K
 ```
-=> The EXHAUST PORT is at ~0.9-1.1 bar through overlap (near atmospheric), NOT a high
-back-pressure. The Stage-30 "exhaust back-pressure holds the cylinder at 1.6 bar"
-reading was WRONG. The cylinder 1.6 bar at gas-exchange TDC is the piston adiabatically
-compressing the 52 cc clearance volume of hot (~615 K) residual gas (65->52 cc,
-1.25^1.4 = 1.37x) faster than the nearly-closed exhaust valve (EVC=366, low lift near
-TDC) can vent it. It is a clearance-gas / valve-lift effect, not a pipe back-pressure.
+=> **排気ポート**はオーバーラップを通じて ~0.9-1.1 bar にあり(ほぼ大気圧)、高い背圧ではない。Stage-30 の「排気背圧が気筒を 1.6 bar に保っている」という読みは**誤り**であった。ガス交換 TDC での気筒 1.6 bar は、ピストンが 52 cc の隙間容積にある高温(~615 K)の残留ガスを断熱的に圧縮している(65->52 cc、1.25^1.4 = 1.37 倍)速度が、ほぼ閉じた排気バルブ(EVC=366、TDC 付近ではリフトが低い)がそれをベントできる速度より速いことによるものである。これはパイプ背圧の効果ではなく、隙間ガス/バルブリフトの効果である。
 
-Exhaust primary (port+header) length sweep @5300 rpm WOT:
+排気1次(ポート+ヘッダー)長スイープ @5300 rpm WOT:
 ```
 total primary 240 mm: Ttrap 581 K  VE 58%
               390 mm: Ttrap 567 K  VE 57%   (baseline)
               590 mm: Ttrap 575 K  VE 58%
               790 mm: Ttrap 561 K  VE 55%
 ```
-=> Tripling the primary length moves the charge temp by <20 K and VE by <3 pp. The
-exhaust pipe length is NOT a lever for this VE deficit, consistent with the exhaust
-port already sitting at ~1 atm during overlap (no wave tuning to exploit here).
+=> 1次長を 3 倍にしても、充填ガス温度は 20 K 未満、VE は 3 ポイント未満しか動かない。排気パイプ長はこの VE 不足に対するレバーでは**ない**。これは、オーバーラップ中に排気ポートが既に ~1 atm にある(ここには活用すべき波動チューニングがない)ことと整合する。
 
-Corrected mechanism. The hot intake is hot RESIDUAL gas reverting into the intake
-port: at gas-exchange TDC the small clearance volume holds ~615 K residual compressed
-to ~1.6 bar; if the intake valve is open then (IVO=330, 30 deg BTDC) that hot gas
-pushes into the port. It is governed by the INTAKE valve timing (IVO=390 opens into
-the post-TDC vacuum and is ~140 K cooler) and removed by intake wall heat transfer --
-NOT by the exhaust system. Exhaust back-pressure and exhaust pipe length are not the
-cause.
+修正された機構。高温吸気は、吸気ポートへ逆流する高温の**残留**ガスである: ガス交換 TDC において、小さな隙間容積は ~1.6 bar に圧縮された ~615 K の残留ガスを保持している; もしそのとき吸気バルブが開いていれば(IVO=330、TDC 前 30 度)、その高温ガスはポートへ押し込まれる。これは**吸気**バルブタイミングによって支配されており(IVO=390 は TDC 後の真空へ開き、~140 K 低温である)、吸気壁熱伝達によって除去される -- 排気系によってではない。排気背圧および排気パイプ長は原因ではない。
 
-### Where this leaves the VE deficit
-Levers, by measured effect at 5300 rpm (TPIN ideal = 342 K / ~99%):
+### これが VE 不足に残すもの
+レバー、5300 rpm での実測効果順(TPIN の理想値 = 342 K / ~99%):
   IVO=390 (open into vacuum)     424 K / 68%
   IN_HMULT=10 (realistic walls)  479 K / 76%
   exhaust length                 no effect
-None alone reaches ~100%; the residual reversion keeps re-injecting heat each cycle.
-The remaining true levers are (1) intake valve timing (VANOS schedule -- the per-rpm
-optimum already noted), (2) realistic intake-port/runner wall heat rejection, and
-possibly (3) reducing the clearance-gas reversion at the source (exhaust valve able to
-vent the clearance gas near TDC -- a valve-flow/lift question, not a pipe-length one).
+単独で ~100% に届くものはない; 残留ガスの逆転がサイクルごとに熱を再注入し続ける。残る真のレバーは、(1) 吸気バルブタイミング(VANOS スケジュール -- 既に指摘した rpm ごとの最適値)、(2) 現実的な吸気ポート/ランナー壁熱放出、そしておそらく (3) TDC 付近での隙間ガス逆転をその発生源で低減すること(排気バルブが TDC 付近で隙間ガスをベントできるようにする -- パイプ長ではなくバルブ流量/リフトの問題)である。
 
-### Assets
-- OPENWAM_EXHWIN (+ OPENWAM_VLVWIN_STEP): crank-resolved exhaust-valve/port window.
+### 資産
+- OPENWAM_EXHWIN(+ OPENWAM_VLVWIN_STEP): クランク角分解された排気バルブ/ポート・ウィンドウ。
 
-## Stage 32 — hypothesis (3) tested and largely FALSIFIED: venting the clearance gas barely helps
+## Stage 32 — 仮説 (3) をテストし、ほぼ反証: 隙間ガスをベントしてもほとんど助けにならない
 
-Per the user's choice to try (3) -- vent the hot clearance-gas residual at gas-exchange
-TDC so it cannot revert into the intake -- added OPENWAM_EX_DUR (exhaust duration
-override: EVO stays at 102, so a longer duration pushes EVC later and keeps exhaust
-lift up through TDC) and swept it at 5300 rpm WOT.
+~19% の逆流が大きすぎないか確認するというユーザーの選択に基づき、仮説 (3) -- ガス交換 TDC で高温の隙間ガス残留分をベントし、吸気側へ逆転できないようにする -- を試すため、OPENWAM_EX_DUR(排気デュレーション上書き: EVO は 102 のままなので、デュレーションを長くすると EVC が遅くなり、排気リフトが TDC を通じて維持される)を追加し、5300 rpm WOT でスイープした。
 
-Mechanism confirmed (EXHWIN, EX_DUR=340 / EVC=442): the exhaust valve now has high
-lift through gas-exchange TDC (CdEx ~0.62), and the cylinder TDC pressure drops from
-1.6 bar -> ~1.0 bar, T_export 615 -> 560 K. So the clearance-gas compression spike is
-genuinely eliminated.
+機構は確認された(EXHWIN、EX_DUR=340 / EVC=442): 排気バルブは今やガス交換 TDC を通じて高いリフトを持ち(CdEx ~0.62)、気筒の TDC 圧力は 1.6 bar -> ~1.0 bar に低下し、T_export は 615 -> 560 K になる。したがって隙間ガス圧縮スパイクは本当に排除されている。
 
-But it does NOT fix the hot intake:
+しかしこれは高温吸気を修正**しない**:
 ```
 EX_DUR=264 (EVC=366, baseline): Ttrap 567 K  VE 57%
 EX_DUR=300 (EVC=402):           Ttrap 543 K  VE 51%
 EX_DUR=340 (EVC=442):           Ttrap 540 K  VE 53%
 ```
-Eliminating the 1.6 bar TDC spike cools the charge only ~27 K and LOWERS VE (the late
-EVC keeps the exhaust valve open into the intake stroke -> fresh-charge loss out the
-exhaust outweighs the small cooling). So the clearance-gas reversion is NOT the
-dominant intake heat source, and (3) is a net loss.
+1.6 bar の TDC スパイクを排除しても、充填ガスはわずか ~27 K しか冷えず、VE は**低下する**(遅い EVC は吸気行程まで排気バルブを開いたままにするため、排気側から失われる新気の損失が、わずかな冷却効果を上回る)。したがって隙間ガスの逆転は支配的な吸気熱源では**なく**、(3) は正味の損失である。
 
-Cross-check with the IVO lever: IVO=390 cools the charge by ~143 K (567->424 K), far
-more than removing the TDC spike (27 K). So IVO=390's benefit is NOT "avoiding the TDC
-spike" -- it is opening the intake into the deep descending-piston vacuum so the
-inrush is a fast, cold manifold draw rather than a slow overlap-window exchange. The
-heat enters during the slow overlap/near-TDC window whenever the intake valve is open
-there, by a mechanism that is not the clearance-gas spike per se.
+IVO レバーとの相互チェック: IVO=390 は充填ガスを ~143 K 冷却する(567->424 K)。これは TDC スパイクの除去(27 K)をはるかに上回る。したがって IVO=390 の効果は「TDC スパイクを回避すること」では**なく** -- 降下するピストンによる深い真空へ吸気を開くことで、流入がオーバーラップ・ウィンドウでのゆっくりした交換ではなく、速く冷たいマニホールド吸引になることである。熱は、吸気バルブがそこで開いている限り、その隙間ガススパイクそのものとは別の機構によって、ゆっくりしたオーバーラップ/TDC 付近のウィンドウ中に入り込む。
 
-### Synthesis of the whole VE-deficit investigation (Stages 24-32)
-The rpm-flat 2x VE deficit is one effect: the converged intake charge sits ~1.7x too
-hot (~567 vs ~330 K), halving density. Proven hot-charge cause (TPIN->VE 99%), proven
-numerical (combustion-OFF identical). Systematically NOT: throttle/butterfly, tuning,
-residual composition (resid~0%), intake restriction (P_IC~1 atm), the Type-12
-junctions or throttle BC (all conserve energy; exhaust side clean), exhaust
-back-pressure (port ~1 atm through overlap), exhaust pipe length (<3 pp over
-240-790 mm), and now the clearance-gas TDC reversion (removing it barely helps).
+### VE 不足の調査全体の総合(Stage 24-32)
+rpm に対してフラットな 2 倍の VE 不足は 1 つの効果である: 収束した吸気充填ガスは ~1.7 倍高温すぎる(~567 対 ~330 K)、密度が半減する。高温充填ガスが原因であることは証明済み(TPIN->VE 99%)、数値的な問題であることも証明済み(燃焼 OFF でも同一)。系統的に以下は原因では**ない**: スロットル/バタフライ、チューニング、残留ガス組成(残留~0%)、吸気制限(P_IC~1 atm)、Type-12 ジャンクションまたはスロットル境界条件(いずれもエネルギーを保存する; 排気側はクリーン)、排気背圧(ポートはオーバーラップを通じて ~1 atm)、排気パイプ長(240-790 mm で <3 ポイント)、そして今回の隙間ガス TDC 逆転(それを除去してもほとんど助けにならない)。
 
-Measured levers (TPIN ideal 342 K / ~99%):
+実測したレバー(TPIN の理想値 342 K / ~99%):
   IVO=390 (open into vacuum)        424 K / 68%   <- strongest single lever
   IN_HMULT=10 (realistic walls)     479 K / 76%
   EX_DUR / EVC (vent clearance gas) 540 K / 53%   (net loss)
   exhaust length                    no effect
-No single discrete lever reaches ~100%. The hot intake is a distributed property of
-the WOT intake gas exchange (slow overlap-window heat pickup + weak wall removal),
-not one deletable bug. The realistic recovery path is the COMBINATION: per-rpm intake
-timing (VANOS kf_evan1_soll, opening later/into vacuum) + realistic intake-port/runner
-wall heat rejection. ~100% appears to need either an explicit intake thermal model
-(TPIN-like, defensible as aluminium-to-ambient) or a deeper rework of the valve
-gas-exchange enthalpy handling.
+単独で ~100% に届く個別レバーはない。高温吸気は、WOT の吸気ガス交換の分散的な性質(ゆっくりしたオーバーラップ・ウィンドウでの熱獲得+弱い壁除去)であり、削除可能な単一のバグではない。現実的な回復経路は**組み合わせ**である: rpm ごとの吸気タイミング(VANOS kf_evan1_soll、より遅く/真空へ向けて開く)+ 現実的な吸気ポート/ランナー壁熱放出。~100% に到達するには、明示的な吸気熱モデル(TPIN 的な、アルミから周囲へという設定として正当化できるもの)、あるいはバルブのガス交換エンタルピー処理のより深い作り直しのいずれかが必要と思われる。
 
-### Assets
-- OPENWAM_EX_DUR (exhaust duration / EVC override).
+### 資産
+- OPENWAM_EX_DUR(排気デュレーション/EVC 上書き)。
 
-## Stage 33 — explicit intake thermal sink: stable to ~76-78%, and WHY ~100% needs more
+## Stage 33 — 明示的な吸気熱シンク: ~76-78% で安定、そしてなぜ ~100% にはさらに必要なのか
 
-Per the user's choice to implement an explicit intake thermal model, added
-OPENWAM_INTAKE_HSINK (1/s): a time-step-consistent first-order relaxation of the
-INTAKE-pipe gas temperature toward an ambient target (OPENWAM_INTAKE_TAMB, default
-313 K) at constant pressure: T <- Tamb + (T-Tamb)*exp(-HSINK*dt), rebuilding the
-conserved state each step. Physically it represents the aluminium manifold sinking the
-(numerically spurious) recirculation heat to ambient.
+明示的な吸気熱モデルを実装するというユーザーの選択に基づき、OPENWAM_INTAKE_HSINK(1/s)を追加した: これは定圧下で、吸気パイプのガス温度を周囲目標(OPENWAM_INTAKE_TAMB、デフォルト 313 K)へ向けて時間ステップに整合した一次緩和させるものである: T <- Tamb + (T-Tamb)*exp(-HSINK*dt)、各ステップで保存量を再構築する。物理的には、アルミ製マニホールドが(数値的に偽の)再循環熱を周囲へ吸収することを表している。
 
-Sweep @5300 rpm WOT (baseline 567 K/57%, TPIN hard-pin 340 K/~99% for 5/6 cyl):
+@5300 rpm WOT でのスイープ(ベースライン 567 K/57%、TPIN ハードピン留め 340 K/~99%、6気筒中5気筒):
 ```
 HSINK=200 /s : 431 K / 61%  stable
 HSINK=300 /s : 445 K / 78%  stable  (0.43-0.55 g, consistent)
@@ -1809,111 +951,57 @@ HSINK=350 /s : 430 K / 76%  stable
 HSINK=450 /s : 792 K / 770% BLOWS UP (over-fill cascade, one cyl 27 g)
 HSINK>=1000  : 241-818%      over-fill cascade
 ```
-So a stable thermal sink caps at ~76-78% (same ceiling as the conservative wall-HT
-boost OPENWAM_IN_HMULT=10). Cooling harder triggers an over-fill cascade.
+したがって安定な熱シンクは ~76-78% で頭打ちになる(保守的な壁熱伝達ブースト OPENWAM_IN_HMULT=10 と同じ天井である)。それより強く冷却すると過充填カスケードが引き起こされる。
 
-Why ~100% (TPIN) is not cleanly reachable -- TWO compensating errors. Re-running the
-TPIN hard pin on the current build: 340 K, 0.64 g (~99%) for 5/6 cyl, no over-fill.
-But OPENWAM_INTAKE_HSINK at the same converged temperature (340 K, HSINK~1000)
-OVER-fills to 1.5 g (241%). Same charge temperature, 2.3x the mass. The difference is
-that the TPIN hard pin forces T=313 K EVERY step, which also clamps the gas sound
-speed (sqrt(gamma*R*313)) and thereby DAMPS the intake pressure waves; the gentle
-relaxation leaves those waves alive. So the intake actually carries TWO errors that
-compensate in the baseline:
-  (1) the gas is ~1.7x too hot (low density)   -- the one we targeted, and
-  (2) the overlap-window port pressure waves are too strong (~1.6 bar ram).
-Baseline = hot (low rho) x strong ram (high p) -> moderate mass (57%). Fixing only
-(1) -> cold (high rho) x strong ram -> over-fill. TPIN's "99%" worked only because the
-hard pin incidentally suppressed (2) as well. A thermal-only model therefore cannot
-reach ~100% stably; it tops out at ~76-78% before the un-damped ram over-fills.
+なぜ ~100%(TPIN)にきれいには到達できないのか -- **2 つの相殺する誤差**。現在のビルドで TPIN のハードピン留めを再実行すると: 340 K、0.64 g(~99%)、6気筒中5気筒、過充填なし。しかし同じ収束温度(340 K、HSINK~1000)での OPENWAM_INTAKE_HSINK は 1.5 g(241%)まで過充填する。同じ充填ガス温度で、質量は 2.3 倍である。この違いは、TPIN のハードピン留めが**毎ステップ**T=313 K を強制し、それによってガスの音速(sqrt(gamma*R*313))もクランプし、吸気圧力波を**減衰させる**ことにある; 緩やかな緩和はそれらの波を生かしたままにする。したがって吸気は実際には 2 つの誤差を抱えており、それらがベースラインでは相殺し合っている:
+  (1) ガスが ~1.7 倍高温すぎる(低密度) -- われわれがターゲットにしたもの、そして
+  (2) オーバーラップ・ウィンドウのポート圧力波が強すぎる(~1.6 bar のラム)。
+ベースライン = 高温(低 rho)× 強いラム(高 p) -> 中程度の質量(57%)。(1) だけを修正すると -> 低温(高 rho)× 強いラム -> 過充填。TPIN の「99%」がうまくいったのは、そのハードピン留めが偶然 (2) も抑制していたからにすぎない。したがって熱のみのモデルでは ~100% に安定して到達できない; 減衰されないラムが過充填を起こす前の ~76-78% で頭打ちになる。
 
-### Where this leaves it
-OPENWAM_INTAKE_HSINK is retained as a stable, physically-motivated lever to ~76-78%
-(default off). Reaching the target ~100-110% needs BOTH the intake temperature AND the
-spurious ~1.6 bar overlap pressure wave addressed -- i.e. the compensating-errors pair
-must be fixed together, which points back at the WOT valve/gas-exchange dynamics that
-generate both the enthalpy and the over-strong port wave. A pragmatic stable build
-today is HSINK (or IN_HMULT) + per-rpm VANOS timing at ~76-80%; a clean ~100% is a
-deeper coupled fix.
+### これが残すもの
+OPENWAM_INTAKE_HSINK は、~76-78% までの安定で物理的に動機づけられたレバーとして維持する(デフォルト OFF)。目標の ~100-110% に到達するには、吸気温度**と**偽の ~1.6 bar オーバーラップ圧力波の**両方**に対処する必要がある -- すなわち、相殺し合う誤差のペアを同時に修正しなければならない。これは、エンタルピーと過強なポート波の両方を生成している WOT のバルブ/ガス交換ダイナミクスに話を戻す。今日時点での実用的な安定ビルドは、HSINK(または IN_HMULT)+ rpm ごとの VANOS タイミングで ~76-80% である; クリーンな ~100% はより深い結合修正の課題である。
 
-### Assets
-- OPENWAM_INTAKE_HSINK (1/s), OPENWAM_INTAKE_TAMB (K): intake thermal-sink model.
+### 資産
+- OPENWAM_INTAKE_HSINK(1/s)、OPENWAM_INTAKE_TAMB(K): 吸気熱シンクモデル。
 
-## Stage 34 — the deep fix attempt: post-hoc thermal manipulation cannot recover VE (it fights the gas dynamics)
+## Stage 34 — 深い修正の試み: 事後的な熱操作では VE を回復できない(ガスダイナミクスと衝突する)
 
-Pursuing the user's request for the deep coupled fix, examined the cylinder
-gas-exchange energy equation (TCilindro4T ActualizaPropiedades, lines ~1228-1357:
-Benson filling-and-emptying, Energia = (V0 M)/(V M0) * exp((H1+H0)/2 + heat),
-Temp1 = T*Energia^(g-1)) and EntalpiaEntrada (stagnation enthalpy of the inflow,
-incl. the kinetic v^2/(2a^2) term). Both look like the standard, physically-correct
-MoC engine model -- no obvious arithmetic bug, and the SAME code conserves energy on
-the exhaust side. The spurious enthalpy is a subtle MoC gas-exchange effect (likely
-the entropy/KE bookkeeping when hot cylinder gas crosses the valve into the cooler
-port during the violent overlap transient), not a localizable typo.
+ユーザーの要望に応じて深い結合修正を追求し、気筒のガス交換エネルギー方程式(TCilindro4T の ActualizaPropiedades、約 1228-1357 行: Benson の充填・排出モデル、Energia = (V0 M)/(V M0) * exp((H1+H0)/2 + heat)、Temp1 = T*Energia^(g-1))と EntalpiaEntrada(流入の淀み点エンタルピー、運動エネルギー項 v^2/(2a^2) を含む)を精査した。どちらも標準的で物理的に正しい MoC(特性曲線法)エンジンモデルのように見える -- 明白な算術バグはなく、**同一の**コードが排気側ではエネルギーを保存している。偽のエンタルピーは、局在化可能な誤植ではなく、微妙な MoC ガス交換の効果である(激しいオーバーラップ過渡の間に高温の気筒ガスがバルブを通って冷たいポートへ越えていくときの、エントロピー/運動エネルギーの帳簿処理である可能性が高い)。
 
-Tried to make the explicit intake thermal sink reach ~100% by changing how the
-constant-pressure cool rebuilds momentum:
+定圧冷却が運動量を再構築する方法を変えることで、明示的な吸気熱シンクが ~100% に到達するようにしようと試みた:
 ```
 keep velocity (rho up, v same -> momentum up):  HSINK 300 stable 78%; >=450 over-fills
 conserve momentum (rho up, v down):             HSINK 1000 -> 76% (ragged);
                                                  5000 -> 3% (fill COLLAPSES);
                                                  50000 -> 54% (ragged)
 ```
-So neither rebuild works: keeping velocity injects ram (over-fill); conserving
-momentum removes ram (the fill collapses to ~3% VE). The trapped mass is exquisitely
-sensitive to the intake velocity/ram, so ANY post-hoc temperature manipulation that
-touches the state perturbs the fill. Conclusion: VE is set by the COUPLED density x
-velocity x valve gas dynamics; you cannot recover it by editing the gas temperature
-mid-solve. Reverted to the keep-velocity form (stable ~78% at HSINK<=350).
+つまりどちらの再構築もうまくいかない: 速度を維持するとラムが注入される(過充填); 運動量を保存するとラムが除去される(充填が ~3% VE まで崩壊する)。トラップ質量は吸気の速度/ラムに極めて敏感であるため、状態に手を加える事後的な温度操作は**何であれ**充填を乱してしまう。結論: VE は密度×速度×バルブガスダイナミクスが**結合した**ものによって決まる; ソルブの途中でガス温度を編集して回復させることはできない。速度維持形式に戻した(HSINK<=350 で安定 ~78%)。
 
-### Honest bottom line on the VE deficit
-- Conservative energy removal (wall HT, OPENWAM_IN_HMULT): stable, caps ~76% (higher
-  multipliers go sonic).
-- Non-conservative thermal reset (OPENWAM_INTAKE_HSINK / TPIN): can hit the right
-  temperature but the cold-dense charge + the (un-fixed) over-strong overlap pressure
-  wave then over-fills, or, if momentum is conserved, under-fills. The TPIN "~99%" is
-  an artifact of its hard per-step clamp ALSO damping the wave via a fixed sound speed.
-- The two errors (hot gas, over-strong ~1.6 bar overlap wave) are coupled through the
-  sound speed and the gas dynamics; neither a thermal model nor a single valve/pipe
-  timing change fixes both.
+### VE 不足に関する正直な結論
+- 保存的なエネルギー除去(壁熱伝達、OPENWAM_IN_HMULT): 安定、~76% で頭打ち(それより高い乗数だとソニックになる)。
+- 非保存的な熱リセット(OPENWAM_INTAKE_HSINK / TPIN): 正しい温度に到達できるが、低温高密度の充填ガス+(未修正の)過強なオーバーラップ圧力波が過充填を起こすか、あるいは運動量を保存すれば充填不足になる。TPIN の「~99%」は、そのハードなステップごとのクランプが固定音速を通じて波も**たまたま**減衰させたことのアーティファクトである。
+- 2 つの誤差(高温ガス、過強な ~1.6 bar オーバーラップ波)は音速とガスダイナミクスを通じて結合している; 熱モデルも単一のバルブ/パイプ・タイミング変更も、両方を修正することはできない。
 
-A clean ~100% requires fixing the SOURCE -- the WOT valve/gas-exchange enthalpy (and
-hence sound-speed / wave) generation -- inside the MoC. That is a substantial, higher
--risk rework shared with the (working) exhaust path; the principled way in is to
-validate THIS deck's gas exchange against stock OpenWAM on a reference single-cylinder
-case and find where the converged charge temperature diverges, rather than editing the
-live state. Pragmatic stable build today: OPENWAM_IN_HMULT (or INTAKE_HSINK<=300) +
-per-rpm VANOS, ~76-80% VE.
+クリーンな ~100% を得るには、MoC の内部で**発生源**そのもの -- WOT のバルブ/ガス交換のエンタルピー(ひいては音速/波)生成 -- を修正する必要がある。それは(動作している)排気側の経路と共通する、相当に大きくリスクの高い作り直しである; 王道のやり方は、生きた状態を編集することではなく、このデッキのガス交換を参照用単気筒ケースで stock OpenWAM に対して検証し、収束した充填ガス温度がどこで乖離するかを見つけることである。今日時点での実用的な安定ビルド: OPENWAM_IN_HMULT(または INTAKE_HSINK<=300)+ rpm ごとの VANOS、VE ~76-80%。
 
-### Net deliverables from Stages 24-34 (all env-gated, default deck unchanged)
-- Decisive diagnosis: rpm-flat 2x VE deficit = numerically hot (~567 K) intake charge.
-- Probes: OPENWAM_VEDIAG, INITDIAG, VLVENE, VLVWIN(+STEP), EXHWIN, JUNCENE, INTEMP.
-- Levers: OPENWAM_IN_HMULT, INTAKE_HSINK/TAMB, IVO/EX_DUR/IN_DUR, EXH_TGAS, IN_VINIT,
-  NO_THROTTLE, NO_EQTUBE/EQ_DIA, TPIN.
-- Correctness fix kept: closed-cycle init vacuum bug (TCilindro.cpp, Stage 25).
+### Stage 24-34 からの正味の成果(すべて env ゲート、デフォルトのデッキは変更なし)
+- 決定的な診断: rpm に対してフラットな 2 倍の VE 不足 = 数値的に高温な(~567 K)吸気充填ガス。
+- プローブ: OPENWAM_VEDIAG、INITDIAG、VLVENE、VLVWIN(+STEP)、EXHWIN、JUNCENE、INTEMP。
+- レバー: OPENWAM_IN_HMULT、INTAKE_HSINK/TAMB、IVO/EX_DUR/IN_DUR、EXH_TGAS、IN_VINIT、NO_THROTTLE、NO_EQTUBE/EQ_DIA、TPIN。
+- 維持された正しさの修正: 閉サイクル初期化の真空バグ(TCilindro.cpp、Stage 25)。
 
-## Stage 35 — ROOT CAUSE FOUND & FIXED: the φ10 equalization-tube stub was a numerical mass+energy source
+## Stage 35 — 根本原因の発見と修正: φ10 の均圧管スタブが数値的な質量+エネルギー源であった
 
-The investigation (validate the gas exchange, find where the charge temperature
-diverges) paid off. Probing the intake spatial profile (OPENWAM_INTEMP, now pipes
-1-7) showed the snorkel AND filter -- the tract's coldest, most-upstream pipes, fed
-directly by the 1000 m3 ambient reservoir -- sitting at ~560-680 K with a NET OUTWARD
-velocity (-20 to -55 m/s). A converged engine cannot expel hot air out its own air
-filter unless mass is being CREATED downstream.
+その調査(ガス交換を検証し、充填ガス温度がどこで乖離するかを見つける)が実を結んだ。吸気の空間プロファイル(OPENWAM_INTEMP、今はパイプ 1-7 を対象)をプローブしたところ、スノーケルと**フィルタ** -- 経路の中で最も冷たく、最も上流にあり、1000 m3 の周囲貯留層から直接供給されるパイプ -- が ~560-680 K にあり、かつ正味**外向き**の速度(-20 から -55 m/s)を持っていることが示された。収束したエンジンが自身のエアフィルタから高温空気を排出できるのは、下流で質量が**生成**されている場合以外にありえない。
 
-OPENWAM_ENBAL (cycle-averaged mass/energy flux per pipe) localised it exactly. Every
-intake pipe conserved (dM ~ 1e-4 kg/s) EXCEPT the per-cylinder equalization-tube stub:
+OPENWAM_ENBAL(パイプごとのサイクル平均質量/エネルギー流束)がそれを正確に局在化した。気筒ごとの均圧管スタブを**除く**すべての吸気パイプが保存していた(dM ~ 1e-4 kg/s):
 ```
 ENBAL pipe5 (EqTube_Stub_1): mdot[L]=-2.78 kg/s  dM=-2.78 kg/s
                               Hdot[L]=-1.03e7 W (-10.3 MW!)  Tflux=2771 K
 ```
-The stub injects 2.78 kg/s and 10.3 MW at a 2771 K flux temperature into the runner
-junction every cycle -- a spurious mass+energy SOURCE. φ10 through that area implies a
-hypersonic ~59000 m/s throat: a density runaway at the Type-12 branch junction that
-ties the φ52 runner to the tiny φ10 stub (area ratio 27:1). This created mass+heat is
-what cooked the whole intake to ~567 K, drove the snorkel net-outflow, and halved VE.
+このスタブは毎サイクル、ランナー・ジャンクションへ 2.78 kg/s と 10.3 MW を 2771 K の流束温度で注入している -- 偽の質量+エネルギー**源**である。その面積を通る φ10 は極超音速の ~59000 m/s のスロートを意味する: φ52 のランナーを極小の φ10 スタブに結ぶ(面積比 27:1)Type-12 分岐ジャンクションでの密度暴走である。この生成された質量+熱こそが、吸気全体を ~567 K まで煮立たせ、スノーケルの正味外向き流を引き起こし、VE を半減させていたものである。
 
-Diameter sweep @5300 rpm WOT (100% VE = 0.6408 g):
+@5300 rpm WOT での直径スイープ(VE 100% = 0.6408 g):
 ```
 φ10  567 K / 57%   stub -10 MW   (sonic-boundary warnings; baseline default)
 φ15  612 K / 63%   stub -23 MW   CRASHES (FIN=0)
@@ -1923,151 +1011,85 @@ Diameter sweep @5300 rpm WOT (100% VE = 0.6408 g):
 φ35  372 K / 83%   stub clean    uniform 0.525-0.542 g
 φ52  535 K / 66%   stub clean    over-cross-talks the runners
 ```
-The blow-up grows with stub area until the runner:stub area ratio drops to ~3:1, then
-clears completely. φ30 is the smallest stable diameter; it removes the source (snorkel
-back to ~300 K, charge ~370 K) AND lets the eq-tube perform its real pressure-
-equalisation, which is worth ~+12% VE over deleting it (NO_EQTUBE = 442 K / 70%).
+この吹き上がりは、ランナー:スタブの面積比が ~3:1 まで下がるまでスタブ面積とともに拡大し、その後完全に解消する。φ30 は安定な最小直径である; これは発生源を除去し(スノーケルは ~300 K に戻り、充填ガスは ~370 K)、かつ均圧管に本来の圧力均等化の役割を果たさせる。これは、それを削除する場合(NO_EQTUBE = 442 K / 70%)に比べて VE で ~+12% の価値がある。
 
-Cross-rpm confirmation (φ10 -> φ30):
+rpm を跨いだ確認(φ10 -> φ30):
 ```
 3000 rpm  570 K / 58% (sonic warnings)  ->  357 K / 86%  (uniform 0.547-0.556 g)
 5300 rpm  567 K / 57%                    ->  375 K / 82%  (uniform 0.501-0.544 g)
 7000 rpm  560 K / 55%                    ->  367 K / 90%  (uniform 0.569-0.584 g)
 ```
 
-### The fix
-wam_generator.py: the EqTube stub default diameter OPENWAM_EQ_DIA 0.010 -> 0.030.
-The DEFAULT deck (no env overrides) now converges at 375 K / 82% VE @5300 rpm, up from
-567 K / 57%. This is a genuine root-cause correction (a numerical instability in the
-deck topology), NOT a post-hoc thermostat -- the VE is recovered by the gas dynamics
-themselves once the spurious source is removed. Charge temperature ~357-375 K and VE
-~82-90% are now in the physically realistic band for this NA engine; the residual gap
-to ~100% is ordinary tuning (port-wall heat, overlap backflow), no longer a 2x bug.
+### 修正内容
+wam_generator.py: EqTube スタブのデフォルト直径 OPENWAM_EQ_DIA 0.010 -> 0.030。デフォルトのデッキ(env による上書きなし)は今や @5300 rpm で 375 K / 82% VE に収束する(以前は 567 K / 57%)。これは事後的なサーモスタットではなく、真の根本原因の修正である(デッキ・トポロジー内の数値的不安定性) -- 偽の発生源が除去されれば、ガスダイナミクス自体によって VE が回復する。充填ガス温度 ~357-375 K、VE ~82-90% は、この NA エンジンとして物理的に現実的な帯域に入っている; ~100% への残差は普通のチューニング(ポート壁の熱、オーバーラップ逆流)であり、もはや 2 倍のバグではない。
 
-### Note on the earlier NO_EQTUBE test
-Earlier stages reported NO_EQTUBE "did not cool the intake". Re-tested cleanly here it
-clearly DOES (442 K / 70%); the earlier negative was from confounded builds/metrics.
-The decisive new tool was ENBAL's per-pipe dM/Hdot, which pinned the source to the
-single stub pipe rather than to junctions/throttle/valve in aggregate.
+### 以前の NO_EQTUBE テストについての注記
+以前のステージでは NO_EQTUBE は「吸気を冷却しなかった」と報告していた。ここでクリーンに再テストすると、それは明らかに冷却する(442 K / 70%); 以前の否定的な結果は、混同されたビルド/指標によるものであった。決定的な新しいツールは ENBAL のパイプごとの dM/Hdot であり、これは発生源をジャンクション/スロットル/バルブの集計としてではなく、単一のスタブパイプに正確に特定した。
 
-## Stage 36 — final tuning: the "remaining gap" was non-convergence; true VE is ~91-100%
+## Stage 36 — 最終チューニング: 「残るギャップ」は非収束であり、真の VE は ~91-100% である
 
-After the eq-tube φ30 root-cause fix (Stage 35) the charge ran ~370 K / 82% VE -- but
-that 82% was measured at only 14 cycles. Running to convergence shows the intake VE
-keeps climbing for ~25-30 cycles (the airbox + eq-tube plenums and the cylinder
-residual flush the startup hot-charge transient asymptotically):
+均圧管 φ30 の根本原因修正(Stage 35)の後、充填ガスは ~370 K / 82% VE で走っていたが -- その 82% はわずか 14 サイクルで測定されたものであった。収束まで実行すると、吸気 VE は ~25-30 サイクルにわたって上昇し続けることが分かる(エアボックス+均圧管プレナムと気筒残留ガスが、起動時の高温充填過渡を漸近的にフラッシュしていく):
 ```
 5300 rpm, cyl-1 trapped mass by cycle:  6:0.535  10:0.566  16:0.597  24:0.620  29:0.631 g
 ```
-True CONVERGED VE (30 cycles, default φ30 stub, 127 C port wall, 100% = 0.6408 g):
+真の**収束**VE(30 サイクル、デフォルトの φ30 スタブ、127℃ のポート壁、100% = 0.6408 g):
 ```
 3000 rpm  331 K / 91%   uniform 0.580-0.583 g
 5300 rpm  328 K / 97%   uniform 0.613-0.631 g
 7000 rpm  343 K / 100%  uniform 0.635-0.644 g
 ```
-A textbook high-rpm-rising NA VE curve, ~91-100%, uniform across all six cylinders,
-charge 328-343 K (ambient + a small port-wall pickup). The 2x deficit is gone; what
-looked like a residual "gap to 100%" at 14 cycles was simply under-convergence.
+教科書どおりの高 rpm ほど上昇する NA VE カーブ、~91-100%、6 気筒すべてで一様、充填ガス温度 328-343 K(周囲温度+わずかなポート壁の熱獲得)。2 倍の不足は消え去った; 14 サイクル時点で残っているように見えた「100% へのギャップ」は、単なる非収束であった。
 
-### Port-wall sensitivity (secondary lever, characterised, default unchanged)
-At 30 cycles @5300: 127 C -> 97%, 100 C -> 101%, both uniform. Below ~90 C the run
-goes non-uniform (cyl-2 stalls at ~0.45 g while the rest over-fill) -- a marginal
-resonance, so the realistic 127 C heat-soaked port is kept as default. Exposed as
-OPENWAM_PORT_TWALL=<degC> for studies.
+### ポート壁の感度(副次的なレバー、特性を把握、デフォルトは変更なし)
+30 サイクル時点 @5300: 127℃ -> 97%、100℃ -> 101%、どちらも一様。~90℃ を下回ると実行は不均一になる(cyl-2 が ~0.45 g で失速する一方、他は過充填する) -- 限界的な共鳴であるため、現実的な 127℃ の熱で飽和したポートをデフォルトとして維持する。研究用に OPENWAM_PORT_TWALL=<degC> として公開。
 
-### Fixes
-1. models.py: SimulationConfig.duration_cycles 10 -> 30. Ten cycles reported a badly
-   under-converged VE (~65-70% of true); 30 lands within ~1% of converged.
-2. openwam_runner.py: floor the transient runner's computed cycle count at 30, so a
-   short duration_sec cannot silently under-converge the VE/torque.
-3. wam_generator.py: OPENWAM_PORT_TWALL override for the intake-port wall temp.
+### 修正
+1. models.py: SimulationConfig.duration_cycles 10 -> 30。10 サイクルはひどく非収束な VE(真値の ~65-70%)を報告していた; 30 サイクルなら収束値の ~1% 以内に収まる。
+2. openwam_runner.py: 過渡ランナーの計算サイクル数を 30 で下限管理し、短い duration_sec が VE/トルクをサイレントに非収束のままにしないようにする。
+3. wam_generator.py: 吸気ポート壁温度用の OPENWAM_PORT_TWALL 上書き。
 
-### Bottom line (Stages 24-36)
-The rpm-flat ~2x intake VE deficit is RESOLVED. Root cause: a φ10 equalization-tube
-stub whose Type-12 junction with the φ52 runner was numerically unstable and injected a
-spurious ~10 MW / 2.78 kg/s mass+energy source that cooked the intake to ~567 K and
-halved VE (Stage 35, fixed by φ30). The apparent residual gap was non-convergence
-(this stage). Default deck now converges at ~91-100% VE, uniform, with physical charge
-temperatures -- no post-hoc thermostats, the gas dynamics do it once the deck is sound.
+### 総括(Stage 24-36)
+rpm に対してフラットな ~2 倍の吸気 VE 不足は**解決した**。根本原因: φ10 均圧管スタブであり、その φ52 ランナーとの Type-12 ジャンクションが数値的に不安定で、偽の ~10 MW / 2.78 kg/s の質量+エネルギー源を注入し、吸気を ~567 K まで煮立たせ VE を半減させていた(Stage 35、φ30 で修正)。見かけ上の残存ギャップは非収束であった(本ステージ)。デフォルトのデッキは今や ~91-100% VE、一様、物理的な充填ガス温度で収束する -- 事後的なサーモスタットは不要であり、デッキが健全であればガスダイナミクス自体がそれを行う。
 
-## Stage 37 — throttle finally meters air: butterfly Cd was an area function, not a Cd
+## Stage 37 — ようやくスロットルが空気を計量する: バタフライ Cd は Cd ではなく面積関数であった
 
-Checked whether the eq-tube VE fix changed the long-standing "VE flat vs throttle"
-behaviour. It did NOT -- that is an independent bug. A converged throttle sweep (eq-tube
-fixed, 30 cycles) showed trapped mass barely moving with pedal: closing 100% -> 25% dropped
-air only ~13%, and the manifold (initialised at the estimated 0.68 bar MAP) REFILLED to
-~1.18 bar over the cycles. OPENWAM_THRDIAG confirmed the runtime throttle was applying
-cd=0.32, K=8.6 at 25% pedal -- correctly read, but against the low full-bore velocity
-through the phi52 ITB (~7 m/s) K=8.6 is a ~0.002 bar loss, so the throttle never bit.
+均圧管の VE 修正が、長年の「VE がスロットルに対してフラット」という挙動を変えたかどうかを確認した。変えて**いなかった** -- それは独立したバグである。収束したスロットルスイープ(均圧管修正済み、30 サイクル)は、トラップ質量がペダルに対してほとんど動かないことを示した: 100% -> 25% に閉じても空気はわずか ~13% しか減らず、マニホールド(推定 0.68 bar MAP で初期化)はサイクルを重ねるうちに ~1.18 bar まで**再充填した**。OPENWAM_THRDIAG は、実行時スロットルがペダル 25% で cd=0.32、K=8.6 を適用していたことを確認した -- これは正しく読み取られていたが、phi52 の ITB を通る低いフルボア速度(~7 m/s)に対しては K=8.6 は ~0.002 bar の損失にすぎず、スロットルはまったく効いていなかった。
 
-Root cause: `_get_butterfly_cd` returned a discharge-coefficient-like curve (0.33 at 15
-deg, 0.50 at 25 deg) that the C++ BC consumes as K = 1/Cd^2 - 1 referenced to the FULL
-BORE. Referenced to the bore, 0.32 means the blade still passes ~32% of the bore at a
-near-shut angle -- physically a butterfly at 14.6 deg blocks ~97% (open-area ratio
-1-cos(theta) ~= 0.03). The function conflated the discharge coefficient with the blade
-open-area function.
+根本原因: `_get_butterfly_cd` は、C++ の境界条件が**フルボア**を基準として K = 1/Cd^2 - 1 として消費する、流量係数的なカーブ(15 度で 0.33、25 度で 0.50)を返していた。ボア基準で 0.32 ということは、ほぼ全閉の角度でもブレードがボアの ~32% をまだ通していることを意味する -- 物理的には、14.6 度のバタフライは ~97% を塞ぐ(開口面積比 1-cos(theta) ~= 0.03)。この関数は流量係数とブレードの開口面積関数を混同していた。
 
-Fix:
-- wam_generator `_get_butterfly_cd` -> returns the effective open-AREA ratio
-  A_eff/A_bore = Cd_disc(theta) * (1 - cos theta), ~0.96 at WOT, ~0.024 at 25% pedal.
-- TCCPerdidadePresion K ceiling 50 -> 2000 (a near-shut blade's physical K reaches ~2000;
-  the old cap let any pedal refill to atmospheric).
-- pedal->angle gamma kept at 1.4 (env OPENWAM_THR_GAMMA), now sitting on a correct Cd.
+修正:
+- wam_generator の `_get_butterfly_cd` -> 実効開口**面積**比 A_eff/A_bore = Cd_disc(theta) * (1 - cos theta) を返すようにする、WOT で ~0.96、ペダル 25% で ~0.024。
+- TCCPerdidadePresion の K 上限を 50 -> 2000 に(ほぼ全閉のブレードの物理的な K は ~2000 に達する; 旧上限はどんなペダル位置でも大気圧まで再充填させてしまっていた)。
+- ペダル->角度の gamma は 1.4(env OPENWAM_THR_GAMMA)に維持、今や正しい Cd の上に乗っている。
 
-Converged sweep @5300 rpm WOT (gamma 1.4, K_CEIL 2000, corrected Cd; 100% = 0.6408 g):
+収束したスイープ @5300 rpm WOT(gamma 1.4、K_CEIL 2000、修正後 Cd; 100% = 0.6408 g):
 ```
 throttle 1.0  -> VE 97%  P_IC 1.21 bar  (uniform)   <- unchanged, no WOT regression
 throttle 0.7  -> VE 94%  P_IC 1.22 bar  (uniform)
 throttle 0.25 -> VE 63%  P_IC 0.72 bar  (uniform)   <- manifold now draws DOWN
 throttle 0.1  -> VE 57%  P_IC 0.72 bar  (uniform)
 ```
-The throttle now meters air and pulls a manifold vacuum -- the flat-VE bug is fixed for
-the bulk of the pedal range.
+スロットルは今や空気を計量し、マニホールド真空を引いている -- ペダル範囲の大部分について、VE フラットのバグは修正された。
 
-### Two honest limitations (documented, not yet fixed)
-1. SATURATION below ~25% pedal. The K-loss model's loss is K*0.5*rho*v_bore^2; as the
-   throttle closes the flow (and v) self-limit, so MAP floors at ~0.72 bar and VE at ~57%
-   no matter how small the opening (0.25 and 0.10 pedal both give 0.72 bar). Idle-level
-   vacuum (~0.3 bar) needs a CHOKED-ORIFICE throttle BC (flow set by the effective area),
-   not a K-loss -- a larger change for a later pass.
-2. A reproducible single-cylinder gas-exchange runaway at ~0.5 throttle / 5300 rpm: cyl-2
-   collapses to 0.019 g / 366 K while the other five sit at ~1433 K (a pathological
-   high-residual steady state). This is the SAME recurring cyl-2 scavenging anomaly seen
-   under TPIN and the low-port-wall sweeps; the now-working manifold vacuum (~0.85 bar at
-   0.5 throttle) exposes it. 0.7, 0.25 and 0.10 throttle are all stable, so it is a narrow
-   resonance, not a monotonic throttle effect. Fixing it is the cyl-2 gas-exchange issue,
-   tracked separately.
+### 2 つの正直な限界(文書化済み、まだ未修正)
+1. ペダル ~25% 以下での**飽和**。K 損失モデルの損失は K*0.5*rho*v_bore^2 であり、スロットルが閉じるにつれて流量(および v)が自己制限するため、開度がどれだけ小さくても MAP は ~0.72 bar、VE は ~57% で床につく(ペダル 0.25 と 0.10 の両方が 0.72 bar を与える)。アイドルレベルの真空(~0.3 bar)には、K 損失ではなく**チョーク・オリフィス**スロットル境界条件(実効面積によって流量が決まる)が必要であり、これは後のパスでのより大きな変更となる。
+2. ~0.5 スロットル/5300 rpm での再現性のある単一気筒ガス交換暴走: cyl-2 が 0.019 g / 366 K まで崩壊する一方、他の 5 気筒は ~1433 K にある(病的な高残留ガス定常状態)。これは、TPIN および低ポート壁温度スイープで見られたのと**同じ**繰り返し発生する cyl-2 掃気異常であり、今や機能するようになったマニホールド真空(0.5 スロットルで ~0.85 bar)がそれを露呈させている。0.7、0.25、0.10 スロットルはいずれも安定であるため、これは単調なスロットル効果ではなく狭い共鳴である。これを修正することは cyl-2 ガス交換の課題であり、別途追跡する。
 
-### Assets
-- wam_generator `_get_butterfly_cd` (effective-area model); old discharge table kept as
-  `_get_butterfly_cd_OLD_discharge_table` for reference.
-- OPENWAM_THRDIAG (runtime cd/K print), OPENWAM_K_CEIL, OPENWAM_CD_FLOOR, OPENWAM_THR_GAMMA,
-  OPENWAM_THR_OFFSET, OPENWAM_FUEL_LHV (motoring).
+### 資産
+- wam_generator の `_get_butterfly_cd`(実効面積モデル); 旧流量係数テーブルは参照用に `_get_butterfly_cd_OLD_discharge_table` として維持。
+- OPENWAM_THRDIAG(実行時 cd/K 出力)、OPENWAM_K_CEIL、OPENWAM_CD_FLOOR、OPENWAM_THR_GAMMA、OPENWAM_THR_OFFSET、OPENWAM_FUEL_LHV(モータリング)。
 
-## Stage 38 — cyl-2 part-throttle collapse: diagnosed to the eq-tube resonance; no robust knob, needs a remodel
+## Stage 38 — cyl-2 部分スロットル崩壊: 均圧管の共鳴に起因すると診断、頑健なノブはなく再設計が必要
 
-The recurring single-cylinder anomaly (cyl-2 collapsing to ~0.019 g / 366 K while the
-others choke at ~1433 K) reproduces cleanly at throttle 0.5 / 5300 rpm. Traced it fully.
+繰り返し発生する単一気筒の異常(cyl-2 が ~0.019 g / 366 K まで崩壊する一方、他は ~1433 K でチョークする)は、スロットル 0.5 / 5300 rpm できれいに再現する。これを完全に追跡した。
 
-Failure mode: cyl-2 starts healthy (0.76 g at cycle 1) and DECAYS every cycle --
-0.76 -> 0.57 -> 0.29 -> 0.10 -> 0.045 -> 0.019 -- a positive-feedback starvation, not a
-blow-up. It is not breathing (tiny, cold charge), while the other five accumulate hot
-residual.
+失敗モード: cyl-2 は健全に始まり(サイクル1で 0.76 g)、サイクルごとに**減衰する** -- 0.76 -> 0.57 -> 0.29 -> 0.10 -> 0.045 -> 0.019 -- これは吹き上がりではなく正のフィードバックによる飢餓状態である。呼吸できておらず(小さく低温な充填ガス)、他の 5 気筒は高温の残留ガスを蓄積している。
 
-Cause: the equalization-tube cross-talk. With OPENWAM_NO_EQTUBE the same throttle-0.5 case
-converges PERFECTLY uniform (all six 0.63 g, no collapse). So the shared eq-tube plenum +
-the six runner stubs form a resonant path that, at part-throttle MAP (~0.85 bar, i.e.
-~0.5 throttle), de-stabilises into a standing mode that starves cyl-2. It is a NARROW
-resonance: throttle 0.7, 0.25 and 0.10 are all stable at the default; only ~0.5 collapses.
+原因: 均圧管のクロストーク。OPENWAM_NO_EQTUBE では同じスロットル 0.5 のケースが**完璧に一様に**収束する(全 6 気筒とも 0.63 g、崩壊なし)。したがって、共有の均圧管プレナム+6本のランナースタブは、部分スロットル MAP(~0.85 bar、すなわち ~0.5 スロットル)において、cyl-2 を飢餓状態にする定在モードへ不安定化する共鳴経路を形成する。これは**狭い**共鳴である: デフォルトではスロットル 0.7、0.25、0.10 はいずれも安定; ~0.5 のみが崩壊する。
 
-Why not just delete the eq-tube: it earns its keep at WOT. With NO_EQTUBE (or a heavily
-damped tube) WOT goes NON-uniform -- cyl-4 lags (0.44 vs 0.72 g) -- because the cylinders
-carry an inherent (exhaust-side, 3-into-1 collector) maldistribution that the eq-tube
-equalises. The 10.5 L airbox already decouples the intake, so the maldistribution is not an
-airbox-size effect; it is on the exhaust/scavenging side.
+なぜ単に均圧管を削除しないのか: それは WOT でその役割を果たしているからである。NO_EQTUBE(または重く減衰させたチューブ)では、WOT は**不均一**になる -- cyl-4 が遅れる(0.44 対 0.72 g) -- これは、気筒が均圧管によって均等化されている本質的な(排気側の、3-into-1 コレクタ由来の)不均等分配を抱えているからである。10.5 L のエアボックスは既に吸気を分離しているため、この不均等分配はエアボックスサイズの効果ではなく、排気/掃気側の問題である。
 
-Friction-damping the stub is a DEAD END -- the eq-tube is a delicate resonant element and
-the response is non-monotonic and rpm-dependent:
+スタブを摩擦で減衰させることは**行き止まり**である -- 均圧管は繊細な共鳴要素であり、応答は非単調で rpm 依存である:
 ```
 EQ_FRIC  5300 WOT        throttle 0.5     7000 WOT
 0.02     97% uniform     cyl-2 COLLAPSE   100% uniform   (current default)
@@ -2075,67 +1097,39 @@ EQ_FRIC  5300 WOT        throttle 0.5     7000 WOT
 0.10     131% over-fill  uniform OK       --
 0.50     non-uniform     uniform OK       --
 ```
-No single value is robust across {WOT both rpm} and {part throttle}.
+{両 rpm での WOT} と {部分スロットル} の両方に対して頑健な単一の値は存在しない。
 
-### Where this leaves it
-- Added OPENWAM_EQ_FRIC (eq-tube stub friction, default 0.02 = unchanged) for studies.
-- Default kept at 0.02: WOT is validated uniform at 97-100% across 3000-7000 rpm; the
-  cyl-2 collapse is confined to a narrow ~0.5-throttle resonance.
-- A robust fix is NOT a parameter tweak. It needs either (a) remodelling the eq-tube so it
-  is not a Helmholtz-resonant plenum+stubs (e.g. a continuous balance tube), or (b) removing
-  the eq-tube and fixing the underlying exhaust-side cyl-4 maldistribution so the cylinders
-  are uniform without it. Both are larger, separate tasks.
+### これが残すもの
+- 研究用に OPENWAM_EQ_FRIC(均圧管スタブ摩擦、デフォルト 0.02 = 変更なし)を追加した。
+- デフォルトは 0.02 のまま維持: WOT は 3000-7000 rpm にわたって 97-100% の一様性が検証されている; cyl-2 の崩壊は狭い ~0.5 スロットルの共鳴に限定されている。
+- 頑健な修正はパラメータ調整では**ない**。(a) 均圧管を、ヘルムホルツ共鳴するプレナム+スタブではないもの(例えば連続的なバランスチューブ)に再設計するか、(b) 均圧管を除去して、それなしでも気筒が一様になるよう根底にある排気側の cyl-4 不均等分配を修正するか、のいずれかが必要である。どちらもより大きく別個のタスクである。
 
-## Stage 39 — eq-tube root work: ② cyl-4 is a scavenging laggard; ① a continuous balance tube equalises everything but over-rams WOT
+## Stage 39 — 均圧管の根本作業: ② cyl-4 は掃気の落伍者である; ① 連続バランスチューブはすべてを均等化するが WOT を過剰にラムする
 
-Pursued both promised paths for the cyl-2 collapse.
+cyl-2 崩壊に対して有望視されていた両方の経路を追求した。
 
-### ② Why the cylinders are unequal (the maldistribution the eq-tube papers over)
-Per-cylinder probe with NO_EQTUBE at WOT: cyl-4 traps 0.40 g at Ttrap=535 K and
-P_IC=1.27 bar while the other five trap 0.55 g at ~365 K / ~1.19 bar. cyl-4 is ~170 K
-HOTTER -- it is not breathing less, it is failing to SCAVENGE and keeps hot residual.
-cyl-4 (right 3-into-1 collector) and cyl-2 (left collector) are the two cylinders that
-fire LAST within their collector (firing 1-5-3-6-2-4 -> left fires 1,3,2; right 5,6,4),
-so they sit on the worst collector back-pressure during overlap. This is a physical
-3-into-1 scavenging penalty -- exactly what a real Gleichdruckrohr exists to mitigate --
-not a bug. The 10.5 L airbox already decouples the intake, so it is exhaust-side.
+### ② なぜ気筒が不均等なのか(均圧管が覆い隠している不均等分配)
+WOT で NO_EQTUBE でのシリンダーごとのプローブ: cyl-4 は Ttrap=535 K、P_IC=1.27 bar で 0.40 g をトラップする一方、他の 5 気筒は ~365 K / ~1.19 bar で 0.55 g をトラップする。cyl-4 は ~170 K **高温**である -- これは充填量が少ないのではなく、**掃気**に失敗し高温残留ガスを保持し続けているのである。cyl-4(右側 3-into-1 コレクタ)と cyl-2(左側コレクタ)は、それぞれのコレクタ内で**最後に**点火する 2 つの気筒であり(点火順序 1-5-3-6-2-4 -> 左は 1,3,2 の順、右は 5,6,4 の順)、したがってオーバーラップ中に最悪のコレクタ背圧にさらされる。これは物理的な 3-into-1 掃気のペナルティであり -- まさに実際の等圧管(Gleichdruckrohr)が緩和するために存在するものであって -- バグではない。10.5 L のエアボックスは既に吸気を分離しているため、これは排気側の問題である。
 
-### ① Continuous balance tube (OPENWAM_EQ_CHAIN)
-Replaced the central 141cc plenum + 6 stubs (a Helmholtz resonator) with a CONTINUOUS
-tube: the six stubs tee into a row of five short segments, volume distributed along the
-tube (what the real component is). Result:
+### ① 連続バランスチューブ(OPENWAM_EQ_CHAIN)
+中央の 141cc プレナム+6本のスタブ(ヘルムホルツ共鳴器)を**連続**チューブに置き換えた: 6本のスタブが 5つの短いセグメントの列にT字接続し、容積はチューブに沿って分布する(実際の部品の姿である)。結果:
 ```
                        throttle 0.5        WOT
 plenum (default)       cyl-2 COLLAPSE      97% uniform
 chain  (EQ_CHAIN=1)    98% UNIFORM (fix!)  135% uniform (over-fill)
 ```
-The chain ELIMINATES both maldistributions -- cyl-2 no longer collapses at part throttle
-AND cyl-4 no longer lags at WOT; every cylinder is within a few % at all throttles. So the
-equalisation works and the Helmholtz resonance is gone. The remaining problem is purely a
-LEVEL error: the strong runner-to-runner coupling over-rams WOT to ~135% VE. That ram is
-not removable without destabilising -- friction 0.1-0.15 leaves 135%, 0.5 blows up startup;
-segments must stay >= phi25 or the small cross-runner pipe runs away (phi18/phi12 blow up),
-and phi25-30 both give ~135%. Bringing WOT back to ~100% needs the runner lengths re-tuned
-around the chain (the chain changes the intake acoustics) -- a calibration pass.
+チェーンは両方の不均等分配を**排除する** -- cyl-2 はもはや部分スロットルで崩壊せず、cyl-4 ももはや WOT で遅れない; すべての気筒がすべてのスロットルにおいて数%以内に収まる。したがって均等化は機能しており、ヘルムホルツ共鳴は消えている。残る問題は純粋に**レベル**の誤差である: 強いランナー間結合が WOT を ~135% VE まで過剰にラムする。そのラムは不安定化させずには除去できない -- 摩擦 0.1-0.15 でも 135% が残り、0.5 は起動時に吹き上がる; セグメントは >= phi25 を維持しなければならない(さもないと小さなクロスランナーパイプが暴走する、phi18/phi12 は吹き上がる)、そして phi25-30 はどちらも ~135% を与える。WOT を ~100% に戻すには、チェーンを中心にランナー長を再チューニングする必要がある(チェーンは吸気音響を変化させる) -- これは較正作業である。
 
-### Where this leaves it
-- OPENWAM_EQ_CHAIN (default OFF) + OPENWAM_EQ_SEG_DIA (default phi30): opt-in continuous
-  balance tube. It is the right structural fix for the cyl-2/cyl-4 uniformity (both solved),
-  pending a runner re-tune to pull WOT off 135%.
-- Default deck unchanged (plenum model, WOT validated 97-100%); the cyl-2 collapse remains
-  confined to the narrow ~0.5-throttle band noted in Stage 38.
-- Net: the uniformity root (②) is understood and the chain (①) fixes it; the open item is
-  re-calibrating WOT VE for the chain before it can replace the plenum as default.
+### これが残すもの
+- OPENWAM_EQ_CHAIN(デフォルト OFF)+ OPENWAM_EQ_SEG_DIA(デフォルト phi30): オプトインの連続バランスチューブ。cyl-2/cyl-4 の均一性については正しい構造的修正である(両方とも解決)、ランナーの再チューニングによって WOT を 135% から引き下げることが保留課題である。
+- デフォルトのデッキは変更なし(プレナムモデル、WOT は 97-100% で検証済み); cyl-2 の崩壊は Stage 38 で指摘した狭い ~0.5-スロットル帯に留まる。
+- 総括: 均一性の根本原因(②)は理解され、チェーン(①)がそれを修正する; 未解決の項目は、チェーンをプレナムの代わりにデフォルトとする前に WOT VE を再較正することである。
 
-## Stage 40 — WOT VE-rpm SHAPE vs stock: plenum tracks, chain mis-phases the ram (first look)
+## Stage 40 — WOT VE-rpm 形状 対 stock: プレナムは追従し、チェーンはラムの位相がずれる(初見)
 
-Re-framed the goal (the sim is a VANOS / front-pipe OPTIMISER, so the SimVE must FOLLOW
-the stock VE shape across throttle x rpm; the absolute offset is removed by the
-calibration correction matrix). Compared both eq-tube models against the stock WOT
-breakpoints (app/data/stock_csl_ve.json; peak 116% @3900, gentle plateau 107-111% to
-7300) with scripts/ve_model_shape_compare.py.
+目標を再定義した(このシムは VANOS/フロントパイプの**最適化ツール**であるため、SimVE はスロットル×rpm にわたって stock の VE 形状に**追従**しなければならない; 絶対的なオフセットは較正補正行列によって除去される)。両方の均圧管モデルを stock の WOT ブレークポイント(app/data/stock_csl_ve.json; ピーク 116% @3900、107-111% の緩やかなプラトーが 7300 まで続く)に対して scripts/ve_model_shape_compare.py で比較した。
 
-First look (high-rpm breakpoints, ~19-22 cycles -- UNDER-converged, see caveat):
+初見(高 rpm ブレークポイント、~19-22 サイクル -- 非収束、注意点参照):
 ```
 RPM   stock%  plenum%  chain%
 3900  116     127      127
@@ -2146,74 +1140,42 @@ RPM   stock%  plenum%  chain%
 shape corr vs stock:  plenum r=+0.825   chain r=-0.271
 peak:  stock @3900   plenum @4600   chain @6300
 ```
-The PLENUM tracks the stock shape (peak mid-rpm, then declines; r=+0.83). The CHAIN
-ANTI-correlates (r=-0.27): its continuous tube adds a strong ~6300 rpm ram resonance and
-peaks at high rpm, opposite to the real engine's 3900 peak. So the earlier intuition
-("chain captures ram, so better for the optimiser") was wrong on PHASE -- the chain rams,
-but tuned to the wrong rpm.
+**プレナム**は stock の形状に追従する(中回転域でピーク、その後低下; r=+0.83)。**チェーン**は**逆相関**する(r=-0.27): その連続チューブは強い ~6300 rpm のラム共鳴を追加し、高 rpm でピークになり、実エンジンの 3900 ピークとは正反対である。したがって以前の直感(「チェーンはラムを捉えるので最適化ツールに向いている」)は**位相**の点で誤っていた -- チェーンは確かにラムするが、間違った rpm にチューニングされている。
 
-Caveat (important): under-converged. The plenum's steep high-rpm droop (83% @7300) is
-partly non-convergence -- the converged 7000-rpm point was ~100% (Stage 36) -- so a fully
-converged plenum would lift its high-rpm tail toward the stock ~107% plateau and match
-even better. The chain's 6300 peak is a real acoustic resonance, not a convergence
-artifact.
+注意点(重要): 非収束である。プレナムの急な高 rpm の落ち込み(83% @7300)は部分的に非収束によるものである -- 収束した 7000 rpm の点は ~100% だった(Stage 36) -- したがって完全に収束したプレナムは高 rpm 側の裾を stock の ~107% プラトーへ向けて持ち上げ、さらに良く一致するはずである。チェーンの 6300 ピークは収束アーティファクトではなく本物の音響共鳴である。
 
-### Implication
-For the trend-matching goal the PLENUM is the better breathing model (right VE-rpm shape);
-the chain trades that shape away for cylinder uniformity. So the cyl-2 part-throttle
-collapse should be fixed WITHIN the plenum model, not by switching to the chain (which
-breaks the WOT shape). Next: confirm with a converged (30-cycle) high-rpm comparison, then
-revisit cyl-2.
+### 含意
+トレンド一致という目標に対しては、**プレナム**の方が優れた呼吸モデルである(正しい VE-rpm 形状); チェーンはその形状を気筒均一性と引き換えにしている。したがって cyl-2 の部分スロットル崩壊は、(WOT 形状を壊す)チェーンへの切り替えによってではなく、**プレナムモデルの内部で**修正されるべきである。次: 収束した(30サイクル)高 rpm 比較で確認し、その後 cyl-2 を再訪する。
 
-Asset: scripts/ve_model_shape_compare.py (plenum vs chain vs stock shape, correlation).
+資産: scripts/ve_model_shape_compare.py(プレナム対チェーン対 stock 形状、相関)。
 
-## Stage 40-41 — VE-rpm SHAPE vs stock: the PLENUM tracks, the CHAIN mis-phases the ram
+## Stage 40-41 — VE-rpm 形状 対 stock: プレナムは追従し、チェーンはラムの位相をずらす
 
-Goal reframed by the user: the sim is a VANOS / front-pipe OPTIMISER, so what matters is
-that Sim VE FOLLOWS the stock VE shape across throttle x rpm (a constant correction removes
-the absolute offset). The stock CSL WOT curve (app/data/stock_csl_ve.json) peaks 116% at
-3900 rpm and holds a gentle 107-111% plateau to 7900 -- classic ITB ram tuning, so 110-119%
-peaks ARE the right target (the user was right; 100% was too conservative).
+ユーザーによって目標が再定義された: このシムは VANOS/フロントパイプの**最適化ツール**であるため、重要なのは Sim VE がスロットル×rpm にわたって stock の VE 形状に**追従する**ことである(一定の補正で絶対オフセットは除去される)。stock の CSL WOT カーブ(app/data/stock_csl_ve.json)は 3900 rpm で 116% にピークし、7900 まで緩やかな 107-111% のプラトーを保つ -- これは古典的な ITB ラムチューニングであり、したがって 110-119% のピークが**正しい**ターゲットである(ユーザーは正しかった; 100% は保守的すぎた)。
 
-Compared the two eq-tube models against that shape. CONVERGED (30-cycle) WOT VE:
+2つの均圧管モデルをその形状に対して比較した。**収束**(30サイクル)WOT VE:
 ```
 RPM   stock   plenum  chain     plenum/stock  chain/stock
 5300   110     97      139          0.88          1.26
 6300   109     90      147          0.83          1.35   <- chain spurious ram peak
 7300   107     93      128          0.87          1.19
 ```
-- PLENUM: offset is ~CONSTANT (ratio 0.83-0.88). After one correction factor (k=1.17) it
-  tracks stock to +/-4 pp, and its peak sits at 3900-4600 -- the SAME place as stock. It
-  rams correctly, just ~13% low in absolute terms (removable).
-- CHAIN: the continuous tube adds a spurious ~6300-rpm ram resonance (147%); its ratio
-  swings 1.19-1.35, peak at the WRONG rpm (6300 vs stock 3900). After correction it still
-  carries a +7 pp bump at 6300. (Earlier under-converged sweep: plenum shape-correlation
-  r=+0.83 vs chain r=-0.27 -- anti-correlated.)
+- **プレナム**: オフセットはほぼ**一定**である(比 0.83-0.88)。1つの補正係数(k=1.17)を適用すると、stock を ±4 ポイントで追従し、そのピークは 3900-4600 に位置する -- stock と**同じ**場所である。正しくラムしているが、絶対値でわずか ~13% 低いだけである(除去可能)。
+- **チェーン**: 連続チューブは偽の ~6300rpm ラム共鳴を追加する(147%); その比は 1.19-1.35 の間で振れ、ピークは**間違った** rpm にある(6300 対 stock の 3900)。補正後も 6300 で +7 ポイントのふくらみが残る。(以前の非収束スイープ: プレナムの形状相関 r=+0.83 対 チェーン r=-0.27 -- 逆相関。)
 
-### Conclusion / recommendation
-For the optimiser, SHAPE fidelity beats absolute level, and the PLENUM is clearly the
-better base: constant correctable offset, ram peak at the right rpm. The CHAIN -- although
-it fixes the cyl-2/cyl-4 uniformity -- distorts the VE-rpm shape with a spurious high-rpm
-resonance and is therefore NOT suitable as the optimisation base. So:
-- KEEP the plenum eq-tube as default (validated WOT shape, correctable).
-- Treat the cyl-2 narrow part-throttle collapse as a separate, bounded artifact to damp
-  within the plenum model -- NOT by switching to the chain.
-- OPENWAM_EQ_CHAIN stays an opt-in research lever.
+### 結論/推奨事項
+最適化ツールにとっては、絶対レベルよりも**形状**の忠実性が勝り、**プレナム**が明らかに優れたベースである: 一定で補正可能なオフセット、正しい rpm でのラムピーク。**チェーン**は -- cyl-2/cyl-4 の均一性を修正するものの -- 偽の高 rpm 共鳴で VE-rpm 形状を歪めてしまうため、最適化のベースとしては適さない。したがって:
+- プレナム均圧管をデフォルトとして**維持する**(検証済みの WOT 形状、補正可能)。
+- cyl-2 の狭い部分スロットル崩壊は、プレナムモデルの内部で減衰させるべき、別個の限定的なアーティファクトとして扱う -- チェーンへの切り替えによってではなく。
+- OPENWAM_EQ_CHAIN はオプトインの研究用レバーとして残す。
 
-Assets: scripts/ve_model_shape_compare.py, scripts/ve_converged_highrpm.py,
-ve_shape_highrpm_results.csv.
+資産: scripts/ve_model_shape_compare.py、scripts/ve_converged_highrpm.py、ve_shape_highrpm_results.csv。
 
-## Stage 42 — cyl-2 within the plenum: every acoustic fix distorts the VE-rpm shape; keep the plenum, reject bad points
+## Stage 42 — プレナム内部での cyl-2 修正: あらゆる音響的な修正が VE-rpm 形状を歪める; プレナムを維持し、悪い点を排除する
 
-Per the user's choice to fix cyl-2 INSIDE the plenum (so the validated VE-rpm SHAPE is
-kept), tried detuning the eq-tube resonance instead of removing it. Added
-OPENWAM_EQ_MISTUNE: spread the six stub LENGTHS per cylinder with a zero-sum pattern
-([1,-1,.6,-.6,.2,-.2]) so the MEAN length -- hence the WOT equalisation/shape -- is
-nominally preserved, like a real manifold's branch-length scatter (length only, so the
-area-mismatch stability floor is untouched).
+プレナムの**内部で**cyl-2 を修正する(検証済みの VE-rpm**形状**を維持するため)というユーザーの選択に基づき、均圧管の共鳴を除去する代わりにデチューンすることを試みた。OPENWAM_EQ_MISTUNE を追加した: 気筒ごとに 6本のスタブの**長さ**を、和がゼロになるパターン([1,-1,.6,-.6,.2,-.2])で分散させることで、**平均**長 -- ひいては WOT の均等化/形状 -- は名目上維持されるようにする(実際のマニホールドの分岐長ばらつきのように、長さのみを変えるので、面積不一致の安定性フロアは影響を受けない)。
 
-It does break the cyl-2 resonance, but it just MOVES the pathology and distorts the
-high-rpm shape (CONVERGED-ish WOT):
+これは確かに cyl-2 の共鳴を壊すが、その病理をただ**移動させる**だけであり、高 rpm の形状を歪める(ほぼ収束した WOT):
 ```
                 5300        6300            7000
 mistune 0.30    97% uniform 140% UNIFORM    94% uniform   <- spurious 6300 over-ram
@@ -2221,35 +1183,20 @@ mistune 0.30    97% uniform 140% UNIFORM    94% uniform   <- spurious 6300 over-
 mistune 0.15    ok          cyl-2 COLLAPSE  cyl-2 BLOWS UP (1.6 g)
                             (0.17 g)
 ```
-So mistune 0.30 fixes the collapse but injects a spurious ~6300 ram peak (140% vs the
-plenum's 90% -- the SAME shape damage as the chain); mistune 0.15 is too light and the
-collapse just reappears at 6300 and inverts to a blow-up at 7000. There is no value that
-fixes cyl-2 at all rpms AND leaves the shape intact.
+したがって mistune 0.30 は崩壊を修正するが、偽の ~6300 ラムピークを注入する(140% 対プレナムの 90% -- チェーンと**同じ**形状の損傷である); mistune 0.15 は弱すぎて崩壊が 6300 で単に再発し、7000 では吹き上がりに反転する。すべての rpm で cyl-2 を修正し、かつ形状を無傷に保つ値は存在しない。
 
-### Conclusion -- this closes the eq-tube avenue
-Friction (Stage 38), the continuous chain (Stage 39/41) and now length mistuning all
-confirm the same thing: the eq-tube is an acoustically active resonator, so ANY structural
-change that suppresses the cyl-2 resonance also shifts the WOT resonances and distorts the
-VE-rpm shape (or merely relocates the collapse). Since the SHAPE is the priority for the
-optimiser, the eq-tube must stay UNMODIFIED (plenum, mistune=0 -- the default, validated
-97%/correct ram phasing).
+### 結論 -- これで均圧管の道は閉じる
+摩擦(Stage 38)、連続チェーン(Stage 39/41)、そして今回の長さのミスチューニングは、すべて同じことを裏付けている: 均圧管は音響的に活性な共鳴器であるため、cyl-2 の共鳴を抑制する構造変更は**何であれ**、WOT の共鳴もシフトさせ VE-rpm 形状を歪める(あるいは単に崩壊を移動させるだけである)。**形状**が最適化ツールにとっての優先事項である以上、均圧管は**無改造のまま**維持しなければならない(プレナム、mistune=0 -- デフォルトであり、検証済みの 97%/正しいラム位相)。
 
-The cyl-2 collapse is therefore a numerical pathology to be handled at the OPTIMISER level,
-not in the deck: detect per-cylinder trapped-mass maldistribution (a cylinder far from the
-fleet mean = collapse or blow-up) and REJECT those operating points as unreliable, so the
-optimiser never reads their (garbage) engine-average VE. The collapse is confined to narrow
-throttle/rpm islands, so rejecting them costs few points.
+したがって cyl-2 の崩壊は、デッキ内ではなく**最適化ツールのレベル**で扱うべき数値的な病理である: 気筒ごとのトラップ質量の不均等分配を検出し(フリート平均から大きく外れた気筒 = 崩壊または吹き上がり)、それらの動作点を信頼できないものとして**棄却する**ことで、最適化ツールがそれらの(ゴミである)エンジン平均 VE を決して読まないようにする。崩壊は狭いスロットル/rpm の島に限定されているため、それらを棄却してもコストは少ない。
 
-OPENWAM_EQ_MISTUNE / EQ_FRIC / EQ_CHAIN remain documented research levers (each fixes the
-collapse under SOME conditions at the cost of shape). Default deck unchanged.
+OPENWAM_EQ_MISTUNE / EQ_FRIC / EQ_CHAIN は、文書化された研究用レバーとして残る(それぞれ、形状を犠牲にして**ある**条件下で崩壊を修正する)。デフォルトのデッキは変更なし。
 
-## Stage 43 — optimiser validation: VANOS response + the cylinder-balance gate in action
+## Stage 43 — 最適化ツールの検証: VANOS 応答と稼働中のシリンダーバランス・ゲート
 
-With the plenum kept unmodified (correct VE-rpm shape) and the cylinder_balance gate added,
-checked the two things the optimiser actually needs: (a) does VE RESPOND to VANOS so there
-is something to optimise, and (b) does the gate drop the pathological points.
+プレナムを無改造のまま維持し(正しい VE-rpm 形状)、cylinder_balance ゲートを追加した状態で、最適化ツールが実際に必要とする 2 つのこと、すなわち (a) VE は VANOS に**応答**し最適化すべき対象があるか、(b) ゲートは病理的な点を除去するか、を確認した。
 
-Intake-VANOS sweep at 5300 rpm WOT (bias shifts IVO; ~near-converged):
+5300 rpm WOT での吸気 VANOS スイープ(バイアスは IVO をシフトさせる; ほぼ収束状態):
 ```
  IVbias  IVO     VE     gate
   +15   317deg  139%    OK
@@ -2258,63 +1205,38 @@ Intake-VANOS sweep at 5300 rpm WOT (bias shifts IVO; ~near-converged):
   -8    340deg  126%    OK
   -15   347deg  119%    OK
 ```
-- The model responds STRONGLY and sensibly to intake cam phase (VE swings ~90->139% as the
-  cam tunes the ram charging), and the baseline (bias 0) is NOT the VE peak -- so the
-  optimiser has a real gradient to climb. This is the core requirement for a VANOS optimiser.
-- The cylinder_balance gate REJECTED the bias=+8 point (475%, a single-cylinder blow-up) so
-  the optimiser never reads that garbage -- exactly the Stage-42 design working end-to-end.
+- モデルは吸気カム位相に**強く**、かつ理にかなった形で応答する(カムがラム充填をチューニングするにつれ VE は ~90->139% と振れる)、そしてベースライン(バイアス 0)は VE のピークでは**ない** -- したがって最適化ツールが登るべき本物の勾配が存在する。これは VANOS 最適化ツールにとっての中核要件である。
+- cylinder_balance ゲートはバイアス=+8 の点(475%、単一気筒の吹き上がり)を**棄却した**ため、最適化ツールはそのゴミデータを決して読まない -- まさに Stage-42 の設計がエンドツーエンドで機能している。
 
-Together with the earlier results this validates the optimiser base:
-- WOT VE-rpm SHAPE tracks stock (Stage 41, r=+0.83; constant correction k~1.17).
-- Throttle response is monotonic and draws a manifold vacuum (Stage 37: 1.0->97%, 0.25->63%).
-- VANOS response is strong with a climbable peak, and the gate removes pathological cells.
+以前の結果と合わせて、これは最適化ツールの基盤を検証する:
+- WOT の VE-rpm**形状**は stock を追従する(Stage 41、r=+0.83; 一定補正 k~1.17)。
+- スロットル応答は単調で、マニホールド真空を引く(Stage 37: 1.0->97%、0.25->63%)。
+- VANOS 応答は強く、登れるピークがあり、ゲートが病理的なセルを除去する。
 
-### Status / how to use it
-Default deck = plenum eq-tube, mistune=0 (validated shape). Run each operating point with
-OPENWAM_VEDIAG=1, take VE from the converged cycle, and call
-OpenWAMOutputParser.cylinder_balance(stdout); drop the point when valid=False. Sweep VANOS /
-front-pipe and read VE on the surviving cells. NOTE: the VANOS curve above is ~18-cycle
-(under-converged); the RESPONSE and the GATE are the point, not the exact peak rpm/value --
-production sweeps should run to ~30 cycles for the absolute numbers.
+### 現状/使い方
+デフォルトのデッキ = プレナム均圧管、mistune=0(検証済み形状)。各動作点を OPENWAM_VEDIAG=1 で実行し、収束サイクルから VE を取得し、OpenWAMOutputParser.cylinder_balance(stdout) を呼び出す; valid=False の場合その点を棄却する。VANOS/フロントパイプをスイープし、生き残ったセルで VE を読む。注: 上記の VANOS カーブは ~18サイクル(非収束)である; 重要なのは**応答**と**ゲート**であって、正確なピーク rpm/値ではない -- 本番のスイープは絶対値のために ~30サイクルまで実行すべきである。
 
-## Stage 44 — 480-pt map (Stock vs Sim) WITH the real VANOS: the sim OVER-responds to VANOS
+## Stage 44 — 実際の VANOS を用いた 480 点マップ(Stock 対 Sim): シムは VANOS に過剰応答する
 
-Added scripts/ve_map_compare.py: for each (rpm,load) cell of the 480-pt CSL map it looks up
-the stock VE (kf_rf_soll) and the stock intake VANOS (kf_evan1_soll -> bias = 130 - target,
-matching simulation_service.run_ve_map_generation), runs the plenum sim with that VANOS, gates
-on cylinder balance, and tabulates sim vs stock. (Running all 480 here is infeasible -- 4 cores,
-slow runs, and the container reboots every ~12 min; the script is for the production 12-way run.)
+scripts/ve_map_compare.py を追加した: 480点の CSL マップの各(rpm, load)セルについて、stock の VE(kf_rf_soll)と stock の吸気 VANOS(kf_evan1_soll -> バイアス = 130 - ターゲット、simulation_service.run_ve_map_generation と一致)を参照し、その VANOS でプレナムシムを実行し、シリンダーバランスでゲートし、シムと stock を表にする。(ここで 480 点すべてを実行するのは実行不可能である -- 4 コア、遅い実行、そしてコンテナは ~12分ごとに再起動する; このスクリプトは本番の 12並列実行のためのものである。)
 
-The WOT row WITH the stock VANOS (bias 42-60 deg advance) -- not the bias=0 of Stage 41:
+stock VANOS(バイアス 42-60 度進角)を用いた WOT 行 -- Stage 41 のバイアス=0 ではなく:
 ```
 load 100%   stock   sim
  2700 rpm   104%    143%   (over)
  3900 rpm   116%     97%   (under -- the stock TORQUE PEAK)
  5300 rpm   110%    150%   (over)
 ```
-Two things follow:
-1. The Stage-41 "plenum tracks stock, r=0.83" was measured at bias=0 -- the FULLY-RETARDED
-   intake position, which is NOT how the engine runs. With the real stock VANOS schedule the
-   tracking is much worse.
-2. The sim OVER-responds to VANOS: at 5300 WOT, going from bias 0 to the stock bias 42 lifts VE
-   97% -> 150% (+53 pp). A 42 deg intake advance lifting VE by half is unphysical (real engines
-   see ~10-20 pp from optimal cam phasing). And it is non-uniform across rpm (3900 ends up UNDER
-   while 2700/5300 are OVER), i.e. the intake acoustic resonances are mis-phased vs the real
-   engine once the cam moves.
+2 つのことが導かれる:
+1. Stage-41 の「プレナムは stock を追従する、r=0.83」は、バイアス=0 -- **完全遅角**の吸気位置 -- で測定されたものであり、これはエンジンが実際に動く方法ではない。実際の stock VANOS スケジュールでは、追従度ははるかに悪化する。
+2. シムは VANOS に**過剰応答する**: 5300 WOT では、バイアス 0 から stock のバイアス 42 に移行すると VE は 97% -> 150%(+53 ポイント)に上昇する。42 度の吸気進角で VE が半分も上昇するのは非物理的である(実エンジンでは最適なカム位相から ~10-20 ポイント程度である)。そしてこれは rpm にわたって不均一である(3900 は結局**不足**になる一方、2700/5300 は**過剰**になる)、すなわち、カムが動くと吸気の音響共鳴が実エンジンに対して位相ずれを起こしている。
 
-### Implication
-Before the sim is a trustworthy VANOS optimiser the VANOS SENSITIVITY must be calibrated: the
-model currently moves VE far too much (and with the wrong rpm phasing) as the intake cam
-advances, so an optimiser would chase unrealistic "optimal" cam angles. Likely levers: the
-runner length/acoustic tuning (sets where the ram resonance sits vs rpm) and the intake
-valve overlap handling at large advance. The cylinder-balance gate still correctly fires on
-the points that blow up at aggressive advance.
+### 含意
+シムが信頼できる VANOS 最適化ツールになる前に、VANOS**感度**を較正しなければならない: モデルは現状、吸気カムが進角するにつれて VE を(そして間違った rpm 位相で)あまりにも大きく動かすため、最適化ツールは非現実的な「最適」カム角を追いかけることになる。考えられるレバー: ランナー長/音響チューニング(ラム共鳴が rpm に対してどこに位置するかを決める)と、大進角時の吸気バルブオーバーラップの扱い。シリンダーバランス・ゲートは、積極的な進角で吹き上がる点に対して依然として正しく発動する。
 
-## Stage 45 — whole-map (Stock vs Sim) error: structured, not a constant offset
+## Stage 45 — マップ全体(Stock 対 Sim)の誤差: 構造的であり、一定オフセットではない
 
-Ran a 16-cell sub-grid of the 480-pt map (4 rpm x 4 load) WITH the real stock intake VANOS,
-resumably (scripts/ve_map_resumable.py appends per batch -> survives the ~12-min reboots),
-gated on cylinder balance. ~18-cycle (under-converged; a few cells cyc<10 are noisy):
+480点マップの 16セルのサブグリッド(4 rpm x 4 load)を、実際の stock 吸気 VANOS を用いて、再開可能な形で(scripts/ve_map_resumable.py がバッチごとに追記する -> ~12分の再起動を生き延びる)、シリンダーバランスでゲートしながら実行した。~18サイクル(非収束; cyc<10 の一部のセルはノイジー):
 ```
 load\rpm   2700      3900      5300      6900
  100%    104/142   116/ 94   110/150   106/143
@@ -2322,146 +1244,86 @@ load\rpm   2700      3900      5300      6900
   45%     97/ 62   105/133   102/126    92/ 86
   20%    92/936X    86/ 95    84/ 79    70/ 58     (X = gate REJECTED a 936% blow-up)
 ```
-sim/stock ratio 0.63-1.37 (reliable cells mean 1.11), shape r=0.54. The error is STRUCTURED:
-- HIGH load (100/65%): sim over-rams ~1.2-1.4 (the VANOS over-response of Stage 44) at every
-  rpm EXCEPT 3900.
-- the 3900 column (the stock torque peak): sim is UNDER at high load (94/70/133) -- it does
-  NOT reproduce the real engine's main intake resonance peak.
-- LOW load (20%): tracks well (0.8-1.1) -- the throttle restriction dominates there and the
-  Stage-37 metering is correct.
-So a single correction factor cannot fix the map; the intake acoustic tuning is mis-phased
-vs the real engine once the cam is at the stock (advanced) position. The cylinder-balance
-gate correctly removed the one blow-up cell.
+sim/stock 比 0.63-1.37(信頼できるセルの平均 1.11)、形状相関 r=0.54。誤差は**構造的**である:
+- **高負荷**(100/65%): シムはあらゆる rpm で ~1.2-1.4 過剰にラムする(Stage 44 の VANOS 過剰応答)、ただし 3900 は例外。
+- **3900 列**(stock のトルクピーク): シムは高負荷で**不足する**(94/70/133) -- 実エンジンの主要な吸気共鳴ピークを再現できていない。
+- **低負荷**(20%): 良く追従する(0.8-1.1) -- そこではスロットル制限が支配的であり、Stage-37 の計量は正しい。
+したがって単一の補正係数ではマップを修正できない; カムが stock の(進角した)位置にあると、吸気の音響チューニングは実エンジンに対して位相ずれを起こしている。シリンダーバランス・ゲートは、唯一の吹き上がりセルを正しく除去した。
 
-### Bottom line for the optimiser
-Low-load breathing and the gate are sound. The high-load map needs (a) VANOS-sensitivity /
-overlap calibration and (b) intake runner-length (and exhaust front-pipe) acoustic tuning so
-the ram peak lands at ~3900 like stock. Until then the sim is reliable as an optimiser only
-where ratio~const (low/part load); WOT VANOS sweeps will over-state gains. Assets:
-scripts/ve_map_resumable.py, scripts/ve_map_compare.py, ve_map_results_16cell.csv.
+### 最適化ツールにとっての結論
+低負荷の呼吸とゲートは健全である。高負荷マップには、(a) VANOS 感度/オーバーラップの較正、および (b) 吸気ランナー長(および排気フロントパイプ)の音響チューニングが必要であり、これによってラムピークが stock のように ~3900 に着地する。それまでは、シムは比~一定(低/部分負荷)の領域でのみ最適化ツールとして信頼できる; WOT の VANOS スイープは効果を過大評価する。資産: scripts/ve_map_resumable.py、scripts/ve_map_compare.py、ve_map_results_16cell.csv。
 
-## Stage 46 — VANOS-sensitivity calibration: the over-response is a BISTABLE acoustic resonance, not a scalable sensitivity
+## Stage 46 — VANOS 感度較正: 過剰応答はスケーラブルな感度ではなく**双安定な音響共鳴**である
 
-Tried to calibrate the Stage-44/45 VANOS over-response with OPENWAM_VANOS_SCALE (scales the
-applied intake bias). It does NOT work -- the response is bistable, not a smooth slope:
+Stage-44/45 の VANOS 過剰応答を OPENWAM_VANOS_SCALE(適用される吸気バイアスをスケールする)で較正しようとした。これはうまく**いかない** -- 応答は滑らかな傾きではなく双安定である:
 ```
 5300 WOT:  bias  0 -> 97%   bias 12 -> 139%   bias 15 -> 139%   bias 42 -> 150%
 3900 WOT:  bias 18 -> 96%   bias 30 -> 145%   bias 60 -> 94%
 ```
-The sim jumps between a LOW mode (~95%) and a HIGH-ram mode (~140%) depending on the exact cam
-phase; there is a sharp threshold (~bias 10 at 5300) and it is non-monotonic (3900: bias 30
-locks the high mode while bias 18 and 60 sit in the low mode). The real engine's 110-116% sits
-BETWEEN the two sim modes and is unreachable, so scaling the bias just flips which mode locks --
-it cannot land in the middle.
+シムは正確なカム位相に応じて**低**モード(~95%)と**高ラム**モード(~140%)の間を飛び移る; 鋭い閾値があり(5300 で ~バイアス 10)、非単調である(3900: バイアス 30 は高モードにロックするが、バイアス 18 と 60 は低モードに座る)。実エンジンの 110-116% は 2 つのシムモードの**間**に位置し到達不能であるため、バイアスをスケールしてもどちらのモードがロックするかが切り替わるだけである -- 中間には着地できない。
 
-Root: the 1-D intake acoustics are under-damped, so the runner/eq-tube ram resonance is too
-sharp -- it latches into a high or low standing-wave mode rather than giving the smooth,
-intermediate breathing the real engine has. This is why the WOT map (Stage 45) is over at most
-cells and under at the torque peak: it is which resonance mode each (rpm, cam) cell happens to
-latch, not a constant offset.
+根本原因: 1-D の吸気音響が過小減衰であるため、ランナー/均圧管のラム共鳴が鋭すぎる -- それは実エンジンが持つ滑らかで中間的な呼吸を与える代わりに、高いまたは低い定在波モードにラッチしてしまう。これが、WOT マップ(Stage 45)がほとんどのセルで過剰、トルクピークで不足になる理由である: それは一定のオフセットではなく、各(rpm, カム)セルがたまたまどの共鳴モードにラッチするか、の問題である。
 
-### Conclusion
-VANOS-response accuracy is NOT a one-parameter calibration. It needs the intake acoustic model
-DE-PEAKED -- either physical damping (which, per Stages 38/42, distorts the WOT shape) or a
-runner-geometry / mesh re-tune that broadens the resonance so VE varies smoothly with cam phase.
-That is a substantial modelling task. OPENWAM_VANOS_SCALE is kept (default 1.0 = no-op) as a
-documented but INEFFECTIVE lever.
+### 結論
+VANOS 応答の精度は 1 パラメータの較正では**ない**。吸気音響モデルを**デピーク**する必要がある -- 物理的な減衰(Stage 38/42 によればこれは WOT 形状を歪める)か、共鳴を広げて VE がカム位相に対して滑らかに変化するようにするランナー・ジオメトリ/メッシュの再チューニングのいずれかが必要である。これは相当な規模のモデリング課題である。OPENWAM_VANOS_SCALE は、文書化されているが**効果のない**レバーとして維持される(デフォルト 1.0 = ノーオペレーション)。
 
-### Net state of the simulator
-- SOLID: the 2x VE-deficit root cause (eq-tube phi30, Stage 35), convergence (Stage 36),
-  throttle metering (Stage 37), the cylinder-balance gate (Stage 42).
-- LIMITED: VANOS-response / high-load map accuracy -- blocked by the bistable intake acoustics.
-  Usable as an optimiser at low/part load and protected by the gate; WOT VANOS sweeps over-state
-  gains until the intake acoustics are de-peaked.
+### シミュレータの正味の現状
+- **確固たる部分**: 2倍の VE 不足の根本原因(均圧管 phi30、Stage 35)、収束性(Stage 36)、スロットル計量(Stage 37)、シリンダーバランス・ゲート(Stage 42)。
+- **限定的な部分**: VANOS 応答/高負荷マップの精度 -- 双安定な吸気音響によって妨げられている。低/部分負荷では最適化ツールとして使用可能でゲートによって保護されている; 吸気音響がデピークされるまで、WOT の VANOS スイープは効果を過大評価する。
 
-## Stage 47 — BREAKTHROUGH: the "VANOS over-response" was an UNCOORDINATED exhaust cam, not a resonance
+## Stage 47 — ブレークスルー: 「VANOS 過剰応答」は共鳴ではなく、**協調していない排気カム**であった
 
-The Stage-46 "bistable intake resonance" diagnosis was wrong. Ruled out the intake-side levers
-at the worst cell (5300 WOT, stock intake bias 42 -> sim 150% vs stock 110%):
-- OPENWAM_CAM_EXP=2 (smooth-seating cos^2 cam): 150% -- no change.
-- OPENWAM_RUNNER_SC 0.7..2.0 (bellmouth 105..300 mm): 151..156% -- no change.
-So the over-ram is NOT the cam coupling nor the runner organ-pipe length. It is the valve
-OVERLAP: run_ve_map_generation advances ONLY the intake cam (bias=130-target) and leaves the
-exhaust at base, so at the stock intake advance IVO reaches ~70 deg BTDC against an unmoved
-EVC -> a ~76 deg overlap that over-scavenges fresh charge straight through and over-rams.
+Stage-46 の「双安定な吸気共鳴」という診断は誤りであった。最悪のセル(5300 WOT、stock 吸気バイアス 42 -> シム 150% 対 stock 110%)で吸気側のレバーを棄却した:
+- OPENWAM_CAM_EXP=2(滑らかに着座する cos^2 カム): 150% -- 変化なし。
+- OPENWAM_RUNNER_SC 0.7..2.0(ベルマウス 105..300 mm): 151..156% -- 変化なし。
+したがって過剰ラムはカム結合でもランナーのオルガンパイプ長でもない。それは**バルブオーバーラップ**である: run_ve_map_generation は吸気カムのみを進角させ(バイアス=130-ターゲット)、排気をベースのままにしていた。したがって stock の吸気進角では、IVO が動かない EVC に対して ~70度 BTDC に達し -> ~76度のオーバーラップが生まれ、新気を過剰に掃気してそのまま通過させ、過剰にラムする。
 
-Coordinating the exhaust cam fixes it SMOOTHLY (no bistability):
+排気カムを協調させると、これは(双安定性なしに)**滑らかに**修正される:
 ```
 5300 WOT, intake bias 42:  ex 0 ->150   ex 20 ->146   ex 40 ->127   ex 45 ~110   ex 50 ->87
 ```
-With both cams from their maps (intake 130-target, exhaust 150-target) the WOT row jumps from
-"intake-only" to near-stock:
+両方のカムがそれぞれのマップから取られると(吸気 130-ターゲット、排気 150-ターゲット)、WOT 行は「吸気のみ」からほぼ stock 相当へと跳ね上がる:
 ```
             stock   intake-only        coordinated
  2700 WOT   104     142 (x1.37)         95 (x0.91)
  3900 WOT   116      94 (x0.81)        116 (x1.00)  <- torque peak now exact
  5300 WOT   110     150 (x1.36)        123 (x1.11)
 ```
-Ratio spread collapses from 0.81-1.37 to 0.91-1.11 and the 3900 torque peak is reproduced.
+比のばらつきは 0.81-1.37 から 0.91-1.11 まで縮小し、3900 のトルクピークが再現される。
 
-### Fix
-simulation_service.run_ve_map_generation now sets vanos_exhaust_bias = (150 - kf_avan1_soll
-target) alongside the intake bias. wam_generator gained OPENWAM_CAM_EXP and OPENWAM_RUNNER_SC
-(found not to drive the over-ram, kept as geometry levers) and the static path already honours
-vanos_exhaust_bias. The exhaust base/scale (OPENWAM_EXVANOS_BASE=150, _SCALE=1) is a first
-calibration -- good on the WOT row, to be fine-tuned across the full map. This removes the
-Stage-44/45/46 "over-response": with coordinated VANOS the sim is a usable VANOS optimiser.
+### 修正
+simulation_service.run_ve_map_generation は今や、吸気バイアスとともに vanos_exhaust_bias = (150 - kf_avan1_soll ターゲット)を設定する。wam_generator は OPENWAM_CAM_EXP と OPENWAM_RUNNER_SC を得た(過剰ラムを駆動していないことが判明したが、ジオメトリレバーとして維持)。静的経路は既に vanos_exhaust_bias を尊重している。排気ベース/スケール(OPENWAM_EXVANOS_BASE=150、_SCALE=1)は最初の較正である -- WOT 行では良好であり、マップ全体にわたって微調整する予定である。これにより Stage-44/45/46 の「過剰応答」は解消される: 協調した VANOS があれば、シムは使用可能な VANOS 最適化ツールとなる。
 
-## Stage 48 — part-load REFRAME: the "under-prediction" was timeout truncation; the real picture is a convergence/throughput wall + an rpm-dependent shape error + the cyl-2 collapse
+## Stage 48 — 部分負荷の見直し: 「過少予測」はタイムアウトによる打ち切りであった; 実際の姿は収束/スループットの壁+rpm 依存の形状誤差+cyl-2 崩壊である
 
-Picked up the Stage-47 part-load TODO ("with coordinated VANOS the WOT row is great but at
-load 45/20 the sim under-predicts ~0.5-0.8 and several load-65 cells gate-reject"). Re-ran
-the part-load cells to convergence and the premise turned out to be wrong on every point.
+Stage-47 の部分負荷に関する TODO(「協調 VANOS のもとで WOT 行は素晴らしいが、負荷 45/20 ではシムが ~0.5-0.8 まで過少予測し、複数の負荷65セルがゲート棄却される」)を引き継いだ。部分負荷セルを収束するまで再実行したところ、その前提はあらゆる点で誤りであることが判明した。
 
-### ① Run THROUGHPUT is the real wall (and it invalidated the old part-load data)
-A part-load run is ~26 s/cycle single-threaded (slower the lower the load -- more manifold
-vacuum -> smaller CFL timestep). A 30-cycle run is therefore ~13 min, which NEVER fits the
-7-15 min container reboot window, and the old `timeout 220` (and even `timeout 540`) killed
-every part-load cell mid-transient (cyc 12-17). The "coordinated-VANOS 16-cell map" numbers
-in the Stage-47 handoff were thus NOT converged -- they were snapshots partway up the fill
-transient. Verified `OMP_NUM_THREADS=4` reproduces the OMP=1 physics faithfully (per-cylinder
-Mtrap within ~1%, including the real cyl-2 collapse below), so the sweeps now run cells
-SERIALLY with OMP=4 and append the CSV after every cell (`backend/scripts/exvanos_base_sweep.py`).
-NOTE the OMP=4 per-cycle speedup is cell-dependent and modest at the lowest loads, so the
-20%-load cells remain marginal to converge inside one reboot window -- the throughput wall is
-the binding constraint on completing the full 480-pt map here.
+### ① 実行**スループット**が本当の壁である(そしてそれは過去の部分負荷データを無効にした)
+部分負荷の実行はシングルスレッドで ~26秒/サイクルである(負荷が低いほど遅い -- マニホールド真空が大きいほど CFL タイムステップが小さくなる)。したがって30サイクルの実行は ~13分となり、これは 7-15分のコンテナ再起動ウィンドウに**決して**収まらない。そして古い `timeout 220`(さらには `timeout 540`)は、あらゆる部分負荷セルを過渡状態の途中で(サイクル 12-17 で)強制終了させていた。Stage-47 の引き継ぎ資料にあった「協調VANOS 16セルマップ」の数値は、したがって収束して**いなかった** -- それらは充填過渡の途中のスナップショットであった。`OMP_NUM_THREADS=4` が OMP=1 の物理を忠実に再現すること(気筒ごとの Mtrap は ~1%以内、以下の本物の cyl-2 崩壊を含む)を検証したので、スイープは今や OMP=4 でセルを**シリアルに**実行し、セルごとに CSV に追記する(`backend/scripts/exvanos_base_sweep.py`)。注: OMP=4 のサイクルあたりの高速化はセル依存であり、最低負荷では控えめであるため、20%負荷のセルは1回の再起動ウィンドウ内で収束させるには依然として際どい -- スループットの壁が、ここで480点フルマップを完成させる上での律速制約である。
 
-### ② The converged load-65 picture is a SHAPE error, not a uniform deficit
-Per-cycle VE (healthy cylinders, base 150), read off the VEDIAG Mtrap stream:
+### ② 収束した負荷65の姿は一様な不足ではなく**形状誤差**である
+サイクルごとの VE(健全な気筒、base 150)、VEDIAG の Mtrap ストリームから読み取り:
 ```
  2700/65   ~76%  (flat from cyc7)     stock 102   -> UNDER  (and cyl-2 collapses)
  3900/65   ~114% (plateaus by cyc14)  stock 112   -> ~match (and cyl-2 collapses)
  5300/65   ~129% (near plateau cyc28) stock 107   -> OVER
 ```
-Sim VE rises monotonically with rpm at load 65 while stock PEAKS at 3900. A single scalar
-EXVANOS_BASE cannot correct an rpm-dependent shape error -- the over-fill at high rpm and the
-under-fill at low rpm need opposite base moves.
+シムの VE は負荷65において rpm とともに単調に上昇する一方、stock は3900で**ピーク**する。単一のスカラー EXVANOS_BASE では rpm 依存の形状誤差を補正できない -- 高 rpm での過充填と低 rpm での不足には、逆方向のベース移動が必要である。
 
-### ③ The load-65 gate rejections are the cyl-2 gas-exchange COLLAPSE, not under-convergence
-The handoff guessed the load-65 rejects were under-converged (cyc 12-15). They are not: at
-2700/65 and 3900/65 cyl-2 collapses to ~0.0025 g / ~820 K (the recurring part-load anomaly,
-Stages 38-42) while the other five sit at ~0.73 g. It is fully converged and IDENTICAL under
-OMP=1 and OMP=4, so it is physics, correctly excluded by `OpenWAMOutputParser.cylinder_balance`.
-5300/65 does NOT collapse. So the optimiser's usable part-load cells are the HIGH-RPM ones
-(5300, 6900); the low-rpm part-load cells are gated out regardless of VANOS base.
+### ③ 負荷65のゲート棄却は非収束ではなく cyl-2 のガス交換**崩壊**である
+引き継ぎ資料は、負荷65の棄却は非収束(cyc 12-15)によるものと推測していた。そうでは**ない**: 2700/65 と 3900/65 では cyl-2 が ~0.0025 g / ~820 K まで崩壊する(繰り返し発生する部分負荷の異常、Stage 38-42)一方、他の5気筒は ~0.73 g にある。これは完全に収束しており、OMP=1 と OMP=4 で**同一**であるため、これは物理現象であり、`OpenWAMOutputParser.cylinder_balance` によって正しく除外されている。5300/65 は崩壊**しない**。したがって最適化ツールが使用できる部分負荷セルは**高rpm**のもの(5300、6900)であり、低rpmの部分負荷セルは VANOS ベースに関わらずゲートで除外される。
 
-### ④ The EXVANOS_BASE lever IS strong and monotonic at part load (same sign as WOT)
-Converged base sweep at 5300/65 (no collapse, `/tmp/sweep5300.csv`):
+### ④ EXVANOS_BASE レバーは部分負荷において強く単調である(WOT と同じ符号)
+5300/65 での収束したベーススイープ(崩壊なし、`/tmp/sweep5300.csv`):
 ```
  base 110 (exbias  5)  VE 142.6%  x1.33
  base 150 (exbias 45)  VE 128.9%  x1.20   (current default)
  base 190 (exbias 85)  VE  57.3%  x0.53
 ```
-Higher base = more exhaust advance = less overlap = lower VE (same direction as the Stage-47
-5300 WOT sweep). Near stock the slope is ~-1.8 %/deg; base ~162 would put 5300/65 on stock.
-So the over-filling high-rpm part-load cells CAN be pulled to stock by raising the base -- but
-the required base is rpm- (and probably load-) dependent, i.e. the calibration is a
-base(rpm,load) surface, not the present constant 150. Note 5300 over-fills at WOT too (123%,
-Stage 47), so part of this is an rpm-tuning offset that a base(rpm) schedule would also help.
+ベースが高い = 排気進角が大きい = オーバーラップが小さい = VE が低い(Stage-47 の5300 WOT スイープと同じ方向)。stock 付近での傾きは ~-1.8%/度である; ベース ~162 で5300/65を stock に載せられる。したがって高rpmで過充填している部分負荷セルは、ベースを上げることで stock へ引き戻せる -- ただし必要なベースは rpm(そしておそらく負荷)依存であり、すなわち較正は現状の定数150ではなく base(rpm, load) サーフェスである。なお5300はWOTでも過充填する(123%、Stage 47)ため、この一部は base(rpm) スケジュールも役立つ rpm チューニングのオフセットである。
 
-### ⑤ The converged high-rpm part-load block (base 150): mostly UNDER, one cell OVER
-The usable (non-collapse) part-load cells are at 5300/6900 rpm. Converged at base 150
-(`/tmp/highrpm_partload.csv`, all valid=no collapse):
+### ⑤ 収束した高rpm部分負荷ブロック(base 150): ほとんどが**不足**、1セルが過剰
+使用可能な(崩壊しない)部分負荷セルは5300/6900 rpmにある。base 150 での収束状態(`/tmp/highrpm_partload.csv`、すべて valid=崩壊なし):
 ```
  cell      stock   sim    sim/stock   cyc
  5300/65   107.3   129.0   1.20       28   <- the ONLY over-fill
@@ -2471,103 +1333,51 @@ The usable (non-collapse) part-load cells are at 5300/6900 rpm. Converged at bas
  6900/45    92.1    81.3   0.88       29
  6900/20    70.3    47.0   0.67       27
 ```
-So at base 150 the high-rpm part-load block UNDER-fills in 5 of 6 cells (only 5300/65 over).
-Because lower base = more overlap = HIGHER VE (the ④ lever), the corrective direction at part
-load is a LOWER base than the WOT-tuned 150 -- i.e. base should DROP with load. 5300/65 is the
-exception (needs ~162). The lever is strongly nonlinear (5300/65: 110->150 only -0.34 %/deg,
-150->190 -1.79 %/deg), so the base(rpm,load) surface must be fitted, not extrapolated. The
-6900/65 point is timeout-truncated (cyc24) and should be re-run longer before trusting it.
+したがって base 150 では高rpm部分負荷ブロックは6セル中5セルで**不足**している(5300/65のみ過剰)。ベースが低いほどオーバーラップが増えVEが**高くなる**(④のレバー)ため、部分負荷における修正方向は、WOTでチューニングされた150よりも**低い**ベースである -- すなわちベースは負荷とともに**下がる**べきである。5300/65は例外である(~162が必要)。このレバーは強く非線形であり(5300/65: 110->150ではわずか-0.34%/度、150->190では-1.79%/度)、したがって base(rpm,load) サーフェスは外挿ではなくフィットされなければならない。6900/65の点はタイムアウトで打ち切られている(cyc24)ため、信頼する前により長く再実行すべきである。
 
-### ⑥ At 5300 rpm the stock-crossing base is a clean, monotonic LOAD law
-Bracketed the crossing with base 110 (`/tmp/sweep5300_lowbase.csv`, both cyc29 converged):
+### ⑥ 5300 rpmでは stock交差ベースはきれいで単調な**負荷則**である
+base 110で交差点を挟み込んだ(`/tmp/sweep5300_lowbase.csv`、両方ともcyc29収束):
 ```
  cell      base110   base150   stock   -> stock-crossing base
  5300/65    142.6     128.9    107.3   ~162   (over at both -> needs higher base)
  5300/45    126.1      87.3    101.9   ~135
  5300/20     79.1      65.9     83.9    ~95   (still under at 110 -> base below 110)
 ```
-So base(5300, load) rises with load: 20%~95, 45%~135, 65%~162 (WOT~150-157, x1.11 at 150).
-The 5300/65 over-fill peaking ABOVE the WOT requirement is consistent with the 5300 eq-tube
-Helmholtz resonance (Stages 38-39) -- 5300 over-fills at WOT too -- so 5300 is partly a
-resonance-contaminated outlier. The cleaner GENERAL part-load story is UNDER-fill (base 150
-over-advances the exhaust), corrected by dropping base with load. A per-rpm linear base(load)
-anchored at base~150 for WOT is a good first model; refine the 5300 row for the resonance.
+したがって base(5300, load)は負荷とともに上昇する: 20%~95、45%~135、65%~162(WOT~150-157、150でx1.11)。5300/65の過充填がWOT要件を**上回って**ピークになるのは、5300の均圧管ヘルムホルツ共鳴(Stage 38-39)と整合する -- 5300はWOTでも過充填する -- したがって5300は部分的に共鳴で汚染された外れ値である。より明快な**一般的な**部分負荷の物語は不足であり(base 150は排気を進角させすぎている)、負荷とともにベースを下げることで補正される。WOT向けにbase~150にアンカーしたrpmごとの線形base(load)は良い最初のモデルである; 5300の行は共鳴を考慮して精緻化する。
 
-### ⑦ At 6900 the base lever's EFFECTIVENESS is itself rpm/load-dependent (base alone is not enough)
-6900 base sweep (`backend/ve_sweep6900_lowbase.csv`, vs the base-150 block in ⑤):
+### ⑦ 6900ではベースレバーの**効き目自体**がrpm/負荷依存である(ベースだけでは不十分)
+6900のベーススイープ(`backend/ve_sweep6900_lowbase.csv`、⑤のbase-150ブロックとの比較):
 ```
  cell      base150   base110   stock   note
  6900/65   64.8*     137.6     101.2   strong lever; crossing ~120-130 (*150 was cyc24, unreliable)
  6900/45   81.3      84.2 REJ   92.1   WEAK lever, and base110 TRIGGERS the cyl-2 collapse
  6900/20   47.0      47.3       70.3   lever is DEAD (47% at exbias 47 AND 7) -> base cannot move it
 ```
-Two new facts: (1) the EXVANOS_BASE lever is potent at 6900/65 but **goes flat at 6900/20**
--- that cell sits ~0.67x stock regardless of base, i.e. it is **throttle-K-loss-saturation
-limited** (Stage 37: MAP floors ~0.72 bar), not VANOS-limited. (2) lowering the base can
-**induce** the cyl-2 collapse (6900/45 was valid at 150, rejects at 110), so base and the
-gas-exchange anomaly are coupled. CONCLUSION: `base(rpm,load)` fixes the MID part-load cells
-(all of 5300, 6900/65) but the lowest-load high-rpm cells need the Stage-37 choked-orifice
-throttle BC -- base alone cannot make the whole part-load map track stock.
+2つの新事実: (1) EXVANOS_BASEレバーは6900/65では強力だが、**6900/20ではまったく効かなくなる** -- そのセルはベースに関わらず~0.67x stockに留まる、すなわち**スロットルK損失の飽和で制限されている**(Stage 37: MAPは~0.72 barで床につく)のであってVANOS律速ではない。(2) ベースを下げると cyl-2崩壊を**誘発しうる**(6900/45は150では valid だが110では棄却される)、したがってベースとガス交換異常は結合している。**結論**: `base(rpm,load)`は**中間**部分負荷セル(5300のすべて、6900/65)を修正するが、最低負荷の高rpmセルにはStage-37のチョークオリフィス・スロットル境界条件が必要である -- ベース単独では部分負荷マップ全体をstockに追従させることはできない。
 
-### ⑧ The low-load high-rpm gap IS the missing throttle CHOKE (quantified via K_CEIL)
-The base lever is dead at 6900/20 but the throttle K_CEIL lever is wide open
-(`backend/ve_throttle_kceil_sweep.csv`, all cyc>=27, base 150):
+### ⑧ 低負荷高rpmのギャップの正体は欠落したスロットル**チョーク**である(K_CEILで定量化)
+ベースレバーは6900/20では死んでいるが、スロットルK_CEILレバーは大きく開いている(`backend/ve_throttle_kceil_sweep.csv`、すべてcyc>=27、base 150):
 ```
  cell      K_CEIL2000  K_CEIL500  K_CEIL100   stock   -> stock-crossing K_CEIL
  6900/20    47.0        64.7       78.0        70.3    ~250
  5300/20    65.9        74.2        --         83.9    ~200-300
 ```
-Lowering K_CEIL strongly+monotonically RAISES these cells to stock. Diagnosis confirmed: the
-incompressible quadratic K-loss (dP = K*1/2*rho*u_bore^2, K=1/sigma^2-1) OVER-restricts at
-small opening + high flow. At 6900/20 the geometric K is ~5700 (clamped to 2000); even 2000
-under-flows (VE 47 vs stock 70). A real orifice CHOKES -- once the throat hits sonic the mass
-flux caps at rho*.a*.A_throat and any extra pull just lowers MAP, so a choked orifice passes
-MORE mass than the quadratic loss for the same geometry. The quadratic model has no sonic cap,
-so it keeps trading flow for an ever-larger dP. K_CEIL~250 emulates the choked flow here, but
-a single global K_CEIL is wrong: it depends on rpm/flow (the quadratic dP ~ u_bore^2), exactly
-what a compressible-orifice BC removes. K_CEIL=2000 is right for the MID part-load metering
-(Stage 37: 0.25 pedal @5300 -> 63%), so it cannot just be lowered globally.
+K_CEILを下げるとこれらのセルは強く単調にstockまで上昇する。診断は確認された: 非圧縮性の二次K損失(dP = K*1/2*rho*u_bore^2、K=1/sigma^2-1)は、小開度+高流量において**過剰に制限する**。6900/20では幾何学的なKは~5700である(2000にクランプされる); 2000でさえ流量不足である(VE 47 対 stock 70)。実際のオリフィスは**チョークする** -- スロートが音速に達すると、質量流束はrho*.a*.A_throatで頭打ちになり、それ以上引いてもMAPが下がるだけである。したがって、チョークするオリフィスは同じジオメトリでも二次損失モデルより**多くの**質量を通す。二次モデルには音速上限がないため、流量をどんどん大きなdPと交換し続ける。K_CEIL~250はここでチョーク流を模擬するが、単一のグローバルなK_CEILは誤りである: それはrpm/流量に依存する(二次のdP ~ u_bore^2)、これはまさに圧縮性オリフィス境界条件が除去するものである。K_CEIL=2000は**中間**部分負荷の計量には正しい(Stage 37: 5300でペダル0.25 -> 63%)ため、単純にグローバルに下げることはできない。
 
-### Implementing the choked orifice (design for the next pass)
-Replace the throttle's quadratic K-loss in `TCCPerdidadePresion` with a COMPRESSIBLE-ORIFICE
-solve at the effective throat area `A_t = ratio * A_pipe` (`ratio` = the generator's
-`_get_butterfly_cd` open-area value, already supplied to the BC as Cd). OpenWAM already has the
-MoC building blocks: `stContraction`/`stExpansion` (BoundaryFunctions.h) solve compressible
-area changes with the supersonic/sonic branch. Model the throttle as contraction-to-throat +
-expansion-back (with vena-contracta loss), and when the throat reaches M=1 impose the sonic
-condition (mass flux = rho*.a*.A_t) and let the downstream characteristic float to the lower
-MAP. Gate it (`OPENWAM_THR_CHOKE`, default OFF) and validate: 6900/20 should reach ~stock
-WITHOUT a K_CEIL change, WOT must stay ~unchanged (throat far from sonic at WOT), and the MID
-cells (0.25 pedal @5300 ~63%) must not regress. This is a real MoC change -- needs fast
-iteration (each part-load run is 6-15 min here), so do it where runs are cheap.
+### チョークオリフィスの実装(次パスの設計)
+`TCCPerdidadePresion`のスロットルの二次K損失を、実効スロート面積 `A_t = ratio * A_pipe`(`ratio` = 生成器の `_get_butterfly_cd` 開口面積値、既に境界条件にCdとして供給されている)における**圧縮性オリフィス**の解に置き換える。OpenWAMは既にMoC(特性曲線法)の構成要素を持っている: `stContraction`/`stExpansion`(BoundaryFunctions.h)が、超音速/音速分岐を伴う圧縮性の面積変化を解く。スロットルを、スロートへの収縮+その後の拡大(ベナ・コントラクタ損失を伴う)としてモデル化し、スロートがM=1に達したら音速条件(質量流束 = rho*.a*.A_t)を課し、下流の特性曲線をより低いMAPへ自由に動かす。これをゲート化し(`OPENWAM_THR_CHOKE`、デフォルトOFF)、検証する: 6900/20はK_CEILを変更**せずに**stockに近づくべきであり、WOTは~変化なしを保たなければならず(WOTではスロートは音速から遠い)、中間セル(5300でペダル0.25で~63%)は後退してはならない。これは本物のMoC変更である -- 高速な反復が必要である(ここでは部分負荷の実行1回が6-15分かかる)、したがって実行が安価な場所で行うこと。
 
-### Where this leaves it (next steps)
-- The part-load map needs THREE coordinated fixes, not one: (A) `EXVANOS_BASE(rpm,load)` for
-  the mid cells where the lever bites (all of 5300, 6900/65); (B) the Stage-37 choked-orifice
-  throttle BC for the lowest-load high-rpm cells where the base lever is DEAD (6900/20, and the
-  weak-lever 6900/45) -- they are airflow/throttle-saturation limited; (C) the gated cyl-2
-  collapse cells stay excluded (Stage-39 balance-tube remodel, a separate task). Note base and
-  the collapse are coupled (low base can induce it), so (A) must be checked against the gate.
-- For (A): finish the per-cell stock-crossing base. Known: 5300 -> 20/45/65 ~95/135/162;
-  6900/65 ~120-130 (re-run 6900/65 base150 LONGER first -- it was cyc24). Then fit
-  base(rpm,load) ANCHORED at base~150 for WOT (load 100) so the validated WOT row does NOT
-  regress, and wire it into `run_ve_map_generation` (replacing the constant 150). Do NOT
-  implement off partial data -- it would risk the WOT row.
-- ⚠ Trust only cyc>=28 cells (the fill transient). The container is sometimes stable for
-  ~100+ min (not always 7-15), so longer serial OMP=4 batches are often possible now.
+### これが残すもの(次のステップ)
+- 部分負荷マップには1つではなく**3つ**の協調した修正が必要である: (A) レバーが効く中間セル(5300のすべて、6900/65)向けの `EXVANOS_BASE(rpm,load)`; (B) ベースレバーが**死んでいる**最低負荷高rpmセル(6900/20、および弱いレバーの6900/45)向けのStage-37チョークオリフィス・スロットル境界条件 -- それらは気流/スロットル飽和で制限されている; (C) ゲートされたcyl-2崩壊セルは除外されたままとする(Stage-39バランスチューブ再設計、別タスク)。なおベースと崩壊は結合している(低ベースがそれを誘発しうる)ため、(A)はゲートに対してチェックしなければならない。
+- (A)について: セルごとのstock交差ベースを完成させる。既知: 5300 -> 20/45/65 ~95/135/162; 6900/65 ~120-130(まず6900/65 base150を**より長く**再実行すること -- それはcyc24だった)。その後、WOT(負荷100)でbase~150にアンカーしたbase(rpm,load)をフィットし(検証済みのWOT行が**後退しない**ように)、それを`run_ve_map_generation`(定数150を置き換える)に組み込む。部分的なデータのまま実装**しない**こと -- WOT行を危険にさらすことになる。
+- ⚠ cyc>=28のセルのみ信頼すること(充填過渡)。コンテナは時に~100分以上安定することがある(常に7-15分というわけではない)ため、より長いシリアルOMP=4バッチが今では可能なことが多い。
 
-## Stage 49 — choked-orifice throttle BC implemented (gated, exact) + the Stage-48 hypothesis INVERTS: the low-load gap is effective AREA, not the missing choke
+## Stage 49 — チョークオリフィス・スロットル境界条件を実装(ゲート付き、厳密); Stage-48 の仮説が**反転**する: 低負荷のギャップは欠落したチョークではなく実効**面積**である
 
-Implemented the Stage-48 (B) item: `OPENWAM_THR_CHOKE=1` turns the throttle BC into an
-exact compressible/choked orifice (default OFF = byte-identical legacy). But the pre-run
-analysis (confirmed by the runs below) shows the Stage-48 premise was backwards, and that
-changes where the part-load fix lives.
+Stage-48 (B) 項目を実装した: `OPENWAM_THR_CHOKE=1` はスロットル境界条件を厳密な圧縮性/チョーク・オリフィスに変える(デフォルト OFF = レガシーとバイト同一)。しかし実行前の解析(以下の実行で確認済み)は、Stage-48 の前提が逆であったことを示しており、それは部分負荷の修正がどこに存在するかを変える。
 
-### ① ANALYSIS: a choked orifice passes LESS than the quadratic K-loss, never more
-Stage 48 ⑧ argued "a real orifice CHOKES ... so a choked orifice passes MORE mass than the
-quadratic loss for the same geometry". The steady algebra says the opposite. The legacy
-quadratic loss IS the incompressible orifice (throat velocity sqrt(2·dP/rho), unbounded);
-compressibility only ever shrinks the flow function:
+### ① 解析: チョークするオリフィスは二次K損失よりも**少なく**流れる、決して多くない
+Stage 48 ⑧ は「実際のオリフィスは**チョークする**……したがってチョークするオリフィスは同じジオメトリでも二次損失より**多く**の質量を流す」と主張していた。定常状態の代数はその逆を示す。レガシーの二次損失は非圧縮性オリフィス**そのもの**である(スロート速度 sqrt(2・dP/rho)、上限なし); 圧縮性は流量関数を**縮小させるだけ**である:
 ```
                       mdot / (rho1·a1·A_throat)
    r=p2/p1:   1.0   0.9    0.8    0.72   0.528(=r*)  0.3    0.1
@@ -2575,76 +1385,29 @@ compressibility only ever shrinks the flow function:
    compress:  0     0.357  0.475  0.527  0.5787      0.5787 0.5787  (chokes at r*)
    chi=(inc/comp)^2: 1.00  1.12   1.27   1.44  2.01  2.99   3.84
 ```
-So at the SAME effective area the compressible/choked orifice flows 0.89x (r=0.9) down to
-0.51x (deep vacuum) of the incompressible model: adding the choke REDUCES these cells.
-What the choke DOES fix is the SHAPE pathology: below r* the real flow freezes (mass flux
-rho*·a*·A_t, MAP floats) instead of growing as sqrt(dP) — that unbounded growth is exactly
-why the stock-matching K_CEIL in Stage 48 was rpm/flow-dependent (250 at 6900/20 vs 2000 at
-the Stage-37 mid-load anchor). Choke removes the rpm-dependence; it cannot add mass.
+したがって**同じ**実効面積では、圧縮性/チョークするオリフィスは非圧縮性モデルの 0.89 倍(r=0.9)から 0.51 倍(深い真空)まで流れる: チョークを加えるとこれらのセルは**減少する**。チョークが実際に修正するのは**形状**の病理である: r* を下回ると、実際の流れは sqrt(dP) として成長するのではなく(質量流束 rho*・a*・A_t で、MAP が浮動する状態に)**凍結する** -- この無限成長こそが、Stage 48 における stock 一致 K_CEIL が rpm/流量依存であった理由そのものである(6900/20 で 250、対する Stage-37 の中負荷アンカーでは 2000)。チョークは rpm 依存性を除去する; 質量を追加することはできない。
 
-### ② ANALYSIS: the 20%-pedal cells need ~4.8x the GEOMETRIC open area — closing the loop
-With the actual deck geometry (six phi52 ITB runner bores) the numbers close exactly:
-- Engine demand at stock VE: 6900 rpm, VE 70.3% -> mean bore velocity ~10.3 m/s per runner.
-- Compressible orifice at MAP~0.8: u_bore = sigma·a1·Psi(0.8) = sigma·161 m/s
-  -> sigma_needed = 0.064. Same exercise at 5300/20 (stock 83.9): sigma_needed ~0.058.
-- The K_CEIL~250 stock-crossing from Stage 48 ⑧ is the SAME number in K language:
-  sigma_eff = 1/sqrt(251) = 0.0631. Two independent routes, one answer: sigma_eff ~0.06.
-- But the generator's geometric chain gives pedal 0.20 -> angle 2+88·0.2^1.4 = 11.3 deg ->
-  sigma = (0.65+0.25·th/90)·(1-cos th) = 0.0132 (K_geo ~5700, the Stage-48 number); the BC
-  floors it at OPENWAM_CD_FLOOR=0.02. The required area is ~3.2x the floored value (~4.8x
-  raw geometry). NO flow physics at sigma~0.02 reaches stock; the Stage-48 validation point
-  "6900/20 -> stock with no K_CEIL change" is unreachable by the choke alone. (The BC-side
-  prediction: legacy K2000 at its r~0.72 equilibrium passes U/A = sqrt(0.28/2000) = 0.0118,
-  the choked plateau at the floored sigma passes 0.02*Psi*(g=1.31) = 0.0117 — i.e. choke at
-  geometry should land ~= legacy 47, a ~0.7x stock truncation either way. An earlier
-  demand-anchored estimate of ~25-30% was the wrong frame: the crude bore-velocity demand
-  math is ~1.7x off because the deep-throttle charge is hot/residual-heavy, 590K, fresh~34%.)
+### ② 解析: 20%ペダルのセルには**幾何学的**開口面積の ~4.8 倍が必要である -- 話の辻褄が合う
+実際のデッキジオメトリ(6本の phi52 ITB ランナーボア)を用いると、数値はぴったり一致する:
+- stock VE での機関要求: 6900 rpm、VE 70.3% -> ランナーあたり平均ボア速度 ~10.3 m/s。
+- MAP~0.8 での圧縮性オリフィス: u_bore = sigma・a1・Psi(0.8) = sigma・161 m/s -> sigma_needed = 0.064。5300/20(stock 83.9)でも同じ計算で sigma_needed ~0.058。
+- Stage 48 ⑧ の K_CEIL~250 での stock 交差は、K の言葉では**同じ**数値である: sigma_eff = 1/sqrt(251) = 0.0631。2 つの独立した経路が同じ答えに至る: sigma_eff ~0.06。
+- しかし生成器の幾何学的な連鎖は、ペダル 0.20 -> 角度 2+88・0.2^1.4 = 11.3 度 -> sigma = (0.65+0.25・th/90)・(1-cos th) = 0.0132(K_geo ~5700、Stage-48 の数値)を与える; 境界条件はそれを OPENWAM_CD_FLOOR=0.02 で下限クランプする。必要な面積は、下限クランプされた値の ~3.2 倍(生の幾何学値の ~4.8 倍)である。sigma~0.02 でのいかなる流れ物理も stock に到達しない。Stage-48 の検証点「6900/20 -> K_CEIL変更なしで stock」は、チョークだけでは到達不能である。(境界条件側の予測: レガシー K2000 はその r~0.72 平衡点で U/A = sqrt(0.28/2000) = 0.0118 を流す。下限クランプされた sigma でのチョークプラトーは 0.02*Psi*(g=1.31) = 0.0117 を流す -- すなわちジオメトリでのチョークはレガシーの 47 に~一致するはずであり、どちらの向きでも stock の ~0.7 倍の打ち切りになる。以前の需要基準の ~25-30% という推定は誤った枠組みであった: 粗いボア速度需要の計算は、深いスロットル位置での充填が高温/残留ガス過多であること(590K、新気~34%)により ~1.7 倍ずれている。)
 
-### ③ ANALYSIS: the "0.25 pedal -> 63%" guard was never a stock anchor (map semantics)
-`kf_rf_soll` is pedal->target-fill: stock at (5300 rpm, pedal 25%) is 89.1%, not 63%. The
-Stage-37 "0.25 pedal @5300 -> 63%" was a 'the throttle finally bites' sanity point (vs the
-old VE-flat bug), and the sim there UNDER-fills stock by 0.71 — the same deficit family as
-the 20%-pedal cells (0.67-0.79). So 'mid-load must stay 63%' is NOT a regression guard
-against stock; the whole low-pedal region under-flows because sigma(pedal) is too shut.
-Required effective area: sigma_eff(pedal 0.20) ~0.0635, sigma_eff(0.25) ~0.069. Against
-the FLOORED cd (0.02 / 0.0224) that is a single gain AGAIN~3.2 for BOTH cells (the
-CD_FLOOR accidentally flattens the low-pedal curve the right way); against raw geometry
-it is 4.8x/3.1x. Above pedal ~0.3 the needed gain falls toward ~1.5 (pedal 0.39 wants
-sigma~0.107, geometry gives 0.0707), so a SINGLE gain over-fills the 0.3-0.45 band by
-~+5-10% — the production fix is the sigma(pedal) CURVE (the 1-cos(theta) butterfly law +
-THR_GAMMA pedal curve close far too fast at the low end), with AGAIN as the quick lever.
-This is exactly what a drive-by-wire fill-targeting ECU (MSS54) does differently: pedal is
-a FILL demand, the blade opens as far as needed — at high rpm a 20% pedal is a much more
-open blade than 20% of travel through a cos law.
+### ③ 解析: 「0.25 ペダル -> 63%」というガードは、そもそも stock のアンカーではなかった(マップの意味論)
+`kf_rf_soll` はペダル->目標充填のマップである: stock は(5300 rpm、ペダル 25%)で 89.1% であり、63% ではない。Stage-37 の「0.25 ペダル @5300 -> 63%」は(古い VE フラットのバグに対する)「ようやくスロットルが効いている」という健全性チェックの点であり、シムはそこで stock を 0.71 だけ**下回っている** -- これは 20%ペダルのセル(0.67-0.79)と同じ不足のファミリーである。したがって「中負荷は 63% のままでなければならない」は stock に対する回帰ガードでは**なく**、sigma(pedal) が閉じすぎているために低ペダル領域全体が流量不足になっているのである。必要な実効面積: sigma_eff(pedal 0.20) ~0.0635、sigma_eff(0.25) ~0.069。下限クランプされた cd(0.02 / 0.0224)に対しては、これは**両方の**セルに対する単一のゲイン AGAIN~3.2 である(CD_FLOOR は偶然にも低ペダルカーブを正しい方向に平坦化している); 生のジオメトリに対しては 4.8 倍/3.1 倍である。ペダル ~0.3 を超えると必要なゲインは ~1.5 へ低下する(ペダル 0.39 は sigma~0.107 を求めるが、ジオメトリは 0.0707 を与える)ため、単一のゲインでは 0.3-0.45 帯を ~+5-10% 過充填してしまう -- 本番用の修正は sigma(pedal) **カーブ**である(1-cos(theta) のバタフライ則+THR_GAMMA のペダルカーブが低い側であまりに速く閉じすぎている)、AGAIN は当座のレバーとして使う。これはまさに、drive-by-wire の充填目標型 ECU(MSS54)が違う方法で行っていることである: ペダルは**充填**要求であり、ブレードは必要なだけ開く -- 高 rpm では 20%ペダルは cos 則によるトラベルの 20% よりもはるかに開いたブレードになる。
 
-### ④ IMPLEMENTED: exact gated choked-orifice BC (OPENWAM_THR_CHOKE, default OFF)
-`TCCPerdidadePresion::CalculaCondicionContorno` now (when gated AND in dynamic-valve mode)
-replaces FK each step with the orifice-exact value instead of clamp(1/cd^2-1, K_CEIL):
+### ④ 実装: 厳密なゲート付きチョークオリフィス境界条件(OPENWAM_THR_CHOKE、デフォルト OFF)
+`TCCPerdidadePresion::CalculaCondicionContorno` は今や(ゲートされ、かつ動的バルブモードの場合)毎ステップ、FK を clamp(1/cd^2-1, K_CEIL) の代わりにオリフィス厳密値に置き換える:
 ```
   K_eff = (g/2)·(1-sigma^2)/sigma^2 · chi(r)        [sigma = cd·OPENWAM_THR_AGAIN]
   chi   = Psi_inc(r)^2/Psi_isen(max(r,r*))^2 >= 1,  r = p_dn/p_up (prev step, from
           (Landa+Beta)/2 and Entropia of the two pipe ends; p ~ (A/AA)^(2g/(g-1)))
 ```
-Derivation (verified numerically to machine precision, all sigma x r): the loss functor
-stPerdPresAd encodes EXACTLY p2/p1 = b1 = 1-K·(U1/A1)^2 (its K carries a hidden 2/g vs the
-physical dP = zeta·q convention — so the LEGACY model was also ~1.2x leakier than its
-nominal sigma). With the (g/2) factor and chi, the steady BC passes exactly
-mdot = rho1·a1·A_t·Psi_isen(max(r,r*))/sqrt(1-sigma^2): correct subsonic compressible
-metering, hard sonic cap below r*=0.528 with downstream MAP floating. At the fixed point
-b1 = r, so the functor NEVER approaches its b1<0 singularity at any vacuum — the K_CEIL
-stability clamp is unnecessary when gated (still honoured if explicitly set, as an escape
-hatch; the DEFAULT 2000 is not applied under the gate). chi(r->1)=1 so WOT/light loads are
-untouched. Knobs: `OPENWAM_THR_CHOKE` (gate), `OPENWAM_THR_AGAIN` (effective-area gain on
-the valve's open-area ratio, default 1 = pure geometry — THE calibration lever from ②/③),
-`OPENWAM_THRDIAG` prints `THRCHOKE CC n: sigma Kgeo r chi K`. Legacy path is untouched
-apart from stashing the floored cd (gate off => identical numerics).
+導出(全 sigma × r で機械精度まで数値検証済み): 損失関数 stPerdPresAd は p2/p1 = b1 = 1-K・(U1/A1)^2 を**厳密に**符号化している(その K は物理的な dP = zeta・q の慣習に対して隠れた 2/g の因子を含んでいる -- したがって**レガシーモデルもその名目 sigma に対して ~1.2 倍ほど漏れていた**)。(g/2) の因子と chi があると、定常境界条件は正確に mdot = rho1・a1・A_t・Psi_isen(max(r,r*))/sqrt(1-sigma^2) を流す: これは正しい亜音速圧縮性計量であり、r*=0.528 を下回るとハードな音速上限がかかり、下流の MAP は浮動する。不動点では b1 = r であるため、この関数はいかなる真空でもその b1<0 の特異点に**決して**近づかない -- ゲートされている場合、K_CEIL 安定性クランプは不要である(明示的に設定された場合は依然として尊重される、逃げ道として; ゲート下ではデフォルトの 2000 は適用されない)。chi(r->1)=1 であるため、WOT/軽負荷は影響を受けない。ノブ: `OPENWAM_THR_CHOKE`(ゲート)、`OPENWAM_THR_AGAIN`(バルブ開口面積比への実効面積ゲイン、デフォルト 1 = 純粋なジオメトリ -- これが②/③からの**較正レバー**である)、`OPENWAM_THRDIAG` は `THRCHOKE CC n: sigma Kgeo r chi K` を出力する。レガシー経路は、下限クランプされた cd を保持する以外は変更されていない(ゲート OFF => 同一の数値)。
 
-### ⑤ RUNS (validation of ④ and the ②/③ predictions)
-Campaign: `backend/scripts/choke_validation.sh` (4 cells, serial OMP=4, 30 cyc, base 150).
-Gate-off binary regression first: 3900/100 gate-OFF reproduces the recorded cyc-17 WOT
-value (115.2 vs 115.5) — and shows the recorded WOT row was itself NOT converged (the run
-reaches 122.5 by cyc 22 and is still climbing; the Tier-47 'torque peak exact 116/116' was
-a cyc-17 snapshot. The converged WOT row needs re-recording before it anchors any fit).
+### ⑤ 実行(④と②/③の予測の検証)
+キャンペーン: `backend/scripts/choke_validation.sh`(4セル、シリアル OMP=4、30サイクル、base 150)。まずゲートOFFのバイナリ回帰: 3900/100 ゲート**OFF**は記録済みの cyc-17 WOT 値を再現する(115.2 対 115.5) -- そして、記録されていた WOT 行自体が収束して**いなかった**ことを示す(実行は cyc 22 までに 122.5 に達し、まだ上昇中である。「トルクピーク厳密一致 116/116」という第47段階の記述は cyc-17 のスナップショットであった。収束した WOT 行は、いかなるフィットのアンカーとする前に再記録が必要である)。
 ```
  cell      config                        stock   sim    cyc  note
  6900/20   CHOKE=1 (sigma_eff=0.02)       70.3   49.8   29   == legacy 47.0 (+6%): choke at
@@ -2656,46 +1419,16 @@ a cyc-17 snapshot. The converged WOT row needs re-recording before it anchors an
  3900/100  CHOKE=1 AGAIN=3.2 (WOT)       115.7   91.3   23   ⚠ WOT REGRESSION — see ⑥
  5300/20   CHOKE=1 AGAIN=3.2 (0.064)      83.9   80.4   29   0.96x stock — close
 ```
-The three part-load runs converged stably (valid=1, cyc 29, no NaN) — the gated BC is
-numerically robust through 29-cycle deep-choke operation, including a sigma_eff=0.02 run
-that pulls the charge to 590 K / fresh~34% (heavy internal EGR, physical for deep throttle).
-CALIBRATION readout: stock 70.3 sits between sigma_eff 0.02 (49.8) and 0.064 (85.1) ->
-sigma_eff(6900, pedal 0.20) ~= 0.046, AGAIN ~= 2.3-2.6; at 5300 the same sigma_eff lands
-0.96x stock -> AGAIN ~= 3.4-3.6. The quasi-steady K_CEIL<->sigma equivalence (0.0635)
-over-predicts at 6900 because the exact orifice is leakier than the legacy quadratic
-across the intake pulse; per-cell empirical AGAIN sweeps remain the calibration tool, the
-analytic equivalences are only ~+-30% guides. A SINGLE gain does not put both rpms on
-stock simultaneously (same pedal: 5300 wants ~0.067, 6900 wants ~0.046): the residual is
-an rpm-shape term — to be split between the (A) EXVANOS base(rpm,load) lever and/or a mild
-rpm term in sigma(pedal) during the production calibration.
+3つの部分負荷実行は安定して収束した(valid=1、cyc 29、NaN なし) -- ゲート付き境界条件は、29サイクルにわたる深いチョーク運転を通じて数値的に頑健である。sigma_eff=0.02 の実行も含み、これは充填ガスを 590 K / 新気~34% まで引き寄せる(重い内部 EGR、深いスロットル位置として物理的に妥当)。**較正の読み**: stock 70.3 は sigma_eff 0.02(49.8)と 0.064(85.1)の間に位置する -> sigma_eff(6900, ペダル 0.20) ~= 0.046、AGAIN ~= 2.3-2.6; 5300 では同じ sigma_eff が stock の 0.96 倍に着地する -> AGAIN ~= 3.4-3.6。準定常の K_CEIL<->sigma 等価性(0.0635)は 6900 で過大予測している。厳密なオリフィスは、吸気パルス全体を通してレガシーの二次モデルより漏れが大きいためである; セルごとの経験的な AGAIN スイープが較正ツールのままであり、解析的な等価性は ~±30% のガイドにすぎない。単一のゲインでは両方の rpm を同時に stock に載せることはできない(同じペダル: 5300 は ~0.067 を求め、6900 は ~0.046 を求める): 残差は rpm 形状の項である -- 本番較正の際に、(A) EXVANOS の base(rpm,load) レバーと/または sigma(pedal) 中の穏やかな rpm 項の間に分割されるべきである。
 
-### ⑥ ANOMALY RESOLVED: the 3900 WOT ram resonance BIFURCATES on the throttle termination K
-Gate-on WOT (run 3) dropped to 91.3 vs 122.5 gate-off although the gated block computed
-sigma=0.97, chi 1.00-1.02, FK = 0.042 vs legacy constant 0.0851 — loss magnitudes BOTH
-'negligible' (dP ~ 100 Pa at WOT pulse velocity). Yet the FRESH feed collapsed 4.6x
-(Mair 0.041 vs 0.188 g/cyl/cyc; both runs re-breathe ~0.6 g; P_IC ~1 atm — the cylinder
-re-inhales runner gas while net through-flow dies), with a violent start (cyc1 333% inrush
--> cyc3 43.5% -> slow 20-cycle climb to 91).
-TEST A (AGAIN=0.98 => gated Kgeo == legacy 0.0851 exactly, chi still live): VE 118.5@cyc17
-== the gate-off attractor (115.2@17, climbing to ~122) — healthy trajectory (cyc1 135, no
-dip). DIAGNOSIS: the K MAGNITUDE (the gamma/2 'orifice-exact' convention + the 0.97 sigma
-clamp halving the WOT termination loss), NOT chi's time variation. The 3900 WOT ram
-resonance sits on a knife edge: a ~0.04 change in a throttle K of order 0.05-0.09 (a
-~100 Pa device!) flips it onto an attractor 30 VE-points lower. NOTE for the resonance
-thread (Stages 44-46): a WOT row whose VE bifurcates on a 100-Pa termination loss has an
-unrealistically high ram Q — keep this in mind when calibrating the VANOS sensitivity.
+### ⑥ 異常は解決: 3900 WOT のラム共鳴はスロットル終端の K で**分岐する**
+ゲート ON の WOT(実行3)は、ゲート付きブロックが sigma=0.97、chi 1.00-1.02、FK = 0.042(レガシー定数 0.0851 に対して)を計算したにもかかわらず、ゲート OFF の 122.5 に対して 91.3 まで低下した -- 損失の大きさは**どちらも**「無視できる」ものであった(WOT のパルス速度で dP ~ 100 Pa)。それでも**新気**の供給は 4.6 倍崩壊した(Mair 0.041 対 0.188 g/気筒/サイクル; 両方の実行とも ~0.6 g を再吸入する; P_IC ~1 atm -- 気筒は正味の通過流が死ぬ一方でランナーガスを再吸入する)、そして激しい開始を伴う(cyc1 で 333% の急流入 -> cyc3 で 43.5% -> ゆっくり20サイクルかけて91まで上昇)。
+テストA(AGAIN=0.98 => ゲート付きの Kgeo がレガシーの 0.0851 と**厳密に**一致、chi は依然生きている): VE 118.5@cyc17 はゲートOFFのアトラクタ(115.2@17、~122 まで上昇)と**一致する** -- 健全な軌跡である(cyc1 は 135、落ち込みなし)。**診断**: 原因は K の**大きさ**である(gamma/2 の「オリフィス厳密」慣習+ WOT 終端損失を半減させる 0.97 の sigma クランプ)。chi の時間変化ではない。3900 WOT のラム共鳴は刃の上に立っている: オーダー 0.05-0.09(~100 Pa のデバイス!)のスロットル K のわずか ~0.04 の変化が、それを 30 VE ポイント低いアトラクタに反転させる。共鳴の話(Stage 44-46)への注記: 100 Pa の終端損失で VE が分岐する WOT 行は非現実的に高いラム Q を持っている -- VANOS 感度を較正する際にこれを念頭に置くこと。
 
-### ⑦ FIX: gated K redefined as a pure correction on the validated legacy loss
-`K = (1/sigma^2 - 1) * chi_eff(r)` (the gamma/2 dropped), with two protections:
-- sigma ceiling = the valve's own WOT value (max(cd, 0.96)), so OPENWAM_THR_AGAIN cannot
-  alter the WOT termination at all;
-- chi RAMPED OUT near r=1 (chi_eff = 1+(chi-1)*clamp((0.97-r)/0.05,0,1)): quasi-steady
-  lagged r is least valid in the acoustic regime, and this makes the gated WOT termination
-  identical to legacy in magnitude AND time-constancy. Part-load equilibria (r <= 0.9) get
-  the full correction; the steady flow is frozen below r* (verified: flow(0.545)=flow(0.30)
-  to 3 digits) — the choke plateau in legacy-K units is sqrt(g/2)*rho*.a*.A_t, the constant
-  absorbed by the sigma calibration. b1 = r at the fixed point holds for ANY K(r), so the
-  no-singularity property is unchanged. Verification (scripts/choke_verify2.sh):
+### ⑦ 修正: ゲート付き K を検証済みレガシー損失に対する純粋な補正として再定義
+`K = (1/sigma^2 - 1) * chi_eff(r)`(gamma/2 を廃止)、2つの保護付き:
+- sigma の上限 = バルブ自身の WOT 値(max(cd, 0.96))、これにより OPENWAM_THR_AGAIN は WOT 終端をまったく変更できない;
+- chi は r=1 付近で**ランプアウト**される(chi_eff = 1+(chi-1)*clamp((0.97-r)/0.05,0,1)): 準定常の遅延した r は音響領域で最も妥当性が低く、これによりゲート付き WOT 終端は大きさと時間的定常性の両方でレガシーと同一になる。部分負荷平衡(r <= 0.9)は完全な補正を受ける; 定常流は r* を下回ると凍結する(検証済み: flow(0.545)=flow(0.30) が3桁一致); レガシーK単位でのチョークプラトーは sqrt(g/2)*rho*.a*.A_t であり、その定数は sigma 較正に吸収される。不動点での b1 = r は**いかなる** K(r) に対しても成り立つため、特異点なしの性質は変わらない。検証(scripts/choke_verify2.sh):
 ```
  V1  3900/100 CHOKE=1 AGAIN=3.2   117.8 @cyc17  == gate-off 115.2 (broken run3: ~90) ✓
      (the +-3pp spread between gate-off/testA/V1 is transient-alignment noise on a cell
@@ -2703,50 +1436,22 @@ unrealistically high ram Q — keep this in mind when calibrating the VANOS sens
  V2  6900/20  CHOKE=1 AGAIN=3.2    65.5 @cyc26  0.93x stock 70.3 (old convention: 85.1)
  V3  5300/20  CHOKE=1 AGAIN=3.2    78.0 @cyc29  0.93x stock 83.9 (old convention: 80.4)
 ```
-KEY RESULT: under the legacy-anchored convention a SINGLE AGAIN=3.2 puts BOTH pedal-0.20
-cells at exactly 0.93x stock — the rpm-dependence of the needed effective area (which
-plagued the K_CEIL era: 250 vs 2000, and the gamma/2 convention: 1.21x vs 0.96x) has
-COLLAPSED. The choke BC meters rpm-uniformly, so ONE sigma(pedal) curve can serve all
-rpm and the rpm SHAPE stays with the (A) EXVANOS base(rpm,load) lever — exactly the
-separation the production calibration wants. The remaining uniform deficit is a single
-scale: AGAIN_stock(pedal 0.20) ~= 3.5-3.7 for both rpms. Next session: a 2-3 point AGAIN
-sweep per anchor pedal (0.20/0.25/0.39 at 5300+6900, CHOKE=1) pins sigma_eff(pedal), then
-the sigma(pedal) curve goes into the generator.
+**重要な結果**: レガシー基準の慣習のもとでは、単一の AGAIN=3.2 が**両方の**ペダル 0.20 セルを正確に stock の 0.93 倍に載せる -- 必要な実効面積の rpm 依存性(K_CEIL 時代を悩ませたもの: 250 対 2000、そして gamma/2 慣習: 1.21倍 対 0.96倍)は**崩壊した**。チョーク境界条件は rpm に対して一様に計量するため、**1本の** sigma(pedal) カーブがすべての rpm に対応でき、rpm の**形状**は (A) EXVANOS の base(rpm,load) レバーの側に残る -- これはまさに本番較正が求めていた分離である。残る一様な不足は単一のスケールである: AGAIN_stock(ペダル 0.20) ~= 3.5-3.7、両rpmとも。次セッション: アンカーとなるペダルごと(5300+6900 で 0.20/0.25/0.39、CHOKE=1)に 2-3 点の AGAIN スイープを行い sigma_eff(pedal) を固定し、その後 sigma(pedal) カーブを生成器に組み込む。
 
-### Where this leaves it (next steps, REORDERED)
-- The production part-load fix is now TWO generator-side calibrations plus the gated BC:
-  (i) sigma(pedal): replace/recalibrate `_calculate_throttle_angle`+`_get_butterfly_cd`
-  so the EFFECTIVE area matches the fill-demand semantics of `kf_rf_soll` (data points:
-  sigma_eff(0.20)~0.06, sigma_eff(0.25)~0.069, WOT~0.96; consider deriving sigma(pedal,rpm)
-  directly from kf_rf_soll + the orifice law instead of a blade-geometry law);
-  (ii) the Stage-48 (A) `EXVANOS_BASE(rpm,load)` fit where that lever bites;
-  (iii) run part-load with `OPENWAM_THR_CHOKE=1` so the metering law is the real
-  compressible one while sigma is swept (use `OPENWAM_THR_AGAIN` for quick area sweeps
-  without regenerating decks).
-- The 6900/20-style cells are calibration-limited (area), NOT solver-limited. Do NOT spend
-  more time on K_CEIL — with the gate ON it is obsolete.
-- (C) cyl-2 collapse cells: unchanged, stay gated (Stage-39 remodel separate).
+### これが残すもの(次のステップ、**再順序付け**)
+- 本番の部分負荷修正は今や、ゲート付き境界条件に加えて**2つ**の生成器側較正である: (i) sigma(pedal): `_calculate_throttle_angle`+`_get_butterfly_cd` を置き換え/再較正し、**実効**面積が `kf_rf_soll` の充填要求の意味論に合うようにする(データ点: sigma_eff(0.20)~0.06、sigma_eff(0.25)~0.069、WOT~0.96; ブレード形状則の代わりに kf_rf_soll+オリフィス則から直接 sigma(pedal, rpm) を導出することも検討する); (ii) レバーが効く箇所での Stage-48 (A) `EXVANOS_BASE(rpm,load)` フィット; (iii) sigma をスイープする間、計量則が本物の圧縮性のものになるよう `OPENWAM_THR_CHOKE=1` で部分負荷を実行する(デッキを再生成せずに素早く面積スイープするには `OPENWAM_THR_AGAIN` を使う)。
+- 6900/20 型のセルは較正律速(面積)であり、ソルバー律速では**ない**。K_CEIL にこれ以上時間を費やさないこと -- ゲート ON では、それは廃止済みである。
+- (C) cyl-2 崩壊セル: 変更なし、ゲートされたままとする(Stage-39 の再設計は別課題)。
 
-## Stage 50 — full 32-cell shape map under the choke BC: LOAD axis follows, but mid-load is VANOS/breathing-limited (NOT throttle) — sigma(pedal) reach is low-pedal only
+## Stage 50 — チョーク境界条件下での 32セル形状マップ全体: 負荷軸は追従するが、中負荷はスロットルではなく VANOS/呼吸律速である -- sigma(pedal) の届く範囲は低ペダルのみ
 
-Picked up the user's directive to validate SHAPE-following broadly (not just the 4 BC
-points). Ran a representative 32-cell map (rpm 2100/2700/3900/4600/5300/6300/6900/7300 ×
-load 20/45/65/100) at `OPENWAM_THR_CHOKE=1 OPENWAM_THR_AGAIN=3.2 base150`, 30 cyc, serial
-OMP=4, resumable across reboots (`backend/scripts/shape_map_campaign.sh`,
-`ve_shape_map_choke_a32.csv`; report `ve_shape_report.py`, now with a per-rpm-COLUMN
-load-profile view; plot `docs/analysis/`).
+(4つの境界条件の点だけでなく)広く形状追従を検証するというユーザーの指示を引き継いだ。代表的な 32セルマップ(rpm 2100/2700/3900/4600/5300/6300/6900/7300 × 負荷 20/45/65/100)を `OPENWAM_THR_CHOKE=1 OPENWAM_THR_AGAIN=3.2 base150`、30サイクル、シリアル OMP=4 で、再起動を跨いで再開可能な形で実行した(`backend/scripts/shape_map_campaign.sh`、`ve_shape_map_choke_a32.csv`; レポートは `ve_shape_report.py`、今回は rpm 列ごとの負荷プロファイルビュー付き; プロットは `docs/analysis/`)。
 
-### ① The choke BC fixed the LOAD axis at low pedal (the throttle's job) — confirmed
-LOAD-20 row tracks stock across ALL rpm: r=0.89, max shape err 0.07, scale 0.94, and the
-single-cell V2/V3 values reproduce (5300/20=78, 6900/20=66, 7300/20=65 ≈ 0.93-0.97x). The
-rpm-dependence of the needed area (K_CEIL era: 250 vs 2000) is GONE — one global AGAIN puts
-every pedal-0.20 cell at ~0.93-0.97x stock. The compressible metering is the right model.
+### ① チョーク境界条件は低ペダルでの**負荷軸**を修正した(スロットルの本来の仕事) -- 確認済み
+LOAD-20 行はすべての rpm にわたって stock を追従する: r=0.89、最大形状誤差 0.07、スケール 0.94、そして単一セルの V2/V3 の値も再現する(5300/20=78、6900/20=66、7300/20=65 ≈ 0.93-0.97倍)。必要な面積の rpm 依存性(K_CEIL 時代: 250 対 2000)は**消えた** -- 1つのグローバルな AGAIN が、あらゆるペダル 0.20 のセルを stock の ~0.93-0.97 倍に載せる。圧縮性計量が正しいモデルである。
 
-### ② But the production correction needs the per-rpm LOAD PROFILE, and mid-load is wrong
-The coded correction (`calibration_service.py:486-495`) applies the WOT-row sim/stock ratio
-across all loads and FABRICATES part-load by copying stock's load shape — so the foundation
-needs the sim's per-rpm profile p(load)=VE(load)/VE(WOT) to match stock's. The per-column
-view (clean rpms):
+### ② しかし本番の補正には rpm ごとの**負荷プロファイル**が必要であり、中負荷が誤っている
+コード化された補正(`calibration_service.py:486-495`)は、WOT行の sim/stock 比をすべての負荷に適用し、stock の負荷形状をコピーすることで部分負荷を**捏造している** -- したがって基盤には、シムの rpm ごとのプロファイル p(load)=VE(load)/VE(WOT) が stock のそれと一致することが必要である。列ごとのビュー(クリーンな rpm):
 ```
  rpm   load: p_stock p_sim  dP
  3900   65:   0.97   0.69  -0.28     45: 0.91 0.68 -0.23   (sim part-load too STEEP)
@@ -2756,9 +1461,8 @@ view (clean rpms):
  pedal-20 sits ~-0.15 at most rpm (the modest residual the throttle still owns)
 ```
 
-### ③ DECISIVE TEST: at mid-load the throttle is NOT the lever — breathing/VANOS is
-At AGAIN=3.2 the pedal-0.65 sigma is already ~0.91 (nearly wide open), yet 3900/65 VE is
-0.69 of WOT. Swept sigma at the fixed 3900/65 cell (`diag_midload_throttle.sh`):
+### ③ 決定的なテスト: 中負荷ではスロットルはレバーでは**ない** -- 呼吸/VANOS がレバーである
+AGAIN=3.2 では、ペダル 0.65 の sigma は既に ~0.91(ほぼ全開)であるにもかかわらず、3900/65 の VE は WOT の 0.69 にすぎない。固定された 3900/65 セルで sigma をスイープした(`diag_midload_throttle.sh`):
 ```
  AGAIN  sigma@p0.65   VE    p=VE/WOT(126)   note
  1.0    0.283         88.0   0.70           valid=0 (cyl-2 collapse present)
@@ -2767,114 +1471,65 @@ At AGAIN=3.2 the pedal-0.65 sigma is already ~0.91 (nearly wide open), yet 3900/
  6.0    0.96 (open)   99.7   0.79           valid=1, cyc27 (cleanest, no collapse)
  stock                112    0.97
 ```
-Even with the throttle WIDE OPEN (sigma 0.96), 3900/65 reaches only 0.79 of WOT vs stock's
-0.97 — removing the throttle entirely does NOT close the mid-load profile gap. The dominant
-residual (~0.18 normalised) is breathing/VANOS, i.e. the per-cell `kf_evan1/kf_avan1` cam
-schedule + the over-ram (Stage 44-47 "VANOS over-response"), NOT the throttle. (3900/65 is
-noisy because the cyl-2 collapse flips in/out across the sweep, but the wide-open ceiling at
-0.79 is the clean, decisive number.)
+スロットルを**全開**にしても(sigma 0.96)、3900/65 は stock の 0.97 に対しわずか 0.79 にしか達しない -- スロットルを完全に取り除いても、中負荷プロファイルのギャップは閉じない。支配的な残差(正規化して ~0.18)は呼吸/VANOS、すなわちセルごとの `kf_evan1/kf_avan1` カムスケジュール+過剰ラム(Stage 44-47 の「VANOS 過剰応答」)であり、スロットルでは**ない**。(3900/65 は cyl-2 崩壊がスイープ中に出たり入ったりするためノイジーだが、全開時の天井 0.79 はクリーンで決定的な数値である。)
 
-### ④ The rpm axis: WOT over-fills with rpm; 5300 column over-fills; 6300 dips (acoustic)
-Converged WOT row (re-recorded — the Stage-47 "116" was cyc-17 truncated): 3900 126, 4600
-139, 5300 127, 6300 92, 6900 128, 7300 129 (stock 116/111/110/109/106/107). Over-fills
-rise with rpm (the Stage-48② shape error) with a 6300 anti-resonance notch and a 5300
-over-resonance (eq-tube Helmholtz). OVERALL r=0.59, cmp/stock median 1.00, spread 0.48-1.28.
+### ④ rpm 軸: WOT は rpm とともに過充填する; 5300 列は過充填する; 6300 は落ち込む(音響的)
+収束した WOT 行(再記録 -- Stage-47 の「116」は cyc-17 で打ち切られていた): 3900 126、4600 139、5300 127、6300 92、6900 128、7300 129(stock 116/111/110/109/106/107)。過充填は rpm とともに上昇する(Stage-48②の形状誤差)が、6300 に逆共鳴の谷があり、5300 に過共鳴がある(均圧管ヘルムホルツ)。全体 r=0.59、cmp/stock 中央値 1.00、ばらつき 0.48-1.28。
 
-### What this means for the plan (refinement, NOT reversal)
-- sigma(pedal) calibration (Stage-50 Step 2 infra: `OPENWAM_THR_SIGMA_BP`, default
-  byte-identical) is still worth baking — it makes the validated low-pedal metering the
-  permanent default and owns the ~-0.15 pedal-20 residual. But its REACH is the low-pedal
-  region; it cannot complete the mid-load profile.
-- Completing the load-axis foundation across ALL loads REQUIRES pulling the deferred
-  VANOS/`base(rpm,load)` + acoustic lever FORWARD: the mid/high-load profile is set by the
-  per-cell cam schedule and the runner/eq-tube resonance, exactly the Stage 44-48 levers
-  (`OPENWAM_VANOS_SCALE`, `EXVANOS_BASE(rpm,load)` replacing the 150 constant at
-  `simulation_service.py:107-109`, `RUNNER_SC`, `CAM_EXP`, `EQ_FRIC/_MISTUNE`).
-- Net: throttle work (this session) = low-pedal axis DONE. Whole-map shape-following =
-  next, and it is a VANOS-sensitivity + acoustic-tuning problem, re-anchored to the
-  converged WOT row recorded here.
+### これが計画にとって意味すること(見直しであり、撤回ではない)
+- sigma(pedal) 較正(Stage-50 ステップ2 のインフラ: `OPENWAM_THR_SIGMA_BP`、デフォルトはバイト同一)は依然として焼き込む価値がある -- それは検証済みの低ペダル計量を永続的なデフォルトにし、~-0.15 のペダル20残差を引き受ける。しかしその**届く範囲**は低ペダル領域であり、中負荷プロファイルを完成させることはできない。
+- **すべての**負荷にわたって負荷軸の基盤を完成させるには、先送りにしていた VANOS/`base(rpm,load)`+音響レバーを**前倒しする**必要がある: 中/高負荷プロファイルはセルごとのカムスケジュールとランナー/均圧管共鳴によって決まる。まさに Stage 44-48 のレバー(`OPENWAM_VANOS_SCALE`、`simulation_service.py:107-109` の定数150を置き換える `EXVANOS_BASE(rpm,load)`、`RUNNER_SC`、`CAM_EXP`、`EQ_FRIC/_MISTUNE`)である。
+- 総括: スロットル作業(本セッション)= 低ペダル軸は**完了**。マップ全体の形状追従は**次**であり、それはここで記録された収束済み WOT 行に再アンカーされた、VANOS感度+音響チューニングの問題である。
 
-### Code landed this session (gated, default-safe)
-- `TCCPerdidadePresion.cpp`: compressible/choked-orifice BC (`OPENWAM_THR_CHOKE`, default OFF).
-- `wam_generator.py`: `OPENWAM_THR_SIGMA_BP` pedal→sigma override (re-maps operating angle
-  only; default geometric = byte-identical; WOT→90° preserved).
-- `simulation_service.py`: CSL path passes `OPENWAM_THR_CHOKE=1` to the sim subprocess.
-- `ve_shape_report.py`: per-rpm-column load-profile metric. Scripts: `shape_map_campaign.sh`,
-  `shape_patch_underconverged.py`, `merge_shape_csv.py`, `diag_midload_throttle.sh`.
+### 本セッションで着地したコード(ゲート付き、デフォルト安全)
+- `TCCPerdidadePresion.cpp`: 圧縮性/チョークオリフィス境界条件(`OPENWAM_THR_CHOKE`、デフォルト OFF)。
+- `wam_generator.py`: `OPENWAM_THR_SIGMA_BP` ペダル→sigma 上書き(動作角のみを再マップする; デフォルトは幾何学的=バイト同一; WOT→90°は保持)。
+- `simulation_service.py`: CSL 経路はシムのサブプロセスに `OPENWAM_THR_CHOKE=1` を渡す。
+- `ve_shape_report.py`: rpm 列ごとの負荷プロファイル指標。スクリプト: `shape_map_campaign.sh`、`shape_patch_underconverged.py`、`merge_shape_csv.py`、`diag_midload_throttle.sh`。
 
-## Stage 51 — the Stage-50 "mid-load deficit" was a CONVERGENCE/init-MAP artifact; mid-load actually tracks; the real target is the WOT-row VANOS over-fill
+## Stage 51 — Stage-50 の「中負荷不足」は**収束/初期マップのアーティファクト**であった; 中負荷は実際には追従しており、真のターゲットは WOT行の VANOS 過充填である
 
-User directed "diagnose the VANOS over-response root cause first." Setting that up overturned
-the Stage-50 reading.
+ユーザーは「まず VANOS 過剰応答の根本原因を診断せよ」と指示した。それを準備する過程で Stage-50 の読みが覆った。
 
-### ① The init-MAP / convergence confound (root of the false "breathing limit")
-`wam_generator.py` (~569-576) initialises the intake manifold pressure from the GEOMETRIC
-pedal cd (`intake_map_bar = 1.013·min(1,cd_geom^0.35)`; load-65 → ~0.65 bar). But the choke
-BC opens the throttle to `sigma = cd_geom·OPENWAM_THR_AGAIN` (AGAIN=3.2 → sigma 0.91 ≈ open).
-So an AGAIN-opened part-load cell STARTS the manifold at 0.65 bar while its steady state wants
-~1.0 — and crawls up for >30 cycles. The Stage-50 "3900/65 wide-open = 0.79 of WOT" was that
-crawl caught mid-transient (still +1.0/cyc at cyc27).
+### ① 初期マップ/収束の混同(誤った「呼吸の限界」の根本原因)
+`wam_generator.py`(~569-576)は、吸気マニホールド圧力を**幾何学的な**ペダル cd から初期化する(`intake_map_bar = 1.013・min(1,cd_geom^0.35)`; 負荷65 → ~0.65 bar)。しかしチョーク境界条件はスロットルを `sigma = cd_geom・OPENWAM_THR_AGAIN`(AGAIN=3.2 → sigma 0.91 ≈ ほぼ開)まで開く。したがって AGAIN で開かれた部分負荷セルは、その定常状態が ~1.0 を求めているにもかかわらず、マニホールドを 0.65 bar で**開始**し -- そして30サイクル以上かけてゆっくり這い上がる。Stage-50 の「3900/65 全開 = WOT の 0.79」は、その過渡途中で捕まえた這い上がりであった(cyc27 でまだ +1.0/cyc)。
 
-### ② Converged cells tell the opposite story: mid-load TRACKS
-Slope scan of the 32-cell `/tmp` logs (|dVE/dcyc| over last 5 cyc): the only CLIMBING cells
-were 3900/45, 3900/65 and the low-rpm 2100/2700 columns (cyc<28). The fully-converged 6900
-column (all cyc29, plateau) normalised to its WOT:
+### ② 収束したセルは逆の話を語る: 中負荷は**追従する**
+32セルの `/tmp` ログのスロープ・スキャン(直近5サイクルの |dVE/dcyc|): **上昇中**だったセルは 3900/45、3900/65、そして低rpmの2100/2700列(cyc<28)のみであった。完全に収束した 6900列(すべて cyc29、プラトー)をその WOT で正規化すると:
 ```
  6900  load: p_sim  p_stock
         65:  1.01    0.95     (mid-load slightly OVER, not under)
         45:  0.90    0.87
         20:  0.51    0.66     (the real residual is at LOW load)
 ```
-5300 and 7300 converged columns agree: mid-load (45/65) tracks; the residual is load-20
-(slightly under) and the WOT over-fill. So there is NO mid-load breathing deficit.
+5300 と 7300 の収束済み列も一致する: 中負荷(45/65)は追従する; 残差は負荷20(わずかに不足)と WOT の過充填である。したがって中負荷の呼吸不足は**存在しない**。
 
-### ③ VANOS is ~constant from load 45→100 — so mid-load is not a VANOS-variation effect
-Map values (bias = 130-evan / 150-avan):
+### ③ VANOS は負荷45→100でほぼ**一定**である -- したがって中負荷は VANOS 変動効果ではない
+マップの値(バイアス = 130-evan / 150-avan):
 ```
         intake bias (load 20/45/65/100)     exhaust bias
  3900    35 / 52 / 60 / 60                   57 / 63 / 63 / 63
  5300    35 / 42 / 42 / 42                   52 / 45 / 45 / 45
  6900   ~19 (varies little 45-100)          ~39 (varies little 45-100)
 ```
-The cam phase only moves at load-20 and below. Mid-load runs WOT-like cams. So the WOT-row
-behaviour IS the part-load (≥45) behaviour, and the diagnosis target is the WOT row.
+カム位相は負荷20以下でのみ動く。中負荷は WOT のようなカムで動作する。したがって WOT行の挙動が**そのまま**部分負荷(≥45)の挙動であり、診断すべき対象は WOT行である。
 
-### ④ The real target: WOT-row over-fill rising with rpm = the "VANOS over-response"
-Converged WOT row: 3900 126, 4600 139, 5300 127, 6300 92, 6900 128, 7300 129 (stock
-116/111/110/109/106/107) → 1.09-1.28x, rising with rpm, with a 6300 anti-resonance notch.
-This is the Stage-44/47 over-response (sim VE responds too strongly / mis-phased to cam
-advance). Stage 47 coordinated the exhaust cam and fixed the gross WOT over-ram; the residual
-rpm-rising over-fill is what remains to diagnose (Step 2: dVE/d-bias at WOT, converged).
+### ④ 本当のターゲット: rpm とともに上昇する WOT行の過充填 = 「VANOS 過剰応答」
+収束した WOT行: 3900 126、4600 139、5300 127、6300 92、6900 128、7300 129(stock 116/111/110/109/106/107)→ 1.09-1.28倍、rpm とともに上昇し、6300に逆共鳴の谷がある。これは Stage-44/47 の過剰応答である(シムの VE がカム進角に対して強すぎる/位相ずれで応答する)。Stage 47 は排気カムを協調させ、大まかな WOT 過剰ラムを修正した; 残る rpm とともに上昇する過充填が、診断すべき残りのものである(ステップ2: 収束状態での WOT における dVE/d-bias)。
 
-### ⑤ FIX landed: init MAP from the EFFECTIVE sigma (speeds convergence, removes the artifact)
-`wam_generator.py`: when `OPENWAM_THR_CHOKE` active, `intake_map_bar` is computed from
-`eff_cd0 = min(cd_geom·AGAIN, ceil)` (incl. the calibrated sigma curve), not the geometric
-cd. Verified: load-65 init MAP 0.65→0.98 at AGAIN=3.2; choke-off path byte-identical. With
-the fix, 3900/65 wide-open starts ~104 (cyc1 inrush 135 → settles) and climbs to ~122+ by
-cyc21 heading to WOT — vs the old crawl from 65. The artifact is confirmed and removed.
+### ⑤ 修正が着地: 初期MAPを**実効**sigma から計算する(収束を速め、アーティファクトを除去する)
+`wam_generator.py`: `OPENWAM_THR_CHOKE` が有効な場合、`intake_map_bar` は幾何学的 cd ではなく `eff_cd0 = min(cd_geom・AGAIN, ceil)`(較正済み sigma カーブを含む)から計算される。検証済み: 負荷65の初期MAPは AGAIN=3.2 で 0.65→0.98 になる; チョークOFF経路はバイト同一。修正により、3900/65 全開は ~104 から開始し(cyc1 の急流入135 → 落ち着く)、cyc21までに ~122+ まで上昇し WOT へ向かう -- 65 からの旧来の這い上がりに対して。アーティファクトは確認され、除去された。
 
-### Method rule going forward
-Judge convergence by SLOPE (|dVE/dcyc|<~0.3 over last 5 cyc), never by cycle count. Do not
-draw physics conclusions from climbing cells (the Stage-50 lesson). Tools: `ve_shape_report.py`
-(slope), `vanos_sensitivity_sweep.py` (Step 2 WOT bias sweeps), `shape_patch_underconverged.py`.
+### 今後のための方法論のルール
+収束は**サイクル数ではなく**必ず**スロープ**(直近5サイクルの |dVE/dcyc|<~0.3)で判断すること。上昇中のセルから物理的な結論を導かないこと(Stage-50 の教訓)。ツール: `ve_shape_report.py`(スロープ)、`vanos_sensitivity_sweep.py`(ステップ2の WOT バイアススイープ)、`shape_patch_underconverged.py`。
 
-## Stage 52 — VANOS over-response CONFIRMED at WOT (converged); and a metric caveat (the VEDIAG fresh%/Mair fields are broken, Mtrap is valid)
+## Stage 52 — VANOS 過剰応答は WOT で(収束状態にて)確認された; そして指標に関する注意点(VEDIAG の fresh%/Mair フィールドは壊れている、Mtrap は有効)
 
-### ⚠ Metric caveat (resolved): use Mtrap, the fresh%/Mair VEDIAG fields are unreliable
-While setting up the WOT VANOS sweep the VEDIAG `fresh%`/`Mair` fields looked alarming
-(3900/100: Mtrap-VE 126 but fresh 2%, Mair-VE 3%; 4600/45: fresh -2%; a Step-2 cell: -64%).
-Taken at face value that would mean the cylinders trap ~80-98% residual and the project's
-Mtrap-VE is meaningless. It is NOT: the trapped TEMPERATURE refutes it. WOT cells trap at
-362-406 K; a charge that was 80-98% hot residual would be 600-900 K. A 375 K charge is
-predominantly FRESH air. The `fresh%`/`Mair` fields (FComposicionCicloCerrado[2] =
-FFraccionMasicaEspecie[0]/atm_air, TCilindro.cpp:2245) are numerically broken for this deck
-(negative fractions are impossible), so IGNORE them. VE = Mtrap/M_REF remains the valid
-metric (corroborated by the cool trapped temperature). [Flagged so a future session doesn't
-re-trip on this and "fix" a non-problem.]
+### ⚠ 指標に関する注意点(解決済み): Mtrap を使うこと、fresh%/Mair の VEDIAG フィールドは信頼できない
+WOT VANOS スイープを準備している最中、VEDIAG の `fresh%`/`Mair` フィールドが警戒すべき値を示していた(3900/100: Mtrap-VE 126 だが fresh 2%、Mair-VE 3%; 4600/45: fresh -2%; あるステップ2のセル: -64%)。額面どおり受け取れば、気筒は ~80-98% の残留ガスをトラップしていることになり、本プロジェクトの Mtrap-VE は無意味ということになる。しかしそうでは**ない**: トラップされた**温度**がそれを反証する。WOT セルは 362-406 K でトラップされている; 80-98% が高温残留ガスである充填ガスなら 600-900 K のはずである。375 K の充填ガスは主に**新気**である。`fresh%`/`Mair` フィールド(FComposicionCicloCerrado[2] = FFraccionMasicaEspecie[0]/atm_air、TCilindro.cpp:2245)は、このデッキに対して数値的に壊れている(負の割合はありえない)ため、**無視すること**。VE = Mtrap/M_REF が有効な指標のままである(冷たいトラップ温度によって裏付けられる)。[将来のセッションがこれに再びつまずいて非問題を「修正」しないようフラグを立てておく。]
 
-### VANOS over-response is REAL and steep at WOT (3900, converged, choke on, init-MAP fixed)
-Intake-bias sweep at 3900 WOT, exhaust held at the stock-coordinated bias 63
-(`vanos_sensitivity_sweep.py`, slope-converged):
+### VANOS 過剰応答は WOT で(収束状態、チョークON、初期MAP修正済み)本物であり急峻である(3900)
+3900 WOT での吸気バイアススイープ、排気は stock 協調バイアス 63 に固定(`vanos_sensitivity_sweep.py`、スロープ収束済み):
 ```
  b_in  IVO   overlap(2+bi-bex)  VE(Mtrap)  Ttrap  slope
  0     332    -61               72.4       441K   -0.11   (very late intake, warm = poor fill)
@@ -2882,212 +1537,106 @@ Intake-bias sweep at 3900 WOT, exhaust held at the stock-coordinated bias 63
  40    292    -21               88.2       ~      +0.10
  60    272     -1              126.0       378K   ~conv   (cool, strong fill)
 ```
-dVE/d(intake advance): 0->20 +10.2, 20->40 +5.6, 40->60 **+37.8** pp. The response is
-concave-UP -- a sharp, nonlinear jump in the last 20deg of advance (1.9 pp/deg), with the
-charge cooling 441->378 K. Real engines see ~10-20 pp TOTAL from cam phasing; here it is
-+54 pp over 60deg with +38 in the last 20. This reproduces Stage-44's "+53 pp for +42deg"
-under PROPER convergence -- so the over-response is physics in the model, not a transient.
+dVE/d(吸気進角): 0->20 +10.2、20->40 +5.6、40->60 **+37.8** ポイント。応答は上に凸である -- 進角の最後の20度で急激な非線形ジャンプが起きる(1.9 ポイント/度)、充填ガスは441->378 Kに冷却される。実エンジンでは、カム位相全体で**合計** ~10-20 ポイントしか動かない; ここでは60度で+54ポイント、そのうち最後の20度だけで+38である。これは、Stage-44 の「+42度で+53ポイント」を**正しい収束のもとで**再現している -- したがって過剰応答は過渡現象ではなく、モデル内の物理現象である。
 
-### Working hypothesis for the root cause
-The jump concentrates at high advance (earlier IVO) and coincides with the charge cooling
-(better fill), i.e. an OVER-STRONG intake ram: once IVO is early enough to catch the ram
-pulse, the (too-resonant) intake delivers an exaggerated charge. This points to the intake
-runner acoustic tuning (Q too high / length mis-tuned), testable with `OPENWAM_RUNNER_SC`
-(Step 3) -- detuning should flatten dVE/d-advance toward the physical ~10-20 pp. The 5300
-column (in progress) will show if it is worse at the resonance rpm.
+### 根本原因についての作業仮説
+このジャンプは大進角(早いIVO)に集中しており、充填ガスの冷却(充填の向上)と一致する、すなわち**過強な吸気ラム**である: IVO がラムパルスを捉えるのに十分早いところまでいくと、(過共鳴の)吸気は誇張された充填を届ける。これは吸気ランナーの音響チューニング(Qが高すぎる/長さのミスチューン)を指し示しており、`OPENWAM_RUNNER_SC`(ステップ3)で検証可能である -- デチューニングは dVE/d-advance を物理的な ~10-20 ポイントへ向けて平坦化するはずである。5300列(進行中)は、共鳴 rpm でより悪いかどうかを示すだろう。
 
-## Stage 53 — ROOT CAUSE CONFIRMED: the VANOS over-response is the intake-runner RAM RESONANCE (runner length controls dVE/d-advance, even its sign)
+## Stage 53 — 根本原因確認: VANOS 過剰応答は吸気ランナーの**ラム共鳴**である(ランナー長が dVE/d-advance を、その符号すら制御する)
 
-Step-3 test (`ram_overresponse_test.py`, `ram_overresponse_3900.csv`): 3900 WOT, exhaust bias
-held at the stock-coordinated 63, intake bias {40,60}, runner length OPENWAM_RUNNER_SC
-{0.8,1.0,1.2}; all slope-converged (|slope|<=0.31, cyc38-39), choke + init-MAP fix on.
+ステップ3のテスト(`ram_overresponse_test.py`、`ram_overresponse_3900.csv`): 3900 WOT、排気バイアスは stock 協調の63に固定、吸気バイアス{40,60}、ランナー長 OPENWAM_RUNNER_SC {0.8,1.0,1.2}; すべてスロープ収束済み(|slope|<=0.31、cyc38-39)、チョーク+初期MAP修正ON。
 ```
  RUNNER_SC   VE(b_in40)  VE(b_in60)   over-response d = VE60-VE40
  0.8 (short)   98.3        90.0          -8.3   (peak sits on bias40)
  1.0 (stock)   87.6       128.3         +40.7   (bias40 in a TROUGH, bias60 on the PEAK)
  1.2 (long)   128.1       132.9          +4.8   (both near the peak -> ~flat, physical)
 ```
-The VE surface over (runner length x cam advance) is a sharp resonance RIDGE: high VE
-(~128-133) when runner length + IVO put the intake ram pulse in phase at IVC, low VE
-(~88-98) off-resonance. At the STOCK runner length the operating cam range straddles the
-ridge edge -- bias40 in the trough (88), bias60 on the peak (128) -- so dVE/d-advance is
-huge (+41 pp), i.e. THE OVER-RESPONSE. A 20% runner-length change flips its sign (-8) or
-flattens it to physical (+5). 
+(ランナー長 × カム進角)にわたる VE 曲面は、鋭い共鳴の**尾根**である: ランナー長と IVO が吸気ラムパルスを IVC で同位相にすると高VE(~128-133)、共鳴から外れると低VE(~88-98)になる。**stock のランナー長**では、運転中のカム範囲がその尾根の縁をまたいでいる -- バイアス40は谷にあり(88)、バイアス60はピーク上にある(128) -- したがって dVE/d-advance は巨大である(+41ポイント)、すなわちこれが**過剰応答**である。20%のランナー長変更で、その符号が反転する(-8)か、物理的な値まで平坦化する(+5)。
 
-### Conclusion (answers the user's "diagnose the VANOS over-response root cause")
-The over-response is NOT a VANOS-model error and NOT a throttle/convergence artifact -- it is
-the intake-runner RAM RESONANCE being too sharply peaked across the operating cam range. The
-runner geometry in the deck is an explicit PLACEHOLDER (wam_generator.py ~624-633: "Geometry
-is a placeholder"; 150 mm bellmouth + 15/25 mm runners + 105 mm port, scaled by RUNNER_SC),
-so its ram-resonance rpm is mis-tuned vs the real S54. That mis-tuned, over-sharp resonance
-is what makes (a) the sim over-respond to cam advance (Stage 44/52) and (b) the WOT row
-over-fill non-monotonically with rpm (5300 peak / 6300 dip, Stage 50).
+### 結論(ユーザーの「VANOS過剰応答の根本原因を診断せよ」への回答)
+過剰応答は VANOS モデルの誤りでも、スロットル/収束のアーティファクトでも**ない** -- 運転カム範囲にわたって吸気ランナーの**ラム共鳴**が鋭すぎることが原因である。デッキ内のランナージオメトリは明示的な**プレースホルダー**である(wam_generator.py ~624-633: "Geometry is a placeholder"; 150 mm ベルマウス+15/25 mm ランナー+105 mm ポート、RUNNER_SC でスケール)、したがってそのラム共鳴 rpm は実際の S54 に対してミスチューンされている。そのミスチューンされ、過度に鋭い共鳴こそが、(a)シムがカム進角に過剰応答する(Stage 44/52)、および (b) WOT行が rpm に対して非単調に過充填する(5300 ピーク/6300 谷、Stage 50)原因である。
 
-### Implication for the calibration path (next phase)
-1. The FOUNDATION fix is to calibrate the intake runner GEOMETRY to the real S54 (actual
-   per-cylinder runner lengths + plenum), so the ram resonance sits at the right rpm with a
-   realistic (broader) Q. This is the dominant lever for BOTH the VANOS-response fidelity and
-   the rpm VE-shape -- it must precede any base(rpm,load) fit (fitting base on a mis-tuned
-   ram chases false optima, the Stage-44 warning).
-2. RUNNER_SC is the coarse lever already available; a per-segment runner-length model (and
-   possibly a small Q/damping knob) is the production calibration. Validate by re-running the
-   WOT VANOS sweep (Step 2) and checking dVE/d-advance drops to ~10-20 pp across rpm.
-3. Only then: base(rpm,load) for residual rpm offset + the sigma(pedal) low-pedal lock-in
-   (Stage 49/50 infra already in place), and the correction (calibration_service) becomes
-   physically valid.
+### 較正パス(次フェーズ)への含意
+1. **基盤**となる修正は、吸気ランナー**ジオメトリ**を実際の S54 に較正することである(実際の気筒ごとのランナー長+プレナム)。これにより、ラム共鳴が現実的な(より広い)Qを伴って正しい rpm に位置するようになる。これは VANOS応答の忠実度と rpm VE形状の**両方**にとって支配的なレバーである -- これはいかなる base(rpm,load) フィットにも先行しなければならない(ミスチューンされたラムに対して base をフィットすると偽の最適解を追いかけることになる、Stage-44 の警告)。
+2. RUNNER_SC は既に利用可能な粗いレバーである; セグメントごとのランナー長モデル(そしておそらく小さな Q/減衰ノブ)が本番較正である。WOT VANOS スイープ(ステップ2)を再実行して検証し、dVE/d-advance が rpm を通じて ~10-20 ポイントまで低下することを確認する。
+3. それが終わって初めて: 残存 rpm オフセットのための base(rpm,load)+sigma(pedal) の低ペダル固定化(Stage 49/50 のインフラは既に整っている)、そして補正(calibration_service)が物理的に妥当になる。
 
-### Status of code landed this diagnostic arc (all gated / default-safe)
-- Choke BC (OPENWAM_THR_CHOKE), sigma(pedal) override (OPENWAM_THR_SIGMA_BP), init-MAP from
-  effective sigma -- all default byte-identical to legacy when choke is off.
-- Diagnostic tools: vanos_sensitivity_sweep.py, ram_overresponse_test.py,
-  ve_shape_report.py (slope+profile), shape_patch_underconverged.py, merge_shape_csv.py.
-- The VEDIAG fresh%/Mair fields are BROKEN (Stage 52) -- use Mtrap; verify charge is fresh
-  via the cool trapped temperature.
+### この診断作業の弧全体で着地したコードの状態(すべてゲート付き/デフォルト安全)
+- チョーク境界条件(OPENWAM_THR_CHOKE)、sigma(pedal) 上書き(OPENWAM_THR_SIGMA_BP)、実効sigmaからの初期MAP -- チョークがOFFの場合、すべてデフォルトでレガシーとバイト同一。
+- 診断ツール: vanos_sensitivity_sweep.py、ram_overresponse_test.py、ve_shape_report.py(スロープ+プロファイル)、shape_patch_underconverged.py、merge_shape_csv.py。
+- VEDIAG の fresh%/Mair フィールドは**壊れている**(Stage 52) -- Mtrap を使うこと; 充填ガスが新気であることは冷たいトラップ温度を通じて検証すること。
 
-## Stage 54 — the ram resonance is structurally TOO SHARP: scalar knobs (length, damping) shift/modulate it but cannot BROADEN it to stock's curve -> intake geometry remodel needed
+## Stage 54 — ラム共鳴は構造的に**鋭すぎる**: スカラーノブ(長さ、減衰)はそれをシフト/変調できるが、stock のカーブまで**広げる**ことはできない -> 吸気ジオメトリの再設計が必要
 
-Pursued the Stage-53 fix (retune the intake ram). Two scalar levers tested at 3900 WOT
-(choke + init-MAP on, slope-converged unless noted):
+Stage-53 の修正(吸気ラムの再チューニング)を追求した。3900 WOTで2つのスカラーレバーをテストした(チョーク+初期MAP ON、特記なき限りスロープ収束):
 
-### Length (OPENWAM_RUNNER_SC) — shifts the peak SHARPLY (runner_tune_wot_partial.csv)
-3900 WOT VE: SC=1.0 -> 126, SC=1.2 -> ~132, SC=1.3 -> ~97 (climbing). A 0.1 length step swings
-VE 132->97: the resonance is so sharp that length moves the peak past 3900 almost
-discontinuously. (2700/3900 at SC=1.3 were also slow to converge -- longer runner = longer
-fill transient.) Length relocates the sharp peak; it does not broaden it.
+### 長さ(OPENWAM_RUNNER_SC) -- ピークを**急激に**シフトさせる(runner_tune_wot_partial.csv)
+3900 WOT VE: SC=1.0 -> 126、SC=1.2 -> ~132、SC=1.3 -> ~97(上昇中)。0.1の長さステップでVEが132->97に振れる: 共鳴はあまりに鋭く、長さがピークをほとんど不連続に3900を通り過ぎて動かしてしまう。(SC=1.3 では2700/3900も収束が遅かった -- ランナーが長いほど充填過渡が長い。)長さは鋭いピークを移動させるだけであり、それを広げることはない。
 
-### Damping (OPENWAM_RUNNER_FRIC_MULT) — modulates, with a flow-choke penalty; d OSCILLATES
-Over-response d = VE(bias60) - VE(bias40), 3900 WOT (fric_overresponse_3900.csv):
+### 減衰(OPENWAM_RUNNER_FRIC_MULT) -- 変調するが流路チョークのペナルティを伴う; dは**振動する**
+過剰応答 d = VE(bias60) - VE(bias40)、3900 WOT(fric_overresponse_3900.csv):
 ```
  fric_mult   VE(b40)   VE(b60)    d        note
  1.0          88.7      128.3    +39.6     baseline over-response
  2.0         120.3       90.7    -29.6     trough filled at b40, peak moved off b60
  4.0          77.2*     128.5    +51.3     *b40 under-converged (slope .88); high fric chokes flow
 ```
-d does NOT trend to zero -- it OSCILLATES (+40 / -30 / +51) because friction adds phase lag
-that shifts the sharp resonance (like length) rather than broadening it, and at high values it
-adds real pressure LOSS that chokes fill (b40 77 at fric 4). d DOES cross zero near fric~1.4,
-so a scalar can flatten ONE rpm's over-response -- but not all rpm at once (the resonance moves
-with rpm), and not by genuine broadening.
+d はゼロに収束せず、**振動する**(+40 / -30 / +51)。摩擦は(長さと同様に)位相遅れを加えて鋭い共鳴をシフトさせるだけで、それを広げるわけではないためであり、高い値では流れをチョークする実際の圧力**損失**を加えてしまう(fric 4 で b40 は 77)。d は fric~1.4 付近でゼロを横切る**ので**、スカラーは**1つの** rpm の過剰応答を平坦化できる -- しかしすべての rpm を同時にではなく(共鳴は rpm とともに動く)、また真の広帯域化によってでもない。
 
-### Conclusion (honest)
-The VANOS over-response and the peaky WOT VE-shape are the SAME pathology: the modelled intake
-ram resonance is structurally too sharp (high Q) and mis-tuned vs the real S54's broad, gentle
-curve (WOT VE 104-116, peak 3900). The Q is a property of the PLACEHOLDER intake topology --
-uniform phi52 runners, the central-plenum eq-tube coupling (Stage 38-39), the Type-12 junction
-structure -- not of any one scalar. So:
-- Scalar knobs (RUNNER_SC, RUNNER_FRIC_MULT) can place/flatten the resonance at a single
-  operating point but CANNOT reproduce stock's broad curve across rpm. Do not "calibrate" with
-  them -- it would just move the error around (the Stage-44 false-optimum trap, now quantified).
-- The real fix is an intake GEOMETRY REMODEL to realistic S54 acoustics: physical per-cylinder
-  runner length+diameter (ITBs close to the head -> short runners), a proper airbox/plenum
-  volume, and a balance-tube model that does not Helmholtz-resonate (Stage-39 item). That sets
-  the resonance rpm AND a realistic (broad) Q. This is a geometry/topology change, not a knob
-  sweep, and it needs FAST iteration (each WOT cell is 10-15 min here and reboots) -- best done
-  where runs are cheap, then validated here.
+### 結論(正直に)
+VANOS過剰応答とピーキーな WOT VE形状は**同じ病理**である: モデル化された吸気ラム共鳴は構造的に鋭すぎ(高Q)、実際の S54 の広く緩やかなカーブ(WOT VE 104-116、ピーク3900)に対してミスチューンされている。この Q は**プレースホルダー**の吸気トポロジーの特性である -- 一様な phi52 ランナー、中央プレナムの均圧管結合(Stage 38-39)、Type-12 ジャンクション構造 -- であって、どれか1つのスカラーの問題ではない。したがって:
+- スカラーノブ(RUNNER_SC、RUNNER_FRIC_MULT)は単一の運転点で共鳴を配置/平坦化できるが、rpm全体にわたって stock の広いカーブを再現することは**できない**。それらで「較正」しないこと -- それは単に誤差を動かすだけである(Stage-44 の偽最適の罠、今や定量化された)。
+- 本当の修正は、現実的な S54 音響への吸気**ジオメトリの再設計**である: 物理的な気筒ごとのランナー長+直径(ヘッドに近い ITB -> 短いランナー)、適切なエアボックス/プレナム容積、そしてヘルムホルツ共鳴しないバランスチューブモデル(Stage-39項目)。これによって共鳴 rpm と現実的な(広い)Qの両方が定まる。これはノブスイープではなくジオメトリ/トポロジーの変更であり、高速な反復が必要である(ここでは WOTセル1つが10-15分かかり、再起動もある) -- 実行が安価な場所で行い、ここで検証するのが最善である。
 
-### What is solid and reusable now
-- Root cause proven (Stage 53) + the two levers characterised (this stage).
-- Code (all gated/default-safe): choke BC, sigma(pedal) infra, init-MAP-from-effective-sigma,
-  OPENWAM_RUNNER_FRIC_MULT. Diagnostic tooling: vanos_sensitivity_sweep.py,
-  ram_overresponse_test.py, fric_overresponse_test.py, runner_tune_wot.py, ve_shape_report.py
-  (slope+profile). Data CSVs committed.
-- Metric rule: use Mtrap (cool Ttrap = fresh charge); the VEDIAG fresh%/Mair fields are broken.
-- Convergence rule: judge by slope (|dVE/dcyc|<~0.3), never cycle count.
+### 今、確固たるものとして再利用可能なもの
+- 根本原因は証明済み(Stage 53)+2つのレバーの特性は把握済み(本ステージ)。
+- コード(すべてゲート付き/デフォルト安全): チョーク境界条件、sigma(pedal) インフラ、実効sigmaからの初期MAP、OPENWAM_RUNNER_FRIC_MULT。診断ツール: vanos_sensitivity_sweep.py、ram_overresponse_test.py、fric_overresponse_test.py、runner_tune_wot.py、ve_shape_report.py(スロープ+プロファイル)。データCSVはコミット済み。
+- 指標のルール: Mtrap を使うこと(冷たいTtrap=新気の充填); VEDIAG の fresh%/Mairフィールドは壊れている。
+- 収束のルール: サイクル数ではなく**スロープ**(|dVE/dcyc|<~0.3)で判断すること。
 
-## Stage 55 — topology probe: the sharp resonance is ROBUST to eq-tube topology (it just MOVES); + a metric caveat on the intake-only over-response
+## Stage 55 — トポロジー・プローブ: 鋭い共鳴は均圧管のトポロジーに対して**頑健である**(単に移動するだけ); + 吸気単独過剰応答に関する指標の注意点
 
-Probed which intake element sets the resonance Q by measuring the over-response
-d = VE(bias60) - VE(bias40) at 3900 WOT for three existing topologies (topo_probe_3900.csv,
-all slope-converged, choke+init-MAP on):
+3つの既存トポロジーについて、3900 WOTでの過剰応答 d = VE(bias60) - VE(bias40) を測定することで、どの吸気要素が共鳴Qを決めているかをプローブした(topo_probe_3900.csv、すべてスロープ収束済み、チョーク+初期MAP ON):
 ```
  config     VE(b40)  VE(b60)   d        (overlap b40=-21, b60=-1)
  base        88.7     128.3   +39.6     central-plenum eq-tube (current)
  eqchain     83.6     130.1   +46.5     continuous balance tube
  noeqtube   124.7      88.4   -36.3     eq-tube removed -> peak JUMPS to b40
 ```
-Every topology change just MOVES the sharp peak between b40 and b60; |d| stays ~36-47. So the
-sharpness is NOT created by the eq-tube (cross-coupling or central cavity) -- like RUNNER_SC
-(Stage 53) and RUNNER_FRIC_MULT (Stage 54), changing it only relocates the peak. The high-Q
-resonance is intrinsic to the intake organ-pipe + valve dynamics, robust to every scalar and
-topology lever available. No geometry knob BROADENS it.
+どのトポロジー変更も、鋭いピークを b40 と b60 の間で**移動させるだけ**である; |d| は ~36-47 のままである。したがってこの鋭さは均圧管(クロスカップリングや中央キャビティ)によって作られているのでは**ない** -- RUNNER_SC(Stage 53)や RUNNER_FRIC_MULT(Stage 54)と同様、それを変えてもピークを移動させるだけである。この高Q共鳴は吸気オルガンパイプ+バルブダイナミクスに固有のものであり、利用可能なあらゆるスカラーとトポロジーのレバーに対して頑健である。ジオメトリノブでそれを**広げる**ものは存在しない。
 
-### ⚠ Metric caveat (important, intellectual honesty): the intake-only over-response is partly an OVERLAP artifact
-The over-response sweeps (Steps 2-3, Stages 52-54) advanced the INTAKE cam while holding the
-EXHAUST at the stock-coordinated bias 63. That sweeps the OVERLAP (b40 -> -21deg, b60 -> -1deg)
-through near-zero -- exactly the regime where scavenging/backflow change fast. So the measured
-+40pp is intake-advance ram AND an overlap/scavenging swing, NOT the coordinated-cam response.
-In the real engine and the kf_evan1/kf_avan1 maps the cams move TOGETHER (Stage 47); the
-production VE-map runs use coordinated cams. So the intake-only |d|~40 OVERSTATES the response
-the optimiser would actually see.
+### ⚠ 指標に関する注意点(重要、誠実さのため): 吸気単独の過剰応答は部分的に**オーバーラップのアーティファクト**である
+過剰応答スイープ(ステップ2-3、Stage 52-54)は、**排気**を stock協調バイアス63に固定したまま**吸気**カムを進角させていた。これは**オーバーラップ**(b40 -> -21度、b60 -> -1度)をゼロ近傍を通じてスイープすることになる -- まさに掃気/逆流が急速に変化する領域である。したがって測定された+40ポイントは、吸気進角のラムと、オーバーラップ/掃気の振れの**両方**であり、協調カム応答**ではない**。実エンジンおよび kf_evan1/kf_avan1 マップでは、カムは**一緒に**動く(Stage 47); 本番のVEマップ実行は協調カムを使用する。したがって吸気単独の |d|~40 は、最適化ツールが実際に目にするであろう応答を**過大評価している**。
 
-### Where this leaves the remodel (honest)
-- The FOUNDATION target is the COORDINATED WOT VE-shape vs rpm (sim peaks ~4600 with a 6300
-  notch; stock is broad, peak 3900) -- that is the real, coordinated-cam manifestation of the
-  same sharp ram resonance. The intake-only over-response was a useful but overlap-contaminated
-  proxy.
-- The sharp resonance is robust to RUNNER_SC, RUNNER_FRIC_MULT, and eq-tube topology -> it is
-  NOT reachable by the current geometry scalars. Matching stock's BROAD curve needs a deeper
-  change: physically-correct intake acoustics (realistic runner L/D + a real airbox/plenum
-  termination with acoustic radiation loss), and possibly a model-level look at the
-  plenum-reflection and valve-flow coupling that sets Q. That is beyond scalar tuning and needs
-  fast iteration (each coordinated WOT cell is 10-15 min here + reboots).
-- RECOMMENDED next experiment (when fast compute is available): re-run runner_tune_wot.py
-  (COORDINATED cams, WOT, vary RUNNER_SC) to convergence across rpm and compare the VE-SHAPE
-  (not the intake-only d) to stock -- that is the clean, artifact-free calibration target.
-  Then address Q via a proper trumpet/plenum termination model if length alone can't broaden it.
+### これが再設計に残すもの(正直に)
+- **基盤**となるターゲットは、rpm に対する**協調**WOT VE形状である(シムは~4600でピークし6300に谷がある; stockは広く3900がピークである) -- それが、同じ鋭いラム共鳴の実際の、協調カムでの現れ方である。吸気単独の過剰応答は有用だが、オーバーラップに汚染された代理指標であった。
+- 鋭い共鳴は RUNNER_SC、RUNNER_FRIC_MULT、均圧管トポロジーに対して頑健である -> 現行のジオメトリ・スカラーでは**到達不可能**である。stockの**広い**カーブに一致させるには、より深い変更が必要である: 物理的に正しい吸気音響(現実的なランナー L/D+音響放射損失を伴う実際のエアボックス/プレナム終端)、そしておそらく Q を決めるプレナム反射とバルブ流結合のモデルレベルでの検討。これはスカラーチューニングを超えるものであり、高速な反復が必要である(ここでは協調WOTセル1つが10-15分+再起動)。
+- **推奨される次の実験**(高速な計算資源が利用可能になったとき): runner_tune_wot.py(**協調**カム、WOT、RUNNER_SC を変化)を rpm にわたって収束まで再実行し、VE**形状**(吸気単独の d ではない)を stock と比較する -- それがクリーンでアーティファクトのない較正ターゲットである。その後、長さだけでは広げられない場合は、適切なトランペット/プレナム終端モデルを通じて Q に対処する。
 
-### Net for this session's "proceed with the remodel (A)" attempt
-Characterised the problem definitively: the sharp ram resonance is intrinsic and robust to all
-available intake knobs/topologies; the real calibration target is the coordinated WOT VE-shape;
-and the intake-only over-response metric is overlap-contaminated. The remodel requires deeper,
-physically-grounded intake-acoustics work + fast iteration, not scalar/topology sweeps here.
+### 本セッションの「再設計 (A) を進める」試みの総括
+問題を決定的に特性評価した: 鋭いラム共鳴は固有のものであり、利用可能なすべての吸気ノブ/トポロジーに対して頑健である; 真の較正ターゲットは協調WOT VE形状である; そして吸気単独の過剰応答指標はオーバーラップに汚染されている。再設計には、ここでのスカラー/トポロジースイープではなく、より深く物理に基づいた吸気音響の作業+高速な反復が必要である。
 
-## Stage 56 — local rebuild (MSVC) + a cross-compiler attractor finding (the Q pathology, again)
+## Stage 56 — ローカル再ビルド(MSVC)+コンパイラ間のアトラクタの相違(Qの病理、再び)
 
-Resumed on the user's local PC (Intel Core Ultra 9, 16 logical cores, no reboots). Setup notes
-for reproducibility:
-- **Build**: no MinGW/gcc present; built with **MSVC (VS2022 Community 14.44) + Ninja + OpenMP
-  2.0**. The root `CMakeLists.txt` forced a windres-style `CMAKE_RC_COMPILE_OBJECT` (MinGW CLI)
-  unconditionally, which breaks MSVC's `rc.exe`; guarded it to GNU/MinGW only (MSVC uses CMake's
-  built-in RC rule). Build is clean (warnings only). Binary at `build/bin/release/OpenWAM.exe`.
-- **Scripts**: the cloud hardcoded `/home/user/...` paths and shelled out to the Unix `timeout`
-  command (Windows `timeout.exe` is an interactive countdown, incompatible). Added
-  `scripts/_local.py` (auto-detects `BIN`/`HERE`, env-overridable via `OPENWAM_BIN`; provides a
-  portable `run_capped()` wall-clock cap) and ported runner_tune_wot, vanos_sensitivity_sweep,
-  ram/fric_overresponse, topology_probe, exvanos_base_sweep. `/tmp` resolves to `C:\tmp` for
-  Windows Python, so the scripts' `/tmp/...` paths work unchanged.
-- **Perf**: ~131 CPU-s per WOT cycle per cell; OpenMP scales ~4x and saturates by ~4 threads
-  (omp4 == omp7 throughput per core). On 16 cores the run is CPU-bound, so total wall time is
-  fixed regardless of conc/omp split: a 30-cell × ~55-cyc coordinated-WOT sweep ≈ 3 h. Use
-  CONC=4 × OMP=4 for full saturation + reasonable per-cell turnaround (`scripts/par_sweep_wot.py`,
-  new: generates all decks sequentially — deck-gen mutates os.environ — then runs cells in a
-  thread pool; resumable; prints the peak-normalised VE-shape report).
+ユーザーのローカルPC(Intel Core Ultra 9、論理16コア、再起動なし)で再開した。再現性のためのセットアップ注記:
+- **ビルド**: MinGW/gcc は存在せず、**MSVC(VS2022 Community 14.44)+ Ninja + OpenMP 2.0** でビルドした。ルートの `CMakeLists.txt` は、無条件に windres 形式の `CMAKE_RC_COMPILE_OBJECT`(MinGW CLI)を強制していたが、これは MSVC の `rc.exe` を壊す; GNU/MinGW のみに限定するようガードした(MSVC は CMake 組み込みの RC ルールを使用する)。ビルドはクリーン(警告のみ)。バイナリは `build/bin/release/OpenWAM.exe`。
+- **スクリプト**: クラウド環境は `/home/user/...` パスをハードコードし、Unix の `timeout` コマンドをシェルアウトしていた(Windows の `timeout.exe` は対話的なカウントダウンであり非互換)。`scripts/_local.py`(`BIN`/`HERE` を自動検出、`OPENWAM_BIN` で env 上書き可能; 移植可能な `run_capped()` 壁時計上限を提供)を追加し、runner_tune_wot、vanos_sensitivity_sweep、ram/fric_overresponse、topology_probe、exvanos_base_sweep を移植した。Windows Python では `/tmp` が `C:\tmp` に解決されるため、スクリプトの `/tmp/...` パスは変更なしで動作する。
+- **性能**: WOTの1サイクル・1セルあたり ~131 CPU秒; OpenMP は ~4倍にスケールし、~4スレッドで飽和する(omp4 == omp7 のコアあたりスループット)。16コアでは実行がCPU律速であるため、conc/omp の分割にかかわらず総壁時計時間は一定である: 30セル × ~55サイクルの協調WOTスイープは ≈3時間。CONC=4 × OMP=4 で完全飽和+妥当なセルあたりターンアラウンドを実現する(`scripts/par_sweep_wot.py`、新規: すべてのデッキを逐次生成し(デッキ生成は os.environ を変更するため)、その後スレッドプールでセルを実行する; 再開可能; ピーク正規化 VE 形状レポートを出力する)。
 
-### ⚠ Cross-compiler attractor sensitivity (use OUR build's own baseline, do NOT reuse cloud absolutes)
-Re-ran two cloud-anchored cells (coordinated WOT, sc=1.3) to compare the MSVC build against the
-cloud gcc numbers in `runner_tune_wot_partial.csv`:
+### ⚠ コンパイラ間のアトラクタ感度(**我々のビルド自身**のベースラインを使うこと、クラウドの絶対値を再利用しないこと)
+`runner_tune_wot_partial.csv` にあるクラウド gcc の数値と比較するため、クラウドを基準とする2セル(協調WOT、sc=1.3)を再実行した:
 ```
  cell          MSVC (this build)        cloud gcc
  3900 sc1.3    90.8  (cyc41, slope+0.33)   97.3  (cyc35, slope+0.82)
  2700 sc1.3    87.6  (cyc29, slope+1.32)   93.8  (cyc31, slope+0.58)
 ```
-The MSVC build converges ~5-7% LOWER. This is NOT a build bug — it is the SAME high-Q pathology
-(Stage 49 ⑥: "a ~100 Pa loss change flips VE by 30 pts"; Stage 53: "0.1 runner length swings
-132→100"). A sharp resonance is acutely sensitive to tiny FP-rounding differences between
-compilers/math libs, so the two builds land on slightly different attractors. Consequences:
-- For SHAPE analysis (peak rpm, notch presence) a roughly-uniform offset is harmless — the
-  conclusions hold. The remodel target (broaden the coordinated WOT curve) is unaffected.
-- But the **absolute VE values are build-specific**: re-establish every gate/anchor on THIS
-  build (e.g. the "3900/100 ~122-126" regression attractor was a cloud-gcc/base-150 number; our
-  build's attractor must be measured here, not assumed). Do not mix cloud and local absolutes.
-- It is also independent corroboration that the resonance Q is unphysically high — even the
-  compiler can move it. Fixing Q (Step 2 termination model) should also shrink this sensitivity.
+MSVCビルドは ~5-7% **低く**収束する。これはビルドのバグでは**ない** -- 同じ高Q病理である(Stage 49⑥: 「~100 Paの損失変化がVEを30ポイント反転させる」; Stage 53: 「0.1のランナー長で132→100に振れる」)。鋭い共鳴はコンパイラ/数学ライブラリ間のわずかな浮動小数点丸め誤差の違いに敏感であるため、2つのビルドはわずかに異なるアトラクタに着地する。帰結:
+- **形状**分析(ピークrpm、ノッチの有無)にとっては、おおよそ一様なオフセットは無害である -- 結論は成立する。再設計のターゲット(協調WOTカーブを広げること)は影響を受けない。
+- しかし**絶対VE値はビルド固有である**: すべてのゲート/アンカーを**このビルド**上で再確立すること(例えば「3900/100 ~122-126」という回帰アトラクタはクラウドgcc/base150の数値であった; 我々のビルドのアトラクタはここで測定しなければならず、仮定してはならない)。クラウドとローカルの絶対値を混在させないこと。
+- これはまた、共鳴Qが非物理的に高いことの独立した裏付けでもある -- コンパイラでさえそれを動かせる。Q を修正すれば(ステップ2の終端モデル)、この感度も縮小するはずである。
 
-### Step 1 RESULT — converged coordinated-WOT length sweep: length CANNOT broaden the curve (confirms 53-55)
-Ran the full coordinated-WOT sweep on this build to convergence: SC ∈ {1.0,1.2,1.4,1.7,2.0} ×
-{2700,3900,4600,5300,6300,6900} rpm, cyc55, slope-judged (all cells |slope|<~0.3 except 3900
-sc1.0 which sits on the bifurcation low branch). Data: `backend/step1_wot_msvc.csv`. Shape vs
-stock (each curve mean-normalised; tilt = mean(4600-6900) - mean(2700,3900) in VE pp):
+### ステップ1の結果 -- 収束した協調WOT長さスイープ: 長さはカーブを**広げられない**(Stage 53-55を確認)
+このビルド上で協調WOTスイープ全体を収束まで実行した: SC ∈ {1.0,1.2,1.4,1.7,2.0} × {2700,3900,4600,5300,6300,6900} rpm、cyc55、スロープ判定(3900 sc1.0(分岐の低い枝に座る)を除きすべてのセルで |slope|<~0.3)。データ: `backend/step1_wot_msvc.csv`。stockに対する形状(各カーブは平均正規化; tilt = 平均(4600-6900) - 平均(2700,3900)、VEポイント単位):
 ```
   sc   peakrpm  range(pp)  r_vs_stock   tilt     mean-norm 2700/3900/4600/5300/6300/6900
  STOCK   3900      12        1.000      -0.7     0.95 1.06 1.02 1.01 0.99 0.97   (broad, flat, peak low-mid)
@@ -3097,64 +1646,33 @@ stock (each curve mean-normalised; tilt = mean(4600-6900) - mean(2700,3900) in V
   1.7    6300      43       -0.078     +39.9     0.79 0.79 1.07 1.13 1.13 1.09
   2.0    5300      54       -0.088     +47.9     0.76 0.74 1.13 1.16 1.11 1.10
 ```
-No length reproduces stock's signature: (1) range stays 43-60 pp vs stock's 12 pp — the
-resonance is 3.5-5x too PEAKY at every length (Q unchanged); (2) the peak never lands at 3900
-(always 4600-6300); (3) tilt is strongly POSITIVE +22..+48 (over-rammed at high rpm) vs stock's
-flat/declining -0.7 — the sim's ram is centred too HIGH in rpm; (4) the 2700 fill is a persistent
-deficit (0.70-0.80 vs stock 0.95). Best correlation is only r=0.69 (sc1.4). This is the converged,
-artifact-free confirmation of Stages 53-55: **runner length only RELOCATES the sharp resonance;
-it cannot BROADEN it or move the centre to 3900.** → Step 2 (physical intake termination with
-acoustic radiation loss) is required; length is not a sufficient lever.
+どの長さも stock の特徴を再現しない: (1) レンジは stock の 12 ポイントに対して 43-60 ポイントに留まる -- あらゆる長さで共鳴は 3.5-5倍ピーキーすぎる(Qは変わらない); (2) ピークは決して3900に来ない(常に4600-6300); (3) tilt は強く**正**である+22..+48(高rpmで過剰にラム)、対する stock はフラット/下降の-0.7 -- シムのラムはrpmで見て高すぎる位置に中心がある; (4) 2700の充填は持続的な不足である(0.70-0.80 対 stock 0.95)。最良の相関でもわずかr=0.69(sc1.4)。これはStage 53-55の**収束した、アーティファクトのない**確認である: **ランナー長は鋭い共鳴を再配置するだけである; それを広げることも、中心を3900に動かすこともできない。** → ステップ2(音響放射損失を伴う物理的な吸気終端)が必要である; 長さは十分なレバーではない。
 
 
-### Step 2a -- gated soft-Cd trumpet mouth (OPENWAM_INTAKE_V2): directionally right, but a WEAK and CONFOUNDED Q lever
-Implemented a generator-only, byte-safe lever (commit feat(intake-v2)): the bellmouth->Plenum_Main
-Type-11 (TCCDeposito) connection takes a separate fixed-Cd valve (index 32) for the 6 trumpet
-mouths only (exhaust plenum joins stay on valve 25); OPENWAM_INTAKE_MOUTH_CD is the knob. Cd<1
-shrinks the effective mouth area (Borda-Carnot), a boundary loss at the reflection point. Verified
-OFF == legacy HEAD byte-for-byte; Cd=1.0 ON == valve 25 physically. Swept Cd at WOT, SC=1.0,
-coordinated cams, cyc55 (backend/step2_mouth_cd_sweep.csv):
+### ステップ2a -- ゲート付きソフトCdトランペット口(OPENWAM_INTAKE_V2): 方向性は正しいが**弱く、交絡した**Qレバー
+生成器のみの、バイト安全なレバーを実装した(コミット feat(intake-v2)): ベルマウス->Plenum_Main の Type-11(TCCDeposito)接続が、6本のトランペット口**のみ**のために別個の固定Cdバルブ(インデックス32)を持つ(排気プレナムの接続はバルブ25のままである); OPENWAM_INTAKE_MOUTH_CDがそのノブである。Cd<1 は実効的な口の面積を縮小する(ボルダ・カルノー損失)、これは反射点における境界損失である。検証済み: OFFはレガシーHEADとバイト一致; Cd=1.0 ONはバルブ25と物理的に一致。WOT、SC=1.0、協調カム、cyc55でCdをスイープした(backend/step2_mouth_cd_sweep.csv):
 ```
   Cd     range(pp)  tilt    2700/3900/4600/5300/6300/6900 (mean-norm)  [stock: 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
   1.0      54       27.0    0.68 1.03 1.11 1.08 1.06 1.03
   0.75     43       17.1    0.78 1.04 1.12 1.09 0.93 1.04
   0.55     45       38.4    0.81 0.77 1.14 1.11 1.11 1.06
 ```
-1. Broadens in the RIGHT direction: Cd 1.0->0.75 shrinks range 54->43 pp and tilt 27->17, and
-   lifts the 2700 deficit 0.68->0.78. Resolves the investigation agents' contradiction in favour of
-   "Cd<1 broadens Q" (a dissipative boundary loss lowers the mouth reflection).
-2. But WEAK and saturating: the high-rpm band 4600-6900 is nearly Cd-INVARIANT (~135 VE) -- the
-   mouth loss has almost no leverage on the dominant high-rpm over-fill. By Cd=0.55 the broadening
-   reverses (3900 flips to its low branch).
-3. Cd CONFLATES acoustic damping with steady-flow choking: a low mouth Cd also restricts the mean
-   WOT flow, so pushing Cd down chokes the fill rather than cleanly damping the oscillation. A clean
-   Q lever needs loss on the OSCILLATING component (frequency/Mach-aware radiation impedance), not a
-   static area restriction.
+1. **正しい**方向に広がる: Cd 1.0->0.75 でレンジは54->43ポイントに縮小し、tiltは27->17になり、2700の不足は0.68->0.78に上がる。調査エージェント間の矛盾を「Cd<1はQを広げる」の側で解決する(散逸的な境界損失が口の反射を下げる)。
+2. しかし**弱く、飽和する**: 高rpm帯(4600-6900)はほぼCd不変である(~135 VE) -- 口の損失は支配的な高rpm過充填にほとんどレバーを持たない。Cd=0.55になると広がりが反転する(3900がその低い枝に反転する)。
+3. Cd は音響減衰と定常流のチョークを**混同する**: 低い口Cdは平均WOT流量も制限するため、Cdを下げると振動をきれいに減衰させるのではなく充填をチョークしてしまう。きれいなQレバーには、(周波数/マッハ数を認識する放射インピーダンスによる)**振動する成分**への損失が必要であり、静的な面積制限ではない。
 
-### WARNING: Step 2a exposed the 3900 WOT BISTABILITY in the sharpest possible form
-cd=1.0 ON gives 3900 = 129.4 (converged, slope +0.06, HIGH branch). The physically-IDENTICAL Step-1
-cell (3900 sc1.0, v2 OFF) gave 79.3 (LOW branch). The only deck difference is cosmetic -- the 6
-mouth connections reference valve 32 instead of 25 (both Cd=1.0 TCDFijo) plus one extra valve line.
-A change with ZERO physical content flipped the 3900 WOT attractor by 50 VE pp. This is Stage 49(6)'s
-"~100 Pa flips VE 30 pts" bistability at its most acute: the resonance is so under-damped it is
-bistable and which branch a cell lands on is numerically fragile. Tuning the 3900 shape is
-unreliable until the damping makes it monostable -- exactly what a sufficient radiation loss should
-also achieve.
+### 警告: ステップ2aは3900 WOTの**双安定性**を最も鋭い形で露呈させた
+cd=1.0 ONは3900 = 129.4(収束、slope +0.06、**高**枝)を与える。物理的に**同一の**Step-1セル(3900 sc1.0、v2 OFF)は79.3(**低**枝)を与えた。デッキの唯一の違いは見た目だけである -- 6つの口の接続がバルブ25の代わりにバルブ32を参照する(両方ともCd=1.0のTCDFijo)、加えて1行余分なバルブ行があるだけである。物理的内容が**ゼロ**の変更が、3900 WOTのアトラクタを50 VEポイント反転させた。これはStage 49⑥の「~100 PaがVEを30ポイント反転させる」双安定性の最も先鋭な現れである: 共鳴はあまりにも過小減衰であるため双安定であり、あるセルがどちらの枝に着地するかは数値的に脆弱である。減衰がそれを単安定にするまで、3900の形状をチューニングすることは信頼できない -- これはまさに十分な放射損失が達成すべきことでもある。
 
-### Step 2 fork (where the remodel goes next)
-The deck-only soft-mouth proves the mechanism but is insufficient. Two higher-yield directions:
-- (A) A frequency/Mach-aware mouth RADIATION loss in C++ (TCCDeposito), mirroring the choke chi(r)
-  gating in TCCPerdidadePresion.cpp -- loss on the oscillating component so it damps Q without
-  choking the mean WOT flow. The physically-correct lever, but needs a C++ change + rebuild.
-- (B) Diagnose & fix the systematic HIGH-RPM OVER-FILL (sim 130-140 vs stock 106-111 at 4600-6900,
-  ~Cd- and ~SC-invariant) -- likely the eq-tube cross-coupling or port/valve flow, not the mouth.
-  This sets the tilt the mouth loss cannot touch.
-Next experiment: combine the modest mouth loss (Cd~0.75) with longer runners (RUNNER_SC) to test the
-orthogonal recenter+broaden hypothesis before committing to (A)/(B).
+### ステップ2の分岐(再設計が次に向かう先)
+デッキのみのソフトマウスは機構を証明するが不十分である。2つのより有望な方向:
+- (A) C++(TCCDeposito)における周波数/マッハ数を認識するマウス**放射**損失であり、TCCPerdidadePresion.cppにおけるチョークのchi(r)ゲーティングを踏襲する -- 振動する成分に損失をかけることで、平均WOT流量をチョークせずにQを減衰させる。物理的に正しいレバーだが、C++変更+再ビルドが必要である。
+- (B) 系統的な**高rpm過充填**(4600-6900でシム130-140 対 stock 106-111、~Cd不変・~SC不変)の診断と修正 -- おそらく均圧管のクロスカップリングかポート/バルブ流量の問題であり、口ではない。これがマウス損失では触れられないtiltを決めている。
+次の実験: (A)/(B)にコミットする前に、控えめな口の損失(Cd~0.75)とより長いランナー(RUNNER_SC)を組み合わせ、直交する再センタリング+広帯域化の仮説をテストする。
 
 
-### Step 2b -- DIAGNOSTIC BREAKTHROUGH: the eq-tube (Gleichdruckrohr) drives the high-rpm over-fill / tilt, NOT the runner ram or the mouth
-Full-rpm coordinated-WOT sweep over 4 configs (cyc55, backend/step2_eqtube_diag.csv):
+### ステップ2b -- **診断上のブレークスルー**: 均圧管(等圧管、Gleichdruckrohr)が、ランナーラムでも口でもなく、高rpm過充填/tiltを駆動している
+4つの構成にわたるフルrpm協調WOTスイープ(cyc55、backend/step2_eqtube_diag.csv):
 ```
   config        range(pp) tilt    2700/3900/4600/5300/6300/6900 (mean-norm)   peak   [stock: 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
   base            65      49.7    0.80 0.63 1.18 1.15 1.13 1.10               4600
@@ -3162,31 +1680,17 @@ Full-rpm coordinated-WOT sweep over 4 configs (cyc55, backend/step2_eqtube_diag.
   eqdia020        59       4.3    0.78 1.17 0.67 1.20 1.03 1.16               5300
   sc1.7_cd0.75    44      31.6    0.76 0.91 1.06 1.09 1.10 1.07               6300
 ```
-THE KEY RESULT -- removing the eq-tube (OPENWAM_NO_EQTUBE) collapses the tilt 49.7 -> 1.7 (stock
--0.7) and snaps 2700 and 3900 onto stock almost EXACTLY (0.92/1.06 vs stock 0.95/1.06). So the
-dominant shape error -- the high-rpm over-fill that NEITHER runner length NOR the mouth Cd could
-touch -- is driven by the eq-tube CROSS-COUPLING. Corollaries:
-- noeqtube OVER-corrects the very top: 6300/6900 fall to a deficit (abs 101/100 vs stock 109/106),
-  and it breaks the part-throttle cyl-2 balance the eq-tube exists to fix. So the answer is to
-  TUNE the eq-tube coupling, not remove it -- there is an intermediate coupling between phi30
-  (over-couples: tilt +50) and removed (under-couples at the top) that should give stock's flat curve.
-- eqdia020 (phi20 stub) also cuts the tilt (4.3) but is bifurcation-prone (4600 collapsed to 0.67).
-  Diameter is a strong but unstable lever (area-mismatch, Stage 35).
-- sc1.7_cd0.75 keeps tilt 31.6 -> confirms runner length + mouth loss CANNOT fix the tilt because
-  it is eq-tube-driven. (Length even pushed the peak UP to 6300 here.)
-- Caveats: some low-rpm / top-end cells under-converged at cyc55 (noeqtube 2700 slope +0.87,
-  6300 +0.32; eqdia020 6300 +1.11) -- qualitative shape holds, re-converge the winners longer.
+**鍵となる結果** -- 均圧管を除去すると(OPENWAM_NO_EQTUBE)、tiltは49.7 -> 1.7(stock -0.7)に崩壊し、2700と3900はほぼ**正確に**stockに一致する(0.92/1.06 対 stock 0.95/1.06)。したがって、ランナー長**も**口のCd**も**触れられなかった支配的な形状誤差 -- 高rpm過充填 -- は均圧管の**クロスカップリング**によって駆動されている。系:
+- noeqtube はトップエンドを**過補正する**: 6300/6900 は不足に転じる(絶対値101/100 対 stock 109/106)、そして均圧管が存在する理由である部分スロットルのcyl-2バランスを壊してしまう。したがって答えは均圧管の結合を**除去する**ことではなく**チューニングする**ことである -- phi30(過結合: tilt +50)と除去(トップエンドで結合不足)の間に、stockのフラットなカーブを与えるはずの中間的な結合が存在する。
+- eqdia020(phi20スタブ)もtiltを削減する(4.3)が、分岐しやすい(4600が0.67に崩壊)。直径は強力だが不安定なレバーである(面積不一致、Stage 35)。
+- sc1.7_cd0.75はtilt 31.6を維持する -> ランナー長+口の損失がtiltを修正**できない**ことを確認する。これは均圧管が駆動しているためである。(ここでは長さがピークを6300まで**押し上げた**。)
+- 注意点: 一部の低rpm/トップエンドのセルはcyc55で非収束であった(noeqtube 2700 slope +0.87、6300 +0.32; eqdia020 6300 +1.11) -- 定性的な形状は成立しているが、勝者はより長く再収束させること。
 
-=> Step-2 direction CHANGES: the primary lever is the EQ-TUBE GEOMETRY (deck-only, no C++), not the
-mouth termination and not a C++ radiation loss. Cleanest knob to sweep next: eq-stub FRICTION
-(OPENWAM_EQ_FRIC, default 0.02) -- it damps the cross-coupling resonance WITHOUT the area-mismatch
-bifurcation that diameter changes cause. Target: dial tilt 50 -> ~0 and range -> ~12 while keeping
-the curve smooth (no notches) and the part-throttle cyl balance intact. The soft mouth (Cd~0.75)
-stays available as a secondary broadening trim.
+=> ステップ2の方向は**変わる**: 主要なレバーは口の終端でもC++放射損失でもなく、**均圧管のジオメトリ**(デッキのみ、C++不要)である。次にスイープすべき最もクリーンなノブは均圧管スタブの**摩擦**(OPENWAM_EQ_FRIC、デフォルト0.02)である -- これは、直径変更が引き起こす面積不一致による分岐なしに、クロスカップリング共鳴を減衰させる。目標: tiltを50 -> ~0に、レンジを ~12にダイヤルしながら、カーブを滑らかに保ち(ノッチなし)、部分スロットルの気筒バランスを無傷に保つこと。ソフトマウス(Cd~0.75)は副次的な広帯域化のトリムとして引き続き利用可能である。
 
 
-### Step 2c -- eq-stub FRICTION does NOT damp the coupling (it is ACOUSTIC, via the cavity); refined 2-component model
-Swept OPENWAM_EQ_FRIC {0.02, 0.10, 0.25, 0.50} at phi30, WOT, cyc55 (backend/step2_eqfric_sweep.csv):
+### ステップ2c -- 均圧管スタブの**摩擦**は結合を減衰させ**ない**(それは空洞を介した**音響的な**ものである); 精緻化された2要素モデル
+phi30、WOT、cyc55でOPENWAM_EQ_FRIC {0.02, 0.10, 0.25, 0.50}をスイープした(backend/step2_eqfric_sweep.csv):
 ```
   EQ_FRIC  range  tilt    2700/3900/4600/5300/6300/6900   [stock 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
   0.02      60    47.5    0.80 0.66 1.17 1.14 1.13 1.09
@@ -3194,27 +1698,17 @@ Swept OPENWAM_EQ_FRIC {0.02, 0.10, 0.25, 0.50} at phi30, WOT, cyc55 (backend/ste
   0.25      53    46.4    0.73 0.75 1.17 1.13 1.12 1.09
   0.50      46    30.4    0.84 0.81 1.21 1.17 0.85 1.12
 ```
-The high-rpm ABSOLUTE VE is essentially friction-INVARIANT (4600 = 139/139/139/139; 6900 ~129.8
-throughout; 6300 holds 133 until it bifurcates to 98 at fric0.5). So the eq-tube over-coupling is
-NOT a viscous-flow effect -- stub friction cannot damp it. It is an ACOUSTIC coupling through the
-141 cc central cavity (which is exactly why removing the tube, Step 2b, killed it but friction does
-not). Only 3900/2700 wobble with friction (they ride the bistable branch).
+高rpmの**絶対**VEは本質的に摩擦**不変**である(4600 = 139/139/139/139; 6900 は一貫して~129.8; 6300はfric0.5で98に分岐するまで133を保つ)。したがって均圧管の過結合は粘性流の効果**ではない** -- スタブの摩擦ではそれを減衰できない。それは141ccの中央キャビティを介した**音響的な**結合である(これはまさに、チューブを除去したこと(ステップ2b)がそれを消し去ったのに摩擦は消さない理由である)。摩擦とともに揺れ動くのは3900/2700のみである(それらは双安定な枝に乗っている)。
 
-REFINED MODEL of the WOT VE shape (from 2b + 2c):
-- (1) RUNNER RAM: a peak at 4600-5300 (~138 VE). PERSISTS with the eq-tube removed -> it is the
-  runner organ-pipe resonance. Too high in rpm and too strong vs stock (peak 3900=116).
-- (2) EQ-TUBE ACOUSTIC COUPLING through the 141 cc cavity: boosts 6300/6900 (+30) AND pushes 3900
-  onto its low (notch) branch. Removing the cavity fixes both; friction does not; smaller stub
-  DIAMETER does but bifurcates (area mismatch).
-Levers, cleanly separated: runner LENGTH should move (1)'s peak; eq cavity VOLUME/area should set
-(2)'s coupling. Added OPENWAM_EQ_VOL_MULT (default 1.0 = byte-identical) to scale the cavity volume
-WITHOUT the stub-diameter area-mismatch bifurcation -- the clean knob for (2).
-Next: (a) noeqtube x runner-SC to test whether length moves the clean ram peak (1) to 3900; (b)
-EQ_VOL_MULT sweep to weaken (2) while keeping the tube for part-load cyl balance.
+WOT VE形状の**精緻化されたモデル**(2bと2cから):
+- (1) **ランナーラム**: 4600-5300にピーク(~138 VE)。均圧管を除去しても**持続する** -> これはランナーのオルガンパイプ共鳴である。rpmとして高すぎ、stock(ピーク3900=116)に対して強すぎる。
+- (2) 141ccのキャビティを介した**均圧管の音響結合**: 6300/6900をブーストし(+30)、かつ3900をその低い(ノッチ)枝に押しやる。キャビティを除去すると両方が修正される; 摩擦は修正しない; より小さいスタブ**直径**は修正するが分岐する(面積不一致)。
+レバーはきれいに分離される: ランナー**長**は(1)のピークを動かすはずである; 均圧管キャビティの**容積**/面積は(2)の結合を設定するはずである。スタブ直径の面積不一致による分岐**なしに**キャビティ容積をスケールするため、OPENWAM_EQ_VOL_MULT(デフォルト1.0=バイト同一)を追加した -- これが(2)のためのクリーンなノブである。
+次: (a) noeqtube × ランナーSC で、長さがクリーンなラムピーク(1)を3900に動かせるか検証する; (b) 部分負荷の気筒バランスのためにチューブを維持しつつ(2)を弱めるための EQ_VOL_MULT スイープ。
 
 
-### Step 2d -- noeqtube isolates a clean low/mid (tilt 0) but long-SC BLOWS UP; eq cavity VOLUME confirmed as the coupling lever
-configs at WOT, cyc58 (backend/step2_noeq_eqvol_sweep.csv):
+### ステップ2d -- noeqtube はクリーンな低/中回転(tilt 0)を分離するが、長いSCは**吹き上がる**; 均圧管キャビティの**容積**が結合レバーであることが確認された
+WOT、cyc58での構成(backend/step2_noeq_eqvol_sweep.csv):
 ```
   config       range  tilt    2700/3900/4600/5300/6300/6900   [stock 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
   noeq_sc1.0    38     0.0    0.95 1.05 1.16 1.15 0.84 0.84    <- tilt 0; 2700/3900 EXACT; mid-hump + top-droop
@@ -3222,49 +1716,24 @@ configs at WOT, cyc58 (backend/step2_noeq_eqvol_sweep.csv):
   noeq_sc2.5   797  -203.1    NUMERICAL BLOWUP (3900=877, 6900=816)
   eqvol025      45    12.1    0.79 1.08 1.16 1.11 0.81 1.05    <- cavity 0.25x: tilt 47.5->12.1, 6300 notch
 ```
-Findings:
-- noeqtube at base length is the BEST shape so far: tilt 0.0 and 2700/3900 land on stock almost
-  exactly. Residual error is a RUNNER-RAM hump at 4600/5300 (1.16/1.15) + a top-end droop at
-  6300/6900 (0.84) -- the ram resonance is centred ~4600-5300, not 3900.
-- noeqtube + LONGER runner (SC 1.7, 2.5) NUMERICALLY BLOWS UP (VE 800+). So the ram peak CANNOT be
-  walked down to 3900 by lengthening: with the eq-tube it moves erratically and not to 3900
-  (Step 1); without it, long runners go unstable. The ram peak at ~4600-5300 is effectively pinned.
-  (NB: the real S54 torque peak is ~4900 rpm, so a ~4600 ram peak is arguably more physical than the
-  kf_rf_soll target's 3900 -- worth revisiting the target later.)
-- eqvol025 (OPENWAM_EQ_VOL_MULT=0.25) cuts tilt 47.5->12.1 -> CONFIRMS the eq central-cavity VOLUME
-  is the acoustic-coupling lever (clean, no bifurcation), but at 0.25x it over-shrinks and notches
-  6300. An intermediate volume should sit between base (over-couples, tilt 47) and 0.25x.
+所見:
+- ベース長でのnoeqtubeはこれまでで**最良の**形状である: tilt 0.0で、2700/3900はほぼ正確にstockに着地する。残る誤差は4600/5300(1.16/1.15)における**ランナーラム**のこぶ+6300/6900(0.84)におけるトップエンドの落ち込みである -- ラム共鳴は3900ではなく~4600-5300に中心がある。
+- noeqtube+**より長い**ランナー(SC 1.7, 2.5)は**数値的に吹き上がる**(VE 800超)。したがって、ラムピークは長さを伸ばすことで3900へ歩み寄らせることは**できない**: 均圧管とともにあると不規則に動き3900には行かない(ステップ1)、なければ長いランナーは不安定になる。~4600-5300のラムピークは事実上固定されている。(注: 実際のS54のトルクピークは~4900 rpmであるため、~4600のラムピークは、kf_rf_soll ターゲットの3900よりも、むしろ物理的に妥当と言える -- 後でこのターゲットを見直す価値がある。)
+- eqvol025(OPENWAM_EQ_VOL_MULT=0.25)はtiltを47.5->12.1に削減する -> 均圧管の中央**キャビティ容積**が音響結合レバーであることを**確認する**(クリーン、分岐なし)が、0.25倍では縮小しすぎて6300にノッチができる。中間的な容積が、ベース(過結合、tilt 47)と0.25倍の間に位置するはずである。
 
-WORKING TARGET (revised, production-viable, deck-only): keep the eq-tube for part-load cyl balance
-but shrink its cavity (EQ_VOL_MULT ~0.4-0.7) to null the tilt, and add the soft mouth (Cd~0.7) to
-broaden the 4600/5300 ram hump. Accept the ram peak at ~4600 (close to stock's flat top). Next:
-eqvol fine sweep {0.4,0.5,0.65} x mouth-Cd combo.
+**作業ターゲット**(改訂版、本番実行可能、デッキのみ): 部分負荷の気筒バランスのために均圧管を維持しつつ、そのキャビティを縮小して(EQ_VOL_MULT ~0.4-0.7)tiltをゼロにし、ソフトマウス(Cd~0.7)を追加して4600/5300のラムこぶを広げる。~4600のラムピークを受け入れる(stockのフラットなトップに近い)。次: eqvol の微調整スイープ{0.4,0.5,0.65} × マウスCdの組み合わせ。
 
 
-### Step 2e -- ROOT METHODOLOGICAL FINDING: the OpenMP build is NON-DETERMINISTIC at WOT (flips the bistable attractor by ~57 VE pp run-to-run)
-Ran the SAME 3900 WOT deck three times: A(omp4)=128.2, B(omp4, identical deck)=71.1, D(omp2)=71.1.
-Two omp4 runs of the IDENTICAL deck diverged by 57 VE pp (trajectories differ from ~cyc15). So
-OpenWAM's OpenMP parallel reductions are order-non-deterministic, and at the high-Q bifurcation a
-tiny FP-order difference flips the 3900 (and 6300) WOT cell between its high (~128) and low (~71)
-branch. CONSEQUENCES:
-- EVERY omp4 sweep in Steps 1-2d carries run-to-run NOISE at the bistable cells (3900, 6300) that
-  flips them ~50 pp. The fine shape comparisons (exact tilt, "which config is best", the
-  "noeq_sc1.0 tilt 0.0") were partly this noise, NOT config sensitivity. The LARGE qualitative
-  findings still hold (eq-tube drives the tilt; length cannot broaden; mouth Cd is weak) -- those
-  were big effects -- but precise shape calibration on omp>1 data is unreliable.
-- FIX (no speed cost): run OMP_NUM_THREADS=1 (single-thread = deterministic, bitwise reproducible)
-  with CONC=16 (16 cells in parallel). The run is CPU-bound, so omp1xCONC16 has the SAME wall-clock
-  throughput as omp4xCONC4 but is fully reproducible. All future calibration sweeps must use omp1.
-- This is also a real OpenWAM caveat for ANY precise WOT work, not just this project: the parallel
-  build is not reproducible near the (unphysically sharp) intake resonance.
-NEXT: re-run the key configs (base / noeqtube / eqvol / mouth-Cd) DETERMINISTICALLY at omp1 to get
-reproducible shape data. The "bistability across configs" may largely collapse once the OMP noise is
-removed -- in which case the deck levers may tune cleanly after all.
+### ステップ2e -- 方法論上の**根本的な発見**: OpenMPビルドはWOTで**非決定的**である(実行ごとに双安定アトラクタを~57 VEポイント反転させる)
+**同一の**3900 WOTデッキを3回実行した: A(omp4)=128.2、B(omp4、同一デッキ)=71.1、D(omp2)=71.1。同一デッキの2回のomp4実行が57 VEポイント乖離した(軌跡は~cyc15から異なる)。したがってOpenWAMのOpenMP並列リダクションは順序非決定的であり、高Qの分岐点では、わずかな浮動小数点演算順序の違いが3900(および6300)WOTセルをその高い(~128)枝と低い(~71)枝の間で反転させる。**帰結**:
+- ステップ1-2dの**すべての**omp4スイープは、双安定なセル(3900、6300)において実行ごとのノイズを抱えており、それらを~50ポイント反転させる。精密な形状比較(正確なtilt、「どの構成が最良か」、「noeq_sc1.0のtilt 0.0」)は、部分的にこのノイズであって、構成の感度では**なかった**。大きな定性的所見(均圧管がtiltを駆動する; 長さは広げられない; マウスCdは弱い)は依然として成立する -- それらは大きな効果であった -- が、omp>1のデータに基づく精密な形状較正は信頼できない。
+- **修正**(速度コストなし): OMP_NUM_THREADS=1(シングルスレッド=決定的、ビット単位で再現可能)をCONC=16(16セルを並列)で実行する。実行はCPU律速であるため、omp1×CONC16はomp4×CONC4と**同じ**壁時計スループットを持ちながら完全に再現可能である。今後のすべての較正スイープはomp1を使用しなければならない。
+- これはこのプロジェクトだけでなく、精密なWOT作業を行う**あらゆる**OpenWAM利用に対する実際の注意点でもある: (非物理的に鋭い)吸気共鳴付近では、並列ビルドは再現可能ではない。
+**次**: 鍵となる構成(base / noeqtube / eqvol / mouth-Cd)をomp1で**決定的に**再実行し、再現可能な形状データを得る。「構成間の双安定性」は、OMPノイズが除去されれば大部分が崩壊するかもしれない -- その場合、デッキのレバーは結局きれいにチューニングできるかもしれない。
 
 
-### Step 2f -- DETERMINISTIC (omp1) re-run: data is now reproducible; clean lever map confirmed
-Re-ran the key configs at OMP_NUM_THREADS=1 (deterministic), CONC=16 (same wall throughput), cyc55
-(backend/step2_deterministic_configs.csv):
+### ステップ2f -- **決定的な**(omp1)再実行: データは今や再現可能である; クリーンなレバーマップが確認された
+鍵となる構成をOMP_NUM_THREADS=1(決定的)、CONC=16(同じ壁時計スループット)、cyc55で再実行した(backend/step2_deterministic_configs.csv):
 ```
   config         range  tilt    2700/3900/4600/5300/6300/6900   [stock 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
   base            66    50.7    0.80 0.62 1.18 1.15 1.14 1.10    eq over-coupled (3900 low branch 72.8)
@@ -3272,53 +1741,29 @@ Re-ran the key configs at OMP_NUM_THREADS=1 (deterministic), CONC=16 (same wall 
   eqvol050        41    33.2    0.83 0.81 1.14 1.09 1.10 1.03
   eqvol050_cd07   52    37.5    0.77 0.79 1.23 1.19 0.88 1.14
 ```
-The deterministic numbers closely match the prior omp4 runs for these configs (noeqtube 3900=125.9
-both times) -- so most cells were branch-CONSISTENT across runs; the OMP noise mainly affected the
-occasionally-flipping bistable cells (3900/6300). Now everything is reproducible. Clean lever map:
-- eq central-cavity VOLUME sets the high-rpm over-fill / tilt: base(vol1.0) tilt 50.7 -> eqvol050
-  tilt 33 -> noeqtube(vol0) tilt 0.2. Monotonic, clean.
-- residual at the best WOT shape (noeqtube): a RUNNER-RAM hump at 4600/5300 (1.16/1.15) + a top-end
-  droop at 6300/6900 (0.85) -- the ram is centred ~4600-5300, not 3900, and length cannot move it
-  (erratic with the eq-tube; blows up without it). NB the real S54 torque peaks ~4900, so a
-  ~4600-5300 ram peak may be MORE correct than the kf_rf_soll 3900-peak target.
-- the eq cavity is a WOT-shape vs PART-LOAD-balance tradeoff: noeqtube nails WOT low/mid but the
-  eq-tube exists to fix the part-throttle cyl-2 collapse, so it cannot simply be removed.
+決定的な数値は、これらの構成について以前のomp4実行と近く一致する(noeqtubeの3900=125.9はどちらも同じ) -- したがってほとんどのセルは実行間で枝が**一貫していた**; OMPノイズは主にたまに反転する双安定セル(3900/6300)に影響していた。今やすべてが再現可能である。クリーンなレバーマップ:
+- 均圧管の中央**キャビティ容積**が高rpm過充填/tiltを設定する: base(vol1.0) tilt 50.7 -> eqvol050 tilt 33 -> noeqtube(vol0) tilt 0.2。単調でクリーンである。
+- 最良のWOT形状(noeqtube)における残差: 4600/5300における**ランナーラム**のこぶ(1.16/1.15)+6300/6900におけるトップエンドの落ち込み(0.85) -- ラムは3900ではなく~4600-5300に中心があり、長さではそれを動かせない(均圧管があると不規則、なければ吹き上がる)。注: 実際のS54のトルクピークは~4900であるため、~4600-5300のラムピークは、kf_rf_sollの3900ピークターゲットよりも**より正しい**かもしれない。
+- 均圧管キャビティはWOT形状 対 **部分負荷バランス**のトレードオフである: noeqtubeはWOTの低/中回転を正確に射止めるが、均圧管は部分スロットルのcyl-2崩壊を修正するために存在するため、単純に除去することはできない。
 
-STATUS: the deck-only levers get the low/mid onto stock and null the tilt (eq cavity), but leave a
-physically-plausible runner-ram hump (4600/5300) that they cannot broaden, and trade WOT vs
-part-load. This is the natural end of the deck-only tuning phase -> a strategic fork (C++ radiation
-damping for the ram hump / accept-and-proceed-to-Step-3 / re-examine the 3900-peak target).
+**現状**: デッキのみのレバーは低/中回転をstockに載せtiltをゼロにするが、広げることができない物理的に妥当なランナーラムのこぶ(4600/5300)を残し、WOTと部分負荷をトレードオフする。これはデッキのみのチューニングフェーズの自然な終着点である -> 戦略的な分岐点(ラムのこぶのためのC++放射減衰/受け入れてステップ3へ進む/3900ピークターゲットの再検討)。
 
 
-### Step 2 CLOSE-OUT + target validation (user chose: lock defaults, proceed to Step 3)
-Target validation -- full stock kf_rf_soll WOT column (operating band): 2700=104 2900=103 3100=104
-**3900=116(PEAK)** 4600=111 5300=110 6300=109 6900=106 7300=107 7900=102. (The 600/870=120/117 are
-idle/cranking, not the power band.) So the 3900-peak broad curve is the REAL target -- not a target
-artifact. The sim's ram peak at 4600-5300 is therefore genuinely ~700-1400 rpm too HIGH (the
-effective intake tract is acoustically too short), and deck levers cannot move it (length blows up
-without the eq-tube / moves erratically with it).
+### ステップ2 締めくくり+ターゲット検証(ユーザーの選択: デフォルトを固定し、ステップ3へ進む)
+ターゲット検証 -- stock kf_rf_soll WOT列全体(運転帯域): 2700=104 2900=103 3100=104 **3900=116(ピーク)** 4600=111 5300=110 6300=109 6900=106 7300=107 7900=102。(600/870=120/117はアイドル/クランキングであり、パワーバンドではない。)したがって3900ピークの広いカーブは**本物の**ターゲットであり、ターゲットのアーティファクトではない。したがってシムの4600-5300のラムピークは、真に~700-1400 rpm**高すぎる**(実効的な吸気経路が音響的に短すぎる)のであり、デッキのレバーではそれを動かせない(均圧管なしでは長さが吹き上がる/ありでは不規則に動く)。
 
-DECISION (user): keep the LEGACY base intake as the production default (part-load is solved and
-sacred; reducing the eq cavity trades that away). The Step-2 work delivers, GATED and default-safe:
-- OPENWAM_INTAKE_V2 + OPENWAM_INTAKE_MOUTH_CD : soft trumpet-mouth termination loss (mild Q-broaden).
-- OPENWAM_EQ_VOL_MULT : eq central-cavity volume = the clean tilt lever (no area-mismatch bifurcation).
-- a complete, deterministic lever map + the OMP-determinism methodology fix (run omp1 for calibration).
-These are AVAILABLE TUNING KNOBS for the eventual auto-tuner; the residual WOT-shape error (ram peak
-~700-1400 rpm high) is a documented, physically-bounded limitation (real S54 torque peaks ~4900, so
-the sim's ~4600-5300 ram peak is not unreasonable; matching the 3900-peak VE target exactly needs a
-longer effective tract or a C++ radiation model, deferred).
+**決定**(ユーザー): レガシーのベース吸気を本番デフォルトとして維持する(部分負荷は解決済みかつ神聖であり、均圧管キャビティを縮小するとそれが犠牲になる)。ステップ2の作業は、ゲート付きでデフォルト安全な形で以下を提供する:
+- OPENWAM_INTAKE_V2 + OPENWAM_INTAKE_MOUTH_CD: ソフトなトランペット口終端損失(穏やかなQ広帯域化)。
+- OPENWAM_EQ_VOL_MULT: 均圧管中央キャビティ容積=クリーンなtiltレバー(面積不一致の分岐なし)。
+- 完全で決定的なレバーマップ+OMP決定性の方法論修正(較正にはomp1を実行)。
+これらは、いずれ実装される自動チューナーのための**利用可能なチューニングノブ**である; 残る WOT形状誤差(ラムピークが~700-1400 rpm高い)は、文書化された、物理的に限定された制約である(実際のS54のトルクピークは~4900であるため、シムの~4600-5300のラムピークは不合理ではない; 3900ピークのVEターゲットに正確に一致させるには、より長い実効経路またはC++放射モデルが必要であり、これは先送りとする)。
 
-### Step 3 ENTRY -- deterministic build's converged WOT row (the EXVANOS_BASE anchor)
-From the omp1 base config (deterministic, cyc55): 2700=94.3, 3900=72.8, 4600=139.0, 5300=135.1,
-6300=133.3, 6900=129.5. NOTE 3900=72.8 sits on the LOW (notch) branch where stock PEAKS (116) --
-the bistability lands our build's 3900/100 low. The EXVANOS_BASE(rpm,load) fit (vanos_exhaust_bias
-= base - kf_avan1_soll; simulation_service.py:107) sweeps the exhaust-cam coordination, which moves
-the overlap and hence the resonance -- so it is the right lever to also pull 3900 onto its high
-branch. Step 3 starts by fitting EXVANOS_BASE(rpm) on the converged (omp1) WOT row.
+### ステップ3 開始 -- 決定的ビルドの収束WOT行(EXVANOS_BASEのアンカー)
+omp1ベース構成(決定的、cyc55)から: 2700=94.3、3900=72.8、4600=139.0、5300=135.1、6300=133.3、6900=129.5。注: 3900=72.8は、stockが**ピークする**(116)ところで**低い**(ノッチ)枝に座っている -- 双安定性が我々のビルドの3900/100を低い側に着地させている。EXVANOS_BASE(rpm,load) フィット(vanos_exhaust_bias = base - kf_avan1_soll; simulation_service.py:107)は排気カムの協調をスイープするものであり、これはオーバーラップひいては共鳴を動かす -- したがってこれは3900をその高い枝に引き上げるのにも正しいレバーである。ステップ3は、収束した(omp1)WOT行でEXVANOS_BASE(rpm)をフィットすることから始まる。
 
 
-### Step 3a -- WOT-row EXVANOS_BASE sweep (deterministic): strong lever, but stock VE sits in the BISTABLE GAP for most rpm
-Deterministic (omp1) base x rpm sweep at WOT (backend/step3_exvanos_wot_coarse.csv):
+### ステップ3a -- WOT行のEXVANOS_BASEスイープ(決定的): 強いレバーだが、stock VEはほとんどのrpmで**双安定の谷間**に位置する
+決定的な(omp1)WOTでのbase × rpmスイープ(backend/step3_exvanos_wot_coarse.csv):
 ```
   rpm   stock  b90  b120  b150  b180   interp-cross
   2700   104   109  108   95   76     129   (gradual)
@@ -3328,72 +1773,40 @@ Deterministic (omp1) base x rpm sweep at WOT (backend/step3_exvanos_wot_coarse.c
   6300   109   151  149  133   81     164   CLIFF
   6900   106   151  149  130   74     163   CLIFF
 ```
-- GOOD: lowering the base resolves the 3900 notch -- base120 puts 3900 on its HIGH branch (141) vs
-  base150's low branch (73). So the exhaust-cam coordination DOES control the branch.
-- BAD: the VE(base) response is not smooth -- it holds a HIGH branch (130-152) then CLIFFS to a LOW
-  branch (74-110) over a ~30-unit base step, and stock (104-116) falls in the GAP between branches
-  for 3900/4600/6300/6900. If the cliff is a true discontinuity (bistable), NO base gives a stable
-  stock-matching VE for those cells. Probing a fine base grid at 3900 & 4600 to settle smooth-steep
-  (stable crossing exists) vs discontinuous (bistable, no stable stock value).
-- Only 5300 has a near-stock STABLE point (base180 -> 109 ~ stock 110).
+- **良い点**: ベースを下げると3900のノッチが解消する -- base120は3900をその**高い**枝(141)に載せる、対するbase150の低い枝(73)。したがって排気カムの協調は確かに枝を制御する。
+- **悪い点**: VE(base)の応答は滑らかでない -- **高い**枝(130-152)を保持し、その後~30単位のベースステップで**低い**枝(74-110)に**崖状に落ちる**、そしてstock(104-116)は3900/4600/6300/6900について枝の**間の谷間**に落ちる。もしこの崖が真の不連続(双安定)であれば、これらのセルに対してstockに一致する安定なVEを与えるbaseは存在しない。3900と4600で細かいbaseグリッドをプローブし、滑らかで急峻(安定な交差点が存在する)か不連続(双安定、安定なstock値なし)かを見極める。
+- 5300のみ、ほぼstockに近い**安定な**点を持つ(base180 -> 109 ~ stock 110)。
 
 
-### Step 3b -- DEFINITIVE: the converged WOT VE is a DETERMINISTIC-CHAOTIC function of the base (deck calibration is impossible)
-Fine deterministic (omp1) base grid at 3900 & 4600 WOT, 5-unit steps
-(backend/step3_exvanos_fine_chaos.csv). Converged VE_h vs base:
+### ステップ3b -- **決定的**: 収束WOT VEはbaseの**決定的カオス**関数である(デッキ較正は不可能)
+3900と4600 WOTで5単位刻みの細かい決定的(omp1)baseグリッド(backend/step3_exvanos_fine_chaos.csv)。base に対する収束VE_h:
 ```
   3900:  b125=140 b130=138 b135=100 b140=135 b145=96 b150=74 b155=85 b160=124 b165=83 b170=77 b175=79
   4600:  b125=148 b130=146 b135=106 b140=103 b145=141 b150=139 b155=95 b160=133 b165=125 b170=121 b175=100
 ```
-Per-cycle trajectories CONFIRM these are CONVERGED (flat tails), e.g. 3900: base130 settles 138,
-base135 settles 99, base140 settles 134, base145 settles 95, base150 settles 73, base160 settles
-124. So adjacent bases (5 units apart) converge to DIFFERENT attractors (~74 / ~99 / ~138) in a
-non-monotonic, chaotic pattern. Under omp1 this is fully deterministic -> it is genuine PARAMETRIC
-MULTISTABILITY / deterministic chaos, not run-to-run noise (Step 2e) and not under-convergence.
+サイクルごとの軌跡はこれらが**収束**していることを**確認する**(平坦な末尾)、例えば3900: base130は138に、base135は99に、base140は134に、base145は95に、base150は73に、base160は124に落ち着く。したがって隣接するbase(5単位離れている)は、非単調でカオス的なパターンで異なるアトラクタ(~74 / ~99 / ~138)に収束する。omp1のもとではこれは完全に決定的である -> これは真の**パラメトリック多重安定性/決定的カオス**であり、実行ごとのノイズ(ステップ2e)でも非収束でもない。
 
-IMPLICATION (the wall): the converged WOT VE is a chaotic/fractal function of the exhaust base --
-and, by the identical behaviour seen for runner length, eq-volume and mouth-Cd, of EVERY deck
-lever. Therefore NO EXVANOS_BASE(rpm,load) fit (nor any deck-parameter fit) can make the sim VE
-track stock smoothly: VE jumps across stock unpredictably as the parameter moves. Deck-level WOT
-calibration is not merely hard, it is ILL-POSED while the resonance Q is this high.
+**含意**(壁): 収束WOT VEは排気baseのカオス的/フラクタル関数である -- そして、ランナー長、均圧管容積、マウスCdで見られた同一の挙動により、**あらゆる**デッキレバーの関数でもある。したがって、いかなるEXVANOS_BASE(rpm,load)フィット(あるいは他のいかなるデッキパラメータフィット)も、シムVEを滑らかにstockに追従させることは**できない**: パラメータが動くと、VEはstockを予測不能に飛び越える。デッキレベルのWOT較正は単に困難なのではなく、共鳴Qがこれほど高い限り**不良設定**なのである。
 
-ROOT CAUSE (now fully nailed, three independent confirmations): the intake resonance Q is
-unphysically high -> the WOT cycle has multiple co-existing attractors -> (1) cross-compiler shift
-(Step 56), (2) OMP run-to-run flips (Step 2e), and (3) parametric chaos vs every lever (this step).
-The ONLY fix that restores a smooth, calibratable, monostable model is to LOWER Q with real
-physical DAMPING. The deck levers (length, friction, eq-topology, mouth-Cd, eq-volume) cannot supply
-enough. This requires the C++ frequency/Mach-aware mouth RADIATION loss in TCCDeposito (the lever
-the original Step-2 plan anticipated, mirroring the choke chi(r) gating in TCCPerdidadePresion.cpp).
+**根本原因**(今や完全に特定された、3つの独立した確認): 吸気共鳴Qが非物理的に高い -> WOTサイクルには複数の共存するアトラクタがある -> (1)コンパイラ間のシフト(Stage 56)、(2)OMP実行間の反転(ステップ2e)、そして(3)あらゆるレバーに対するパラメトリックカオス(本ステップ)。滑らかで較正可能な単安定モデルを回復する**唯一の**修正は、本物の物理的**減衰**でQを**下げる**ことである。デッキのレバー(長さ、摩擦、均圧管トポロジー、マウスCd、均圧管容積)ではそれを十分に供給できない。これには、TCCDeposito における C++の周波数/マッハ数を認識したマウス**放射**損失が必要である(TCCPerdidadePresion.cppにおけるチョークのchi(r)ゲーティングを踏襲する、当初のステップ2計画が想定していたレバーである)。
 
-=> Deck-only Step 3 (EXVANOS_BASE fit, sigma(pedal), WOT-ratio correction) is BLOCKED until Q is
-lowered. Recommend implementing the C++ radiation damping next (it should also collapse the
-bistability and finally let the WOT shape AND the base fit converge cleanly).
+=> デッキのみのステップ3(EXVANOS_BASEフィット、sigma(pedal)、WOT比補正)は、Qが下げられるまで**ブロックされる**。次はC++の放射減衰を実装することを推奨する(これは双安定性も崩壊させ、最終的にWOT形状とbaseフィットの両方がきれいに収束することを可能にするはずである)。
 
 
-### Step 3c -- SUCCESS: the C++ mouth radiation damping MONOSTABILIZES the WOT cycle (VE(base): chaotic -> smooth)
-Deterministic (omp1) 3900 WOT, VE_h vs exhaust base, at OPENWAM_MOUTH_RAD alpha {0, 0.2, 0.5}, w=0.005
-(backend/step3_monostab_3900.csv):
+### ステップ3c -- **成功**: C++マウス放射減衰がWOTサイクルを**単安定化**する(VE(base): カオス的 -> 滑らか)
+決定的な(omp1)3900 WOT、OPENWAM_MOUTH_RAD alpha {0, 0.2, 0.5}、w=0.005 における排気baseに対するVE_h(backend/step3_monostab_3900.csv):
 ```
   base->            130  135  140  145  150   | jaggedness (mean |dVE| across base)
   rad 0.0 (legacy)  138  100  135   96   74   | 33.9   CHAOTIC / multistable
   rad 0.2           86   85   83   81   79    |  1.8   SMOOTH, monotonic
   rad 0.5           89   86   85   82   80    |  2.0   SMOOTH
 ```
-The gated AC-radiation damping WORKS: it collapses the parametric chaos (jag 33.9 -> 1.8, an 18x
-smoothing) into a smooth, single-valued, monotonic VE(base) -- the WOT cycle is now MONOSTABLE, and
-base still modulates VE smoothly (the ram is reduced, not dead). This removes the Step-3b wall:
-EXVANOS_BASE (and every deck lever) is now a smoothly-invertible knob, so calibration is well-posed.
-- CAVEAT: alpha=0.2 OVER-damps -- the smooth level (~79-86) sits BELOW stock 116. The transition
-  from chaos (high branch ~135) to the smooth low level happens between alpha 0 and 0.2, so a SMALLER
-  alpha should give a smooth curve that sits HIGHER and crosses stock. Tuning alpha (and w) next to
-  land the smooth VE(base) curve across stock while retaining maximum ram (smallest alpha that just
-  monostabilizes). Then validate monostabilization across rpm and confirm omp4==omp1 (monostable =>
-  the OMP non-determinism, Step 2e, should also vanish).
+ゲート付きAC放射減衰は**機能する**: パラメトリックカオスを崩壊させ(ジャギー度33.9 -> 1.8、18倍の平滑化)、滑らかで単一値、単調なVE(base)にする -- WOTサイクルは今や**単安定**であり、baseは依然としてVEを滑らかに変調する(ラムは減少しているが死んでいない)。これによりステップ3bの壁が除去される: EXVANOS_BASE(そしてあらゆるデッキレバー)は今や滑らかに反転可能なノブであり、較正は良設定になった。
+- **注意点**: alpha=0.2は**過減衰**である -- 滑らかなレベル(~79-86)はstockの116を**下回っている**。カオス(高い枝~135)から滑らかな低いレベルへの遷移はalpha 0と0.2の間で起きるため、**より小さい**alphaは、より**高い**位置にありstockを横切る滑らかなカーブを与えるはずである。次に、最大限のラムを保持しながら(単安定化するぎりぎり最小のalpha)、滑らかなVE(base)カーブをstock付近に載せるようalpha(とw)をチューニングする。その後、rpmにわたる単安定化を検証し、omp4==omp1を確認する(単安定 => OMP非決定性、ステップ2e、も消えるはずである)。
 
 
-### Step 3d -- radiation damping MONOSTABILIZES across rpm AND BROADENS the WOT curve to ~stock range
-Full WOT rpm sweep at base150, OPENWAM_MOUTH_RAD alpha {0,0.1,0.2,0.4}, w=0.005, omp1
-(backend/step3_radshape_alpha.csv). VE_h vs rpm:
+### ステップ3d -- 放射減衰はrpmにわたって**単安定化**し、WOTカーブを~stockのレンジまで**広げる**
+base150、OPENWAM_MOUTH_RAD alpha {0,0.1,0.2,0.4}、w=0.005、omp1でのフルWOT rpmスイープ(backend/step3_radshape_alpha.csv)。rpmに対するVE_h:
 ```
   rpm     rad0.0  rad0.1  rad0.2  rad0.4    stock
   2700     99.7    84.2    79.5    82.4     104
@@ -3403,20 +1816,14 @@ Full WOT rpm sweep at base150, OPENWAM_MOUTH_RAD alpha {0,0.1,0.2,0.4}, w=0.005,
   6300    133.4    91.4    85.7    88.3     109
   6900    129.6   131.2    82.7    87.1     106
 ```
-- alpha 0.1/0.2 only PARTIALLY monostabilize (5300 stays on the high branch ~133 until alpha~0.4).
-- alpha 0.4 FULLY monostabilizes all rpm: VE = 82/79/88/89/88/87, mean-normalised
-  0.96/0.92/1.03/1.04/1.03/1.02, RANGE 10.6 pp -- essentially stock's broad range (12 pp)! The C++
-  damping achieved the Step-2 goal (a BROAD WOT curve) that NO deck lever could.
-- RESIDUAL shape error vs stock (0.95/1.06/1.02/1.01/0.99/0.97): the sim peak is at 5300 (not 3900),
-  3900 is a slight DIP (0.92 vs 1.06), tilt +7.6 vs stock -0.7. The absolute level (~85) is removed by
-  the WOT-ratio correction; the residual is a SHAPE detail now addressable because the cycle is
-  monostable and smooth -- the EXVANOS_BASE(rpm) coordination is finally a well-posed, smooth knob.
-NEXT: with damping ON (alpha~0.4), fit EXVANOS_BASE(rpm) (now smooth) to lift the 3900 dip / trim the
-5300 peak toward stock; pick the smallest alpha that holds full monostability; validate omp4==omp1.
+- alpha 0.1/0.2は**部分的にしか**単安定化しない(5300はalpha~0.4になるまで高い枝~133に留まる)。
+- alpha 0.4はすべてのrpmを**完全に**単安定化する: VE = 82/79/88/89/88/87、平均正規化 0.96/0.92/1.03/1.04/1.03/1.02、**レンジ10.6ポイント** -- 事実上stockの広いレンジ(12ポイント)と同等である!C++の減衰は、いかなるデッキレバーも成し得なかったステップ2の目標(**広い**WOTカーブ)を達成した。
+- stock(0.95/1.06/1.02/1.01/0.99/0.97)に対する**残差**形状誤差: シムのピークは(3900ではなく)5300にあり、3900はわずかな**ディップ**である(0.92 対 1.06)、tiltは+7.6 対 stockの-0.7。絶対レベル(~85)はWOT比補正によって除去される; 残差は、サイクルが単安定で滑らかになった今アドレス可能な**形状の**詳細である -- EXVANOS_BASE(rpm)の協調が、ようやく良設定で滑らかなノブになった。
+**次**: 減衰ON(alpha~0.4)で、EXVANOS_BASE(rpm)(今や滑らか)をフィットし、3900のディップを持ち上げ/5300のピークをstockに向けて削る; 完全な単安定性を保つ最小のalphaを選ぶ; omp4==omp1を検証する。
 
 
-### Step 3e -- with damping ON, base IS a smooth monotonic knob; fitting EXVANOS_BASE(rpm) for the 3900-peak shape
-base x rpm at alpha=0.4, w=0.005, omp1 (backend/step3_basefit_alpha04.csv):
+### ステップ3e -- 減衰ONの状態で、baseは滑らかで単調なノブである; 3900ピークの形状のためにEXVANOS_BASE(rpm)をフィットする
+alpha=0.4、w=0.005、omp1でのbase × rpm(backend/step3_basefit_alpha04.csv):
 ```
   rpm   stock  b110  b150  b190   slope(dVE/dbase)
   2700   104    90    82    63    -0.34
@@ -3426,101 +1833,60 @@ base x rpm at alpha=0.4, w=0.005, omp1 (backend/step3_basefit_alpha04.csv):
   6300   109   141!   88    71    -0.88   (b110 re-enters the high branch)
   6900   106   110    87    67    -0.53
 ```
-- Around base~150 the VE is now a SMOOTH, monotonic, invertible function of base (slopes -0.34..-0.53)
-  -- the EXVANOS_BASE knob works as a calibration lever (was impossible pre-damping). Lower base =
-  more overlap = higher VE.
-- The base EXTREMES still misbehave (alpha 0.4 doesn't fully damp the high-overlap regime): 6300/6900
-  jump to the high branch at base110; 3900 blows up at base190. So keep the per-rpm base within a
-  monostable window (~120-180).
-- The absolute level (~80-98) is removed by the WOT-ratio correction; the SHAPE is fitted by base(rpm):
-  to move the sim peak from 5300 to 3900, LOWER the 3900 base (lifts it, e.g. b108->~92) and RAISE the
-  5300/6300/6900 base (trims them, e.g. b175->~78). Verifying a candidate profile
-  {2700:135,3900:108,4600:148,5300:178,6300:172,6900:168} (par_profile.py).
+- base~150付近で、VEは今やbaseの**滑らかで単調な、反転可能な**関数である(傾き -0.34..-0.53) -- EXVANOS_BASEノブは較正レバーとして機能する(減衰前は不可能だった)。低いbase=多いオーバーラップ=高いVE。
+- baseの**極端な**値は依然として問題を起こす(alpha 0.4は高オーバーラップ領域を完全には減衰できない): 6300/6900はbase110で高い枝に飛び込む; 3900はbase190で吹き上がる。したがって、rpmごとのbaseは単安定な窓(~120-180)内に保つこと。
+- 絶対レベル(~80-98)はWOT比補正によって除去される; **形状**はbase(rpm)によってフィットされる: シムのピークを5300から3900に動かすには、3900のbaseを**下げる**(持ち上げる、例えばb108->~92)、そして5300/6300/6900のbaseを**上げる**(それらを削る、例えばb175->~78)。候補プロファイル{2700:135,3900:108,4600:148,5300:178,6300:172,6900:168}を検証中(par_profile.py)。
 
 
-### Step 3f -- SUCCESS: EXVANOS_BASE(rpm) + radiation damping REPRODUCES the stock WOT shape (max shape err 0.02)
-With OPENWAM_MOUTH_RAD=0.4 (w=0.005) and the fitted per-rpm exhaust base
+### ステップ3f -- **成功**: EXVANOS_BASE(rpm)+放射減衰がstock WOT形状を再現する(最大形状誤差0.02)
+OPENWAM_MOUTH_RAD=0.4(w=0.005)と、フィットされたrpmごとの排気base
 EXVANOS_BASE(rpm) = {2700:150, 3900:115, 4600:155, 5300:160, 6300:160, 6900:160}
-(backend/step3_exvanos_fit_FINAL.csv, omp1, cyc55):
+(backend/step3_exvanos_fit_FINAL.csv、omp1、cyc55)を用いると:
 ```
   rpm     2700  3900  4600  5300  6300  6900   range tilt  peak
   sim     0.97  1.07  1.01  0.99  0.98  0.99    9   -2.1   3900   (mean-norm)
   stock   0.95  1.06  1.02  1.01  0.99  0.97   12   -0.7   3900
   |diff|  0.02  0.01  0.01  0.02  0.01  0.02   -- max shape error 0.02 --
 ```
-The simulated WOT VE-shape now MATCHES stock: broad (range 9 ~ stock 12), peaked at 3900, gentle
-NEGATIVE tilt (-2.1 ~ stock -0.7). This is the Step-2/3 deliverable that was impossible before the
-C++ damping (deck levers gave a chaotic, ill-posed VE). The absolute level (~82-91) is removed by the
-WOT-ratio correction; the SHAPE is the calibration target and it is met to within 0.02 normalised.
+シミュレートされたWOT VE形状は今やstockと**一致する**: 広い(レンジ9 ~ stock 12)、3900でピーク、緩やかな**負の**tilt(-2.1 ~ stock -0.7)。これはC++減衰の前には不可能だった(デッキレバーはカオス的で不良設定なVEを与えていた)ステップ2/3の成果物である。絶対レベル(~82-91)はWOT比補正によって除去される; **形状**が較正ターゲットであり、正規化して0.02以内で満たされている。
 
-PRODUCTION integration (simulation_service.py): (a) line ~131 sim_env opts into OPENWAM_MOUTH_RAD=0.4
-/ _W=0.005 (like it already opts into THR_CHOKE), (b) line ~107 the const EXVANOS_BASE=150 becomes a
-per-rpm interpolated lookup (this WOT fit), env-overridable. The C++ default stays OFF (byte-identical
-legacy); the production path opts in. NEXT PHASE: extend EXVANOS_BASE to (rpm,LOAD) for part-load +
-sigma(pedal), and re-validate the part-load cyl-balance with damping on.
+**本番統合**(simulation_service.py): (a) ~131行目のsim_envがTHR_CHOKEに既にオプトインしているのと同様にOPENWAM_MOUTH_RAD=0.4 / _W=0.005にオプトインする、(b) ~107行目の定数EXVANOS_BASE=150が、rpmごとの補間ルックアップ(このWOTフィット)になる、env上書き可能。C++のデフォルトはOFFのまま(バイト同一のレガシー); 本番経路がオプトインする。**次フェーズ**: EXVANOS_BASEを(rpm,LOAD)に拡張して部分負荷+sigma(pedal)に対応させ、減衰ONで部分負荷の気筒バランスを再検証する。
 
 
-### Stage 56 -- DESIGN CAVEAT for the VANOS auto-tuner: EXVANOS_BASE(rpm) is a calibration FUDGE that must be folded away before trusting auto-tuned VANOS
-The end goal is a VANOS auto-tuner (estimate the cam-table values that maximise VE / hit a desired
-driveability for the CURRENT mechanical components). Two consequences of the Stage-56 WOT
-calibration for that goal:
+### Stage 56 -- VANOS自動チューナーのための**設計上の注意点**: EXVANOS_BASE(rpm)は、自動チューニングされたVANOSを信頼する前に折り畳んで除去しなければならない較正の**ごまかし**である
+最終目標はVANOS自動チューナーである(**現在の**機械的コンポーネントに対してVEを最大化する/望ましいドライバビリティを達成するカムテーブル値を推定する)。その目標に対するStage-56のWOT較正の2つの帰結:
 
-GOOD -- the radiation damping is a PREREQUISITE for the auto-tuner. Before it, VE-vs-VANOS was a
-CHAOTIC/multistable surface (VE jumped 73<->138 with a tiny cam change); an optimiser cannot climb a
-surface that jumps. The damping makes the VE-vs-VANOS surface SMOOTH and single-valued (range 67->10),
-so cam optimisation is now well-posed. alpha is also the RIGHT kind of calibration: it is a physical
-property of the mouth (how much it radiates), INDEPENDENT of the cam settings being optimised.
+**良い点** -- 放射減衰は自動チューナーの**前提条件**である。それ以前は、VE対VANOSは**カオス的/多重安定**な曲面であった(わずかなカム変更でVEが73<->138に飛んだ); オプティマイザは飛び跳ねる曲面を登れない。減衰はVE対VANOS曲面を**滑らかで単一値**にする(レンジ67->10)ため、カム最適化は今や良設定である。alphaもまた**正しい種類**の較正である: それは口の物理的な特性(どれだけ放射するか)であり、最適化対象であるカム設定とは**独立している**。
 
-CAVEAT -- EXVANOS_BASE(rpm) is the WRONG kind of calibration for an auto-tuner, because it lives in
-the SAME equation as the exhaust cam table the tuner wants to optimise:
+**注意点** -- EXVANOS_BASE(rpm)は自動チューナーにとって**誤った種類**の較正である。なぜなら、それはチューナーが最適化したい排気カムテーブルと**同じ方程式**に存在するからである:
     exhaust_cam_phase = EXVANOS_BASE(rpm) - kf_avan1_soll(rpm,load)
-and it is currently absorbing residual INTAKE-model error. Concretely: even after damping the intake
-ram peak still sits at ~5300 rpm (the tract is acoustically tuned there), while stock VE peaks at
-3900. The fit set EXVANOS_BASE 115@3900 -> 160@high-rpm -- a ~45 deg per-rpm SWING with NO real-ECU
-counterpart (the real exhaust schedule is already in kf_avan1_soll) -- i.e. it uses exhaust-cam
-timing to PAPER OVER an intake tuned to the wrong rpm. So:
-- auto-tuned VANOS recommendations are trustworthy only NEAR the calibrated (stock) operating point;
-  recommendations far from stock entangle with the EXVANOS_BASE fudge and lose physical meaning.
-- the table-value the tuner returns inherits the fudge (the actual cam angle is base - table, and base
-  is contaminated).
+そして、現在それは残存する**吸気モデルの誤差**を吸収している。具体的には: 減衰後でも吸気ラムピークは依然として~5300 rpmに位置している(その経路は音響的にそこにチューニングされている)一方、stock VEは3900にピークする。このフィットはEXVANOS_BASEを115@3900 -> 160@高rpmに設定した -- これは実際のECUに対応物のない~45度のrpmごとの**振れ**である(実際の排気スケジュールは既にkf_avan1_sollにある) -- すなわち、これは間違ったrpmにチューニングされた吸気を排気カムタイミングで**覆い隠している**のである。したがって:
+- 自動チューニングされたVANOSの推奨は、較正された(stockの)運転点の**近く**でのみ信頼できる; stockから遠い推奨はEXVANOS_BASEのごまかしと絡み合い、物理的な意味を失う。
+- チューナーが返すテーブル値はそのごまかしを受け継ぐ(実際のカム角はbase - テーブルであり、baseは汚染されている)。
 
-CLEAN PATH (do this before shipping the auto-tuner), in order:
-  1. Lean the WOT calibration on alpha (physical) -- keep doing this.
-  2. Fix the intake so its ram peaks at ~3900 PHYSICALLY (correct the effective tract length / the
-     acoustics), so the STOCK cam map alone reproduces the stock VE peak.
-  3. Then fold EXVANOS_BASE to a fixed datum (->0 / a constant), so the exhaust cam becomes a DIRECT
-     physical input.
-  4. The auto-tuner then sweeps ACTUAL cam angles (real overlap) against a clean physical model and
-     back-converts to ECU table values without the per-rpm fudge.
-Until step 2-3 are done, treat EXVANOS_BASE(rpm) as model-calibration scaffolding, NOT as physics,
-and flag auto-tuned VANOS that strays far from the stock cam map as low-confidence.
+**クリーンな道筋**(自動チューナーを出荷する前にこれを行うこと)、順番に:
+  1. WOT較正をalpha(物理的)に依拠させる -- これは継続する。
+  2. 吸気のラムが**物理的に**~3900にピークするよう修正する(実効経路長/音響を修正する)、これによりstockのカムマップ単体でstock VEピークを再現できるようにする。
+  3. その後EXVANOS_BASEを固定のデータム(->0/定数)に折り畳み、排気カムを**直接**の物理的入力にする。
+  4. その後自動チューナーは、クリーンな物理モデルに対して**実際の**カム角(実際のオーバーラップ)をスイープし、rpmごとのごまかしなしにECUテーブル値へ逆変換する。
+ステップ2-3が完了するまで、EXVANOS_BASE(rpm)を物理ではなく**モデル較正の足場**として扱い、stockのカムマップから大きく外れた自動チューニングVANOSは低信頼としてフラグを立てること。
 
 
-### Stage 56 -- DATA PROVENANCE + CORRECTION (how to evaluate results)
-CORRECTION of an earlier wrong assumption: previous notes (Step 2d / Step 3d) speculated "the real
-S54 torque peaks ~4900, so the sim's ~5300 ram peak may be MORE correct than the kf_rf_soll 3900
-peak." That ~4900 was a GENERIC net/spec value and is RETRACTED. (Also torque-peak != VE-peak.)
+### Stage 56 -- **データの来歴+訂正**(結果の評価方法)
+以前の誤った仮定の**訂正**: 以前のノート(ステップ2d/ステップ3d)は「実際のS54のトルクピークは~4900であるため、シムの~5300ラムピークはkf_rf_sollの3900ピークよりも**より正しい**かもしれない」と推測していた。その~4900は**一般的な**ネット/スペック値であり、これは**撤回する**。(また、トルクピーク≠VEピークである。)
 
-GROUND TRUTH: the supplied VE maps are THIS engine's MEASURED data, not a generic spec:
-- WOT row (kf_rf_soll @ full load): the DME VE map, calibrated with a WIDEBAND O2 sensor (commanded
-  fuel matched to measured AFR). So the 3900 VE PEAK is real, measured truth for this specific
-  engine. The physical intake model must be driven TO 3900; the sim peaking at ~5300 is MODEL ERROR
-  (wrong effective intake length / acoustics), NOT a questionable target. Do NOT doubt the 3900 peak.
-- Part-load rows: narrowband O2 + per-table-cell lambda averaged from driving logs, matched to stock
-  VE. Levels differ somewhat from stock but the WAVEFORM/shape is ~the same as stock.
+**グラウンドトゥルース**: 提供されたVEマップは、一般的な仕様値ではなく、**この**エンジンの**実測**データである:
+- WOT行(全負荷でのkf_rf_soll): これはDME VEマップであり、ワイドバンドO2センサーで較正されている(指令燃料が実測AFRと一致するよう調整)。したがって3900のVEピークは、この特定のエンジンにとって実在の、実測された真実である。物理的吸気モデルは3900に**駆動されなければならない**; シムが~5300にピークするのは**モデル誤差**(誤った実効吸気長/音響)であり、疑わしいターゲットではない。3900ピークを疑わないこと。
+- 部分負荷行: ナローバンドO2+走行ログから平均されたテーブルセルごとのラムダであり、stock VEに一致するよう調整されている。レベルはstockと多少異なるが、波形/形状はstockとほぼ同じである。
 
-EVALUATION POLICY (use this when judging sweeps):
-- WOT: wideband-calibrated -> high confidence on BOTH shape AND level; hold to a tight tolerance.
-- Part-load: narrowband + log-averaged -> SHAPE/trend is reliable, absolute LEVEL is less precise ->
-  judge by shape (which is exactly why the WOT-ratio correction divides out the per-rpm level).
-- Therefore "physically correct" = the model reproduces the MEASURED VE shape at 3900-peak WITHOUT
-  the EXVANOS_BASE fudge. When the corrected-geometry model settles, it should land at 3900 (the
-  measured truth); if it lands elsewhere, the geometry/acoustics are still wrong, not the target.
+**評価方針**(スイープを判断する際に使用):
+- WOT: ワイドバンド較正 -> **形状と絶対値の両方**に高い信頼性; 厳しい許容誤差で保持すること。
+- 部分負荷: ナローバンド+ログ平均 -> **形状/傾向**は信頼できるが、絶対**レベル**の精度は低い -> 形状で判断すること(これこそが、WOT比補正がrpmごとのレベルを除算で除去する理由そのものである)。
+- したがって、「物理的に正しい」とは、EXVANOS_BASEのごまかしなしに、モデルが3900ピークの**実測**VE形状を再現することを意味する。補正後のジオメトリモデルが落ち着いたとき、それは3900に着地すべきである(実測された真実); もし別の場所に着地するなら、それはターゲットではなく、ジオメトリ/音響が依然として誤っているということである。
 
 
-### Stage 56 -- approach (1) RESULT: runner length does NOT move the peak to 3900 even with damping; the 3900 issue is a LOCALIZED dip (overlap), not a peak-location shift
-Re-ran the length sweep with the C++ damping ON (OPENWAM_MOUTH_RAD=0.4), base150 coordinated, omp1
-(backend/step3_length_retest_damped.csv):
+### Stage 56 -- アプローチ(1)の結果: 減衰があってもランナー長はピークを3900に動かさない; 3900の問題はピーク位置のシフトではなく**局所的なディップ**(オーバーラップ)である
+C++減衰ON(OPENWAM_MOUTH_RAD=0.4)、base150協調、omp1で長さスイープを再実行した(backend/step3_length_retest_damped.csv):
 ```
   config      range tilt   2700/3900/4600/5300/6300/6900   [stock 12, -0.7, 0.95/1.06/1.02/1.01/0.99/0.97]
   sc1.0       10    7.5    0.96 0.92 1.03 1.04 1.03 1.02   pk5300 (flattest)
@@ -3528,210 +1894,80 @@ Re-ran the length sweep with the C++ damping ON (OPENWAM_MOUTH_RAD=0.4), base150
   sc1.35      53   18.9    0.88 0.84 0.94 0.93 0.99 1.41   pk6900 (6900 re-spikes to 130 -> partial de-stab)
   sc1.5       26   11.9    0.94 0.87 0.98 0.98 1.06 1.17   pk6900
 ```
-Findings:
-- LONGER runner moves the fill UP in rpm (peak 5300->6300->6900) and at sc>=1.35 starts to re-spike
-  the top end (6900->130, range 53) -- i.e. length does NOT walk the peak DOWN to 3900; it makes it
-  worse. sc1.0 (the current default) is already the flattest. So even on the clean (damped) model,
-  runner length is NOT the lever (this UPDATES Step 1 on a monostable model -- same conclusion).
-- The real defect is NOT a broad peak-location shift: at sc1.0 the curve is FLAT 4600-6900 (~1.03)
-  with a single LOCALIZED DIP at 3900 (0.92) -- exactly where measured stock PEAKS (1.06). So the
-  problem is "3900 is missing its boost", a one-point anomaly.
-- That dip is ROBUST to length -> it is an OVERLAP effect, not an intake-tract-length effect. At
-  base150 the coordinated overlap at 3900 is ~-1 deg (no scavenging boost); the EXVANOS_BASE fit
-  fixed 3900 by going to base115 (overlap ~+34 deg). So the question reframes to: is the model's
-  coordinated overlap at 3900 (with the 130/150 datums) WRONG vs the real engine's overlap at 3900?
-  If the real engine really runs ~+34 deg overlap at 3900 (its VE-peak), then EXVANOS_BASE is largely
-  a DATUM fix, not fudge; if the real overlap at 3900 is small, the +34 is compensating for a genuine
-  intake ram null at 3900. NEXT: (a) check the real cam timing / overlap at 3900 (user domain
-  knowledge / the VANOS maps), and/or (b) test the PLENUM/airbox VOLUME (Helmholtz) lever, which
-  runner-length scaling does NOT touch and which could add a low-rpm (3900) boost.
+所見:
+- **より長い**ランナーは充填をrpmにおいて**上へ**動かし(ピーク5300->6300->6900)、sc>=1.35ではトップエンドが再びスパイクし始める(6900->130、レンジ53) -- すなわち、長さはピークを3900へ**下へ**歩ませることは**できず**、むしろ悪化させる。sc1.0(現行デフォルト)は既に最もフラットである。したがって、クリーンな(減衰済みの)モデル上でも、ランナー長はレバーでは**ない**(これはステップ1を単安定モデル上で**更新するが**同じ結論である)。
+- 本当の欠陥は幅広いピーク位置のシフトでは**ない**: sc1.0では、カーブは4600-6900で**フラット**(~1.03)であり、3900に**単一の局所的なディップ**(0.92)があるだけである -- これはまさに実測stockが**ピークする**(1.06)場所である。したがって問題は「3900がそのブーストを欠いている」ことであり、一点の異常である。
+- そのディップは長さに対して**頑健である** -> それは吸気経路長の効果ではなく**オーバーラップ**効果である。base150では、3900での協調オーバーラップは~-1度である(掃気ブーストなし); EXVANOS_BASEフィットはbase115にすることで3900を修正した(オーバーラップ~+34度)。したがって問題は次のように再構成される: モデルの3900における協調オーバーラップ(130/150のデータムを用いた)は、実エンジンの3900におけるオーバーラップに対して**間違っている**のか?もし実エンジンが本当に3900(そのVEピーク)で~+34度のオーバーラップで走っているなら、EXVANOS_BASEは大部分が**データムの修正**であり、ごまかしではない; もし実際の3900でのオーバーラップが小さいなら、その+34は3900における真の吸気ラムのヌルを補償しているのである。**次**: (a)3900での実際のカムタイミング/オーバーラップを確認する(ユーザーのドメイン知識/VANOSマップ)、および/または(b)ランナー長スケーリングでは触れられず、低rpm(3900)ブーストを追加しうる**プレナム/エアボックス容積**(ヘルムホルツ)レバーをテストする。
 
-## Stage 58 — part_load_alpha=0.4 refit executed and REJECTED by the fitted-column gate (2700 supply ceiling, not instability); recovery-window NaN gate; sigma(load)/duct-end probes both negative
+## Stage 58 — part_load_alpha=0.4 再フィットを実行、フィット済み列ゲートで棄却(2700 の供給天井が原因であり不安定性ではない);回復窓 NaN ゲート;sigma(load)/ダクト端プローブはいずれも否定的
 
-Executed the Stage-57 next-phase list: (1) full sigma→base refit under
-part_load_alpha=0.4, (2) the two low-rpm supply scalar candidates probed.
-Outcome: the α0.4 refit is a large WIN wherever a lever exists but the
-supply-limited cells (2700 column, 6300/6900 at load 20) get worse and cap the
-per-row gate → **calibration.json ROLLED BACK to the Stage-57 α-null v2 state**
-(commit 1e28913's file). All α0.4 fit artifacts preserved:
-`calib_data/stage58_alpha04_fit_{sigma,base,recheck}*.{json,csv}`; canonical
-`fit_*.json` names again point at the Stage-57 fits that produced the ACTIVE
-calibration (provenance invariant).
+Stage-57 の次フェーズリストを実行: (1) part_load_alpha=0.4 下での sigma→base 完全再フィット、(2) 低 rpm 供給スカラー候補 2 件のプローブ。結果: α0.4 再フィットはレバーが存在する箇所ではどこでも大きな WIN だが、供給律速セル(2700 列、load 20 の 6300/6900)が悪化して行別ゲートの上限を決めてしまう → **calibration.json は Stage-57 の α-null v2 状態にロールバック**(コミット 1e28913 のファイル)。α0.4 フィットの成果物はすべて保存: `calib_data/stage58_alpha04_fit_{sigma,base,recheck}*.{json,csv}`;正準名 `fit_*.json` は再び、ACTIVE な較正を生成した Stage-57 フィットを指す(来歴不変条件)。
 
-### The Step-D 3900/45 "persistent NaN" was a gate boundary artifact (fixed)
-- Cache log `97565cb0`: 260 NaN lines ALL in cycles 1.83–5.83 (junction-56
-  guard resets + TTubo BC reports — the Stage-25/57 recoverable startup
-  family), then 28 fully clean cycles, VE relaxing 58→99 smoothly, balanced
-  (per-cyl 0.595–0.682 g). The burst straddled the fixed cycle-5 cut by 0.83
-  cycles. phase5's 3900/15 (nan-only invalid, converged/balanced) = same.
-- Solver NaN reporting is globally THROTTLED (TCCRamificacion junction guard
-  20/run; TTubo BC 50/side/run) → text position is only meaningful EARLY; late
-  silent divergence is the physical gates' job (band/slope/balance/blow-up).
-- **Gate refinement (prep commit 61f3d2d)**: `metrics.nan_persistent()` —
-  persistent iff the LAST NaN text sits in the final 5 recorded cycles (no
-  recovery evidence); runs <10 cyc keep the strict semantics. Shared by
-  run_point + run_cells_local + the M4 optimizer (whose stale "any NaN
-  anywhere" gate would have failed EVERY measured-geometry eval — latent M4
-  bug fixed). Validated on all 549 cached runs: 3 flips, all invalid→valid,
-  2 genuine recoveries + 1 still invalid via cyl/band. Monotonically more
-  permissive for ncyc≥10 (no valid→invalid possible).
+### Step-D の 3900/45「持続NaN」はゲート境界のアーティファクトだった(修正済み)
+- キャッシュログ `97565cb0`: 260 行の NaN はすべてサイクル 1.83–5.83 内(ジャンクション 56 のガードリセット + TTubo BC 報告 — Stage-25/57 の回復可能な起動時ファミリ)、その後 28 サイクルは完全クリーン、VE は 58→99 へ滑らかに緩和、バランス良好(気筒別 0.595–0.682 g)。バーストは固定のサイクル 5 カットを 0.83 サイクルまたいでいた。phase5 の 3900/15(invalid 理由は nan のみ、収束/バランス良好)も同様。
+- ソルバの NaN 報告はグローバルにスロットルされている(TCCRamificacion ジャンクションガード 20/run;TTubo BC 50/side/run)→ テキスト上の位置は序盤でのみ意味を持つ;後半のサイレントな発散は物理ゲート(バンド/スロープ/バランス/吹き上がり)の担当。
+- **ゲート改良(準備コミット 61f3d2d)**: `metrics.nan_persistent()` — 最後の NaN テキストが記録済み最終 5 サイクル内にある場合に限り持続と判定(回復の証拠なし);<10 cyc のランは従来の厳格なセマンティクスを維持。run_point + run_cells_local + M4 オプティマイザで共用(M4 の古い「どこかに NaN があれば無効」ゲートは測定ジオメトリ評価を全件 fail させていたはず — 潜在 M4 バグを修正)。キャッシュ済み全 549 ランで検証: フリップ 3 件、すべて invalid→valid、真の回復 2 件 + cyl/band で依然 invalid の 1 件。ncyc≥10 では単調に寛容化のみ(valid→invalid は起こり得ない)。
 
-### Refit recipe deviations from Stage 57 (all forced, documented)
-1. Fresh sweep CSVs (job-ids don't key calibration state → reusing CSVs
-   returns stale α-null rows; the deck cache is the real resume layer).
-2. sigma/recheck low anchor 3100→2900 (`SIGMA_RPMS`): the production 3100 WOT
-   denominator is a blow-up (608.93) → p undefined; 2900 WOT healthy (88.57).
-   `load_wot_row` now merges ve_by_rpm_full + drops out-of-band denominators;
-   the sigma fold pairs p_sim/p_stock per row.
-3. Surface RESET before the sigma fit (fits at flat part_load_const=150, the
-   Stage-57 Step-B condition). 4. `CSL_FIT_TIMEOUT` env (see below).
+### Stage 57 からの再フィットレシピ逸脱(いずれもやむを得ないもの、文書化済み)
+1. スイープ CSV は新規作成(job-id は較正状態をキーにしない → CSV 再利用は古い α-null 行を返す;真のレジューム層はデッキキャッシュ)。
+2. sigma/recheck の低域アンカー 3100→2900(`SIGMA_RPMS`): 本番の 3100 WOT 分母は吹き上がり(608.93)→ p 未定義;2900 WOT は健全(88.57)。`load_wot_row` は ve_by_rpm_full をマージし帯域外の分母を除外するようになった;sigma のフォールドは行ごとに p_sim/p_stock をペアにする。
+3. sigma フィット前のサーフェス RESET(フラットな part_load_const=150、すなわち Stage-57 Step-B の条件でフィット)。4. `CSL_FIT_TIMEOUT` env(下記参照)。
 
-### What the α0.4 refit delivered (stage58_alpha04_* artifacts)
-- sigma(pedal): 0.2→0.092, 0.3→0.363, 0.45→0.363(clip), 0.65→0.833(ROOT — the
-  α-null fit was ceiling-bound 0.96/−0.099), 0.85→0.938. Pedal-0.2 stays
-  UNREACHABLE (−0.126: throttle saturated). NB Stage-57's "0.2 root was the
-  geometric probe" is imprecise — geo probe = 0.0131 both stages; 57's 0.065
-  was best-of-3.
-- base surface: smooth STRONG lever nearly everywhere (5300/20 b110:102 ↔
-  b190:53 monotone, no attractor jumps — the Step-D stability promise holds);
-  regate drops: none. 3900/45 (the old blocker) lands VALID at b132.1.
-  Discoveries: 2700/45 has a NON-monotone resonance ridge (b60.5:73.8 /
-  b110:102.6 / b150:70) → solved at b131.7, Δp 0.083; 3900/65 solved at b110
-  (ve 89.3, Δp 0.041; was the −0.17 attractor-gap cell); 6300/20 blocked by a
-  mid-bracket hole (b128.5 → ve 33–43 invalid region between healthy b110/b150).
-- **Adoption table (fitted-column per-row max|Δp|, old→new):**
-  load 20: 0.137→0.191(@2700; 6300 0.022→0.145, 6900 0.047→0.142)  WORSE
-  load 30: 0.113→0.227(@2700)                                      WORSE
-  load 45: 0.149→0.083 (EVERY column ≤0.083)                       BETTER
-  load 65: 0.265→0.254(@2700; 6900 0.265→0.024, 3900 0.138→0.041)  better
-  → gate "all four rows improve" NOT met (2/2 split) → NOT adopted.
-- recheck (α0.4): valid-cell mean|p err| 0.0825 / max 0.142 (6900/20); load-10
-  blow-ups at 2900/6900 (p_sim 4+, gated) — the α-null Step-E was cleaner.
-- Root cause of the split: the supply-limited cells were being FILLED by the
-  α-null high-Q resonance (the same unphysical Q that made everything else
-  chaotic); damping removes that fill and no available lever replaces it
-  (2700/20-30 ceilings VE ~68 vs needed ~87–90 at ANY base; σ_thr saturated;
-  σ_icv weak — see probes). **α0.4 part-load adoption is BLOCKED solely by the
-  low-rpm physical intake supply**, the same physics as the 2700/3900 WOT
-  deficit (Stage-57 closing item 2).
+### α0.4 再フィットが達成したもの(stage58_alpha04_* 成果物)
+- sigma(pedal): 0.2→0.092, 0.3→0.363, 0.45→0.363(clip), 0.65→0.833(ROOT — α-null フィットは天井張り付きの 0.96/−0.099 だった), 0.85→0.938。ペダル 0.2 は依然到達不能(−0.126: スロットル飽和)。注: Stage-57 の「0.2 のルートは幾何プローブだった」は不正確 — 幾何プローブは両ステージとも 0.0131;57 の 0.065 は best-of-3。
+- base サーフェス: ほぼ全域で滑らかかつ強力なレバー(5300/20 は b110:102 ↔ b190:53 で単調、アトラクタジャンプなし — Step-D の安定性の約束が成立);regate による脱落: なし。3900/45(旧ブロッカー)は b132.1 で VALID に着地。発見: 2700/45 には非単調な共鳴リッジ(b60.5:73.8 / b110:102.6 / b150:70)→ b131.7 で解決、Δp 0.083;3900/65 は b110 で解決(ve 89.3、Δp 0.041;−0.17 のアトラクタギャップセルだった);6300/20 はブラケット中間の穴でブロック(b128.5 → 健全な b110/b150 の間の ve 33–43 invalid 領域)。
+- **採用判定表(フィット済み列の行別 max|Δp|、旧→新):**
+  load 20: 0.137→0.191(@2700; 6300 0.022→0.145, 6900 0.047→0.142)  悪化
+  load 30: 0.113→0.227(@2700)                                      悪化
+  load 45: 0.149→0.083 (全列 ≤0.083)                               改善
+  load 65: 0.265→0.254(@2700; 6900 0.265→0.024, 3900 0.138→0.041)  やや改善
+  → ゲート「4 行すべて改善」は不成立(2/2 の分裂)→ 不採用。
+- recheck(α0.4): valid セルの mean|p err| 0.0825 / max 0.142(6900/20);load-10 は 2900/6900 で吹き上がり(p_sim 4+、ゲートで除外)— α-null の Step-E の方がクリーンだった。
+- 分裂の根本原因: 供給律速セルは α-null の高 Q 共鳴によって充填されていた(他のすべてをカオス化させたのと同じ非物理的な Q);減衰はその充填を除去し、それを置き換えられるレバーが存在しない(2700/20-30 の天井 VE ~68 vs 必要 ~87–90 はどの base でも同じ;σ_thr は飽和;σ_icv は弱い — プローブ参照)。**α0.4 の部分負荷採用をブロックしているのは低 rpm の物理的な吸気供給のみ**であり、2700/3900 WOT 不足(Stage-57 クロージング項目 2)と同じ物理。
 
-### Low-rpm supply probes (both scalar candidates ELIMINATED)
-- **ICV σ(load)** (2700/30 b150, σ_icv 0.30→0.45→0.60): VE 67.6→71.1→72.8 —
-  +0.054 p for +0.30 σ (area 2×). Closing the −0.23 gap would need σ≈1.6.
-  At part load the throttle plate limits total supply (unlike WOT where the
-  open-throttle rail gave 2700 +9.8 pp). σ(load) tabling CANNOT rescue the
-  2700 column → dead.
-- **Duct end-correction** (2700 WOT, duct_length 400→340/460): 97.74 / 88.49
-  vs 97.34 baseline — shorter buys +0.4 pp (noise), longer LOSES 8.9 pp.
-  Not a duct-length tuning issue → dead.
-- Remaining suspects (next phase, real geometry work): in-box trumpet/runner
-  entry geometry, plenum-reflection/valve-flow coupling (Stage-54/57 lists).
+### 低 rpm 供給プローブ(スカラー候補は両方とも排除)
+- **ICV σ(load)**(2700/30 b150、σ_icv 0.30→0.45→0.60): VE 67.6→71.1→72.8 — σ +0.30(面積 2×)に対して p +0.054。−0.23 のギャップを埋めるには σ≈1.6 が必要。部分負荷ではスロットルプレートが総供給を制限する(WOT では開スロットルのレールが 2700 に +9.8 pp を与えたのとは異なる)。σ(load) のテーブル化では 2700 列は救えない → 死に筋。
+- **ダクト端補正**(2700 WOT、duct_length 400→340/460): 97.74 / 88.49 vs ベースライン 97.34 — 短縮は +0.4 pp の得(ノイズ)、延長は 8.9 pp 失う。ダクト長チューニングの問題ではない → 死に筋。
+- 残る容疑者(次フェーズ、本格的なジオメトリ作業): ボックス内トランペット/ランナー入口ジオメトリ、プレナム反射/バルブ流量カップリング(Stage-54/57 のリスト)。
 
-### Idle-band (600-2400) base-column feasibility probe (Task-3 gate)
-{1100, 1800} × base {110, 190} at load 30, active α-null calibration
-(stage58_idle_probe.csv): the base lever is ALIVE and STRONG — 1100/30:
-b190 → 71.1 VALID err −0.036 (near target already!) vs b110 → 148.4 over-ram
-UNHEALTHY (77 pp swing); 1800/30: b110 → 82.8 valid (+0.144 over) vs
-b190 → cyc0 HANG. So a fit is viable (roots in range) but the columns are
-cliff-ridden and SLOW (938–2400 s/cell — set CSL_FIT_TIMEOUT ≥ 2400).
-**Deferred on the Stage-57 prerequisite**: the band is NOT settled (α0.4
-rejected, supply scalars dead); the coming geometry-level supply fix moves the
-box tuning that dominates 600-2800, so fitting 8 idle columns now would bake a
-Stage-44-style false optimum. Fit AFTER the supply fix with the proven
-machinery (brackets {110,150,190} + secant + regate; expect ~4-7 h).
+### アイドル帯(600-2400)base 列の実現可能性プローブ(Task-3 ゲート)
+load 30 における {1100, 1800} × base {110, 190}、アクティブな α-null 較正(stage58_idle_probe.csv): base レバーは生きており強力 — 1100/30: b190 → 71.1 VALID err −0.036(既にターゲット近傍!)vs b110 → 148.4 の過剰ラムで UNHEALTHY(77 pp のスイング);1800/30: b110 → 82.8 valid(+0.144 オーバー)vs b190 → cyc0 ハング。よってフィットは実行可能(ルートはレンジ内)だが、列は崖だらけで遅い(938–2400 s/セル — CSL_FIT_TIMEOUT ≥ 2400 を設定のこと)。**Stage-57 の前提条件により延期**: 帯域は未確定(α0.4 棄却、供給スカラーは死に筋);来たるジオメトリレベルの供給修正は 600-2800 を支配するボックスチューニングを動かすため、今アイドル 8 列をフィットすると Stage-44 型の偽の最適を焼き込むことになる。供給修正の後に、実証済みの機構(ブラケット {110,150,190} + セカント + regate;見込み ~4-7 h)でフィットする。
 
-### Operational notes
-- The 900 s cell timeout is WALL-CLOCK and binds under 12-way concurrency:
-  2700/45@b110 "timed out" at cyc36 under load but completed solo in 556 s
-  (cyc37, converged). Timed-out rows are never deck-cached → delete the row +
-  re-run resumes surgically. `CSL_FIT_TIMEOUT` (s) now plumbs a bigger budget
-  through fit_partload sweeps; resurrection rule used: valid=0 &
-  elapsed≥899 & cyc≥20.
-- scripts/phase5_compare.py: fitted-column per-row max|Δp| comparator
-  (self-check reproduces the Stage-57 numbers exactly). kf100 ≡ wideband on
-  all six fitted rpms, so fitter-p and map-Δp denominators coincide there.
+### 運用ノート
+- 900 s のセルタイムアウトは実時間(wall-clock)であり、12 並列下では制約として効く: 2700/45@b110 は負荷下では cyc36 で「タイムアウト」したが、単独では 556 s で完走(cyc37、収束)。タイムアウトした行はデッキキャッシュされない → 行を削除 + 再実行で外科的にレジューム。`CSL_FIT_TIMEOUT`(s)が fit_partload スイープへより大きな予算を通せるようになった;使用した蘇生ルール: valid=0 & elapsed≥899 & cyc≥20。
+- scripts/phase5_compare.py: フィット済み列の行別 max|Δp| 比較器(セルフチェックで Stage-57 の数値を正確に再現)。フィット済み 6 rpm すべてで kf100 ≡ ワイドバンドのため、そこではフィッタの p とマップの Δp の分母が一致する。
 
-## Stage 57 — MEASURED intake geometry + ICV-vented rail EQ as default; WOT re-fit hits the base-lever ceiling at 2700/3900; part-load calibration lands (PLAN_PARTLOAD_CALIBRATION.md executed locally)
+## Stage 57 — 測定済み吸気ジオメトリ + ICV ベント付きレール EQ をデフォルト化;WOT 再フィットは 2700/3900 で base レバーの天井に到達;部分負荷較正が着地(PLAN_PARTLOAD_CALIBRATION.md をローカル実行)
 
-Executed the full staged plan (golden-deck harness → rail plumbing → stability screen →
-WOT re-fit → default flip → ICV/sigma/base part-load fits). All sweeps omp1, cell-parallel,
-deck-cache interoperable with the app (same keys). Data: `backend/calib_data/phase2_*.csv`,
-`phase3_*.csv/json`, `fit_*.csv/json`.
+段階的プランを全段実行(ゴールデンデッキ・ハーネス → レール配管 → 安定性スクリーニング → WOT 再フィット → デフォルト切替 → ICV/sigma/base 部分負荷フィット)。全スイープは omp1、セル並列で、デッキキャッシュはアプリと相互運用可能(同一キー)。データ: `backend/calib_data/phase2_*.csv`, `phase3_*.csv/json`, `fit_*.csv/json`。
 
-### Infrastructure
-- **golden_deck_check.py**: 6 legacy decks (wot/pl20/chain × fast/full) SHA-256-pinned at the
-  pre-edit HEAD; every commit in this stage is byte-identical on the legacy paths. The pinned
-  config pins EVERY field the default flip moves (incl. exit slot / filter / stub friction /
-  header length / duration_cycles).
-- **run_cells_local.py**: app-identical cell runner (env recipe, VANOS coordination, slope
-  early-stop, SAME deck-cache keys) + resumable CSV; **fit_partload.py** (sweep+fit CLI) +
-  **calibration_fit.py** (pure fit functions, unit-tested); **calibration.json schema v2**
-  (mtime-reload fixes R4; thr_sigma / icv / exvanos surface all null=legacy).
-- **NaN gate refined**: the measured geometry throws a RECOVERABLE cyl-6/cyl-3 exhaust-valve
-  BC NaN at cycle ~1-2 (51 lines, then recovers; converged state balanced — Stage-25 family).
-  Cells are now invalidated only by PERSISTENT NaN (any NaN after cycle 5).
-- **duration_cycles 30→60**: measured-geometry WOT needs up to ~cyc45 to converge (slope
-  early-stop keeps converged cells at the old cost). 30 was silently truncating every WOT cell.
+### インフラ
+- **golden_deck_check.py**: レガシーデッキ 6 種(wot/pl20/chain × fast/full)を編集前 HEAD で SHA-256 ピン留め;本ステージの全コミットはレガシーパス上でバイト同一。ピン留めされた config は、デフォルト切替が動かす全フィールドをピン留めする(出口スロット / フィルタ / スタブ摩擦 / ヘッダ長 / duration_cycles を含む)。
+- **run_cells_local.py**: アプリと同一のセルランナー(env レシピ、VANOS 協調、スロープ早期停止、デッキキャッシュキーも同一)+ レジューム可能 CSV;**fit_partload.py**(スイープ+フィット CLI)+ **calibration_fit.py**(純粋なフィット関数、ユニットテスト済み);**calibration.json スキーマ v2**(mtime リロードで R4 を修正;thr_sigma / icv / exvanos サーフェスはすべて null=legacy)。
+- **NaN ゲートの改良**: 測定ジオメトリはサイクル ~1-2 で回復可能な cyl-6/cyl-3 排気バルブ BC の NaN を出す(51 行、その後回復;収束状態はバランス良好 — Stage-25 ファミリ)。セルの無効化は持続NaN(サイクル 5 以降の任意の NaN)によってのみ行われるようになった。
+- **duration_cycles 30→60**: 測定ジオメトリの WOT は収束までに最大 ~cyc45 を要する(スロープ早期停止により収束済みセルは従来のコストのまま)。30 は全 WOT セルをサイレントに打ち切っていた。
 
-### Rail EQ topology (measured car, 2026-07)
-φ21×570 common rail taps all six runners (tap = **φ30 numerical floor**, 30 mm), center tap →
-φ21×250 return hose → **ICV fixed-Cd valve** (σ = `icv_sigma`) → Plenum_Main. Physical meaning:
-a throttle-bypass idle/low-load air path — the Stage-49 "low-pedal effective area 3-5× too
-shut" gap, now modelled physically.
-- φ21 direct taps: persistent NaN + collapse at 6900 WOT (area ratio 6.1:1 > the ~3:1 Type-12
-  floor, Stage 35) → φ30 stands. 10 mm taps: re-collapse 2700/6300 + solver death at 3900 →
-  30 mm stands.
-- **Rail cross-feed collapse**: at rail/tap friction 0.02-0.03 the rail lets one END cylinder
-  collapse at 2700 WOT (converged collapse, spread ~1.0; alpha-dependent attractor). Friction
-  0.1 on taps+rail+return kills it (0.2 equivalent → robust); physically defensible (drilled
-  taps + corrugated rubber). Config: `rail_friction` / `rail_tap_friction` = 0.1.
-- ICV σ is a PURE part-load lever: WOT row is σ-insensitive (6900: −0.9 pp, 2700: −2.8 pp from
-  σ0.15→0.05) — no ΔP across the open throttles. Clean orthogonality: base=WOT shape, σ=low load.
+### レール EQ トポロジ(実測車両、2026-07)
+φ21×570 のコモンレールが 6 本の全ランナーにタップ接続(タップ = **φ30 数値フロア**、30 mm)、センタータップ → φ21×250 リターンホース → **ICV 固定 Cd バルブ**(σ = `icv_sigma`)→ Plenum_Main。物理的意味: スロットルバイパスのアイドル/低負荷空気経路 — Stage-49 の「低ペダルの有効面積が 3-5× 閉じすぎ」ギャップを物理的にモデル化したもの。
+- φ21 直結タップ: 6900 WOT で持続NaN + 崩壊(面積比 6.1:1 > Type-12 の ~3:1 フロア、Stage 35)→ φ30 を維持。10 mm タップ: 2700/6300 の再崩壊 + 3900 でソルバ死亡 → 30 mm を維持。
+- **レールのクロスフィード崩壊**: レール/タップ摩擦 0.02-0.03 では、2700 WOT でレールが端の 1 気筒を崩壊させる(収束した崩壊、spread ~1.0;alpha 依存のアトラクタ)。タップ+レール+リターンへの摩擦 0.1 でこれは消える(0.2 相当 → ロバスト);物理的にも妥当(ドリル加工のタップ + コルゲートゴム)。Config: `rail_friction` / `rail_tap_friction` = 0.1。
+- ICV σ は純粋な部分負荷レバー: WOT 行は σ に非感応(σ0.15→0.05 で 6900: −0.9 pp、2700: −2.8 pp)— 開いたスロットルの前後に ΔP がない。クリーンな直交性: base=WOT 形状、σ=低負荷。
 
-### Alpha is a BIFURCATION PARAMETER on the measured geometry (mouth damping, Phase 3.2)
-±5-base perturbation at 3900/5300 (b150): α0.2 flips 11.7-15 pp; α0.3 flips 11.8-13.4 pp;
-**α0.4 smooth (≤3.8/7.2 pp)**; α0.5 wild (42.6 pp swing) + kills 4600/6300 outright (cyc0).
-α0.4 stays — but it also SELECTS the 2700 collapse attractor at low rail friction (fixed by
-fric 0.1 above, not by alpha). Landscape holes at fr0.1: 3900@b150 blow-up (VE 390, 3 cyl),
-6900@b177 blow-up (VE 667), 5300@b157-160 dip (−15 pp, converged), 6300@b175 slow (converges
-cyc59). The fitted points all sit on verified smooth branches.
+### Alpha は測定ジオメトリ上の分岐パラメータ(マウス減衰、Phase 3.2)
+3900/5300(b150)での ±5-base 摂動: α0.2 は 11.7-15 pp のフリップ;α0.3 は 11.8-13.4 pp のフリップ;**α0.4 は滑らか(≤3.8/7.2 pp)**;α0.5 は暴れる(42.6 pp スイング)+ 4600/6300 を即死させる(cyc0)。α0.4 を維持 — ただし低レール摩擦では 2700 の崩壊アトラクタも選択してしまう(修正したのは上記の摩擦 0.1 であり、alpha ではない)。fr0.1 でのランドスケープの穴: 3900@b150 で吹き上がり(VE 390、3 気筒)、6900@b177 で吹き上がり(VE 667)、5300@b157-160 のディップ(−15 pp、収束)、6300@b175 は遅い(cyc59 で収束)。フィット点はすべて検証済みの滑らかな分枝上にある。
 
-### WOT re-fit (α0.4, fr0.1) — gate NOT met, ceilings documented
-Points (fit_cam_deg 260, use_shape_fit=true): **{2700:130, 3900:130, 4600:145, 5300:155,
-6300:170, 6900:170}** → official 60-cycle app row **[87.5, 91.8, 116.6, 109.8, 110.7, 109.8]**
-vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] → fit-band r 0.05 / shape_err 0.176 /
-peak 5300 (gate r≥0.95/0.05/3900 NOT met — recorded in calibration.json fit_meta).
-- **2700/3900 are base-lever CEILINGS**: going below b130 REVERSES (2700: b106→76.1 < b130's
-  87.5; 3900: b112→68.6 < b130's 91.8) — sharp peaks under ±5 pert. The measured geometry's
-  low-rpm charge deficit (22.9L box detunes the legacy 10.5L/φ200 Helmholtz boost from
-  ~2800 rpm down to ~1700) is OUTSIDE the exhaust-overlap lever's range. This ANSWERS the
-  Stage-56 closing question (b): the plenum/Helmholtz lever is real and the REAL box tunes LOW.
-- 4600-6900 land at 1.02-1.05× stock (legacy datum was 0.79-0.87 everywhere); 7300/7900
-  extend at 0.99/0.95×.
-- Header-length hypothesis FALSIFIED: 650 mm primaries → 2700 −5.9 pp, 6900 blow-up.
-- Part-load calibration is INSULATED from the WOT-row shape residual by the p = VE/VE_WOT
-  normalization on both sim and stock sides (§4.2/§4.3); the UI shows the WOT row honestly red.
-- REMAINING physical suspects for the low-rpm deficit (next phase, off-plan): intake-side
-  acoustic supply at 2700-3900 (duct/slot end-correction, in-box trumpet geometry), or a real
-  low-rpm boost mechanism the 1D mouth BC can't carry (the Stage-56 alpha damping trades Q for
-  monostability and may over-damp the useful low-rpm ram).
+### WOT 再フィット(α0.4、fr0.1)— ゲート不成立、天井を文書化
+フィット点(fit_cam_deg 260、use_shape_fit=true): **{2700:130, 3900:130, 4600:145, 5300:155, 6300:170, 6900:170}** → 公式 60 サイクルのアプリ行 **[87.5, 91.8, 116.6, 109.8, 110.7, 109.8]** vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] → フィット帯 r 0.05 / shape_err 0.176 / ピーク 5300(ゲート r≥0.95/0.05/3900 は不成立 — calibration.json の fit_meta に記録)。
+- **2700/3900 は base レバーの天井**: b130 より下げると逆転する(2700: b106→76.1 < b130 の 87.5;3900: b112→68.6 < b130 の 91.8)— ±5 摂動下で鋭いピーク。測定ジオメトリの低 rpm 充填不足(22.9L ボックスがレガシー 10.5L/φ200 の Helmholtz ブーストを ~2800 rpm から ~1700 まで下方に離調させる)は排気オーバーラップレバーの射程外。これは Stage-56 クロージング設問 (b) への回答: プレナム/Helmholtz レバーは実在し、実物のボックスは低域にチューンされている。
+- 4600-6900 は stock の 1.02-1.05× に着地(レガシーの基準値は全域で 0.79-0.87 だった);7300/7900 の延長点は 0.99/0.95×。
+- ヘッダ長仮説は反証された: 650 mm プライマリ → 2700 −5.9 pp、6900 は吹き上がり。
+- 部分負荷較正は、sim・stock 両側の p = VE/VE_WOT 正規化により WOT 行の形状残差から絶縁されている(§4.2/§4.3);UI は WOT 行を正直に赤で表示する。
+- 低 rpm 不足に残る物理的容疑者(次フェーズ、プラン外): 2700-3900 の吸気側音響供給(ダクト/スロットの端補正、ボックス内トランペットジオメトリ)、または 1D マウス BC が担えない実在の低 rpm ブースト機構(Stage-56 の alpha 減衰は Q を単安定性と引き換えにしており、有用な低 rpm ラムを過減衰している可能性)。
 
-### Part-load fits (Phase 4)
-- **Step A — ICV σ** (48 cells, rpm {3100,3900,5300,6900} × load {10,15,20} × σ {0.05,0.1,0.2,
-  0.4}): per-σ mean|Δp| = 0.213/0.170/0.148/0.156 — flat basin at 0.2-0.4. Per-rpm argmin
-  {3100:0.2, 3900:0.2, 5300:0.4, 6900:0.4} (higher rpm wants more bypass area, the Stage-49
-  pattern); spread 0.2 > 0.15 → **σ = 0.30 (median, R3 constant truncation)**. Applied.
-- **Step B — sigma(pedal)** (56 cells, secant per pedal, rpm-mean p targets, geometric-path
-  probes): `thr_sigma.points` = 0.2→0.065, 0.3→0.179, 0.45→0.311 (INTERIOR optimum — full-open
-  is worse there), 0.65→0.96, 0.85→0.96 (ceiling = best achievable; pedal 0.85 lands p_err
-  −0.007 — the R6 pedal≈fill-demand approximation absorbed as designed). Below pedal 0.2 the
-  fitted table ≈ the geometric curve (the 0.2 root WAS the geometric probe).
-- **Step C — base(rpm,load) surface** (~150 cells total): the v1 surface was accidentally
-  fitted on the GEOMETRIC sigma path (the local runner didn't inject the calibrated table the
-  way the app does — now fixed); at pedals 0.45/0.65 the table opens the throttle much further
-  (0.31/0.96 vs geometric 0.24/0.42), so every mid/high-load cell was re-solved under the
-  PRODUCTION sigma path (2 secant waves, bounded). Final surface (loads 20/30/45/65 × 6 fit
-  rpms, load-100 row = the WOT points verbatim):
+### 部分負荷フィット(Phase 4)
+- **Step A — ICV σ**(48 セル、rpm {3100,3900,5300,6900} × load {10,15,20} × σ {0.05,0.1,0.2,0.4}): σ 別 mean|Δp| = 0.213/0.170/0.148/0.156 — 0.2-0.4 にフラットな盆地。rpm 別 argmin は {3100:0.2, 3900:0.2, 5300:0.4, 6900:0.4}(高 rpm ほど大きいバイパス面積を欲しがる、Stage-49 のパターン);spread 0.2 > 0.15 → **σ = 0.30(中央値、R3 の定数打ち切り)**。適用済み。
+- **Step B — sigma(pedal)**(56 セル、ペダルごとのセカント、rpm 平均の p ターゲット、幾何パスのプローブ): `thr_sigma.points` = 0.2→0.065, 0.3→0.179, 0.45→0.311(内部最適 — そこでは全開の方が悪い), 0.65→0.96, 0.85→0.96(天井 = 達成可能な最良;ペダル 0.85 は p_err −0.007 に着地 — R6 のペダル≈充填需要近似が設計どおり吸収)。ペダル 0.2 未満ではフィット済みテーブル ≈ 幾何カーブ(0.2 のルートは幾何プローブそのものだった)。
+- **Step C — base(rpm,load) サーフェス**(合計 ~150 セル): v1 サーフェスは誤って幾何 sigma パス上でフィットされていた(ローカルランナーがアプリと同じ方法で較正済みテーブルを注入していなかった — 現在は修正済み);ペダル 0.45/0.65 ではテーブルがスロットルをはるかに大きく開く(0.31/0.96 vs 幾何 0.24/0.42)ため、中/高負荷の全セルを本番 sigma パスの下で解き直した(セカント 2 波、有界)。最終サーフェス(load 20/30/45/65 × フィット 6 rpm、load-100 行 = WOT 点そのまま):
   ```
   load  20:  150  150   62   71  115  110
   load  30:  135  150   95  125  130  130
@@ -3739,49 +1975,19 @@ peak 5300 (gate r≥0.95/0.05/3900 NOT met — recorded in calibration.json fit_
   load  65:   95  125   60  125  128  134
   load 100:  130  130  145  155  170  170     (rpms 2700/3900/4600/5300/6300/6900)
   ```
-  Regate mean|Δp| = 0.066; 2 cells stay >0.12 (3900/65 −0.17, 6900/65 −0.26): those columns
-  are ATTRACTOR-GAP limited (valid solutions jump across the target; base cannot dial them
-  smoothly). Load-20 row all within ±0.05.
-- **Step D — part_load_alpha A/B** (48 cells, off/0.2/0.4 at the fitted calibration):
-  α0.4 gives LOAD-20 row r **0.983** (off: 0.693) and ±5-base perturbation swing **0.6 pp**
-  (off: **17.5 pp**!) — but 1 invalid cell (3900/45 persistent NaN) vs off's 0, failing the
-  plan's "collapses ≤ legacy" criterion → **part_load_alpha stays null** (plan-literal).
-  RECORDED as the top next-phase candidate: refit sigma/base UNDER α0.4 (the off-variant's
-  17.5 pp base-sensitivity is the part-load analogue of the Stage-56 WOT chaos, and α0.4
-  kills it).
-- **Step E — outer recheck + single ICV re-adjust** (36 cells): at the final calibration the
-  10-20% rows sit at mean|Δp| 0.081 (σ0.3) vs 0.091 (σ0.4, all-valid, more overshoot) →
-  **σ = 0.30 stands** (one comparison, then stop per R3 — no ping-pong). 6900 low-load
-  improved from −0.20..−0.31 (pre-surface) to −0.11..+0.05.
+  Regate の mean|Δp| = 0.066;2 セルが >0.12 のまま(3900/65 −0.17、6900/65 −0.26): これらの列はアトラクタギャップ律速(valid 解がターゲットを跨いでジャンプし、base では滑らかに合わせ込めない)。load-20 行はすべて ±0.05 以内。
+- **Step D — part_load_alpha A/B**(48 セル、フィット済み較正で off/0.2/0.4): α0.4 は load-20 行の r **0.983**(off: 0.693)と ±5-base 摂動スイング **0.6 pp**(off: **17.5 pp**!)を与える — しかし invalid セル 1 件(3900/45 の持続NaN)vs off の 0 件で、プランの「崩壊 ≤ レガシー」基準を満たさず → **part_load_alpha は null のまま**(プラン字義どおり)。次フェーズの最有力候補として記録: α0.4 の下での sigma/base 再フィット(off 変種の 17.5 pp の base 感度は Stage-56 WOT カオスの部分負荷版であり、α0.4 はそれを解消する)。
+- **Step E — 外側 recheck + ICV 単発再調整**(36 セル): 最終較正では 10-20% 行が mean|Δp| 0.081(σ0.3)vs 0.091(σ0.4、全 valid、オーバーシュート増)→ **σ = 0.30 を維持**(R3 に従い比較は 1 回で停止 — ピンポンなし)。6900 低負荷は −0.20..−0.31(サーフェス前)から −0.11..+0.05 へ改善。
 
-### Phase 5 — final verification map (180 cells, loads >=10%) + the ICV/WOT interaction
-`calib_data/phase5_final_map.json` (CSL_LOAD_SUBSET=">=10", app path, full calibration).
-- **CORRECTION to the Step-A orthogonality claim**: the earlier "WOT row is ICV-insensitive"
-  probe only tested CLOSING (0.15→0.05). OPENING it is NOT inert: ICV 0.30 moved 2700 WOT
-  **87.5 → 97.34** (toward stock 103.7 — the open rail supplies part of the low-rpm charge the
-  22.9L box lost) and 3900 91.8 → 88.7. The production WOT row under the final calibration is
-  [97.3, 88.7, 111.8, 108.8, 112.0, 110.2] (fit-band; 7300/7900: 107.9/97.5-ish, see JSON) —
-  2700's deficit shrank from −16 pp to −6 pp as a side effect. phase3_wot_row.json now carries
-  these PRODUCTION denominators.
-- **Verdict vs the plan's numeric gates: NOT MET globally.** All rows red in the UI. Drivers:
-  (1) the RAW per-row r/shape metrics inherit the WOT-row shape deficit by construction
-  (a p-perfect row cannot match the raw stock row unless the WOT rows agree); (2) 8 of 20 rpm
-  columns (600-2400) were never in the fit scope and drag every row metric; (3) two
-  attractor-gap cells (3900/65, 6900/65) and the flat-lever 2700 part-load column.
-- **What the calibration actually delivers on the SIX fitted columns** (Δp = sim/sim_WOT −
-  stock/stock_WOT, the plan's own load-profile metric, against the production denominators):
-  load 20: mean 0.059 / max 0.137(2700); load 30: 0.061 / 0.114; load 45: 0.090 / 0.149;
-  load 65: 0.134 / 0.265(6900); loads 10/15: 0.106/0.095 mean. The 2700 part-load column's
-  −0.11..−0.17 is a DENOMINATOR effect (its WOT improved +9.8 pp while its part-load lever is
-  flat ~−0.002 p/deg — un-fittable by base; documented limitation).
-- MSS54HP tuner status: the part-load calibration machinery (ICV/sigma/base surface,
-  wot_ratio_maxdp instrumentation) is in production and traceable; WOT cam optimisation stays
-  LOW-CONFIDENCE until the low-rpm intake supply is physically fixed (Stage-56 caveat stands).
+### Phase 5 — 最終検証マップ(180 セル、load >=10%)+ ICV/WOT 相互作用
+`calib_data/phase5_final_map.json`(CSL_LOAD_SUBSET=">=10"、アプリパス、完全較正)。
+- **Step-A 直交性主張の訂正**: 先の「WOT 行は ICV 非感応」プローブは閉じる方向(0.15→0.05)しか試していなかった。開く方向は不活性ではない: ICV 0.30 は 2700 WOT を **87.5 → 97.34** へ動かし(stock 103.7 の方向へ — 開いたレールが、22.9L ボックスで失われた低 rpm 充填の一部を供給する)、3900 は 91.8 → 88.7。最終較正下の本番 WOT 行は [97.3, 88.7, 111.8, 108.8, 112.0, 110.2](フィット帯;7300/7900: 107.9/97.5 前後、JSON 参照)— 副作用として 2700 の不足は −16 pp から −6 pp へ縮小。phase3_wot_row.json は現在これら本番の分母を保持している。
+- **プランの数値ゲートに対する判定: グローバルには不成立。** UI では全行が赤。要因: (1) 生の行別 r/shape メトリクスは構造上 WOT 行の形状不足を継承する(WOT 行同士が一致しない限り、p が完璧な行でも生の stock 行には一致し得ない);(2) 20 の rpm 列のうち 8 列(600-2400)は一度もフィット範囲に入っておらず、全行のメトリックを引き下げる;(3) アトラクタギャップの 2 セル(3900/65、6900/65)と、レバーがフラットな 2700 部分負荷列。
+- **フィット済み 6 列で較正が実際に達成した値**(Δp = sim/sim_WOT − stock/stock_WOT、プラン自身の負荷プロファイルメトリック、本番分母に対して): load 20: mean 0.059 / max 0.137(2700);load 30: 0.061 / 0.114;load 45: 0.090 / 0.149;load 65: 0.134 / 0.265(6900);load 10/15: mean 0.106/0.095。2700 部分負荷列の −0.11..−0.17 は分母効果(WOT が +9.8 pp 改善した一方で、部分負荷レバーはフラット ~−0.002 p/deg — base ではフィット不能;文書化済みの制約)。
+- MSS54HP チューナーのステータス: 部分負荷較正の機構(ICV/sigma/base サーフェス、wot_ratio_maxdp 計装)は本番稼働かつトレーサブル;WOT カム最適化は、低 rpm 吸気供給が物理的に修正されるまで低信頼のまま(Stage-56 の但し書きは有効)。
 
-### Next phase (in order of expected value)
-1. **Refit sigma/base UNDER part_load_alpha=0.4** (Step-D: r 0.983, ±5-base swing 0.6 pp vs
-   17.5 pp — one persistent-NaN cell at 3900/45 blocked plan-literal adoption).
-2. **Physical low-rpm intake supply** (2700-3900 WOT + the 2700 part-load column): duct/slot
-   end-correction, in-box trumpet geometry, or an ICV/rail supply model with load-dependent
-   duty (the 2700-WOT +9.8 pp from ICV 0.30 shows the mechanism is real and strong).
-3. Extend the base surface columns below 2700 (600-2400) once (1)/(2) settle the band.
+### 次フェーズ(期待価値順)
+1. **part_load_alpha=0.4 の下での sigma/base 再フィット**(Step-D: r 0.983、±5-base スイング 0.6 pp vs 17.5 pp — 3900/45 の持続NaN セル 1 件がプラン字義どおりの採用をブロックした)。
+2. **物理的な低 rpm 吸気供給**(2700-3900 WOT + 2700 部分負荷列): ダクト/スロットの端補正、ボックス内トランペットジオメトリ、または負荷依存デューティ付きの ICV/レール供給モデル(ICV 0.30 による 2700-WOT の +9.8 pp は、この機構が実在しかつ強力であることを示す)。
+3. (1)/(2) が帯域を確定させ次第、base サーフェスの列を 2700 未満(600-2400)へ拡張。
+
