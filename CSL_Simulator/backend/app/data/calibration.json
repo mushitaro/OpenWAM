@@ -11,7 +11,7 @@
   "intake_vanos_base": 130.0,
   "thr_sigma": {
     "_comment": "Calibrated pedal->sigma breakpoints (Phase 4B). Lives HERE, not in ThrottleConfig: it is a fitted, run-traceable, foldable calibration curve (ThrottleConfig keeps only the physical offset/gamma). Anchors: 0.0->0.001 and 1.0->0.96 keep the closed/WOT terminations unchanged. enabled=false or null sigmas -> geometric legacy path.",
-    "enabled": false,
+    "enabled": true,
     "points": [
       [
         0.0,
@@ -19,35 +19,47 @@
       ],
       [
         0.2,
-        null
+        0.06545
       ],
       [
         0.3,
-        null
+        0.17949
       ],
       [
         0.45,
-        null
+        0.31065
       ],
       [
         0.65,
-        null
+        0.96
       ],
       [
         0.85,
-        null
+        0.96
       ],
       [
         1.0,
         0.96
       ]
     ],
-    "fit_meta": null
+    "fit_meta": {
+      "date": "2026-07-05",
+      "commit": "7c1dd21bddb0",
+      "exe_sig": "1435648:1783119758",
+      "csv": "fit_sigma_sweep.csv",
+      "residual": null
+    }
   },
   "icv": {
     "_comment": "Fitted ICV effective open-area ratio (Phase 4A; rail model only). null -> SimConfig intake.eq_tube.icv_sigma default. Physically the ICV is ECU duty-cycle controlled (risk R3): we fit ONE constant for loads >= 10% and do NOT table it.",
-    "sigma": null,
-    "fit_meta": null
+    "sigma": 0.3,
+    "fit_meta": {
+      "date": "2026-07-05",
+      "commit": "7c1dd21bddb0",
+      "exe_sig": "1435648:1783119758",
+      "csv": "fit_icv_sweep.csv",
+      "residual": null
+    }
   },
   "exvanos_base": {
     "_comment": "WOT: per-rpm points (Phase-3 measured-geometry fit, fit_cam_deg 260, use_shape_fit=true). wot_base_stable is the flat fallback datum (set use_shape_fit=false to fold). Part load: surface (Phase 4C) or part_load_const. is_wot short-circuits to the WOT table, so the WOT row cannot regress from part-load fitting. +-5 pert map at the fitted bases: 6300/6900 smooth (<=3.3pp); 5300 -5 smooth, +5 dips -15pp (converged); 2700/3900 sit on sharp lever-ceiling PEAKS (+-5 loses 7-20pp, converged, no collapse). Hard cliffs: 3900@b150 and 6900@b177 blow up. See EXHAUST_STABILIZATION_NOTES Stage 57.",

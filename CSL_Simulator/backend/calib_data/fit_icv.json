@@ -1,0 +1,22 @@
+{
+  "sigma": 0.30000000000000004,
+  "cost": 0.1706530040028591,
+  "per_rpm": {
+    "3100": 0.2,
+    "3900": 0.2,
+    "5300": 0.4,
+    "6900": 0.4
+  },
+  "rpm_spread": 0.2,
+  "note": "strong rpm dependence (spread 0.200 > 0.15); truncated to median of per-rpm bests (R3)",
+  "residual": {
+    "n": 0
+  },
+  "fit_meta": {
+    "date": "2026-07-05",
+    "commit": "7c1dd21bddb0",
+    "exe_sig": "1435648:1783119758",
+    "csv": "fit_icv_sweep.csv",
+    "residual": null
+  }
+}

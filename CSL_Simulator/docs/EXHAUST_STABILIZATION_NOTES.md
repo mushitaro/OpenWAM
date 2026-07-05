@@ -3545,3 +3545,74 @@ Findings:
   intake ram null at 3900. NEXT: (a) check the real cam timing / overlap at 3900 (user domain
   knowledge / the VANOS maps), and/or (b) test the PLENUM/airbox VOLUME (Helmholtz) lever, which
   runner-length scaling does NOT touch and which could add a low-rpm (3900) boost.
+
+## Stage 57 — MEASURED intake geometry + ICV-vented rail EQ as default; WOT re-fit hits the base-lever ceiling at 2700/3900; part-load calibration lands (PLAN_PARTLOAD_CALIBRATION.md executed locally)
+
+Executed the full staged plan (golden-deck harness → rail plumbing → stability screen →
+WOT re-fit → default flip → ICV/sigma/base part-load fits). All sweeps omp1, cell-parallel,
+deck-cache interoperable with the app (same keys). Data: `backend/calib_data/phase2_*.csv`,
+`phase3_*.csv/json`, `fit_*.csv/json`.
+
+### Infrastructure
+- **golden_deck_check.py**: 6 legacy decks (wot/pl20/chain × fast/full) SHA-256-pinned at the
+  pre-edit HEAD; every commit in this stage is byte-identical on the legacy paths. The pinned
+  config pins EVERY field the default flip moves (incl. exit slot / filter / stub friction /
+  header length / duration_cycles).
+- **run_cells_local.py**: app-identical cell runner (env recipe, VANOS coordination, slope
+  early-stop, SAME deck-cache keys) + resumable CSV; **fit_partload.py** (sweep+fit CLI) +
+  **calibration_fit.py** (pure fit functions, unit-tested); **calibration.json schema v2**
+  (mtime-reload fixes R4; thr_sigma / icv / exvanos surface all null=legacy).
+- **NaN gate refined**: the measured geometry throws a RECOVERABLE cyl-6/cyl-3 exhaust-valve
+  BC NaN at cycle ~1-2 (51 lines, then recovers; converged state balanced — Stage-25 family).
+  Cells are now invalidated only by PERSISTENT NaN (any NaN after cycle 5).
+- **duration_cycles 30→60**: measured-geometry WOT needs up to ~cyc45 to converge (slope
+  early-stop keeps converged cells at the old cost). 30 was silently truncating every WOT cell.
+
+### Rail EQ topology (measured car, 2026-07)
+φ21×570 common rail taps all six runners (tap = **φ30 numerical floor**, 30 mm), center tap →
+φ21×250 return hose → **ICV fixed-Cd valve** (σ = `icv_sigma`) → Plenum_Main. Physical meaning:
+a throttle-bypass idle/low-load air path — the Stage-49 "low-pedal effective area 3-5× too
+shut" gap, now modelled physically.
+- φ21 direct taps: persistent NaN + collapse at 6900 WOT (area ratio 6.1:1 > the ~3:1 Type-12
+  floor, Stage 35) → φ30 stands. 10 mm taps: re-collapse 2700/6300 + solver death at 3900 →
+  30 mm stands.
+- **Rail cross-feed collapse**: at rail/tap friction 0.02-0.03 the rail lets one END cylinder
+  collapse at 2700 WOT (converged collapse, spread ~1.0; alpha-dependent attractor). Friction
+  0.1 on taps+rail+return kills it (0.2 equivalent → robust); physically defensible (drilled
+  taps + corrugated rubber). Config: `rail_friction` / `rail_tap_friction` = 0.1.
+- ICV σ is a PURE part-load lever: WOT row is σ-insensitive (6900: −0.9 pp, 2700: −2.8 pp from
+  σ0.15→0.05) — no ΔP across the open throttles. Clean orthogonality: base=WOT shape, σ=low load.
+
+### Alpha is a BIFURCATION PARAMETER on the measured geometry (mouth damping, Phase 3.2)
+±5-base perturbation at 3900/5300 (b150): α0.2 flips 11.7-15 pp; α0.3 flips 11.8-13.4 pp;
+**α0.4 smooth (≤3.8/7.2 pp)**; α0.5 wild (42.6 pp swing) + kills 4600/6300 outright (cyc0).
+α0.4 stays — but it also SELECTS the 2700 collapse attractor at low rail friction (fixed by
+fric 0.1 above, not by alpha). Landscape holes at fr0.1: 3900@b150 blow-up (VE 390, 3 cyl),
+6900@b177 blow-up (VE 667), 5300@b157-160 dip (−15 pp, converged), 6300@b175 slow (converges
+cyc59). The fitted points all sit on verified smooth branches.
+
+### WOT re-fit (α0.4, fr0.1) — gate NOT met, ceilings documented
+Points (fit_cam_deg 260, use_shape_fit=true): **{2700:130, 3900:130, 4600:145, 5300:155,
+6300:170, 6900:170}** → official 60-cycle app row **[87.5, 91.8, 116.6, 109.8, 110.7, 109.8]**
+vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] → fit-band r 0.05 / shape_err 0.176 /
+peak 5300 (gate r≥0.95/0.05/3900 NOT met — recorded in calibration.json fit_meta).
+- **2700/3900 are base-lever CEILINGS**: going below b130 REVERSES (2700: b106→76.1 < b130's
+  87.5; 3900: b112→68.6 < b130's 91.8) — sharp peaks under ±5 pert. The measured geometry's
+  low-rpm charge deficit (22.9L box detunes the legacy 10.5L/φ200 Helmholtz boost from
+  ~2800 rpm down to ~1700) is OUTSIDE the exhaust-overlap lever's range. This ANSWERS the
+  Stage-56 closing question (b): the plenum/Helmholtz lever is real and the REAL box tunes LOW.
+- 4600-6900 land at 1.02-1.05× stock (legacy datum was 0.79-0.87 everywhere); 7300/7900
+  extend at 0.99/0.95×.
+- Header-length hypothesis FALSIFIED: 650 mm primaries → 2700 −5.9 pp, 6900 blow-up.
+- Part-load calibration is INSULATED from the WOT-row shape residual by the p = VE/VE_WOT
+  normalization on both sim and stock sides (§4.2/§4.3); the UI shows the WOT row honestly red.
+- REMAINING physical suspects for the low-rpm deficit (next phase, off-plan): intake-side
+  acoustic supply at 2700-3900 (duct/slot end-correction, in-box trumpet geometry), or a real
+  low-rpm boost mechanism the 1D mouth BC can't carry (the Stage-56 alpha damping trades Q for
+  monostability and may over-damp the useful low-rpm ram).
+
+### Part-load fits (Phase 4)
+- **Step A — ICV σ** (48 cells, rpm {3100,3900,5300,6900} × load {10,15,20} × σ {0.05,0.1,0.2,
+  0.4}): per-σ mean|Δp| = 0.213/0.170/0.148/0.156 — flat basin at 0.2-0.4. Per-rpm argmin
+  {3100:0.2, 3900:0.2, 5300:0.4, 6900:0.4} (higher rpm wants more bypass area, the Stage-49
+  pattern); spread 0.2 > 0.15 → **σ = 0.30 (median, R3 constant truncation)**. Applied.
