@@ -11,6 +11,7 @@ score is HARD-GATED to red if any cell in the row fails the health gates
 import json
 import math
 import os
+import re
 
 # ---- traffic-light thresholds (verbatim from §5) ---------------------------
 R_GREEN, R_YELLOW = 0.95, 0.85               # shape correlation
@@ -22,6 +23,43 @@ SLOPE_TOL = 0.3                               # |dVE/dcycle| convergence
 WOT_TPS = 85.0
 
 _SEVERITY = {"green": 0, "yellow": 1, "red": 2}
+
+
+# ---- NaN gate (shared by run_point / run_cells_local / optimizer) -----------
+def nan_persistent(output, startup_cycles=5, tail_cycles=5):
+    """True iff the solver stdout shows NaN with NO recovery evidence.
+
+    "Persistent NaN only" (Stage 57): the measured geometry throws a
+    recoverable junction/valve BC NaN burst near startup (junction guard +
+    TTubo BC reports), which self-resets and converges balanced. Stage 58
+    refinement: that burst can straddle a fixed cycle cut (3900/45 alpha 0.4:
+    last report at cycle 5.83, then 28 clean cycles, converged + balanced), so
+    a fixed "any NaN after cycle N" boundary misclassifies recovered cells.
+
+    Rule: persistent iff the LAST NaN text sits inside the final
+    ``tail_cycles`` recorded cycles (the converged tail is contaminated or the
+    run died mid-burst). Anything that goes quiet >= tail_cycles before the
+    end has demonstrably recovered. Runs too short to prove recovery
+    (< startup_cycles + tail_cycles cycles) keep the strict semantics: any
+    NaN after ``startup_cycles`` is persistent.
+
+    Caveat (by construction): the solver throttles NaN reports globally
+    (TCCRamificacion junction guard: 20/run; TTubo BC: 50/side/run), so text
+    position is only meaningful EARLY in a run. Late silent divergence is the
+    job of the physical gates (VE band / slope convergence / cyl balance /
+    blow-up), not this one.
+    """
+    low = output.lower()
+    nan_pos = low.rfind("nan")
+    if nan_pos < 0:
+        return False
+    ends = [m.end() for m in re.finditer(r"Mtrap:[0-9.]+ g", output)]
+    if not ends:
+        return True
+    ncyc = len(ends) // 6
+    cut_cyc = max(startup_cycles, ncyc - tail_cycles)
+    cut = ends[cut_cyc * 6 - 1] if len(ends) >= cut_cyc * 6 else ends[-1]
+    return nan_pos >= cut
 
 
 def status_worst(*statuses):

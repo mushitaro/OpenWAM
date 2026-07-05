@@ -41,6 +41,7 @@ import run_cells_local as R  # noqa: E402
 sys.path.insert(0, HERE)
 from app.simulator import calibration_constants as calib  # noqa: E402
 from app.simulator import calibration_fit as F  # noqa: E402
+from app.simulator import metrics as M  # noqa: E402
 
 DATA_DIR = os.path.join(HERE, "app", "data")
 OUT = os.path.join(HERE, "calib_data")
@@ -48,6 +49,10 @@ MAPS = json.load(open(os.path.join(DATA_DIR, "csl_ecu_maps.json")))
 KF = MAPS["kf_rf_soll"]
 
 ICV_RPMS = [3100, 3900, 5300, 6900]
+# Stage 58: sigma/recheck use 2900 as the low anchor -- the PRODUCTION WOT
+# denominator at 3100 is a blow-up (608.93, phase5), so p = VE/VE_WOT is
+# undefined there; 2900 WOT is healthy (88.57, valid).
+SIGMA_RPMS = [2900, 3900, 5300, 6900]
 ICV_LOADS = [10.01, 14.99, 20.0]
 SIGMA_PEDALS = [0.20, 0.30, 0.45, 0.65, 0.85]
 BASE_RPMS = [2700, 3900, 4600, 5300, 6300, 6900]
@@ -68,9 +73,18 @@ def p_stock(rpm, load):
 
 
 def load_wot_row(path):
+    """WOT denominators for p = VE/VE_WOT. Prefers the full production row
+    (ve_by_rpm_full) merged over ve_by_rpm, and DROPS unhealthy denominators
+    (outside the sane VE band -- e.g. the 3100 WOT blow-up at 608.93 and the
+    2400 over-band 172.66): p is undefined against a sick WOT cell, exactly as
+    the app's wot_ratio_maxdp excludes health-gated WOT cells."""
     with open(path) as f:
         d = json.load(f)
-    return {float(k): float(v) for k, v in d["ve_by_rpm"].items()}, d
+    merged = dict(d.get("ve_by_rpm") or {})
+    merged.update(d.get("ve_by_rpm_full") or {})
+    lo, hi = M.VE_BAND
+    return {float(k): float(v) for k, v in merged.items()
+            if lo <= float(v) <= hi}, d
 
 
 def p_sim_of(row, wot_ve):
@@ -171,13 +185,22 @@ def cmd_sigma(args):
                 by_sigma.setdefault(s, []).append(r)
             evs = []
             for s, rs in sorted(by_sigma.items()):
-                ps = [p_sim_of(r, wot_ve) for r in rs if r.get("valid") == "1"]
-                ps = [p for p in ps if p is not None]
-                pk = [p_stock(float(r["rpm"]), pedal * 100.0) for r in rs]
-                if not ps:
+                # PAIR p_sim/p_stock per row: a gated cell or an unhealthy WOT
+                # denominator must drop from BOTH means, or the mean p error is
+                # skewed by the rpm mix (Stage 58 fix).
+                pairs = []
+                for r in rs:
+                    if r.get("valid") != "1":
+                        continue
+                    ps1 = p_sim_of(r, wot_ve)
+                    if ps1 is None:
+                        continue
+                    pairs.append((ps1, p_stock(float(r["rpm"]), pedal * 100.0)))
+                if not pairs:
                     continue
-                err = statistics.mean(ps) - statistics.mean(pk)
-                evs.append((s, err, len(ps)))
+                err = (statistics.mean(p[0] for p in pairs)
+                       - statistics.mean(p[1] for p in pairs))
+                evs.append((s, err, len(pairs)))
             evals_by_pedal[pedal] = evs
 
     for it in range(args.max_evals):
@@ -197,7 +220,7 @@ def cmd_sigma(args):
                     continue
                 probes = [nx]
             for s in probes:
-                for rpm in ICV_RPMS:
+                for rpm in SIGMA_RPMS:
                     jobs.append({"rpm": rpm, "load": pedal * 100.0,
                                  "sigma_bp": [[0.0, round(s, 5)], [1.0, round(s, 5)]],
                                  "tag": f"sigB-p{int(pedal*100)}"})
@@ -361,7 +384,7 @@ def cmd_alpha(args):
 def cmd_recheck(args):
     wot_ve, _ = load_wot_row(args.wot_json)
     jobs = [{"rpm": r, "load": l, "tag": "recheckE"}
-            for r in ICV_RPMS for l in ICV_LOADS]
+            for r in SIGMA_RPMS for l in ICV_LOADS]
     rows, csv_path = run_jobs(jobs, "fit_recheck.csv", cycles=args.cycles)
     pf = rows_to_pfit(rows, wot_ve)
     rep = F.residual_report(pf)

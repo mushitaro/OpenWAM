@@ -148,7 +148,10 @@ class OptimizationService:
                 med = statistics.median(ve_cyl)
                 cyl_ok = sum(1 for x in ve_cyl if med > 0 and x < 0.5 * med) == 0
 
-            nan_free = ("nan" not in output.lower()) and math.isfinite(mass_g) and mass_g > 0
+            # Stage 58: was the strict "any NaN anywhere" test, which the
+            # measured geometry's recoverable startup BC-NaN burst fails on
+            # EVERY cell -- use the shared persistent-only gate instead.
+            nan_free = (not M.nan_persistent(output)) and math.isfinite(mass_g) and mass_g > 0
             ve_in_band = M.VE_BAND[0] <= ve <= M.VE_BAND[1]
             valid = bool(converged and cyl_ok and ve_in_band and nan_free and not blew_up)
 

@@ -5,7 +5,7 @@
     "alpha": 0.4,
     "w": 0.005,
     "wot_tps_threshold": 85.0,
-    "part_load_alpha": null
+    "part_load_alpha": 0.4
   },
   "thr_choke": 1,
   "intake_vanos_base": 130.0,
@@ -94,65 +94,7 @@
         170.0
       ]
     ],
-    "surface": {
-      "rpms": [
-        2700.0,
-        3900.0,
-        4600.0,
-        5300.0,
-        6300.0,
-        6900.0
-      ],
-      "loads": [
-        20.0,
-        30.0,
-        45.0,
-        64.99,
-        100.0
-      ],
-      "values": [
-        [
-          150.0,
-          150.0,
-          62.4,
-          71.4,
-          115.0,
-          110.0
-        ],
-        [
-          135.0,
-          150.0,
-          95.0,
-          125.0,
-          130.0,
-          130.0
-        ],
-        [
-          135.0,
-          145.0,
-          110.0,
-          135.0,
-          125.0,
-          128.0
-        ],
-        [
-          95.0,
-          125.0,
-          60.0,
-          125.0,
-          128.0,
-          134.0
-        ],
-        [
-          130.0,
-          130.0,
-          145.0,
-          155.0,
-          170.0,
-          170.0
-        ]
-      ]
-    },
+    "surface": null,
     "use_shape_fit": true,
     "fit_meta": {
       "date": "2026-07-05",
@@ -160,12 +102,6 @@
       "exe_sig": "1435648:1783119758",
       "csv": "phase3_basefit.csv",
       "note": "Measured-geometry rail WOT fit (alpha 0.4, rail/tap fric 0.1). BEST-ACHIEVABLE points: fitted row [87.5, 91.8, 116.6, 112.6, 110.7, 109.8] vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] -> r 0.05, max_norm_shape_err 0.176, peak 5300 vs stock 3900: the r>=0.95 gate is NOT met. 2700/3900 are base-lever CEILINGS (b130; lower bases REVERSE), 6900 is a floor (b177 blows up), i.e. the low-rpm charge deficit of the measured geometry is outside the EXVANOS lever range. Ratio-wise 4600-6900 sit at 1.02-1.05 of stock (legacy datum was 0.79-0.87 everywhere). Part-load calibration is insulated by the p=VE/VE_WOT normalization. Header-length hypothesis falsified (650mm primaries: 2700 -5.9pp, 6900 blow-up)."
-    },
-    "surface_fit_meta": {
-      "date": "2026-07-05",
-      "commit": "456b8e1fc225",
-      "csv": "fit_base_sweep.csv",
-      "note": "v2: re-solved per-cell under the PRODUCTION sigma(pedal) table (the v1 surface was fitted on the geometric sigma path; the table opens 0.45/0.65 pedals much further). 2 secant waves; final regate mean|dp|=0.066, 12/24 cells >0.05, 2 >0.12 (3900/65 -0.17, 6900/65 -0.26: attractor-gap columns, base cannot dial them smoothly)."
     }
   }
 }
