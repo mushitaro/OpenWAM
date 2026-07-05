@@ -1,0 +1,4 @@
+[
+  {"rpm": 2700, "load": 30.0, "set": {"intake.eq_tube.icv_sigma": 0.45}, "tag": "s58-icvload-045"},
+  {"rpm": 2700, "load": 30.0, "set": {"intake.eq_tube.icv_sigma": 0.60}, "tag": "s58-icvload-060"}
+]

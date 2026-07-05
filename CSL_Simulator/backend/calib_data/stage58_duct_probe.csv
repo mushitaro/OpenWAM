@@ -1,0 +1,3 @@
+id,tag,rpm,load,base,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+bb205cb5e427,s58-duct340,2700,100.0,130.0,,,,"{""intake.inlet.duct_length"": 340.0}",97.74,103.7,0.9425,28,0.2347,1,1,0.0017,0,1,0,1,467.5
+ea613bd8e5cb,s58-duct460,2700,100.0,130.0,,,,"{""intake.inlet.duct_length"": 460.0}",88.49,103.7,0.8533,42,0.2868,1,1,0.0024,0,1,0,1,766.1

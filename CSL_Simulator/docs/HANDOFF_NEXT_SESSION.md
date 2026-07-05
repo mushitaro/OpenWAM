@@ -1,5 +1,31 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **⚡⚡⚡⚡⚡⚡ 2026-07-05 (later) — STAGE 58 EXECUTED: the part_load_alpha=0.4
+> refit (sigma→base under damping) was run to completion and REJECTED by the
+> fitted-column gate; calibration.json is ROLLED BACK to the Stage-57 α-null
+> v2 state (read EXHAUST_STABILIZATION_NOTES Stage 58 first).** Key results:
+> the α0.4 lever landscape is SMOOTH+STRONG (no attractor jumps; 3900/45 old
+> NaN-blocker valid at b132; 6900/65 Δp 0.265→0.024; 45-row 0.149→0.083 all
+> columns) but the SUPPLY-LIMITED cells cap the gate: 2700 column 20/30 rows
+> worsen (0.137→0.191, 0.113→0.227 — ceilings VE~68 vs needed ~87-90 at ANY
+> base) → 2/4 rows improve → not adopted. **Both low-rpm supply scalar
+> candidates are now ELIMINATED by probes**: ICV σ(load) (+0.054 p for σ
+> 0.30→0.60 at 2700/30 — throttle-plate-limited, unlike the +9.8pp WOT
+> effect) and duct end-correction (340mm: +0.4pp; 460mm: −8.9pp at 2700 WOT).
+> The 3900/45 Step-D "persistent NaN" was a gate BOUNDARY artifact (burst
+> ended cycle 5.83, 28 clean cycles after) → recovery-window NaN gate now
+> shared via metrics.nan_persistent() (also fixes the M4 optimizer's stale
+> any-NaN gate). α0.4 artifacts: calib_data/stage58_alpha04_*; comparator:
+> scripts/phase5_compare.py; CSL_FIT_TIMEOUT env for slow cells (900s default
+> binds under 12-way concurrency — wall-clock!).
+> **NEXT: (1) the low-rpm intake supply now REQUIRES geometry-level modeling
+> (in-box trumpet/runner entries, plenum-reflection/valve coupling — scalars
+> are exhausted); α0.4 part-load adoption is blocked ONLY by this. (2) idle-
+> band (600-2400) base columns: prerequisite "band settled" NOT met — probe
+> the idle-band base lever before committing to a fit (2400 WOT denominator
+> is band-out 172.66, like 3100's blow-up). (3) MSS54HP tuner integration
+> stays unblocked on the standing Stage-57 calibration.**
+
 > **⚡⚡⚡⚡⚡ 2026-07-05 — PLAN_PARTLOAD_CALIBRATION.md EXECUTED (Stage 57; read
 > EXHAUST_STABILIZATION_NOTES Stage 57 first).** The measured geometry (22.9 L plenum,
 > 400×φ190→550×190 duct, 10/60 runners) + the **ICV-vented common-rail EQ** are the DEFAULTS

@@ -3546,6 +3546,98 @@ Findings:
   knowledge / the VANOS maps), and/or (b) test the PLENUM/airbox VOLUME (Helmholtz) lever, which
   runner-length scaling does NOT touch and which could add a low-rpm (3900) boost.
 
+## Stage 58 — part_load_alpha=0.4 refit executed and REJECTED by the fitted-column gate (2700 supply ceiling, not instability); recovery-window NaN gate; sigma(load)/duct-end probes both negative
+
+Executed the Stage-57 next-phase list: (1) full sigma→base refit under
+part_load_alpha=0.4, (2) the two low-rpm supply scalar candidates probed.
+Outcome: the α0.4 refit is a large WIN wherever a lever exists but the
+supply-limited cells (2700 column, 6300/6900 at load 20) get worse and cap the
+per-row gate → **calibration.json ROLLED BACK to the Stage-57 α-null v2 state**
+(commit 1e28913's file). All α0.4 fit artifacts preserved:
+`calib_data/stage58_alpha04_fit_{sigma,base,recheck}*.{json,csv}`; canonical
+`fit_*.json` names again point at the Stage-57 fits that produced the ACTIVE
+calibration (provenance invariant).
+
+### The Step-D 3900/45 "persistent NaN" was a gate boundary artifact (fixed)
+- Cache log `97565cb0`: 260 NaN lines ALL in cycles 1.83–5.83 (junction-56
+  guard resets + TTubo BC reports — the Stage-25/57 recoverable startup
+  family), then 28 fully clean cycles, VE relaxing 58→99 smoothly, balanced
+  (per-cyl 0.595–0.682 g). The burst straddled the fixed cycle-5 cut by 0.83
+  cycles. phase5's 3900/15 (nan-only invalid, converged/balanced) = same.
+- Solver NaN reporting is globally THROTTLED (TCCRamificacion junction guard
+  20/run; TTubo BC 50/side/run) → text position is only meaningful EARLY; late
+  silent divergence is the physical gates' job (band/slope/balance/blow-up).
+- **Gate refinement (prep commit 61f3d2d)**: `metrics.nan_persistent()` —
+  persistent iff the LAST NaN text sits in the final 5 recorded cycles (no
+  recovery evidence); runs <10 cyc keep the strict semantics. Shared by
+  run_point + run_cells_local + the M4 optimizer (whose stale "any NaN
+  anywhere" gate would have failed EVERY measured-geometry eval — latent M4
+  bug fixed). Validated on all 549 cached runs: 3 flips, all invalid→valid,
+  2 genuine recoveries + 1 still invalid via cyl/band. Monotonically more
+  permissive for ncyc≥10 (no valid→invalid possible).
+
+### Refit recipe deviations from Stage 57 (all forced, documented)
+1. Fresh sweep CSVs (job-ids don't key calibration state → reusing CSVs
+   returns stale α-null rows; the deck cache is the real resume layer).
+2. sigma/recheck low anchor 3100→2900 (`SIGMA_RPMS`): the production 3100 WOT
+   denominator is a blow-up (608.93) → p undefined; 2900 WOT healthy (88.57).
+   `load_wot_row` now merges ve_by_rpm_full + drops out-of-band denominators;
+   the sigma fold pairs p_sim/p_stock per row.
+3. Surface RESET before the sigma fit (fits at flat part_load_const=150, the
+   Stage-57 Step-B condition). 4. `CSL_FIT_TIMEOUT` env (see below).
+
+### What the α0.4 refit delivered (stage58_alpha04_* artifacts)
+- sigma(pedal): 0.2→0.092, 0.3→0.363, 0.45→0.363(clip), 0.65→0.833(ROOT — the
+  α-null fit was ceiling-bound 0.96/−0.099), 0.85→0.938. Pedal-0.2 stays
+  UNREACHABLE (−0.126: throttle saturated). NB Stage-57's "0.2 root was the
+  geometric probe" is imprecise — geo probe = 0.0131 both stages; 57's 0.065
+  was best-of-3.
+- base surface: smooth STRONG lever nearly everywhere (5300/20 b110:102 ↔
+  b190:53 monotone, no attractor jumps — the Step-D stability promise holds);
+  regate drops: none. 3900/45 (the old blocker) lands VALID at b132.1.
+  Discoveries: 2700/45 has a NON-monotone resonance ridge (b60.5:73.8 /
+  b110:102.6 / b150:70) → solved at b131.7, Δp 0.083; 3900/65 solved at b110
+  (ve 89.3, Δp 0.041; was the −0.17 attractor-gap cell); 6300/20 blocked by a
+  mid-bracket hole (b128.5 → ve 33–43 invalid region between healthy b110/b150).
+- **Adoption table (fitted-column per-row max|Δp|, old→new):**
+  load 20: 0.137→0.191(@2700; 6300 0.022→0.145, 6900 0.047→0.142)  WORSE
+  load 30: 0.113→0.227(@2700)                                      WORSE
+  load 45: 0.149→0.083 (EVERY column ≤0.083)                       BETTER
+  load 65: 0.265→0.254(@2700; 6900 0.265→0.024, 3900 0.138→0.041)  better
+  → gate "all four rows improve" NOT met (2/2 split) → NOT adopted.
+- recheck (α0.4): valid-cell mean|p err| 0.0825 / max 0.142 (6900/20); load-10
+  blow-ups at 2900/6900 (p_sim 4+, gated) — the α-null Step-E was cleaner.
+- Root cause of the split: the supply-limited cells were being FILLED by the
+  α-null high-Q resonance (the same unphysical Q that made everything else
+  chaotic); damping removes that fill and no available lever replaces it
+  (2700/20-30 ceilings VE ~68 vs needed ~87–90 at ANY base; σ_thr saturated;
+  σ_icv weak — see probes). **α0.4 part-load adoption is BLOCKED solely by the
+  low-rpm physical intake supply**, the same physics as the 2700/3900 WOT
+  deficit (Stage-57 closing item 2).
+
+### Low-rpm supply probes (both scalar candidates ELIMINATED)
+- **ICV σ(load)** (2700/30 b150, σ_icv 0.30→0.45→0.60): VE 67.6→71.1→72.8 —
+  +0.054 p for +0.30 σ (area 2×). Closing the −0.23 gap would need σ≈1.6.
+  At part load the throttle plate limits total supply (unlike WOT where the
+  open-throttle rail gave 2700 +9.8 pp). σ(load) tabling CANNOT rescue the
+  2700 column → dead.
+- **Duct end-correction** (2700 WOT, duct_length 400→340/460): 97.74 / 88.49
+  vs 97.34 baseline — shorter buys +0.4 pp (noise), longer LOSES 8.9 pp.
+  Not a duct-length tuning issue → dead.
+- Remaining suspects (next phase, real geometry work): in-box trumpet/runner
+  entry geometry, plenum-reflection/valve-flow coupling (Stage-54/57 lists).
+
+### Operational notes
+- The 900 s cell timeout is WALL-CLOCK and binds under 12-way concurrency:
+  2700/45@b110 "timed out" at cyc36 under load but completed solo in 556 s
+  (cyc37, converged). Timed-out rows are never deck-cached → delete the row +
+  re-run resumes surgically. `CSL_FIT_TIMEOUT` (s) now plumbs a bigger budget
+  through fit_partload sweeps; resurrection rule used: valid=0 &
+  elapsed≥899 & cyc≥20.
+- scripts/phase5_compare.py: fitted-column per-row max|Δp| comparator
+  (self-check reproduces the Stage-57 numbers exactly). kf100 ≡ wideband on
+  all six fitted rpms, so fitter-p and map-Δp denominators coincide there.
+
 ## Stage 57 — MEASURED intake geometry + ICV-vented rail EQ as default; WOT re-fit hits the base-lever ceiling at 2700/3900; part-load calibration lands (PLAN_PARTLOAD_CALIBRATION.md executed locally)
 
 Executed the full staged plan (golden-deck harness → rail plumbing → stability screen →

@@ -117,7 +117,13 @@ def fit_meta(csv_path, residual=None):
 def run_jobs(jobs, csv_name, cycles=30, conc=None):
     csv_path = os.path.join(OUT, csv_name)
     os.makedirs(OUT, exist_ok=True)
-    return asyncio.run(R.run_all(jobs, csv_path, cycles=cycles, conc=conc)), csv_path
+    # CSL_FIT_TIMEOUT (s): per-cell solver timeout. The 900 s default truncates
+    # the slowest alpha-0.4 cells (2700 all-load, 3900 stiff-CFL bases); a
+    # timed-out row records valid=0 and is NOT deck-cached, so deleting it from
+    # the CSV and re-running with a larger timeout resumes exactly those cells.
+    timeout = float(os.environ.get("CSL_FIT_TIMEOUT", "900"))
+    return asyncio.run(R.run_all(jobs, csv_path, cycles=cycles, conc=conc,
+                                 timeout=timeout)), csv_path
 
 
 def rows_to_pfit(rows, wot_ve, load_of=None):
