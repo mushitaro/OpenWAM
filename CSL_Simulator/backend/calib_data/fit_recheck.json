@@ -1,0 +1,120 @@
+{
+  "residual": {
+    "n": 11,
+    "mean_abs_p_err": 0.0864,
+    "max_abs_p_err": 0.2016,
+    "worst_cell": {
+      "rpm": 6900,
+      "load": 20.0,
+      "sigma": null,
+      "p_sim": 0.4615664845173042,
+      "p_stock": 0.6632075471698112,
+      "valid": true
+    }
+  },
+  "rows": [
+    {
+      "rpm": 3900,
+      "load": 20.0,
+      "sigma": null,
+      "p_sim": 0.6367102396514162,
+      "p_stock": 0.7476231633535004,
+      "valid": true
+    },
+    {
+      "rpm": 5300,
+      "load": 20.0,
+      "sigma": null,
+      "p_sim": 0.6407103825136612,
+      "p_stock": 0.7620345140781108,
+      "valid": true
+    },
+    {
+      "rpm": 6900,
+      "load": 20.0,
+      "sigma": null,
+      "p_sim": 0.4615664845173042,
+      "p_stock": 0.6632075471698112,
+      "valid": true
+    },
+    {
+      "rpm": 6900,
+      "load": 14.99,
+      "sigma": null,
+      "p_sim": 0.4615664845173042,
+      "p_stock": 0.5933962264150943,
+      "valid": true
+    },
+    {
+      "rpm": 5300,
+      "load": 10.01,
+      "sigma": null,
+      "p_sim": 0.6317850637522769,
+      "p_stock": 0.5903723887375114,
+      "valid": true
+    },
+    {
+      "rpm": 5300,
+      "load": 14.99,
+      "sigma": null,
+      "p_sim": 0.6381602914389799,
+      "p_stock": 0.6884650317892825,
+      "valid": true
+    },
+    {
+      "rpm": 6900,
+      "load": 10.01,
+      "sigma": null,
+      "p_sim": 0.26821493624772313,
+      "p_stock": 0.4981132075471698,
+      "valid": false
+    },
+    {
+      "rpm": 3900,
+      "load": 14.99,
+      "sigma": null,
+      "p_sim": 0.6198257080610022,
+      "p_stock": 0.6793431287813311,
+      "valid": true
+    },
+    {
+      "rpm": 3100,
+      "load": 10.01,
+      "sigma": null,
+      "p_sim": 0.8885915492957747,
+      "p_stock": 0.7618129218900676,
+      "valid": true
+    },
+    {
+      "rpm": 3900,
+      "load": 10.01,
+      "sigma": null,
+      "p_sim": 0.6143790849673203,
+      "p_stock": 0.5868625756266206,
+      "valid": true
+    },
+    {
+      "rpm": 3100,
+      "load": 14.99,
+      "sigma": null,
+      "p_sim": 0.8885915492957747,
+      "p_stock": 0.8698167791706848,
+      "valid": true
+    },
+    {
+      "rpm": 3100,
+      "load": 20.0,
+      "sigma": null,
+      "p_sim": 0.8607042253521127,
+      "p_stock": 0.9209257473481196,
+      "valid": true
+    }
+  ],
+  "fit_meta": {
+    "date": "2026-07-05",
+    "commit": "456b8e1fc225",
+    "exe_sig": "1435648:1783119758",
+    "csv": "fit_recheck.csv",
+    "residual": null
+  }
+}

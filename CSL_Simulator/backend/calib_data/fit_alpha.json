@@ -1,0 +1,29 @@
+{
+  "report": {
+    "off": {
+      "alpha": null,
+      "collapses": 0,
+      "load20_r": 0.693,
+      "perturb_max_swing_pp": 17.5
+    },
+    "a02": {
+      "alpha": 0.2,
+      "collapses": 3,
+      "load20_r": 0.852,
+      "perturb_max_swing_pp": 17.6
+    },
+    "a04": {
+      "alpha": 0.4,
+      "collapses": 1,
+      "load20_r": 0.983,
+      "perturb_max_swing_pp": 0.6
+    }
+  },
+  "fit_meta": {
+    "date": "2026-07-05",
+    "commit": "456b8e1fc225",
+    "exe_sig": "1435648:1783119758",
+    "csv": "fit_alpha_sweep.csv",
+    "residual": null
+  }
+}

@@ -136,7 +136,7 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         cfg.engine.vanos_intake_bias = float(intake_base - intake_cam)
         base = job.get("base")
         if base is None:
-            base = calib.exvanos_base_for(cal, rpm, is_wot)
+            base = calib.exvanos_base_for(cal, rpm, is_wot, load=load)
         cfg.engine.vanos_exhaust_bias = float((float(base) - exhaust_cam) * ex_scale)
 
         # --- deck ------------------------------------------------------------
@@ -145,8 +145,12 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         log_path = os.path.join(SIM_DIR, sub + ".log")
         gen = WAMGenerator(cfg, SIM_DIR)
         if job.get("sigma_bp"):
-            # post-Phase-1 instance attribute (calibrated sigma(pedal) table)
+            # explicit per-job table (Step-B probes)
             gen._sigma_bp = job["sigma_bp"]
+        else:
+            # mirror the app: inject the calibrated sigma(pedal) table when one
+            # is enabled (None -> geometric legacy path)
+            gen._sigma_bp = calib.thr_sigma_points(cal)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             content = gen.generate(ignition_timing=20.0) if is_wot else gen.generate()

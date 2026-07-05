@@ -11,13 +11,13 @@
     "6900": 170.0
   },
   "ve_by_rpm": {
-    "2700": 87.5,
-    "3100": 71.0,
-    "3900": 91.8,
-    "4600": 116.6,
-    "5300": 109.8,
-    "6300": 110.7,
-    "6900": 109.8
+    "2700": 97.34,
+    "3100": 608.93,
+    "3900": 88.72,
+    "4600": 111.79,
+    "5300": 108.76,
+    "6300": 111.95,
+    "6900": 110.18
   },
   "metrics": {
     "r": 0.0513,
@@ -32,5 +32,27 @@
     "csv": "phase3_basefit.csv",
     "note": "Measured-geometry rail WOT fit (alpha 0.4, rail/tap fric 0.1). BEST-ACHIEVABLE points: fitted row [87.5, 91.8, 116.6, 112.6, 110.7, 109.8] vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] -> r 0.05, max_norm_shape_err 0.176, peak 5300 vs stock 3900: the r>=0.95 gate is NOT met. 2700/3900 are base-lever CEILINGS (b130; lower bases REVERSE), 6900 is a floor (b177 blows up), i.e. the low-rpm charge deficit of the measured geometry is outside the EXVANOS lever range. Ratio-wise 4600-6900 sit at 1.02-1.05 of stock (legacy datum was 0.79-0.87 everywhere). Part-load calibration is insulated by the p=VE/VE_WOT normalization. Header-length hypothesis falsified (650mm primaries: 2700 -5.9pp, 6900 blow-up)."
   },
-  "note": "ve_by_rpm = the OFFICIAL app-path wot_quick row at 60-cycle decks (phase3_wot_quick_measured.json) -- the same denominators the app's wot_ratio_maxdp uses. 3100 runs at the interpolated base 130."
+  "note": "PRODUCTION WOT denominators from the FINAL calibration (ICV 0.30 + sigma table + surface; phase5_final_map load-100 row). NB: the WOT points were fitted at ICV 0.15; enabling ICV 0.30 moved the WOT row (2700: 87.5->97.3 TOWARD stock 103.7; 3900: 91.8->88.7) -- the ICV is NOT WOT-inert in the opening direction (the closing-direction probe understated it).",
+  "ve_by_rpm_full": {
+    "600": 85.94,
+    "870": 76.21,
+    "1100": 73.65,
+    "1300": 80.7,
+    "1400": 77.55,
+    "1600": 75.94,
+    "1800": 75.74,
+    "2100": 71.9,
+    "2200": 75.51,
+    "2400": 172.66,
+    "2700": 97.34,
+    "2900": 88.57,
+    "3100": 608.93,
+    "3900": 88.72,
+    "4600": 111.79,
+    "5300": 108.76,
+    "6300": 111.95,
+    "6900": 110.18,
+    "7300": 107.06,
+    "7900": 96.47
+  }
 }

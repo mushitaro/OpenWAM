@@ -1,11 +1,12 @@
 # LOCAL CONTINUATION PROMPT — CSL_Simulator VE calibration (run on the local PC)
 
-> **⚡ 2026-07-04 — SUPERSEDED IN PART by `docs/PLAN_PARTLOAD_CALIBRATION.md`.** Real measured
-> intake geometry is now available (plenum 22.9 L; duct 400×φ190→550×190; runners 10/60 mm;
-> EQ = common rail φ21×570 mm → φ21×250 mm hose → ICV → main plenum). The "Step 2 intake
-> termination guesswork" below is replaced by wiring the MEASURED geometry + the rail EQ
-> topology, then re-fitting WOT and running the part-load calibration. Follow
-> `PLAN_PARTLOAD_CALIBRATION.md` (Phases 0–5); the setup/metric rules below (§0–§2) still apply.
+> **⚡⚡ 2026-07-05 — `PLAN_PARTLOAD_CALIBRATION.md` HAS BEEN EXECUTED (Stage 57).** This
+> whole prompt is now HISTORICAL: the measured geometry + rail EQ are the defaults, the WOT
+> points / sigma(pedal) / ICV / base-surface fits live in `backend/app/data/calibration.json`
+> (schema v2), and the sweep tooling is `scripts/run_cells_local.py` + `fit_partload.py` +
+> the `golden_deck_check.py` regression gate. Start from `HANDOFF_NEXT_SESSION.md` (top
+> banner) + `EXHAUST_STABILIZATION_NOTES.md` Stage 57. The metric rules in §2 below still
+> apply verbatim (slope convergence, Mtrap VE, coordinated-WOT target).
 
 Copy everything below the line into your local Claude Code session (CLI/IDE/desktop), opened
 in the OpenWAM repo. It assumes you are running on the user's own machine (Intel Core Ultra 9,

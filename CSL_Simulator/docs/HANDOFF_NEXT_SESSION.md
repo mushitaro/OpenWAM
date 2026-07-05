@@ -1,14 +1,24 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-> **⚡⚡⚡⚡ 2026-07-04 UPDATE — REAL MEASURED INTAKE GEOMETRY LANDED; next phase is
-> `docs/PLAN_PARTLOAD_CALIBRATION.md` (execute LOCALLY).** The owner measured the actual car:
-> plenum 22.9 L (not 10.5), duct 400 mm × φ190 → 550×190 slot, runners 10/60 mm, and the EQ
-> system is a **common rail φ21×570 mm returning to the MAIN PLENUM via a φ21×250 mm hose
-> through the ICV** (not the closed 141 cc central plenum modelled today). This supersedes the
-> "owner's by-feel geometry" premise below and re-opens the WOT fit (alpha/EXVANOS re-fit
-> required before part-load). The full staged plan — geometry defaults + rail topology +
-> ICV→sigma(pedal)→base(rpm,load) part-load calibration + `wot_ratio_maxdp` metric — is in
-> `PLAN_PARTLOAD_CALIBRATION.md`. MSS54HP tuner integration comes after that plan completes.
+> **⚡⚡⚡⚡⚡ 2026-07-05 — PLAN_PARTLOAD_CALIBRATION.md EXECUTED (Stage 57; read
+> EXHAUST_STABILIZATION_NOTES Stage 57 first).** The measured geometry (22.9 L plenum,
+> 400×φ190→550×190 duct, 10/60 runners) + the **ICV-vented common-rail EQ** are the DEFAULTS
+> (`eq_tube.model="rail"`, tap φ30 floor, rail/tap friction 0.1); calibration.json v2 carries
+> the fitted **per-rpm WOT points** {2700:130, 3900:130, 4600:145, 5300:155, 6300:170,
+> 6900:170}, **sigma(pedal)** {0.2:0.065, 0.3:0.179, 0.45:0.311, 0.65:0.96, 0.85:0.96},
+> **ICV σ=0.30**, **base(rpm,load) surface** (loads 20-100), part_load_alpha=null.
+> Key facts: alpha 0.4 is the only monostable mouth damping; the WOT shape gate is NOT met
+> (2700/3900 are base-lever CEILINGS: the measured 22.9 L box detunes the old low-rpm
+> Helmholtz boost — but ICV σ0.30 moved 2700 WOT 87.5→97.3 toward stock 103.7: the open rail
+> IS a real low-rpm supply mechanism, see Stage 57 Phase-5); golden_deck_check.py
+> pins the legacy decks byte-identically; duration_cycles is now 60 (30 truncated the measured
+> geometry un-converged); NaN gate = persistent-only (startup cyl-6 BC NaN recovers).
+> **NEXT: (1) the low-rpm WOT charge deficit needs a PHYSICAL intake-supply fix (2700-3900);
+> (2) strong candidate: refit sigma/base UNDER part_load_alpha=0.4 (Step-D showed r 0.983 +
+> ±5-base swing 0.6 pp vs 17.5 pp legacy — one persistent-NaN cell blocked adoption);
+> (3) MSS54HP CSL tuner integration is UNBLOCKED (final verification map in
+> calib_data/phase5_final_map.json).** Sweep tooling: scripts/run_cells_local.py +
+> fit_partload.py (resumable, app-cache-compatible; OMP_NUM_THREADS=1 cell-parallel).
 
 Branch: `claude/admiring-carson-slqOr`  ·  PR #11  ·  full log: `CSL_Simulator/docs/EXHAUST_STABILIZATION_NOTES.md` (Stages 16–56)
 

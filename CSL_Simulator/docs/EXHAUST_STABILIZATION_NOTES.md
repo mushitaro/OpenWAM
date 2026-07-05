@@ -3616,3 +3616,67 @@ peak 5300 (gate r≥0.95/0.05/3900 NOT met — recorded in calibration.json fit_
   0.4}): per-σ mean|Δp| = 0.213/0.170/0.148/0.156 — flat basin at 0.2-0.4. Per-rpm argmin
   {3100:0.2, 3900:0.2, 5300:0.4, 6900:0.4} (higher rpm wants more bypass area, the Stage-49
   pattern); spread 0.2 > 0.15 → **σ = 0.30 (median, R3 constant truncation)**. Applied.
+- **Step B — sigma(pedal)** (56 cells, secant per pedal, rpm-mean p targets, geometric-path
+  probes): `thr_sigma.points` = 0.2→0.065, 0.3→0.179, 0.45→0.311 (INTERIOR optimum — full-open
+  is worse there), 0.65→0.96, 0.85→0.96 (ceiling = best achievable; pedal 0.85 lands p_err
+  −0.007 — the R6 pedal≈fill-demand approximation absorbed as designed). Below pedal 0.2 the
+  fitted table ≈ the geometric curve (the 0.2 root WAS the geometric probe).
+- **Step C — base(rpm,load) surface** (~150 cells total): the v1 surface was accidentally
+  fitted on the GEOMETRIC sigma path (the local runner didn't inject the calibrated table the
+  way the app does — now fixed); at pedals 0.45/0.65 the table opens the throttle much further
+  (0.31/0.96 vs geometric 0.24/0.42), so every mid/high-load cell was re-solved under the
+  PRODUCTION sigma path (2 secant waves, bounded). Final surface (loads 20/30/45/65 × 6 fit
+  rpms, load-100 row = the WOT points verbatim):
+  ```
+  load  20:  150  150   62   71  115  110
+  load  30:  135  150   95  125  130  130
+  load  45:  135  145  110  135  125  128
+  load  65:   95  125   60  125  128  134
+  load 100:  130  130  145  155  170  170     (rpms 2700/3900/4600/5300/6300/6900)
+  ```
+  Regate mean|Δp| = 0.066; 2 cells stay >0.12 (3900/65 −0.17, 6900/65 −0.26): those columns
+  are ATTRACTOR-GAP limited (valid solutions jump across the target; base cannot dial them
+  smoothly). Load-20 row all within ±0.05.
+- **Step D — part_load_alpha A/B** (48 cells, off/0.2/0.4 at the fitted calibration):
+  α0.4 gives LOAD-20 row r **0.983** (off: 0.693) and ±5-base perturbation swing **0.6 pp**
+  (off: **17.5 pp**!) — but 1 invalid cell (3900/45 persistent NaN) vs off's 0, failing the
+  plan's "collapses ≤ legacy" criterion → **part_load_alpha stays null** (plan-literal).
+  RECORDED as the top next-phase candidate: refit sigma/base UNDER α0.4 (the off-variant's
+  17.5 pp base-sensitivity is the part-load analogue of the Stage-56 WOT chaos, and α0.4
+  kills it).
+- **Step E — outer recheck + single ICV re-adjust** (36 cells): at the final calibration the
+  10-20% rows sit at mean|Δp| 0.081 (σ0.3) vs 0.091 (σ0.4, all-valid, more overshoot) →
+  **σ = 0.30 stands** (one comparison, then stop per R3 — no ping-pong). 6900 low-load
+  improved from −0.20..−0.31 (pre-surface) to −0.11..+0.05.
+
+### Phase 5 — final verification map (180 cells, loads >=10%) + the ICV/WOT interaction
+`calib_data/phase5_final_map.json` (CSL_LOAD_SUBSET=">=10", app path, full calibration).
+- **CORRECTION to the Step-A orthogonality claim**: the earlier "WOT row is ICV-insensitive"
+  probe only tested CLOSING (0.15→0.05). OPENING it is NOT inert: ICV 0.30 moved 2700 WOT
+  **87.5 → 97.34** (toward stock 103.7 — the open rail supplies part of the low-rpm charge the
+  22.9L box lost) and 3900 91.8 → 88.7. The production WOT row under the final calibration is
+  [97.3, 88.7, 111.8, 108.8, 112.0, 110.2] (fit-band; 7300/7900: 107.9/97.5-ish, see JSON) —
+  2700's deficit shrank from −16 pp to −6 pp as a side effect. phase3_wot_row.json now carries
+  these PRODUCTION denominators.
+- **Verdict vs the plan's numeric gates: NOT MET globally.** All rows red in the UI. Drivers:
+  (1) the RAW per-row r/shape metrics inherit the WOT-row shape deficit by construction
+  (a p-perfect row cannot match the raw stock row unless the WOT rows agree); (2) 8 of 20 rpm
+  columns (600-2400) were never in the fit scope and drag every row metric; (3) two
+  attractor-gap cells (3900/65, 6900/65) and the flat-lever 2700 part-load column.
+- **What the calibration actually delivers on the SIX fitted columns** (Δp = sim/sim_WOT −
+  stock/stock_WOT, the plan's own load-profile metric, against the production denominators):
+  load 20: mean 0.059 / max 0.137(2700); load 30: 0.061 / 0.114; load 45: 0.090 / 0.149;
+  load 65: 0.134 / 0.265(6900); loads 10/15: 0.106/0.095 mean. The 2700 part-load column's
+  −0.11..−0.17 is a DENOMINATOR effect (its WOT improved +9.8 pp while its part-load lever is
+  flat ~−0.002 p/deg — un-fittable by base; documented limitation).
+- MSS54HP tuner status: the part-load calibration machinery (ICV/sigma/base surface,
+  wot_ratio_maxdp instrumentation) is in production and traceable; WOT cam optimisation stays
+  LOW-CONFIDENCE until the low-rpm intake supply is physically fixed (Stage-56 caveat stands).
+
+### Next phase (in order of expected value)
+1. **Refit sigma/base UNDER part_load_alpha=0.4** (Step-D: r 0.983, ±5-base swing 0.6 pp vs
+   17.5 pp — one persistent-NaN cell at 3900/45 blocked plan-literal adoption).
+2. **Physical low-rpm intake supply** (2700-3900 WOT + the 2700 part-load column): duct/slot
+   end-correction, in-box trumpet geometry, or an ICV/rail supply model with load-dependent
+   duty (the 2700-WOT +9.8 pp from ICV 0.30 shows the mechanism is real and strong).
+3. Extend the base surface columns below 2700 (600-2400) once (1)/(2) settle the band.
