@@ -62,3 +62,24 @@ Success looks like a `Build succeeded` tail and a new `build_ux/bin/release/Open
 ## If you're actually running a simulation (not just clicking through the UI)
 
 Solver cells are only bitwise-reproducible at `OMP_NUM_THREADS=1` — the OpenMP build is non-deterministic at WOT. The app's own request handling in `simulation_service.py` should already set this correctly for anything driven through the UI/API; this is only a concern if you're tempted to invoke the solver directly, outside the app.
+
+## Two more launch gotchas (learned 2026-07-05, Stage 57 session)
+
+1. **Never pipe `npm run dev` through `head` (or anything that closes early).**
+   `npm run dev 2>&1 | head -30` serves fine at first, then DIES mid-session the moment Next
+   writes past head's limit (closed pipe kills the process). This looks like "the app randomly
+   stopped working" — port 3000 goes dead while the Claude task still shows as running.
+   Redirect to a file instead: `npm run dev > dev.log 2>&1`.
+2. **A killed `next dev` leaves a zombie node holding `.next/dev/lock`** even when nothing
+   listens on port 3000 — the port check comes up clean, but a fresh start fails with
+   "Unable to acquire lock". Kill by command line, not by port:
+   ```powershell
+   Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
+     Where-Object { $_.CommandLine -match 'next' } |
+     ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+   ```
+   then `rm -rf CSL_Simulator/frontend/.next` and start again.
+3. **Servers started as Claude background tasks die with the session.** For anything the USER
+   will open later, point them at `CSL_Simulator/start_app.bat` (double-click: cleans the lock
+   + `.next`, starts both servers in their own console windows, opens the browser). Closing
+   those windows stops the app.
