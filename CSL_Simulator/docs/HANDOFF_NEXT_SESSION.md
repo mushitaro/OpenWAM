@@ -21,10 +21,12 @@
 > **NEXT: (1) the low-rpm intake supply now REQUIRES geometry-level modeling
 > (in-box trumpet/runner entries, plenum-reflection/valve coupling — scalars
 > are exhausted); α0.4 part-load adoption is blocked ONLY by this. (2) idle-
-> band (600-2400) base columns: prerequisite "band settled" NOT met — probe
-> the idle-band base lever before committing to a fit (2400 WOT denominator
-> is band-out 172.66, like 3100's blow-up). (3) MSS54HP tuner integration
-> stays unblocked on the standing Stage-57 calibration.**
+> band (600-2400) base columns: lever PROBED ALIVE (1100/30 b190 err −0.036,
+> b110 over-ram 148; 1800/30 b110 +0.144, b190 hang; 938-2400 s/cell → use
+> CSL_FIT_TIMEOUT≥2400) but the fit is DEFERRED until the supply fix settles
+> the band — fitting 8 idle columns now bakes a Stage-44-style false optimum
+> (2400 WOT denominator is band-out 172.66, like 3100's blow-up). (3) MSS54HP
+> tuner integration stays unblocked on the standing Stage-57 calibration.**
 
 > **⚡⚡⚡⚡⚡ 2026-07-05 — PLAN_PARTLOAD_CALIBRATION.md EXECUTED (Stage 57; read
 > EXHAUST_STABILIZATION_NOTES Stage 57 first).** The measured geometry (22.9 L plenum,

@@ -3627,6 +3627,19 @@ calibration (provenance invariant).
 - Remaining suspects (next phase, real geometry work): in-box trumpet/runner
   entry geometry, plenum-reflection/valve-flow coupling (Stage-54/57 lists).
 
+### Idle-band (600-2400) base-column feasibility probe (Task-3 gate)
+{1100, 1800} × base {110, 190} at load 30, active α-null calibration
+(stage58_idle_probe.csv): the base lever is ALIVE and STRONG — 1100/30:
+b190 → 71.1 VALID err −0.036 (near target already!) vs b110 → 148.4 over-ram
+UNHEALTHY (77 pp swing); 1800/30: b110 → 82.8 valid (+0.144 over) vs
+b190 → cyc0 HANG. So a fit is viable (roots in range) but the columns are
+cliff-ridden and SLOW (938–2400 s/cell — set CSL_FIT_TIMEOUT ≥ 2400).
+**Deferred on the Stage-57 prerequisite**: the band is NOT settled (α0.4
+rejected, supply scalars dead); the coming geometry-level supply fix moves the
+box tuning that dominates 600-2800, so fitting 8 idle columns now would bake a
+Stage-44-style false optimum. Fit AFTER the supply fix with the proven
+machinery (brackets {110,150,190} + secant + regate; expect ~4-7 h).
+
 ### Operational notes
 - The 900 s cell timeout is WALL-CLOCK and binds under 12-way concurrency:
   2700/45@b110 "timed out" at cyc36 under load but completed solo in 556 s
