@@ -39,25 +39,25 @@ const VeOverlayChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
     const peakStock = runData.rows[wotRow]?.peak_rpm_stock ?? null;
 
     return (
-        <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 h-full flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-slate-200">
+        <div className="flex flex-col gap-2 h-full">
+            <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-neutral-200">
                     VE — Sim vs Stock (WOT, {runData.axes.load[wotRow]}%)
                 </h3>
-                <span className="text-[10px] font-mono text-slate-500">
+                <span className="text-[10px] font-mono text-neutral-500">
                     peak: sim {runData.rows[wotRow]?.peak_rpm_sim ?? "-"} / stock {peakStock ?? "-"}
                 </span>
             </div>
             <div className="flex-1 min-h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: -8 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                        <XAxis dataKey="rpm" stroke="#94a3b8" tick={{ fontSize: 11 }}
+                        <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
+                        <XAxis dataKey="rpm" stroke="#a3a3a3" tick={{ fontSize: 11 }}
                                tickFormatter={(v) => `${Math.round(v / 100) / 10}k`} />
-                        <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} domain={["auto", "auto"]}
-                               label={{ value: "VE %", angle: -90, position: "insideLeft", fill: "#94a3b8", fontSize: 11 }} />
-                        <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
-                                 labelStyle={{ color: "#e2e8f0" }} formatter={(v: any) => (v == null ? "-" : Number(v).toFixed(1) + " %")} />
+                        <YAxis stroke="#a3a3a3" tick={{ fontSize: 11 }} domain={["auto", "auto"]}
+                               label={{ value: "VE %", angle: -90, position: "insideLeft", fill: "#a3a3a3", fontSize: 11 }} />
+                        <Tooltip contentStyle={{ background: "#171717", border: "1px solid #262626", borderRadius: 8, fontSize: 12 }}
+                                 labelStyle={{ color: "#e5e5e5" }} formatter={(v: any) => (v == null ? "-" : Number(v).toFixed(1) + " %")} />
                         <Legend wrapperStyle={{ fontSize: 12 }} />
                         {peakStock != null && (
                             <ReferenceLine x={peakStock} stroke="#f59e0b" strokeDasharray="4 4"

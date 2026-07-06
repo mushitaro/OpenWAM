@@ -14,7 +14,7 @@ import type { RunResponse } from "../app/api";
 const Plot = dynamic(() => import("react-plotly.js"), {
     ssr: false,
     loading: () => (
-        <div className="h-full w-full flex items-center justify-center text-slate-600 text-xs font-mono">
+        <div className="h-full w-full flex items-center justify-center text-neutral-600 text-xs font-mono">
             loading 3D…
         </div>
     ),
@@ -22,8 +22,8 @@ const Plot = dynamic(() => import("react-plotly.js"), {
 
 type Mode = "sim" | "stock" | "delta";
 
-// slate palette shared with VeOverlayChart / ValidityPanel
-const AXIS = { color: "#94a3b8", gridcolor: "#334155", zerolinecolor: "#475569" };
+// neutral palette shared with VeOverlayChart / ValidityPanel / VETableComparison
+const AXIS = { color: "#a3a3a3", gridcolor: "#262626", zerolinecolor: "#404040" };
 
 function buildZ(run: RunResponse, mode: Mode): (number | null)[][] {
     return run.cells.map((row) =>
@@ -131,12 +131,12 @@ const VeSurfaceChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
     ];
 
     return (
-        <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 flex flex-col h-full">
+        <div className="flex flex-col h-full">
             <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                <div className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                <div className="text-sm font-semibold text-neutral-200 flex items-center gap-2">
                     <BarChart3 size={14} /> VE Surface
                 </div>
-                <div className="flex gap-1 bg-slate-900 p-1 rounded-md">
+                <div className="flex gap-1 bg-neutral-900 p-1 rounded-md border border-neutral-800">
                     {tabs.map((t) => (
                         <button
                             key={t.id}
@@ -145,10 +145,10 @@ const VeSurfaceChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
                             title={t.disabled ? "No measured stock for these cells" : `Show ${t.label}`}
                             className={`px-2.5 py-0.5 rounded text-[11px] font-medium transition-colors ${
                                 mode === t.id
-                                    ? "bg-slate-700 text-slate-100"
+                                    ? "bg-neutral-800 text-neutral-100"
                                     : t.disabled
-                                      ? "text-slate-700 cursor-not-allowed"
-                                      : "text-slate-400 hover:text-slate-200"
+                                      ? "text-neutral-700 cursor-not-allowed"
+                                      : "text-neutral-500 hover:text-neutral-300"
                             }`}
                         >
                             {t.label}

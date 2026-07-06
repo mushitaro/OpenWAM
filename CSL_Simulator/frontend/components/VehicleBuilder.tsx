@@ -910,10 +910,10 @@ const VehicleBuilder = () => {
                                     )}
 
                                     {!loading && runData && resultView === "summary" && (
-                                        <div className="absolute inset-0 overflow-auto p-1 flex flex-col gap-4 animate-in fade-in duration-500">
+                                        <div className="absolute inset-0 overflow-auto p-4 flex flex-col gap-6 divide-y divide-neutral-800 animate-in fade-in duration-500 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
                                             <ValidityPanel overall={runData.overall} rows={runData.rows} />
-                                            <div className="h-72 flex-shrink-0"><VeOverlayChart runData={runData} /></div>
-                                            <div className="min-h-[340px] flex-shrink-0">
+                                            <div className="h-72 flex-shrink-0 pt-6"><VeOverlayChart runData={runData} /></div>
+                                            <div className="min-h-[340px] flex-shrink-0 pt-6">
                                                 <VETableComparison calibrationResult={runToCalibration(runData, ecuBaseMap)} onBinUploaded={refreshBaseMap} />
                                             </div>
                                         </div>
@@ -932,7 +932,7 @@ const VehicleBuilder = () => {
                                     )}
 
                                     {!loading && tuneData && resultView === "tuning" && (
-                                        <div className="absolute inset-0 overflow-auto p-3 animate-in fade-in duration-500">
+                                        <div className="absolute inset-0 overflow-auto p-4 animate-in fade-in duration-500 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
                                             <TuningResults data={tuneData} />
                                         </div>
                                     )}
@@ -1073,7 +1073,7 @@ const VehicleBuilder = () => {
 
                             {/* Logs */}
                             <div className="mt-4 border-t border-neutral-800 pt-4">
-                                <div className="h-24 font-mono text-[10px] text-neutral-600 overflow-y-auto">
+                                <div className="h-24 font-mono text-[10px] text-neutral-600 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
                                     <div>[SYSTEM] Ready</div>
                                     {loading && progress && <div>[RUN] cell {progress.done}/{progress.total}</div>}
                                     {runData && <div className="text-emerald-500">[DONE] {runData.overall.verdict} ({runData.elapsed_sec}s)</div>}

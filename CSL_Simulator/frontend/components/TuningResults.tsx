@@ -12,9 +12,9 @@ import {
 import { Copy, Download, SlidersHorizontal, AlertTriangle, Check } from "lucide-react";
 import type { OptimizationResponse, EcuTable } from "../app/api";
 
-// slate palette shared with VeOverlayChart / ValidityPanel
-const GRID = "#334155";
-const TICK = "#94a3b8";
+// neutral palette shared with VeOverlayChart / ValidityPanel / VETableComparison
+const GRID = "#262626";
+const TICK = "#a3a3a3";
 
 function tableToDelim(t: EcuTable, sep: string): string {
     const lines: string[] = [];
@@ -70,13 +70,13 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
     };
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
             {/* header */}
-            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+            <div>
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <div className="text-sm font-semibold text-neutral-200 flex items-center gap-2">
                         <SlidersHorizontal size={14} /> VANOS Tuning — WOT
-                        <span className="text-[10px] font-mono text-slate-500">
+                        <span className="text-[10px] font-mono text-neutral-500">
                             {data.preference === "max_ve" ? "MAX VE" : "SMOOTH"} ·{" "}
                             {data.n_evals_total} sims · {Math.round(data.elapsed_sec)}s
                         </span>
@@ -84,21 +84,21 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => copy("intake", tableToDelim(data.tables.intake, "\t"))}
-                            className="px-2.5 py-1 rounded text-[11px] font-medium border border-slate-700 text-slate-300 hover:bg-slate-700 flex items-center gap-1"
+                            className="px-2.5 py-1 rounded text-[11px] font-medium border border-neutral-700 text-neutral-300 hover:bg-neutral-800 flex items-center gap-1"
                             title="Copy KF_EVAN1_SOLL as a tab-separated block (paste into tuning software)"
                         >
                             {copied === "intake" ? <Check size={11} /> : <Copy size={11} />} Intake TSV
                         </button>
                         <button
                             onClick={() => copy("exhaust", tableToDelim(data.tables.exhaust, "\t"))}
-                            className="px-2.5 py-1 rounded text-[11px] font-medium border border-slate-700 text-slate-300 hover:bg-slate-700 flex items-center gap-1"
+                            className="px-2.5 py-1 rounded text-[11px] font-medium border border-neutral-700 text-neutral-300 hover:bg-neutral-800 flex items-center gap-1"
                             title="Copy KF_AVAN1_SOLL as a tab-separated block"
                         >
                             {copied === "exhaust" ? <Check size={11} /> : <Copy size={11} />} Exhaust TSV
                         </button>
                         <button
                             onClick={downloadCsv}
-                            className="px-2.5 py-1 rounded text-[11px] font-semibold bg-slate-100 text-black hover:bg-white flex items-center gap-1"
+                            className="px-2.5 py-1 rounded text-[11px] font-semibold bg-neutral-100 text-black hover:bg-white flex items-center gap-1"
                             title="Download both ECU tables (WOT row optimized) as CSV"
                         >
                             <Download size={11} /> CSV
@@ -114,8 +114,8 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
             </div>
 
             {/* optimized vs baseline curve */}
-            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 h-72 flex flex-col">
-                <div className="text-xs font-semibold text-slate-300 mb-2">
+            <div className="h-72 flex flex-col">
+                <div className="text-xs font-semibold text-neutral-300 mb-2">
                     WOT VE — baseline vs optimized
                 </div>
                 <div className="flex-1 min-h-[200px]">
@@ -126,7 +126,7 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
                             <YAxis tick={{ fill: TICK, fontSize: 10 }} stroke={GRID}
                                 domain={["dataMin - 2", "dataMax + 2"]} width={40} />
                             <Tooltip
-                                contentStyle={{ backgroundColor: "#0f172a", border: `1px solid ${GRID}`, fontSize: 11 }}
+                                contentStyle={{ backgroundColor: "#171717", border: `1px solid ${GRID}`, fontSize: 11 }}
                                 labelStyle={{ color: TICK }}
                             />
                             <Legend wrapperStyle={{ fontSize: 10 }} />
@@ -142,13 +142,13 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
             </div>
 
             {/* per-rpm cam table */}
-            <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700 overflow-auto">
-                <div className="text-xs font-semibold text-slate-300 mb-2">
+            <div className="overflow-auto rounded-lg border border-neutral-800 bg-neutral-950/50 p-3 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+                <div className="text-xs font-semibold text-neutral-300 mb-2">
                     Per-rpm cam targets (deg) — stock → optimized
                 </div>
                 <table className="w-full text-[11px] font-mono text-center border-collapse">
                     <thead>
-                        <tr className="text-slate-500 border-b border-slate-700">
+                        <tr className="text-neutral-500 border-b border-neutral-800">
                             <th className="p-1.5 text-left">rpm</th>
                             <th className="p-1.5">Intake</th>
                             <th className="p-1.5">Exhaust</th>
@@ -164,8 +164,8 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
                             const changedIn = c.chosen.intake_cam !== c.stock.intake_cam;
                             const changedEx = c.chosen.exhaust_cam !== c.stock.exhaust_cam;
                             return (
-                                <tr key={c.rpm} className="border-b border-slate-700/40 text-slate-300">
-                                    <td className="p-1.5 text-left text-slate-400">{c.rpm}</td>
+                                <tr key={c.rpm} className="border-b border-neutral-800/40 text-neutral-300">
+                                    <td className="p-1.5 text-left text-neutral-400">{c.rpm}</td>
                                     <td className={`p-1.5 ${changedIn ? "text-emerald-300" : ""}`}>
                                         {c.stock.intake_cam}{changedIn ? ` → ${c.chosen.intake_cam}` : ""}
                                     </td>
@@ -178,21 +178,21 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
                                     <td className={`p-1.5 ${c.chosen.valid ? "" : "text-red-400/70"}`}>
                                         {c.chosen.ve.toFixed(1)}{c.chosen.valid ? "" : " !"}
                                     </td>
-                                    <td className={`p-1.5 ${(c.delta_ve ?? 0) > 0 ? "text-emerald-400" : "text-slate-500"}`}>
+                                    <td className={`p-1.5 ${(c.delta_ve ?? 0) > 0 ? "text-emerald-400" : "text-neutral-500"}`}>
                                         {c.delta_ve != null ? (c.delta_ve > 0 ? "+" : "") + c.delta_ve.toFixed(1) : "—"}
                                     </td>
-                                    <td className="p-1.5 text-slate-500">{c.n_evals}</td>
+                                    <td className="p-1.5 text-neutral-500">{c.n_evals}</td>
                                     <td className="p-1.5">
                                         {c.confidence === "low"
                                             ? <span className="text-amber-400">low</span>
-                                            : <span className="text-slate-500">ok</span>}
+                                            : <span className="text-neutral-500">ok</span>}
                                     </td>
                                 </tr>
                             );
                         })}
                     </tbody>
                 </table>
-                <div className="mt-2 text-[10px] font-mono text-slate-600">
+                <div className="mt-2 text-[10px] font-mono text-neutral-600">
                     &quot;!&quot; = health-gated (unconverged / imbalance / blow-up). Export tables carry the
                     full 16×16 ECU layout with only the WOT row ({data.tables.intake.y_axis[data.tables.intake.wot_row_index]}%) replaced.
                 </div>
