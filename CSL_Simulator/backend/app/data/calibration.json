@@ -5,7 +5,8 @@
     "alpha": 0.4,
     "w": 0.005,
     "wot_tps_threshold": 85.0,
-    "part_load_alpha": null
+    "part_load_alpha": 0.4,
+    "part_load_alpha_load_min": 40.0
   },
   "thr_choke": 1,
   "intake_vanos_base": 130.0,
@@ -27,15 +28,15 @@
       ],
       [
         0.45,
-        0.31065
+        0.36281
       ],
       [
         0.65,
-        0.96
+        0.83295
       ],
       [
         0.85,
-        0.96
+        0.93759
       ],
       [
         1.0,
@@ -128,20 +129,20 @@
           130.0
         ],
         [
-          135.0,
-          145.0,
-          110.0,
-          135.0,
-          125.0,
-          128.0
+          131.7,
+          132.1,
+          132.4,
+          150.0,
+          150.0,
+          150.0
         ],
         [
-          95.0,
-          125.0,
-          60.0,
-          125.0,
-          128.0,
-          134.0
+          150.0,
+          110.0,
+          150.0,
+          150.0,
+          150.0,
+          170.1
         ],
         [
           130.0,
@@ -162,10 +163,8 @@
       "note": "Measured-geometry rail WOT fit (alpha 0.4, rail/tap fric 0.1). BEST-ACHIEVABLE points: fitted row [87.5, 91.8, 116.6, 112.6, 110.7, 109.8] vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] -> r 0.05, max_norm_shape_err 0.176, peak 5300 vs stock 3900: the r>=0.95 gate is NOT met. 2700/3900 are base-lever CEILINGS (b130; lower bases REVERSE), 6900 is a floor (b177 blows up), i.e. the low-rpm charge deficit of the measured geometry is outside the EXVANOS lever range. Ratio-wise 4600-6900 sit at 1.02-1.05 of stock (legacy datum was 0.79-0.87 everywhere). Part-load calibration is insulated by the p=VE/VE_WOT normalization. Header-length hypothesis falsified (650mm primaries: 2700 -5.9pp, 6900 blow-up)."
     },
     "surface_fit_meta": {
-      "date": "2026-07-05",
-      "commit": "456b8e1fc225",
-      "csv": "fit_base_sweep.csv",
-      "note": "v2: re-solved per-cell under the PRODUCTION sigma(pedal) table (the v1 surface was fitted on the geometric sigma path; the table opens 0.45/0.65 pedals much further). 2 secant waves; final regate mean|dp|=0.066, 12/24 cells >0.05, 2 >0.12 (3900/65 -0.17, 6900/65 -0.26: attractor-gap columns, base cannot dial them smoothly)."
+      "date": "2026-07-07",
+      "note": "Stage 60 HYBRID: load 20/30 rows = Stage-57 alpha-null; load 45/65 rows = stage58_alpha04 fit. Paired with mouth_rad.part_load_alpha_load_min=40 (damping ON only at load>=45) and the hybrid sigma table. Captures alpha-0.4 mid/high-load wins (6900/65 0.265->0.024, 3900/65 0.137->0.041, all load-45) with ZERO regression on load 20/30 (kept at Stage-57). Trade: the un-fixable 2700/65 regresses 0.168->0.254 (Stage 59: 2700 is supply-limited)."
     }
   }
 }

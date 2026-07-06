@@ -98,10 +98,26 @@ def mouth_rad(cal):
             float(mr.get("wot_tps_threshold", 85.0)))
 
 
-def part_load_alpha(cal):
-    """Damping alpha for NON-WOT cells; None = legacy (no part-load damping)."""
-    v = ((cal or {}).get("mouth_rad", {}) or {}).get("part_load_alpha")
-    return None if v is None else float(v)
+def part_load_alpha(cal, load=None):
+    """Damping alpha for NON-WOT cells; None = legacy (no part-load damping).
+
+    Optional LOAD SCHEDULE (Stage 60): if mouth_rad.part_load_alpha_load_min is
+    set, the damping applies ONLY at load(%TPS) >= that threshold. alpha-0.4
+    monostabilizes the mid/high-load attractor-gap cells (6900/65 0.265->0.024,
+    3900/65 0.137->0.041, all load-45) but OVER-damps the low-load ram
+    (regressing load 20/30 broadly), so it is scheduled to load>=45 only. The
+    load breakpoints 30 and 45 are adjacent with no cell between them, so the
+    threshold falls in a clean gap. load=None (caller unaware) returns the
+    UNSCHEDULED value for backward compatibility.
+    """
+    mr = ((cal or {}).get("mouth_rad", {}) or {})
+    v = mr.get("part_load_alpha")
+    if v is None:
+        return None
+    lmin = mr.get("part_load_alpha_load_min")
+    if lmin is not None and load is not None and float(load) < float(lmin):
+        return None
+    return float(v)
 
 
 def thr_sigma_points(cal):

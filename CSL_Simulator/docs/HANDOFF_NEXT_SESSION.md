@@ -1,5 +1,28 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **⚡⚡⚡⚡⚡⚡⚡⚡ 2026-07-07 — STAGE 60: LOAD-SCHEDULED HYBRID ADOPTED. The
+> Stage-58 α0.4 rejection was re-examined: α0.4 as-is is genuinely un-rescuable
+> (2/4 rows under ALL gate policies, even EXCLUDING the un-fixable 2700 column —
+> the part-load damping regresses load 20/30 broadly, incl. 6300/20 0.022→0.145,
+> not just 2700). BUT a LOAD-SCHEDULED variant wins: apply part_load_alpha=0.4
+> ONLY at load≥45 (mouth_rad.part_load_alpha_load_min=40), with a hybrid base
+> surface (Stage-57 rows for load 20/30, α0.4 rows for 45/65) and hybrid sigma
+> (α-null ≤0.3, α0.4 ≥0.45). End-to-end validated on the fitted columns (all
+> cache hits, stage60_validate.csv): load 20/30 IDENTICAL to Stage-57 (zero
+> regression), load 45 all-6-columns improved, load 65 turns 6900/65 0.265→0.024
+> and 3900/65 0.137→0.041 RED→GREEN. Only cost: the un-fixable 2700/65 regresses
+> 0.168→0.254. NET WIN for the optimizer (mid/high-load accuracy). ADOPTED into
+> calibration.json; golden green. NOTE phase5_final_map.json / UI last_run still
+> show Stage-57 until a ~3h full-map re-run. Code: part_load_alpha(cal, load)
+> load-schedule + _build_sim_env(...,load) plumbed through run_point/
+> run_cells_local/waveform (optimizer WOT-only, unaffected).
+> **NEXT: (1) optionally refresh the full phase5 map / UI last_run under the
+> hybrid; (2) the 3900 WOT PEAK is the real remaining WOT item (sim peaks 6300,
+> 3900 is a dip 88.7 vs stock 115.7; ram tuned ~1300-2400rpm too high — the real
+> car peaks ~4000, confirmed by owner). Needs the intake ram physically retuned
+> to 3900 (Helmholtz n=1≈3650 vs organ-pipe 5300); the real trumpet dimensions
+> feed THIS, not the 2700 part-load (supply-limited). See Stage 60 / Stage 59.**
+
 > **⚡⚡⚡⚡⚡⚡⚡ 2026-07-06 — STAGE 59: TARGET REFRAMED. The 2700 WOT −6.4pp
 > is the WRONG number — p=VE/VE_WOT divides it out (counterfactual: forcing
 > sim_WOT:=stock_WOT WORSENS the part-load gate by +0.046..0.050). The real

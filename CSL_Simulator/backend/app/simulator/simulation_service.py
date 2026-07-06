@@ -114,7 +114,7 @@ class SimulationService:
         except Exception:
             return "unknown"
 
-    def _build_sim_env(self, cal, is_wot, fast=True):
+    def _build_sim_env(self, cal, is_wot, fast=True, load=None):
         """The §3 NON-NEGOTIABLE solver environment for every app-run sim.
 
         omp1 (determinism) + HLLC flux (the plenumless Type-12 junction diverges
@@ -134,7 +134,7 @@ class SimulationService:
         alpha, w, _thr = calib.mouth_rad(cal)
         rad_off = os.environ.get("OPENWAM_MOUTH_RAD_OFF")
         rad_explicit = os.environ.get("OPENWAM_MOUTH_RAD")
-        pl_alpha = calib.part_load_alpha(cal)
+        pl_alpha = calib.part_load_alpha(cal, load=load)
         if rad_explicit is not None:
             env["OPENWAM_MOUTH_RAD"] = rad_explicit
             env["OPENWAM_MOUTH_RAD_W"] = os.environ.get("OPENWAM_MOUTH_RAD_W", str(w))
@@ -351,6 +351,7 @@ class SimulationService:
             "alpha": _alpha, "w": _w,
             "thr_choke": cal.get("thr_choke", 1),
             "part_load_alpha": calib.part_load_alpha(cal),
+            "part_load_alpha_load_min": (cal.get("mouth_rad", {}) or {}).get("part_load_alpha_load_min"),
             "icv_sigma": calib.icv_sigma(cal),
             "thr_sigma_sha1": _sha1(calib.thr_sigma_points(cal)),
             "exvanos_surface_sha1": _sha1(
@@ -417,7 +418,7 @@ class SimulationService:
                 content = gen.generate(ignition_timing=20.0) if is_wot else gen.generate()
                 with open(wam_path, "w") as f:
                     f.write(content)
-                sim_env = self._build_sim_env(cal, is_wot, fast=True)
+                sim_env = self._build_sim_env(cal, is_wot, fast=True, load=load_tps)
 
                 output = ""
                 try:
@@ -717,7 +718,7 @@ class SimulationService:
         gen._monitor_pipe_ids = set(mon_pids)              # curated subset only
         content = gen.generate(ignition_timing=20.0) if is_wot else gen.generate()
 
-        env = self._build_sim_env(cal, is_wot, fast=False)
+        env = self._build_sim_env(cal, is_wot, fast=False, load=load)
         env.pop("OPENWAM_FAST_OUTPUT", None)               # belt+braces: pipe monitoring ON
         exe = self._resolve_exe()
 

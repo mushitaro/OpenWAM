@@ -157,7 +157,7 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         with open(wam_path, "w") as f:
             f.write(content)
 
-        env = svc._build_sim_env(cal, is_wot, fast=True)
+        env = svc._build_sim_env(cal, is_wot, fast=True, load=load)
         if job.get("alpha") is not None:
             env["OPENWAM_MOUTH_RAD"] = str(job["alpha"])
             env["OPENWAM_MOUTH_RAD_W"] = env.get("OPENWAM_MOUTH_RAD_W", "0.005")
