@@ -45,7 +45,7 @@ const ValidityPanel: React.FC<{ overall: RunOverall; rows: RunRow[] }> = ({ over
             </div>
 
             {/* per-row table */}
-            <div className="overflow-auto rounded-lg border border-neutral-800 bg-neutral-950/50 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+            <div className="overflow-auto rounded-lg border border-neutral-800 bg-neutral-950/50">
                 <table className="w-full text-[11px] text-center font-mono border-collapse">
                     <thead>
                         <tr className="bg-neutral-950 text-neutral-500">

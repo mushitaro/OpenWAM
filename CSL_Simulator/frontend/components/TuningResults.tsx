@@ -142,7 +142,7 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
             </div>
 
             {/* per-rpm cam table */}
-            <div className="overflow-auto rounded-lg border border-neutral-800 bg-neutral-950/50 p-3 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+            <div className="overflow-auto rounded-lg border border-neutral-800 bg-neutral-950/50 p-3">
                 <div className="text-xs font-semibold text-neutral-300 mb-2">
                     Per-rpm cam targets (deg) — stock → optimized
                 </div>

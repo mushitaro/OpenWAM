@@ -820,8 +820,8 @@ const VehicleBuilder = () => {
                                 simulationStatus={optimizing ? "running" : "idle"}
                             />
                         </div>
-                        {/* Params (fixed width, right) */}
-                        <div className="order-2 w-[340px] flex-shrink-0 border-l border-neutral-800 bg-neutral-900/50 flex flex-col overflow-hidden">
+                        {/* Params (fixed width, right, floating card) */}
+                        <div className="order-2 w-[340px] flex-shrink-0 my-6 mr-6 rounded-lg border border-neutral-800 bg-neutral-900/50 flex flex-col overflow-hidden">
                             {/* Global / Project Header */}
                             <div
                                 onClick={() => setSelection({ type: "environment" })}
@@ -836,7 +836,7 @@ const VehicleBuilder = () => {
                             </div>
 
                             {/* Scrollable Content */}
-                            <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+                            <div className="flex-1 overflow-y-scroll">
                                 {renderSelectionParams()}
                             </div>
                         </div>
@@ -910,7 +910,7 @@ const VehicleBuilder = () => {
                                     )}
 
                                     {!loading && runData && resultView === "summary" && (
-                                        <div className="absolute inset-0 overflow-auto p-4 flex flex-col gap-6 divide-y divide-neutral-800 animate-in fade-in duration-500 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+                                        <div className="absolute inset-0 overflow-auto p-4 flex flex-col gap-6 divide-y divide-neutral-800 animate-in fade-in duration-500">
                                             <ValidityPanel overall={runData.overall} rows={runData.rows} />
                                             <div className="h-72 flex-shrink-0 pt-6"><VeOverlayChart runData={runData} /></div>
                                             <div className="min-h-[340px] flex-shrink-0 pt-6">
@@ -932,7 +932,7 @@ const VehicleBuilder = () => {
                                     )}
 
                                     {!loading && tuneData && resultView === "tuning" && (
-                                        <div className="absolute inset-0 overflow-auto p-4 animate-in fade-in duration-500 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+                                        <div className="absolute inset-0 overflow-auto p-4 animate-in fade-in duration-500">
                                             <TuningResults data={tuneData} />
                                         </div>
                                     )}
@@ -941,8 +941,8 @@ const VehicleBuilder = () => {
 
                         </div>
 
-                        {/* Right: Sidebar Controls */}
-                        <div className="w-72 border-l border-neutral-800 bg-neutral-950 p-6 flex flex-col gap-8 z-10">
+                        {/* Right: Sidebar Controls (floating card, matches the Builder param panel's width) */}
+                        <div className="w-[340px] flex-shrink-0 my-6 mr-6 rounded-lg border border-neutral-800 bg-neutral-900/30 p-6 flex flex-col gap-8 z-10 overflow-y-auto">
 
                             {/* Actions */}
                             <div className="flex flex-col gap-4">
@@ -1073,7 +1073,7 @@ const VehicleBuilder = () => {
 
                             {/* Logs */}
                             <div className="mt-4 border-t border-neutral-800 pt-4">
-                                <div className="h-24 font-mono text-[10px] text-neutral-600 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+                                <div className="h-24 font-mono text-[10px] text-neutral-600 overflow-y-auto">
                                     <div>[SYSTEM] Ready</div>
                                     {loading && progress && <div>[RUN] cell {progress.done}/{progress.total}</div>}
                                     {runData && <div className="text-emerald-500">[DONE] {runData.overall.verdict} ({runData.elapsed_sec}s)</div>}

@@ -241,7 +241,7 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
                 )}
             </div>
 
-            <div className="flex-1 overflow-auto border border-neutral-800 rounded-lg bg-neutral-950/50 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+            <div className="flex-1 overflow-auto border border-neutral-800 rounded-lg bg-neutral-950/50">
                 {hasData ? (
                     <table className="w-full text-xs text-center border-collapse table-fixed">
                         <thead>
