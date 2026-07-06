@@ -70,16 +70,37 @@ Solver cells are only bitwise-reproducible at `OMP_NUM_THREADS=1` — the OpenMP
    writes past head's limit (closed pipe kills the process). This looks like "the app randomly
    stopped working" — port 3000 goes dead while the Claude task still shows as running.
    Redirect to a file instead: `npm run dev > dev.log 2>&1`.
-2. **A killed `next dev` leaves a zombie node holding `.next/dev/lock`** even when nothing
-   listens on port 3000 — the port check comes up clean, but a fresh start fails with
-   "Unable to acquire lock". Kill by command line, not by port:
+2. **A killed `next dev` leaves a zombie node holding `.next/dev/lock`** — sometimes still
+   LISTENING on 3000 (Next then silently falls back to 3001, and the user opens 3000 and sees
+   nothing/stale content), sometimes not listening but still holding file locks in `.next`
+   (a fresh start then fails with "Unable to acquire lock" or "Unable to write meta file ...
+   Access denied"). Closing a `cmd /k` console window does NOT reliably kill the child
+   node/python process on Windows — it can keep running invisibly. Kill by PORT first (catches
+   the common case), then sweep any node.exe still under this repo's frontend path (catches a
+   detached build-worker, e.g. `postcss.js`, that doesn't hold the listening socket):
    ```powershell
-   Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
-     Where-Object { $_.CommandLine -match 'next' } |
-     ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+   Get-NetTCPConnection -LocalPort 3000,8000 -State Listen -ErrorAction SilentlyContinue |
+     Select-Object -ExpandProperty OwningProcess -Unique |
+     ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+   Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+     Where-Object { $_.CommandLine -like '*CSL_Simulator\frontend*' } |
+     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
    ```
-   then `rm -rf CSL_Simulator/frontend/.next` and start again.
+   Wait ~2s for Windows to release file handles, THEN `rm -rf CSL_Simulator/frontend/.next` —
+   deleting it while an old process still has handles open on files inside can leave the
+   directory half-deleted, which is what actually produces the "Access denied" on the next
+   start (not a permissions problem — a lock-timing race).
+   **`wmic` is REMOVED on newer Windows builds** (confirmed absent on a 26200 build — silently
+   "command not found" from a `.bat`, not a visible error) — a cleanup loop built on
+   `wmic process where ...` is a silent no-op there and lets the zombie survive. Use
+   `Get-CimInstance`/`Get-NetTCPConnection` (PowerShell, always present) instead, never `wmic`.
+   Also: `timeout /t N` in a `.bat` prints "ERROR: Input redirection is not supported" and
+   exits immediately whenever stdin isn't a real interactive console (harmless when
+   double-clicked in Explorer, but noisy/confusing under any automated invocation) — prefer
+   `ping -n <N+1> 127.0.0.1 >nul` as the sleep, which has no such restriction either way.
 3. **Servers started as Claude background tasks die with the session.** For anything the USER
-   will open later, point them at `CSL_Simulator/start_app.bat` (double-click: cleans the lock
-   + `.next`, starts both servers in their own console windows, opens the browser). Closing
-   those windows stops the app.
+   will open later, point them at `CSL_Simulator/start_app.bat` (double-click: cleans up ports
+   3000/8000 + any stray frontend node.exe, clears `.next`, starts both servers in their own
+   console windows, opens the browser). Closing those windows stops the app. This script is the
+   single source of truth for the cleanup sequence above — fix it there, don't hand-roll the
+   kill logic again.
