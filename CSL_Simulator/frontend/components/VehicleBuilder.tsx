@@ -779,7 +779,7 @@ const VehicleBuilder = () => {
         <div className="h-screen max-h-screen bg-neutral-950 text-neutral-300 font-sans flex flex-col overflow-hidden selection:bg-neutral-800">
 
             {/* 1. MINIMAL HEADER */}
-            <div className="h-14 border-b border-neutral-800 flex items-center justify-between px-6 bg-neutral-950 z-20 flex-shrink-0">
+            <div className="h-14 flex items-center justify-between px-6 bg-neutral-950 z-20 flex-shrink-0">
                 <div className="flex items-center gap-6">
                     <div className="font-semibold text-neutral-100 tracking-tight">OpenWAM <span className="text-neutral-500 font-normal">CSL Simulator</span></div>
 
@@ -811,8 +811,8 @@ const VehicleBuilder = () => {
                 {/* --- BUILDER MODE --- */}
                 {mainTab === "builder" && (
                     <div className="flex flex-row h-full">
-                        {/* Topology (wide, left) */}
-                        <div className="order-1 flex-1 min-w-0 bg-neutral-950 relative">
+                        {/* Topology (wide, left, floating card — matches the param panel's spacing) */}
+                        <div className="order-1 flex-1 min-w-0 my-6 ml-6 mr-6 relative">
                             <InteractiveTopology
                                 config={config}
                                 activeSelection={selection}
@@ -821,7 +821,7 @@ const VehicleBuilder = () => {
                             />
                         </div>
                         {/* Params (fixed width, right, floating card) */}
-                        <div className="order-2 w-[340px] flex-shrink-0 my-6 mr-6 rounded-lg border border-neutral-800 bg-neutral-900/50 flex flex-col overflow-hidden">
+                        <div className="order-2 w-[340px] flex-shrink-0 my-6 mr-6 rounded-lg border border-neutral-800 bg-neutral-950/60 flex flex-col overflow-hidden">
                             {/* Global / Project Header */}
                             <div
                                 onClick={() => setSelection({ type: "environment" })}
@@ -850,8 +850,8 @@ const VehicleBuilder = () => {
                         <div className="flex-1 bg-neutral-950 p-6 flex flex-col gap-6">
 
                             {/* Result / Monitor Panel */}
-                            <div className="flex-1 border border-neutral-800 rounded-lg bg-neutral-900/30 relative overflow-hidden flex flex-col">
-                                <div className="h-10 border-b border-neutral-800 px-4 flex items-center justify-between bg-neutral-900/50">
+                            <div className="flex-1 border border-neutral-800 rounded-lg bg-neutral-950/60 relative overflow-hidden flex flex-col">
+                                <div className="h-10 border-b border-neutral-800 px-4 flex items-center justify-between">
                                     <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
                                         <Activity size={14} /> Simulation Results
                                     </span>
@@ -942,7 +942,7 @@ const VehicleBuilder = () => {
                         </div>
 
                         {/* Right: Sidebar Controls (floating card, matches the Builder param panel's width) */}
-                        <div className="w-[340px] flex-shrink-0 my-6 mr-6 rounded-lg border border-neutral-800 bg-neutral-900/30 p-6 flex flex-col gap-8 z-10 overflow-y-auto">
+                        <div className="w-[340px] flex-shrink-0 my-6 mr-6 rounded-lg border border-neutral-800 bg-neutral-950/60 p-6 flex flex-col gap-8 z-10 overflow-y-auto">
 
                             {/* Actions */}
                             <div className="flex flex-col gap-4">

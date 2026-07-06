@@ -273,7 +273,7 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
     };
 
     return (
-        <div className="w-full h-full flex items-center justify-center p-8 bg-neutral-950/50 rounded-lg border border-neutral-900 overflow-hidden relative group">
+        <div className="w-full h-full flex items-center justify-center p-12 bg-neutral-950/60 rounded-lg border border-neutral-800 overflow-hidden relative group">
 
             <svg
                 viewBox="0 0 760 380"
