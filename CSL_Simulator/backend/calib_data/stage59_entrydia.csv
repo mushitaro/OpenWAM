@@ -1,0 +1,7 @@
+id,tag,rpm,load,base,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+e479acca90fd,s59-ed85-l20,2700,20.0,150.0,,,,"{""intake.runner.entry_diameter"": 85.0}",73.73,92.5,0.7971,25,0.2517,1,1,0.0425,0,1,0,1,342.3
+072c2b81478d,s59-ed60-l20,2700,20.0,150.0,,,,"{""intake.runner.entry_diameter"": 60.0}",73.97,92.5,0.7997,25,0.2816,1,1,0.0323,0,1,0,1,346.4
+3f0fd49fd532,s59-ed85-l30,2700,30.0,135.0,,,,"{""intake.runner.entry_diameter"": 85.0}",75.2,95.5,0.7874,25,0.2595,1,1,0.067,0,1,0,1,370.4
+f939182ffc8f,s59-ed60-l30,2700,30.0,135.0,,,,"{""intake.runner.entry_diameter"": 60.0}",76.31,95.5,0.7991,26,0.171,1,1,0.0568,0,1,0,1,386.6
+554b575a3132,s59-ed85-wot,2700,100.0,130.0,,,,"{""intake.runner.entry_diameter"": 85.0}",98.54,103.7,0.9502,35,0.2477,1,1,0.003,0,1,0,1,584.3
+903fca42129c,s59-ed60-wot,2700,100.0,130.0,,,,"{""intake.runner.entry_diameter"": 60.0}",89.62,103.7,0.8642,49,0.2985,1,1,0.0026,0,1,0,1,885.8

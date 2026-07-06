@@ -1,5 +1,23 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **⚡⚡⚡⚡⚡⚡⚡ 2026-07-06 — STAGE 59: TARGET REFRAMED. The 2700 WOT −6.4pp
+> is the WRONG number — p=VE/VE_WOT divides it out (counterfactual: forcing
+> sim_WOT:=stock_WOT WORSENS the part-load gate by +0.046..0.050). The real
+> blocker is the 2700 PART-LOAD fill (dp 0.137/0.114 @ 20/30% load), and a
+> 45-agent diagnosis workflow (wf_c517518f-337) + probes CONFIRM it is
+> SUPPLY-LIMITED and un-fixable: ALL intake levers now exhausted (added this
+> stage: bellmouth length flat, mouth-Cd negative, ICV peaks at 0.30, and the
+> geometry lever entry_diameter is FLAT at 2700/20 / NEGATIVE at 2700/30 —
+> +1.2pp at WOT only, which p divides out). Physics closes: 2700 sits in the
+> 22.9L box's Helmholtz NULL (n=1≈3650, n=2≈1824 rpm); no acoustic/geometry
+> lever conjures ram in a null or pushes air past a near-shut throttle.
+> dp 0.137/0.114 is the model floor. **NEXT IS NOT A NEW PROBE — it is the
+> ADOPTION-GATE re-examination: the α0.4 rejection was driven by this
+> un-fixable 2700 low-load column. Re-score α0.4 EXCLUDING/down-weighting the
+> un-fittable 2700 low-load cells; and test whether a variant keeps α0.4's big
+> 45/65 gains (6900/65 0.265→0.024) with part_load_alpha=null (so 2700
+> part-load is not further damped). See EXHAUST_STABILIZATION_NOTES Stage 59.**
+
 > **⚡⚡⚡⚡⚡⚡ 2026-07-05 (later) — STAGE 58 EXECUTED: the part_load_alpha=0.4
 > refit (sigma→base under damping) was run to completion and REJECTED by the
 > fitted-column gate; calibration.json is ROLLED BACK to the Stage-57 α-null

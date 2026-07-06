@@ -1,0 +1,8 @@
+[
+ {"rpm":2700,"load":100.0,"set":{"intake.runner.entry_diameter":60.0},"tag":"s59-ed60-wot"},
+ {"rpm":2700,"load":100.0,"set":{"intake.runner.entry_diameter":85.0},"tag":"s59-ed85-wot"},
+ {"rpm":2700,"load":20.0,"set":{"intake.runner.entry_diameter":60.0},"tag":"s59-ed60-l20"},
+ {"rpm":2700,"load":20.0,"set":{"intake.runner.entry_diameter":85.0},"tag":"s59-ed85-l20"},
+ {"rpm":2700,"load":30.0,"set":{"intake.runner.entry_diameter":60.0},"tag":"s59-ed60-l30"},
+ {"rpm":2700,"load":30.0,"set":{"intake.runner.entry_diameter":85.0},"tag":"s59-ed85-l30"}
+]
