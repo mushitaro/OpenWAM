@@ -1,5 +1,45 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **🔥🔥🔥🔥🔥🔥🔥🔥🔥 2026-07-08 — STAGE 62: TARGET RE-ANCHORED TO THE OWNER'S
+> REAL CAR (not CSL factory). Read EXHAUST_STABILIZATION_NOTES Stage 62 first,
+> then memory `csl-owner-car-is-real-target` and `csl-ve-data-provenance`.**
+> The owner gave his actual measured `kf_rf_soll` map (24 loads × 20 rpms,
+> `backend/app/data/owner_kf_rf_soll.csv`) — this is HIS car (equal-length
+> Section-1 crosspipe, no flap/900mm snorkel), NOT CSL factory stock, which is
+> what every prior stage (35-61) was actually scored against. Replaced
+> `csl_ecu_maps.json` kf_rf_soll + rebuilt `stock_csl_ve.json` from the owner's
+> load-100% row (factory originals backed up to `*.factory.bak.json`). Commit
+> `576aeb4`, golden green.
+> **RE-SCORE RESULT — the sim is ALREADY a faithful digital twin of the owner's
+> car everywhere except one column:**
+> - WOT mean|err|: 170mm bellmouth=9.1pp vs 150mm=13.9pp. Per-cell (owner / sim170,
+>   Δ): 2700 74.8/76.2 Δ1 · 4600 118.2/113.6 Δ5 · 5300 117.1/112.1 Δ5 ·
+>   6300 109.7/113.2 Δ3 · 6900 107.0/110.5 Δ4 · **3900 129.5/92.8 Δ37 (worst by far)**.
+> - Part-load (Stage-60 hybrid, 150mm): Δ0-11pp everywhere EXCEPT the 3900
+>   COLUMN, which is low by Δ27-39pp at every load (20/30/45/65).
+> - **170mm is CONFIRMED FAITHFUL, not "over-response"** — the Stage-61 worry
+>   that 170mm crushed 2700 WOT was an artifact of comparing to the WRONG
+>   (factory) target; vs the owner's real 74.8 it's dead-on. ADOPT 170mm.
+> **THE ENTIRE CALIBRATION NOW REDUCES TO ONE PROBLEM: raise 3900.** Two
+> candidates, not mutually exclusive: (a) 3900 WOT base118 (probed Stage 61:
+> →113.7, Δ37→16, clean/converged); (b) BUILD the owner's actual hardware —
+> Section-1 EQUAL-LENGTH CROSSPIPE. `section1_1.layout`/`section1_2.layout` is
+> CONFIRMED DEAD CODE today (wam_generator.py never reads it — Straight/X/H
+> emit byte-identical decks). Wiring it is both the most direct path to model
+> what the owner's car actually has AND a plausible physical lever for the 3900
+> gap (crosspipe scavenging). See `csl-exhaust-topology-and-cam` memory for the
+> section naming (Section 1 = front pipe = pre-cat = where the crossover lives;
+> Section 2 = center/post-cat = stock H; Section 3 = muffler) and cam=260/260.
+> **NEXT (not yet started): (1) adopt 170mm as the production bellmouth default
+> in `models.py`/golden decks (currently only probed in isolated cells); (2)
+> implement the Section-1 crossover topology switch in `wam_generator.py`; (3)
+> re-run the 3900 base fit + re-check whether the crosspipe alone closes some of
+> the gap before over-tuning base; (4) re-fit the Stage-60 part-load hybrid
+> under 170mm (it was fit at 150mm); (5) THEN resume the valley-fill mod
+> exploration (VANOS retime, exhaust length, intake duct inlet shape) from this
+> now-validated owner-car baseline — see workflow `wf_55d4dd42-933`'s 5-phase
+> plan, which may need re-scoping now that most of the map already matches.**
+
 > **⚡⚡⚡⚡⚡⚡⚡⚡ 2026-07-07 — STAGE 60: LOAD-SCHEDULED HYBRID ADOPTED. The
 > Stage-58 α0.4 rejection was re-examined: α0.4 as-is is genuinely un-rescuable
 > (2/4 rows under ALL gate policies, even EXCLUDING the un-fixable 2700 column —
