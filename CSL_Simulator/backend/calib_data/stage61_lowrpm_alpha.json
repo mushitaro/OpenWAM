@@ -1,0 +1,6 @@
+[
+ {"rpm":2700,"load":100.0,"set":{"intake.bellmouth.length":170.0},"alpha":0.0,"tag":"a00-2700-170"},
+ {"rpm":2700,"load":100.0,"set":{"intake.bellmouth.length":170.0},"alpha":0.2,"tag":"a02-2700-170"},
+ {"rpm":2900,"load":100.0,"set":{"intake.bellmouth.length":170.0},"alpha":0.0,"tag":"a00-2900-170"},
+ {"rpm":2900,"load":100.0,"set":{"intake.bellmouth.length":170.0},"alpha":0.2,"tag":"a02-2900-170"}
+]

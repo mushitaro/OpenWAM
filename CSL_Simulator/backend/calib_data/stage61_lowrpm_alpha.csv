@@ -1,0 +1,5 @@
+id,tag,rpm,load,base,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+c09187d6a905,a00-2900-170,2900,100.0,130.0,0.0,,,"{""intake.bellmouth.length"": 170.0}",103.24,102.7,1.0053,26,-0.1522,1,1,0.0821,0,1,0,1,261.2
+e9e85a90fcd1,a00-2700-170,2700,100.0,130.0,0.0,,,"{""intake.bellmouth.length"": 170.0}",77.71,103.7,0.7494,25,0.2432,1,1,0.0524,0,1,0,1,374.6
+d26eb7069f2e,a02-2900-170,2900,100.0,130.0,0.2,,,"{""intake.bellmouth.length"": 170.0}",75.78,102.7,0.7379,25,0.2978,1,1,0.0829,0,1,0,1,410.1
+1319f0a52b9d,a02-2700-170,2700,100.0,130.0,0.2,,,"{""intake.bellmouth.length"": 170.0}",68.15,103.7,0.6572,25,0.065,1,1,0.0142,0,1,0,1,507.7
