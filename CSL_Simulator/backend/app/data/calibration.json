@@ -122,10 +122,10 @@
         ],
         [
           135.0,
-          150.0,
+          142.0,
           95.0,
           125.0,
-          130.0,
+          120.0,
           130.0
         ],
         [
@@ -139,9 +139,9 @@
         [
           150.0,
           110.0,
-          150.0,
-          150.0,
-          150.0,
+          132.0,
+          140.0,
+          175.0,
           170.1
         ],
         [
@@ -165,6 +165,11 @@
     "surface_fit_meta": {
       "date": "2026-07-07",
       "note": "Stage 60 HYBRID: load 20/30 rows = Stage-57 alpha-null; load 45/65 rows = stage58_alpha04 fit. Paired with mouth_rad.part_load_alpha_load_min=40 (damping ON only at load>=45) and the hybrid sigma table. Captures alpha-0.4 mid/high-load wins (6900/65 0.265->0.024, 3900/65 0.137->0.041, all load-45) with ZERO regression on load 20/30 (kept at Stage-57). Trade: the un-fixable 2700/65 regresses 0.168->0.254 (Stage 59: 2700 is supply-limited). NOTE: part-load rows still fit at STRAIGHT+150mm -- re-validate/re-fit under X+170mm (Stage 63 task 4)."
+    },
+    "stage65_partload_refit": {
+      "date": "2026-07-08",
+      "note": "Task 4: part-load surface re-fit under X-Pipe+170mm (Stage-63 production). With CSL_FIT_TIMEOUT-class 1500s runs ALL cells converge (the Stage-63 550s FLAGs were under-convergence, incl. 3900/65 -> GREEN dp 0.048 at the EXISTING b110: the p=VE/VE_WOT metric divides out the 3900 WOT structural limit, so the part-load 3900 column FITS). Re-fit: load-30 row 3900 150->142 (dp 0.101->0.078), 6300 130->120 (0.157->0.102, lever ceiling: b115 blows up 969, b125 equal); load-65 row 4600 150->132 (0.187->0.002), 5300 150->140 (0.361->0.078; b170 dp0.014 REJECTED nan_free=0, b140-150 attractor cliff), 6300 150->175 (0.104->0.002). Loads 20/45 kept (spot dp<=0.05 except 2700/20 0.104 = known supply floor, improved from 0.137). Final row means: load-30 0.056 / load-65 0.031 (was 0.069 / 0.126). Data: calib_data/stage64_t4_*.csv.",
+      "sim_wot_row_x170": {"2700": 75.3, "3900": 96.2, "4600": 121.2, "5300": 115.6, "6300": 112.4, "6900": 110.2}
     },
     "stage63_refit": {
       "date": "2026-07-08",
