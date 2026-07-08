@@ -1,5 +1,26 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **✅✅✅✅✅✅✅✅✅ 2026-07-08 (newest) — STAGE 65: TASK-4 PART-LOAD RE-FIT
+> UNDER X+170mm DONE. Read EXHAUST_STABILIZATION_NOTES Stage 65.**
+> Two key discoveries: (1) the Stage-63 load-65 FLAGs were UNDER-CONVERGENCE
+> (1500s timeout -> ALL cells converge); (2) **the part-load 3900 column FITS**
+> (p=VE/VE_WOT divides the WOT structural limit out of both sides: 3900/65 =
+> dp 0.048 GREEN at the EXISTING b110). Surface re-fit (calibration.json
+> `stage65_partload_refit`): load-65 row 4600 150->132 (dp 0.187->**0.002**),
+> 5300 150->140 (0.361->0.078; b170 rejected nan_free=0, b140-150 attractor
+> cliff), 6300 150->175 (0.104->**0.002**); load-30 row 3900 150->142
+> (0.101->0.078, ceiling), 6300 130->120 (0.157->0.102, ceiling: b115 blows
+> up). Final row means: **load-65 dp 0.031 (was 0.126), load-30 0.056**; loads
+> 20/45 kept (spot dp<=0.05, 2700/20 = 0.104 known supply floor, improved from
+> 0.137). VALIDATED: calibration-driven rerun of all 12 cells = 100% cache
+> hits (byte-identical decks) = end-to-end surface wiring proven. Golden green.
+> Full phase5 map / UI last_run re-run (~3h) deferred as in Stage 60.
+> New tool: scripts/t4_dp_score.py (dp scorer). Data: calib_data/stage64_t4_*.
+> **NEXT = Task 5: mod exploration (VANOS retime / exhaust length / duct inlet
+> shape) from this X+170mm + part-load-refit twin. Re-scope wf_55d4dd42-933
+> (most of the map already matches; 3900 = documented limit, exclude or
+> annotate). Deliverable = mod ΔVE rank + magnitude bucket + confidence.**
+
 > **🔬🔬🔬🔬🔬🔬🔬🔬🔬 2026-07-08 (latest) — STAGE 64: INTAKE ACOUSTIC REMODEL
 > (multi-cell airbox) EXECUTED AND HONESTLY FALSIFIED. Read
 > EXHAUST_STABILIZATION_NOTES Stage 64 + plan `polished-strolling-marble.md`.**
