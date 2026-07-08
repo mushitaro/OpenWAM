@@ -737,11 +737,11 @@ class WAMGenerator:
             # broad curve. Multiplier preserves the relative per-segment values; 1.0 is
             # byte-identical to legacy.
             _fric_mult = _ce("OPENWAM_RUNNER_FRIC_MULT", c.intake.runner.friction_multiplier, 1.0)
-            bellmouth_len = (c.intake.bellmouth.length / 1000.0) * _run_sc   # config-driven (150mm)
+            bellmouth_len = (c.intake.bellmouth.length / 1000.0) * _run_sc   # config-driven (measured 170mm)
             port_dia_in = c.engine.head.intake_port.diameter / 1000.0  # 52mm (runner side)
             valve_dia_in = c.engine.head.intake_valve.diameter / 1000.0  # 35mm (valve side)
             
-            # --- BELLMOUTH PIPE (Plenum → Bellmouth, φ70→φ52, 150mm) ---
+            # --- BELLMOUTH PIPE (Plenum → Bellmouth, φ70→φ52, measured 170mm) ---
             bellmouth_id = self.pipe_counter; self.pipe_counter += 1
             
             cid_bell_start = self.connection_counter
@@ -1146,15 +1146,58 @@ class WAMGenerator:
         # Start: Uses same connection ID as Buffer End (Type 6 requirement: 2 pipes)
         c1_1_start = c_buf1_to_s11  # Type 6: Pipe 2 references same ID
         c1_2_start = c_buf2_to_s11
-        # End: Create new Type 6 for connection to Catalyst/Post-Cat
-        c_s11_to_cat = self._create_pipe_to_pipe_connection()
-        c_s11_to_cat_R = self._create_pipe_to_pipe_connection()
-        
-        self._add_pipe(p1_1, "Sec1_1_L", part1_1_len, dia1, dia1, 380, c1_1_start, c_s11_to_cat)
-        self._add_pipe(p1_2, "Sec1_1_R", part1_1_len, dia1, dia1, 380, c1_2_start, c_s11_to_cat_R)
-        
-        # node_left/right now hold Type 6 connection IDs for next section
-        node_left, node_right = c_s11_to_cat, c_s11_to_cat_R
+        # --- SECTION-1 CROSSOVER (front pipe / pre-cat) topology switch ---------
+        # section1_1.layout was DEAD CODE: Straight / X-Pipe / H-Pipe all emitted a
+        # byte-identical deck because the two banks (bank 1 = cyl 1/2/3, bank 2 =
+        # cyl 4/5/6) NEVER cross-connected in Section 1. Now wired. The crossover
+        # sits right after the collectors, before the cats -- where the blowdown
+        # pulses are strongest, so it is the physical exhaust-scavenging lever
+        # between banks. The OWNER'S car has an EQUAL-LENGTH CROSSPIPE here (X);
+        # stock M3 = independent straight banks. `layout` is the section-level
+        # selector (section1_2 is symmetric, per the s2 comment above);
+        # OPENWAM_SEC1_CROSS (straight|x|h) is a study override (env > config).
+        # STRAIGHT is byte-identical to the legacy deck (golden_deck_check pins it).
+        _s1_env = os.environ.get("OPENWAM_SEC1_CROSS")
+        _s1_val = (_s1_env.strip() if _s1_env
+                   else str(getattr(s1.layout, "value", s1.layout)))
+        _s1_cross = ("x" if _s1_val.lower() in ("x", "x-pipe")
+                     else "h" if _s1_val.lower() in ("h", "h-pipe")
+                     else "straight")
+
+        if _s1_cross == "x":
+            # Full X: both Sec1_1 banks END at ONE Type-12 Riemann junction and
+            # both cats START there -- a lumped equal-length crossover. Same 4-pipe
+            # junction primitive as the collector junctions above (2 in + 2 out;
+            # waves/pressure equalize and cross between banks). No extra pipe.
+            print("DEBUG: Section-1 crossover = X-Pipe (owner equal-length crosspipe)")
+            xj = self._create_branch_junction()
+            self._add_pipe(p1_1, "Sec1_1_L", part1_1_len, dia1, dia1, 380, c1_1_start, xj)
+            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len, dia1, dia1, 380, c1_2_start, xj)
+            node_left, node_right = xj, xj
+        elif _s1_cross == "h":
+            # H / balance tube: each bank flows straight through its own 3-pipe
+            # Type-12 tee to its own cat, and a cross pipe bridges the two tees
+            # (plenumless, mirrors the stock Section-2 H). OPENWAM_SEC1_CROSS_LEN
+            # (m) overrides the balance-tube length (default 150mm, like Sec2 H).
+            print("DEBUG: Section-1 crossover = H-Pipe (balance tube)")
+            s1_cross_len = float(os.environ.get("OPENWAM_SEC1_CROSS_LEN", "0.15"))
+            jL = self._create_branch_junction()
+            jR = self._create_branch_junction()
+            p_s1cross = self.pipe_counter; self.pipe_counter += 1
+            self._add_pipe(p1_1, "Sec1_1_L", part1_1_len, dia1, dia1, 380, c1_1_start, jL)
+            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len, dia1, dia1, 380, c1_2_start, jR)
+            self._add_pipe(p_s1cross, "Sec1_H_Cross", s1_cross_len, dia1, dia1, 380, jL, jR)
+            node_left, node_right = jL, jR
+        else:
+            # Straight (default / stock): two independent banks. BYTE-IDENTICAL to
+            # the legacy deck -- do NOT reorder these calls (golden_deck_check pins
+            # the connection/pipe emission order).
+            c_s11_to_cat = self._create_pipe_to_pipe_connection()
+            c_s11_to_cat_R = self._create_pipe_to_pipe_connection()
+            self._add_pipe(p1_1, "Sec1_1_L", part1_1_len, dia1, dia1, 380, c1_1_start, c_s11_to_cat)
+            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len, dia1, dia1, 380, c1_2_start, c_s11_to_cat_R)
+            # node_left/right hold the Type 6 connection IDs for the next section
+            node_left, node_right = c_s11_to_cat, c_s11_to_cat_R
         
         # Catalyst
         if c.exhaust.catalyst.installed:

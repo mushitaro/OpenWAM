@@ -80,7 +80,7 @@
       ],
       [
         4600,
-        145.0
+        130.0
       ],
       [
         5300,
@@ -147,7 +147,7 @@
         [
           130.0,
           130.0,
-          145.0,
+          130.0,
           155.0,
           170.0,
           170.0
@@ -164,7 +164,11 @@
     },
     "surface_fit_meta": {
       "date": "2026-07-07",
-      "note": "Stage 60 HYBRID: load 20/30 rows = Stage-57 alpha-null; load 45/65 rows = stage58_alpha04 fit. Paired with mouth_rad.part_load_alpha_load_min=40 (damping ON only at load>=45) and the hybrid sigma table. Captures alpha-0.4 mid/high-load wins (6900/65 0.265->0.024, 3900/65 0.137->0.041, all load-45) with ZERO regression on load 20/30 (kept at Stage-57). Trade: the un-fixable 2700/65 regresses 0.168->0.254 (Stage 59: 2700 is supply-limited)."
+      "note": "Stage 60 HYBRID: load 20/30 rows = Stage-57 alpha-null; load 45/65 rows = stage58_alpha04 fit. Paired with mouth_rad.part_load_alpha_load_min=40 (damping ON only at load>=45) and the hybrid sigma table. Captures alpha-0.4 mid/high-load wins (6900/65 0.265->0.024, 3900/65 0.137->0.041, all load-45) with ZERO regression on load 20/30 (kept at Stage-57). Trade: the un-fixable 2700/65 regresses 0.168->0.254 (Stage 59: 2700 is supply-limited). NOTE: part-load rows still fit at STRAIGHT+150mm -- re-validate/re-fit under X+170mm (Stage 63 task 4)."
+    },
+    "stage63_refit": {
+      "date": "2026-07-08",
+      "note": "X-Pipe (owner equal-length crosspipe) + 170mm bellmouth adopted as production defaults. WOT base re-fit under X: 4600 145->130 (X regressed 4600 to 99 at b145; b130 -> 121.2, owner 118.2, Delta+3.0). Other WOT bases UNCHANGED (2700/5300/6300/6900 already owner +-5pp under X; 2700=75.3/5300=115.6/6300=112.4/6900=110.2). 3900 LEFT at b130=96.2 (Delta-33 vs owner 129.5): a KNOWN MODEL LIMIT -- the 22.9L plenum Helmholtz null (n=1~3650) sits under 3900; NO geometry lever reaches it (runner-length sweep flat-to-worse, header length falsified Stage 57, base118=113.5 is a fragile bistable high-branch, neighbors FLAG). 3900 is the mod-exploration frontier (intake acoustic model). WOT mean|err| vs owner: 7.4pp all-6, 2.2pp on the 5 fittable cols (straight was 9.1/3.6). Data: /tmp/x4600.csv, sc_nb.csv, ram_x.csv, sc_base.csv."
     }
   }
 }

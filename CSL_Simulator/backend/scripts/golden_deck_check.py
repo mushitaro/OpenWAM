@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _local import HERE  # noqa: E402  (CSL_Simulator/backend)
 
 sys.path.insert(0, HERE)
-from app.models import SimConfig  # noqa: E402
+from app.models import SimConfig, ExhaustLayoutType  # noqa: E402
 from app.simulator.wam_generator import WAMGenerator  # noqa: E402
 
 HASH_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -57,6 +57,9 @@ def _legacy_config():
     cfg.intake.inlet.filter_thickness = 20.0
     cfg.intake.runner.upper_length = 15.0
     cfg.intake.runner.lower_length = 25.0
+    cfg.intake.bellmouth.length = 150.0     # legacy trumpet (the measured 170mm is now the default)
+    cfg.exhaust.section1_1.layout = ExhaustLayoutType.STRAIGHT  # legacy independent banks
+    cfg.exhaust.section1_2.layout = ExhaustLayoutType.STRAIGHT  # (owner X-Pipe is now the default)
     cfg.intake.eq_tube.model = "plenum"
     cfg.intake.eq_tube.stub_diameter = 30.0
     cfg.intake.eq_tube.stub_length = 75.0

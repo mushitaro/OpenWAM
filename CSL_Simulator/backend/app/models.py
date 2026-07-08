@@ -34,7 +34,11 @@ class InletConfig(BaseModel):
     filter_thickness: float = 20.0       # mm
 
 class BellmouthConfig(BaseModel):
-    length: float = 150.0 # mm (Bellmouth funnel, Plenum to ITB)
+    # MEASURED trumpet length (owner's car, 2026-07): 170mm. Adopted as the
+    # production default (Stage 62/63): re-scored vs the owner's real kf_rf_soll,
+    # 170mm gives WOT mean|err| 9.1pp vs 150mm's 13.9pp (owner 2700 WOT 74.8 ==
+    # sim170 76.2). The legacy 150mm placeholder is pinned in golden_deck_check.
+    length: float = 170.0 # mm (Bellmouth funnel, Plenum to ITB) — measured owner trumpet
     diameter: float = 52.0 # mm (Opening, tapers from 70mm entry)
     taper_angle: float = 3.5 # degrees (Ram Theory)
 
@@ -218,7 +222,14 @@ class ExhaustSectionConfig(BaseModel):
     
 class Section1Config(ExhaustSectionConfig): # Backward Compat wrap
     name: str = "Section 1"
-    layout: ExhaustLayoutType = ExhaustLayoutType.STRAIGHT
+    # Owner's car = EQUAL-LENGTH CROSSPIPE on the front pipe (pre-cat). Adopted
+    # as the production default (Stage 63) to make the sim topologically faithful
+    # to the real car (the crossover is wired in wam_generator._generate_full_exhaust;
+    # stock M3 = STRAIGHT independent banks). The legacy STRAIGHT deck is pinned in
+    # golden_deck_check. NOTE: the WOT base points + part-load hybrid were fit at
+    # STRAIGHT and are being re-fit under X (X shifts the exhaust dynamics: e.g.
+    # 4600 drops with the straight-fit base until re-fit).
+    layout: ExhaustLayoutType = ExhaustLayoutType.X_PIPE
     length: float = 1200.0 # Total Length (600 + 300 + 300)
     cat_fitted: bool = True
     cat_offset: float = 600.0 # mm from start (Section 1-1 Length)
