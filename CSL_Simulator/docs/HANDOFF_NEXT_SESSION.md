@@ -1,5 +1,35 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **🔬🔬🔬🔬🔬🔬🔬🔬🔬 2026-07-08 (latest) — STAGE 64: INTAKE ACOUSTIC REMODEL
+> (multi-cell airbox) EXECUTED AND HONESTLY FALSIFIED. Read
+> EXHAUST_STABILIZATION_NOTES Stage 64 + plan `polished-strolling-marble.md`.**
+> Hypothesis: the S54 firing order alternates banks (cyl 1-3 / 4-6) -> the real
+> 22.9L box carries a BANK-DIFFERENTIAL internal mode (~318 Hz, order 4.5 ->
+> ~4240 rpm = owner's real ~4400 VE peak) that a 0D perfect-mixing TDeposito
+> structurally cannot host -> the 3900 hole.
+> **Phase 0 (all predictions CONFIRMED by measurement, wave_box_fft.py census):**
+> bank-differential ~0 at ALL rpm (0D consequence); the box is acoustically DEAD
+> at 3900 (rms 2.7mbar vs 24-53 at 4600/5300); supply metric negative at 3900 /
+> positive at 4600; supply-side alpha-exemption = zero effect (96.2 == 96.2).
+> **Phase 1 (built, golden green, KEPT as opt-in):** PlenumBoxConfig
+> (model=single default / cells), N cells + fat Type-11 connectors, volume-
+> conserving; C++ OPENWAM_MOUTH_RAD_SKIP_CC (bit-identical unset, VERIFIED:
+> rebuilt solver reproduces 3900 X = 96.2 exactly); FNumeroCC = deck cid + 1.
+> **Phase 2 -> FALSIFIED:** 16-config screen + friction 0.1/0.3 + N=6: fat
+> connectors don't couple (87-94, below single 96.2), thin connectors BLOW UP
+> (VE 220-1424, friction cannot tame — acoustic not viscous, same family as
+> Stage 35/38/56), N=6 quasi-1D = 90.7 FLAG. **NO stable beneficial window for
+> a lumped 0D-0D internal mode in this solver's numerics.** The PHYSICS
+> hypothesis stands; the IMPLEMENTATION means does not exist in OpenWAM's
+> Type-11 boundary. **3900 = final documented structural model limit** (G1
+> fail under the owner-approved structure criterion; do NOT chase with base118).
+> **NEXT: (1) Task 4 — part-load re-fit under X (load-65 row + 3900 col, long
+> CSL_FIT_TIMEOUT; loads 20/45 insulated, keep); (2) Task 5 — mod exploration
+> on the validated 5-column twin (3900 excluded as known limit; the owner car's
+> real 3900 boost is a REAL benefit the model cannot score — note it in mod
+> deliverables). Assets: wave_box_fft.py census (permanent instrument),
+> cells opt-in topology, skip-CC, extended waveform monitor.**
+
 > **🏁🏁🏁🏁🏁🏁🏁🏁🏁 2026-07-08 (later) — STAGE 63: 170mm + Section-1 X-Pipe
 > (owner's equal-length crosspipe) ADOPTED AS PRODUCTION DEFAULTS; WOT re-fit
 > under X DONE; 3900 confirmed a STRUCTURAL model limit. Read
