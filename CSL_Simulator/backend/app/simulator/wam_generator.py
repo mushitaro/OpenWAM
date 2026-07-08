@@ -571,28 +571,101 @@ class WAMGenerator:
         self._add_pipe(intake_pipe_id, "CSL_Intake_Pipe", duct_len, duct_d_in, duct_d_out, 27,
                        cid_amb, c_pipe_to_filter, friction=0.05, dx_mesh=0.05)
 
-        # 3. Panel Filter (Between Pipe and Plenum)
-        # Sits on the duct's plenum-side face: when a slot exit is given the
-        # filter spans that slot (its Deq); else the legacy circular estimate.
-        filter_id = self.pipe_counter; self.pipe_counter += 1
-        
-        # Start: Use same Type 6 connection as Pipe End
-        cid_filter_start = c_pipe_to_filter
-        
-        # Plenum
-        plenum_id = self.plenum_counter; self.plenum_counter += 1
-        # degC: airbox sits in the engine bay, ~40 C (was 313 = read as 313 C = 586 K)
-        self._add_plenum(plenum_id, "Plenum_Main", c.intake.plenum_vol/1000.0, 40)
-        self.ids['plenum_intake'] = plenum_id
-        
-        cid_plenum_in = self.connection_counter
-        self._add_con_plenum_pipe_v2(plenum_id, filter_id, 1) # Filter End -> Plenum
-        
-        # Panel Filter: thin, wide, high friction (filter media; 0.5-1.0 typical in 1D)
+        # 3. Panel Filter (Between Pipe and Plenum) + the airbox itself.
+        # Stage 64: intake.plenum_box.model selects the airbox representation.
+        #   "single" (default) = the legacy ONE 0D Plenum_Main (byte-identical,
+        #     pinned in golden_deck_check).
+        #   "cells"  = multi-cell box: N 0D cells joined by fat 1D connector
+        #     pipes (Type-11 both ends -- the muffler->tail->ambient precedent).
+        #     A 0D perfect-mixing box has NO internal acoustics, so the bank-
+        #     differential mode the alternating firing order (1-5-3-6-2-4)
+        #     drives at orders 1.5/4.5 -- the real car's ~4400 VE peak -- is
+        #     structurally impossible; cell-splitting restores a tunable
+        #     internal Helmholtz mode f=(a/2pi)*sqrt((A_c/L_eff)(1/V1+1/V2))
+        #     while every trumpet mouth STAYS a Type-11 boundary (MOUTH_RAD
+        #     alpha, the proven WOT monostability mechanism, keeps applying).
+        #     Total gas volume is conserved: cells share plenum_vol minus the
+        #     connector pipe volume.
+        box = c.intake.plenum_box
+        self._box_cells = []       # cell plenum ids; single mode -> [Plenum_Main]
+        self._box_cc_map = {}      # station label -> connection id (skip-CC studies)
         filt_len = inl.filter_thickness / 1000.0
         filt_dia = duct_d_out if _has_slot else inl.filter_diameter / 1000.0
-        self._add_pipe(filter_id, "CSL_Panel_Filter", filt_len, filt_dia, filt_dia, 27,
-                       cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
+        if getattr(box, "model", "single") == "cells":
+            n = max(2, int(box.n_cells))
+            conn_d = box.connector_diameter / 1000.0
+            conn_l = box.connector_length / 1000.0
+            conn_vol = math.pi * (conn_d / 2.0) ** 2 * conn_l * (n - 1)
+            v_total = c.intake.plenum_vol / 1000.0 - conn_vol
+            fr = (box.volume_split
+                  if (box.volume_split and len(box.volume_split) == n)
+                  else [1.0 / n] * n)
+            fs = sum(fr)
+            vols = [v_total * f / fs for f in fr]
+            for k in range(n):
+                cell_id = self.plenum_counter; self.plenum_counter += 1
+                # degC: airbox sits in the engine bay, ~40 C
+                self._add_plenum(cell_id, f"Plenum_Cell_{k+1}", vols[k], 40)
+                self._box_cells.append(cell_id)
+            duct_cell_idx = min(max(int(box.duct_cell) - 1, 0), n - 1)
+            plenum_id = self._box_cells[duct_cell_idx]
+            self.ids['plenum_intake'] = plenum_id
+            # inter-cell connectors (fat short pipes, Type-11 at both ends)
+            for k in range(n - 1):
+                conn_pid = self.pipe_counter; self.pipe_counter += 1
+                cid_a = self._add_con_plenum_pipe_v2(self._box_cells[k], conn_pid, 0)
+                cid_b = self._add_con_plenum_pipe_v2(self._box_cells[k + 1], conn_pid, 1)
+                self._add_pipe(conn_pid, f"PlenumConn_{k+1}_{k+2}", conn_l,
+                               conn_d, conn_d, 40, cid_a, cid_b,
+                               friction=box.connector_friction,
+                               dx_mesh=box.connector_dx)
+                self._box_cc_map[f"PlenumConn_{k+1}_{k+2}.L"] = cid_a
+                self._box_cc_map[f"PlenumConn_{k+1}_{k+2}.R"] = cid_b
+            # panel filter(s) into the duct cell (or split across cells 1&2:
+            # the duct discharges mid-box in the real car; the split feeds both
+            # halves symmetrically through two half-area filters via a Type-12
+            # tee -- area ratio 2:1, inside the ~3:1 stability window)
+            if box.duct_split and n >= 2:
+                self.connections[c_pipe_to_filter] = (12, [])  # duct end -> 3-pipe tee
+                fdia = filt_dia / math.sqrt(2.0)
+                for k in (0, 1):
+                    fid = self.pipe_counter; self.pipe_counter += 1
+                    cid_fp = self._add_con_plenum_pipe_v2(self._box_cells[k], fid, 1)
+                    self._add_pipe(fid, f"CSL_Panel_Filter_{k+1}", filt_len,
+                                   fdia, fdia, 27, c_pipe_to_filter, cid_fp,
+                                   friction=0.8, dx_mesh=0.01)
+                    self._box_cc_map[f"CSL_Panel_Filter_{k+1}.R"] = cid_fp
+            else:
+                fid = self.pipe_counter; self.pipe_counter += 1
+                cid_fp = self._add_con_plenum_pipe_v2(plenum_id, fid, 1)
+                self._add_pipe(fid, "CSL_Panel_Filter", filt_len, filt_dia,
+                               filt_dia, 27, c_pipe_to_filter, cid_fp,
+                               friction=0.8, dx_mesh=0.01)
+                self._box_cc_map["CSL_Panel_Filter.R"] = cid_fp
+            print(f"DEBUG: plenum_box=cells n={n} "
+                  f"vols={[round(v*1000, 2) for v in vols]}L "
+                  f"conn d={conn_d*1000:.0f}mm L={conn_l*1000:.0f}mm "
+                  f"duct_cell={duct_cell_idx+1} cc_map={self._box_cc_map}")
+        else:
+            # --- legacy single 0D Plenum_Main (byte-identical path) ---
+            filter_id = self.pipe_counter; self.pipe_counter += 1
+
+            # Start: Use same Type 6 connection as Pipe End
+            cid_filter_start = c_pipe_to_filter
+
+            # Plenum
+            plenum_id = self.plenum_counter; self.plenum_counter += 1
+            # degC: airbox sits in the engine bay, ~40 C (was 313 = read as 313 C = 586 K)
+            self._add_plenum(plenum_id, "Plenum_Main", c.intake.plenum_vol/1000.0, 40)
+            self.ids['plenum_intake'] = plenum_id
+
+            cid_plenum_in = self.connection_counter
+            self._add_con_plenum_pipe_v2(plenum_id, filter_id, 1) # Filter End -> Plenum
+
+            # Panel Filter: thin, wide, high friction (filter media; 0.5-1.0 typical in 1D)
+            self._add_pipe(filter_id, "CSL_Panel_Filter", filt_len, filt_dia, filt_dia, 27,
+                           cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
+            self._box_cells = [plenum_id]
 
 
         # Estimated manifold absolute pressure (MAP) downstream of the throttle.
@@ -745,7 +818,13 @@ class WAMGenerator:
             bellmouth_id = self.pipe_counter; self.pipe_counter += 1
             
             cid_bell_start = self.connection_counter
-            self._add_con_plenum_pipe_v2(plenum_id, bellmouth_id, 0, valve_idx=self._mouth_valve_id)
+            # Stage 64: each trumpet mouth opens into ITS cell (cyl 1-3 -> first,
+            # 4-6 -> last; n=6 -> one cell per cylinder). Single mode -> the one
+            # Plenum_Main (byte-identical). Type-11 either way, so MOUTH_RAD
+            # alpha keeps applying at every mouth.
+            _mouth_pl = self._box_cells[self._cell_for_cyl(i)]
+            self._add_con_plenum_pipe_v2(_mouth_pl, bellmouth_id, 0, valve_idx=self._mouth_valve_id)
+            self._box_cc_map[f"Bellmouth_{cyl_idx}.mouth"] = cid_bell_start
             
             # --- THROTTLE VALVE (ITB) - STRATEGY A: PIPE-TO-PIPE ---
             vid_throttle = 26 + i
@@ -969,11 +1048,18 @@ class WAMGenerator:
 
             # return hose -> ICV (fixed-Cd valve on the Type-11 plenum connection;
             # same proven mechanism as the INTAKE_V2 trumpet-mouth valve).
+            # Stage 64: in cells mode the return vents to plenum_box.icv_return_cell.
             ret_id = self.pipe_counter; self.pipe_counter += 1
             ret_dia = eq.return_pipe_diameter / 1000.0
             ret_len = eq.return_pipe_length / 1000.0
+            _icv_pl = plenum_id
+            if len(self._box_cells) > 1:
+                _bx = c.intake.plenum_box
+                _icv_pl = self._box_cells[min(max(int(_bx.icv_return_cell) - 1, 0),
+                                              len(self._box_cells) - 1)]
             cid_ret_plenum = self._add_con_plenum_pipe_v2(
-                plenum_id, ret_id, 1, valve_idx=self._icv_valve_id)
+                _icv_pl, ret_id, 1, valve_idx=self._icv_valve_id)
+            self._box_cc_map["EqRail_Return.icv"] = cid_ret_plenum
             self._add_pipe(ret_id, "EqRail_Return", ret_len, ret_dia, ret_dia, 40,
                            self._rail_return_cid, cid_ret_plenum,
                            friction=rail_fric, dx_mesh=0.025,
@@ -1549,6 +1635,14 @@ class WAMGenerator:
             return cid
         else:
             return prev_node
+
+    def _cell_for_cyl(self, i):
+        """Airbox cell index for cylinder i (0-based). Contiguous blocks along
+        the trumpet row: n=2 -> cyl 1-3 / 4-6; n=3 -> pairs; n=6 -> one cell per
+        cylinder. Single mode (one cell) -> always 0 (legacy Plenum_Main)."""
+        n = len(self._box_cells)
+        ncyl = self.config.engine.cylinders
+        return min(n - 1, (i * n) // max(1, ncyl))
 
     def _create_pipe_to_pipe_connection(self):
         """

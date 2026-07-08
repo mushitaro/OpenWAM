@@ -60,6 +60,7 @@ def _legacy_config():
     cfg.intake.bellmouth.length = 150.0     # legacy trumpet (the measured 170mm is now the default)
     cfg.exhaust.section1_1.layout = ExhaustLayoutType.STRAIGHT  # legacy independent banks
     cfg.exhaust.section1_2.layout = ExhaustLayoutType.STRAIGHT  # (owner X-Pipe is now the default)
+    cfg.intake.plenum_box.model = "single"  # legacy 0D airbox (Stage-64 cells opt-in)
     cfg.intake.eq_tube.model = "plenum"
     cfg.intake.eq_tube.stub_diameter = 30.0
     cfg.intake.eq_tube.stub_length = 75.0

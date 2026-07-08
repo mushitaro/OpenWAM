@@ -1,0 +1,61 @@
+[
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "c80x150f0.1",
+  "set": {
+   "intake.plenum_box.model": "cells",
+   "intake.plenum_box.n_cells": "2",
+   "intake.plenum_box.connector_diameter": "80",
+   "intake.plenum_box.connector_length": "150",
+   "intake.plenum_box.connector_friction": "0.1"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "c80x150f0.3",
+  "set": {
+   "intake.plenum_box.model": "cells",
+   "intake.plenum_box.n_cells": "2",
+   "intake.plenum_box.connector_diameter": "80",
+   "intake.plenum_box.connector_length": "150",
+   "intake.plenum_box.connector_friction": "0.3"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "c100x150f0.1",
+  "set": {
+   "intake.plenum_box.model": "cells",
+   "intake.plenum_box.n_cells": "2",
+   "intake.plenum_box.connector_diameter": "100",
+   "intake.plenum_box.connector_length": "150",
+   "intake.plenum_box.connector_friction": "0.1"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "c100x150f0.3",
+  "set": {
+   "intake.plenum_box.model": "cells",
+   "intake.plenum_box.n_cells": "2",
+   "intake.plenum_box.connector_diameter": "100",
+   "intake.plenum_box.connector_length": "150",
+   "intake.plenum_box.connector_friction": "0.3"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "n6_c230x91",
+  "set": {
+   "intake.plenum_box.model": "cells",
+   "intake.plenum_box.n_cells": "6",
+   "intake.plenum_box.connector_diameter": "230",
+   "intake.plenum_box.connector_length": "91"
+  }
+ }
+]

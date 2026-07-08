@@ -100,10 +100,43 @@ class EqTubeConfig(BaseModel):
     rail_friction: float = 0.1         # rail segments + return hose
     rail_tap_friction: float = 0.1     # tap stubs
 
+class PlenumBoxConfig(BaseModel):
+    # Stage 64 — multi-cell airbox (intake acoustic remodel). The real 22.9L box
+    # carries internal standing waves: the S54 firing order 1-5-3-6-2-4 draws
+    # from the box's two halves (cyl 1-3 / 4-6) perfectly alternately, forcing
+    # an ANTI-SYMMETRIC (bank-differential) mode at engine orders 1.5/4.5/7.5.
+    # The box's first longitudinal mode (~550mm trumpet row -> ~318 Hz) driven
+    # at order 4.5 resonates ~4240 rpm = the owner car's real ~4400 VE peak.
+    # A 0D perfect-mixing plenum cannot carry that mode (bank-differential
+    # pressure is identically zero) -> the sim's 3900 hole. "cells" splits the
+    # box into N 0D cells joined by fat 1D connector pipes (Type-11 both ends,
+    # the muffler->tail->ambient precedent): the connector gas column between
+    # two compliances is a Helmholtz mode f = (a/2pi)*sqrt((A/L_eff)(1/V1+1/V2))
+    # tunable onto 3900-4400. Every trumpet mouth stays a Type-11 boundary, so
+    # the MOUTH_RAD alpha damping (the only proven WOT monostability mechanism)
+    # still applies at every mouth. Default "single" = legacy 0D (byte-identical,
+    # pinned in golden_deck_check).
+    model: str = "single"              # "single" (legacy 0D) | "cells"
+    n_cells: int = 2                   # 2 | 3 | 6 (6 = quasi-1D box)
+    connector_diameter: float = 230.0  # mm (box Deq = open box; small = baffled)
+    connector_length: float = 70.0     # mm (cell-center pitch, lumping-corrected)
+    connector_friction: float = 0.02
+    connector_dx: float = 0.025        # m mesh
+    duct_cell: int = 1                 # 1-based cell fed by the duct/filter
+    duct_split: bool = False           # duct tees into 2 half-area filters -> cells 1&2
+    icv_return_cell: int = 1           # 1-based cell the EQ-rail ICV return vents to
+    # Cell volume fractions (len == n_cells). None = equal split of
+    # (plenum_vol - connector volumes): total box gas volume is CONSERVED so the
+    # low-frequency (duct-Helmholtz / mean-flow) behaviour the 5 matched WOT
+    # columns depend on is untouched.
+    volume_split: Optional[List[float]] = None
+
+
 class IntakeConfig(BaseModel):
     type: str = "CSL Replica"
     inlet: InletConfig = InletConfig()
     plenum_vol: float = 22.9 # Liters (measured 2026-07; legacy model was 10.5)
+    plenum_box: PlenumBoxConfig = PlenumBoxConfig()  # Stage 64 multi-cell airbox
     bellmouth: BellmouthConfig = BellmouthConfig()
     itb: ITBConfig = ITBConfig() # New ITB Module
     throttle: ThrottleConfig = ThrottleConfig()

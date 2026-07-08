@@ -85,6 +85,7 @@ TCCDeposito::TCCDeposito(nmTypeBC TipoCC, int numCC,
   FMouthRadW = 0.0;
   FMouthRadGated = false;
   FVelBar = 0.0;
+  FMouthRadSkip = false;
 
   FTime0 = 0.;
   FTime1 = 0.;
@@ -722,8 +723,24 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
       FMouthRadAlpha = a;
       FMouthRadW = w;
       FMouthRadGated = (a > 1e-8);
+      // Stage 64: per-CC exemption list (comma-separated CC numbers). A listed
+      // boundary skips the damping entirely -- used to (a) probe whether the
+      // supply-side (filter->plenum) oscillation is being over-damped, and
+      // (b) exempt the multi-cell box connectors so the internal box mode is
+      // not artificially damped. Unset -> FMouthRadSkip stays false.
+      FMouthRadSkip = false;
+      if (const char *es = getenv("OPENWAM_MOUTH_RAD_SKIP_CC")) {
+        const char *p = es;
+        while (*p) {
+          char *endp = NULL;
+          long cc = strtol(p, &endp, 10);
+          if (endp == p) { ++p; continue; } // skip non-numeric separator
+          if ((int)cc == FNumeroCC) { FMouthRadSkip = true; break; }
+          p = endp;
+        }
+      }
     }
-    if (FMouthRadGated &&
+    if (FMouthRadGated && !FMouthRadSkip &&
         (FSentidoFlujo == nmEntrante || FSentidoFlujo == nmSaliente)) {
       const double s = (FSentidoFlujo == nmSaliente) ? 1.0 : -1.0;
       FVelBar = (1.0 - FMouthRadW) * FVelBar + FMouthRadW * FVelocity;

@@ -91,6 +91,12 @@ private:
   double FMouthRadW;     // EMA weight for the DC (cycle-mean) end-velocity estimate
   bool FMouthRadGated;   // cached gate flag (alpha > 0)
   double FVelBar;        // per-boundary running-mean (DC) of FVelocity
+  // Stage 64: selective exemption. OPENWAM_MOUTH_RAD_SKIP_CC = comma-separated
+  // connection (CC) numbers whose boundaries SKIP the damping (e.g. the
+  // filter->plenum supply boundary, or the multi-cell box connectors), so the
+  // radiation loss can be applied at the trumpet mouths only. Unset -> no
+  // boundary skips -> bit-identical to legacy.
+  bool FMouthRadSkip;    // this CC is in the skip list (cached with the env read)
 
   double FRegimen;
 

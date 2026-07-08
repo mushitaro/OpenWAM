@@ -24,7 +24,7 @@ APP_VERSION = "csl-ux-app/m1"
 # them -- keeping them here (env-driven) would both shadow the config and double-key.
 _RESULT_ENV = ["OPENWAM_HLLC", "OPENWAM_THR_CHOKE", "OPENWAM_THR_AGAIN",
                "OPENWAM_MOUTH_RAD", "OPENWAM_MOUTH_RAD_W", "OPENWAM_VEDIAG", "OPENWAM_K_CEIL",
-               "OPENWAM_FAST_OUTPUT"]
+               "OPENWAM_FAST_OUTPUT", "OPENWAM_MOUTH_RAD_SKIP_CC"]
 
 
 class SimulationService:
@@ -704,7 +704,13 @@ class SimulationService:
         _disc._sigma_bp = _sigma_bp
         _disc.generate(ignition_timing=20.0) if is_wot else _disc.generate()
         pipe_labels = {pid: _disc.pipes[pid].get("label", f"pipe{pid}") for pid in _disc.pipes}
-        _keep = re.compile(r"^(Runner_Lower_\d+|Port_Ex_\d+_1|Col_Out_)")
+        # Stage 64: intake-acoustics stations added (bellmouth mouths, duct,
+        # filter, and the multi-cell box connectors) so the waveform view /
+        # wave_box_fft.py can place the intake resonances empirically.
+        # ~13 -> ~21 monitored pipes; the INS buffer handles this fine.
+        _keep = re.compile(r"^(Runner_Lower_\d+|Port_Ex_\d+_1|Col_Out_"
+                           r"|Bellmouth_\d+|CSL_Intake_Pipe|CSL_Panel_Filter"
+                           r"|PlenumConn_\d+)")
         mon_pids = sorted(pid for pid, lab in pipe_labels.items() if _keep.match(lab))
 
         gen = WAMGenerator(point_config, self.simulator_dir)
