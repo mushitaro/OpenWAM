@@ -1,5 +1,40 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **🏁🏁🏁🏁🏁🏁🏁🏁🏁 2026-07-08 (later) — STAGE 63: 170mm + Section-1 X-Pipe
+> (owner's equal-length crosspipe) ADOPTED AS PRODUCTION DEFAULTS; WOT re-fit
+> under X DONE; 3900 confirmed a STRUCTURAL model limit. Read
+> EXHAUST_STABILIZATION_NOTES Stage 63 + memory `csl-partload-calibration-state`.**
+> Owner decided: (1) adopt X + full re-fit, (2) try intake-ram re-tuning for 3900
+> first. RESULTS:
+> - **Code (golden green, 6 decks byte-identical):** `models.py` bellmouth 150→**170**;
+>   Section-1 crossover switch WIRED in `wam_generator._generate_full_exhaust`
+>   (was DEAD CODE) — `section1_1.layout` now read; **X-Pipe = default** (single
+>   4-pipe Type-12 = owner crosspipe); H-Pipe = balance tube (WIRED but BLOWS UP
+>   at WOT, needs damping; owner car is X so non-critical); STRAIGHT = legacy,
+>   pinned in golden. env `OPENWAM_SEC1_CROSS` (straight|x|h) study override.
+> - **WOT A/B (canonical run_cells_local, omp1, owner target):** X is the owner's
+>   real HW but a MARGINAL VE lever; with the straight-fit bases it REGRESSED 4600
+>   (113.6→99). **Re-fit: 4600 base 145→130 → 121.2 (owner 118.2, Δ+3).** Final X
+>   WOT row (owner/sim/Δ): 2700 74.8/75.3/+0.5 · 3900 129.5/**96.2/−33** · 4600
+>   118.2/121.2/+3 · 5300 117.1/115.6/−1.5 · 6300 109.7/112.4/+2.7 · 6900
+>   107.0/110.2/+3.2. **mean|err| 7.4pp all-6 / 2.2pp on the 5 fittable cols**
+>   (straight was 9.1/3.6) → X+170mm is a BETTER twin than straight. calibration.json
+>   `exvanos_base.points`+surface load-100 updated (4600→130); `stage63_refit` note added.
+> - **3900 = STRUCTURAL MODEL LIMIT (confirmed, don't chase):** owner 129.5, sim
+>   96.2. Intake-ram length sweep (runner.length_scale 1.0/1.15/1.3) FLAT-to-WORSE
+>   at 3900 (96→81); base118=113.5 is a fragile bistable high-branch (neighbors
+>   FLAG); header length falsified (Stage 57). Cause = the 22.9L plenum Helmholtz
+>   null (n=1≈3650) sits under 3900. NO simple lever reaches it → it's the INTAKE
+>   ACOUSTIC MODEL frontier for Task 5, not a base band-aid. (sc1.15 usefully
+>   rescues the X 4600 regression 99→114 but 4600 is fixed by base instead.)
+> - **Part-load X spot-check:** loads 20/45 INSULATED (Δ<12, p-normalized) except
+>   the 3900 column; LOAD-65 row slow/non-converging under X (4600/65, 5300/65
+>   FLAG @550s) → Task 4 re-fit focuses on load-65 + 3900 (longer CSL_FIT_TIMEOUT).
+> **NEXT: (1) Task 4 — part-load re-fit under X (load-65 row + 3900 col, X down,
+> long timeout); (2) Task 5 — mod exploration from this validated X+170mm twin,
+> 3900 frontier = intake acoustic model (plenum/runner), NOT base/ram-length
+> (both proven dead). NOT committed yet — offer to commit Stage 63.**
+
 > **🔥🔥🔥🔥🔥🔥🔥🔥🔥 2026-07-08 — STAGE 62: TARGET RE-ANCHORED TO THE OWNER'S
 > REAL CAR (not CSL factory). Read EXHAUST_STABILIZATION_NOTES Stage 62 first,
 > then memory `csl-owner-car-is-real-target` and `csl-ve-data-provenance`.**
