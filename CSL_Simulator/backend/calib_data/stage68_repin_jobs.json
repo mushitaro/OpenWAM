@@ -1,0 +1,236 @@
+[
+ {
+  "rpm": 4600,
+  "load": 65,
+  "base": 126,
+  "tag": "repin4600_65"
+ },
+ {
+  "rpm": 4600,
+  "load": 65,
+  "base": 132,
+  "tag": "repin4600_65"
+ },
+ {
+  "rpm": 4600,
+  "load": 65,
+  "base": 138,
+  "tag": "repin4600_65"
+ },
+ {
+  "rpm": 4600,
+  "load": 65,
+  "base": 144,
+  "tag": "repin4600_65"
+ },
+ {
+  "rpm": 5300,
+  "load": 65,
+  "base": 136,
+  "tag": "repin5300_65"
+ },
+ {
+  "rpm": 5300,
+  "load": 65,
+  "base": 140,
+  "tag": "repin5300_65"
+ },
+ {
+  "rpm": 5300,
+  "load": 65,
+  "base": 144,
+  "tag": "repin5300_65"
+ },
+ {
+  "rpm": 600,
+  "load": 100,
+  "base": 110,
+  "tag": "idleWOT600"
+ },
+ {
+  "rpm": 600,
+  "load": 100,
+  "base": 130,
+  "tag": "idleWOT600"
+ },
+ {
+  "rpm": 600,
+  "load": 100,
+  "base": 150,
+  "tag": "idleWOT600"
+ },
+ {
+  "rpm": 600,
+  "load": 100,
+  "base": 170,
+  "tag": "idleWOT600"
+ },
+ {
+  "rpm": 870,
+  "load": 100,
+  "base": 110,
+  "tag": "idleWOT870"
+ },
+ {
+  "rpm": 870,
+  "load": 100,
+  "base": 130,
+  "tag": "idleWOT870"
+ },
+ {
+  "rpm": 870,
+  "load": 100,
+  "base": 150,
+  "tag": "idleWOT870"
+ },
+ {
+  "rpm": 870,
+  "load": 100,
+  "base": 170,
+  "tag": "idleWOT870"
+ },
+ {
+  "rpm": 1100,
+  "load": 100,
+  "base": 110,
+  "tag": "idleWOT1100"
+ },
+ {
+  "rpm": 1100,
+  "load": 100,
+  "base": 130,
+  "tag": "idleWOT1100"
+ },
+ {
+  "rpm": 1100,
+  "load": 100,
+  "base": 150,
+  "tag": "idleWOT1100"
+ },
+ {
+  "rpm": 1100,
+  "load": 100,
+  "base": 170,
+  "tag": "idleWOT1100"
+ },
+ {
+  "rpm": 1300,
+  "load": 100,
+  "base": 110,
+  "tag": "idleWOT1300"
+ },
+ {
+  "rpm": 1300,
+  "load": 100,
+  "base": 130,
+  "tag": "idleWOT1300"
+ },
+ {
+  "rpm": 1300,
+  "load": 100,
+  "base": 150,
+  "tag": "idleWOT1300"
+ },
+ {
+  "rpm": 1300,
+  "load": 100,
+  "base": 170,
+  "tag": "idleWOT1300"
+ },
+ {
+  "rpm": 1400,
+  "load": 100,
+  "base": 110,
+  "tag": "idleWOT1400"
+ },
+ {
+  "rpm": 1400,
+  "load": 100,
+  "base": 130,
+  "tag": "idleWOT1400"
+ },
+ {
+  "rpm": 1400,
+  "load": 100,
+  "base": 150,
+  "tag": "idleWOT1400"
+ },
+ {
+  "rpm": 1400,
+  "load": 100,
+  "base": 170,
+  "tag": "idleWOT1400"
+ },
+ {
+  "rpm": 1600,
+  "load": 100,
+  "base": 110,
+  "tag": "idleWOT1600"
+ },
+ {
+  "rpm": 1600,
+  "load": 100,
+  "base": 130,
+  "tag": "idleWOT1600"
+ },
+ {
+  "rpm": 1600,
+  "load": 100,
+  "base": 150,
+  "tag": "idleWOT1600"
+ },
+ {
+  "rpm": 1600,
+  "load": 100,
+  "base": 170,
+  "tag": "idleWOT1600"
+ },
+ {
+  "rpm": 1800,
+  "load": 100,
+  "base": 110,
+  "tag": "idleWOT1800"
+ },
+ {
+  "rpm": 1800,
+  "load": 100,
+  "base": 130,
+  "tag": "idleWOT1800"
+ },
+ {
+  "rpm": 1800,
+  "load": 100,
+  "base": 150,
+  "tag": "idleWOT1800"
+ },
+ {
+  "rpm": 1800,
+  "load": 100,
+  "base": 170,
+  "tag": "idleWOT1800"
+ },
+ {
+  "rpm": 2100,
+  "load": 100,
+  "base": 110,
+  "tag": "idleWOT2100"
+ },
+ {
+  "rpm": 2100,
+  "load": 100,
+  "base": 130,
+  "tag": "idleWOT2100"
+ },
+ {
+  "rpm": 2100,
+  "load": 100,
+  "base": 150,
+  "tag": "idleWOT2100"
+ },
+ {
+  "rpm": 2100,
+  "load": 100,
+  "base": 170,
+  "tag": "idleWOT2100"
+ }
+]

@@ -71,6 +71,42 @@
     "scale": 1.0,
     "points": [
       [
+        600,
+        130.0
+      ],
+      [
+        870,
+        170.0
+      ],
+      [
+        1100,
+        130.0
+      ],
+      [
+        1300,
+        170.0
+      ],
+      [
+        1400,
+        130.0
+      ],
+      [
+        1600,
+        130.0
+      ],
+      [
+        1800,
+        130.0
+      ],
+      [
+        2100,
+        150.0
+      ],
+      [
+        2400,
+        130.0
+      ],
+      [
         2700,
         130.0
       ],
@@ -140,7 +176,7 @@
           150.0,
           110.0,
           132.0,
-          140.0,
+          144.0,
           175.0,
           170.1
         ],
@@ -165,6 +201,11 @@
     "surface_fit_meta": {
       "date": "2026-07-07",
       "note": "Stage 60 HYBRID: load 20/30 rows = Stage-57 alpha-null; load 45/65 rows = stage58_alpha04 fit. Paired with mouth_rad.part_load_alpha_load_min=40 (damping ON only at load>=45) and the hybrid sigma table. Captures alpha-0.4 mid/high-load wins (6900/65 0.265->0.024, 3900/65 0.137->0.041, all load-45) with ZERO regression on load 20/30 (kept at Stage-57). Trade: the un-fixable 2700/65 regresses 0.168->0.254 (Stage 59: 2700 is supply-limited). NOTE: part-load rows still fit at STRAIGHT+150mm -- re-validate/re-fit under X+170mm (Stage 63 task 4)."
+    },
+    "stage68_fullmap_calibration": {
+      "date": "2026-07-10",
+      "note": "Full-map validation (20 rpms x loads 20/30/45/65/100, t6_map_heatmap.py) + idle-band WOT base fit. (1) REBUILD LESSON: the Stage-66 solver rebuild flipped marginal bistable cells (4600/65 dp0.002->blowup transient); re-pin confirmed b132 GREEN under the new binary (kept); 5300/65 140->144 (dp 0.078->0.062, cell is mushy under the new exe). (2) Idle-band WOT points ADDED: 2100->150 (VE 69 vs owner 69 EXACT; the clamp-130 deck blew up 430) and 1300->170 (68 vs 67); 2400->130 pinned explicitly to keep the validated interp. STRUCTURAL idle deficits (base-flat, all bases): 600 (-33+, all invalid), 870 (-40, b170 only valid), 1600 (-31), 1100/1400/1800 (-8..-14) -- the 1600-2100 family sits on the Helmholtz n=2~1824 null (same structural class as the 3900 n=1 limit); documented, not chased. Data: stage68_fullmap.csv, stage68_repin.csv.",
+      "sim_binary": "post-Stage-66 rebuild (T12 mouth-rad)"
     },
     "stage65_partload_refit": {
       "date": "2026-07-08",
