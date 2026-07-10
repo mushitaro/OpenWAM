@@ -1,0 +1,224 @@
+[
+ {
+  "rpm": 1100,
+  "load": 30,
+  "base": 90,
+  "tag": "plfit_1100_30"
+ },
+ {
+  "rpm": 1100,
+  "load": 30,
+  "base": 110,
+  "tag": "plfit_1100_30"
+ },
+ {
+  "rpm": 1100,
+  "load": 30,
+  "base": 135,
+  "tag": "plfit_1100_30"
+ },
+ {
+  "rpm": 1100,
+  "load": 30,
+  "base": 160,
+  "tag": "plfit_1100_30"
+ },
+ {
+  "rpm": 1300,
+  "load": 20,
+  "base": 110,
+  "tag": "plfit_1300_20"
+ },
+ {
+  "rpm": 1300,
+  "load": 20,
+  "base": 130,
+  "tag": "plfit_1300_20"
+ },
+ {
+  "rpm": 1300,
+  "load": 20,
+  "base": 150,
+  "tag": "plfit_1300_20"
+ },
+ {
+  "rpm": 1300,
+  "load": 20,
+  "base": 170,
+  "tag": "plfit_1300_20"
+ },
+ {
+  "rpm": 1300,
+  "load": 30,
+  "base": 90,
+  "tag": "plfit_1300_30"
+ },
+ {
+  "rpm": 1300,
+  "load": 30,
+  "base": 110,
+  "tag": "plfit_1300_30"
+ },
+ {
+  "rpm": 1300,
+  "load": 30,
+  "base": 135,
+  "tag": "plfit_1300_30"
+ },
+ {
+  "rpm": 1300,
+  "load": 30,
+  "base": 160,
+  "tag": "plfit_1300_30"
+ },
+ {
+  "rpm": 1600,
+  "load": 30,
+  "base": 110,
+  "tag": "plfit_1600_30"
+ },
+ {
+  "rpm": 1600,
+  "load": 30,
+  "base": 135,
+  "tag": "plfit_1600_30"
+ },
+ {
+  "rpm": 1600,
+  "load": 30,
+  "base": 160,
+  "tag": "plfit_1600_30"
+ },
+ {
+  "rpm": 1800,
+  "load": 30,
+  "base": 110,
+  "tag": "plfit_1800_30"
+ },
+ {
+  "rpm": 1800,
+  "load": 30,
+  "base": 135,
+  "tag": "plfit_1800_30"
+ },
+ {
+  "rpm": 1800,
+  "load": 30,
+  "base": 160,
+  "tag": "plfit_1800_30"
+ },
+ {
+  "rpm": 2100,
+  "load": 30,
+  "base": 90,
+  "tag": "plfit_2100_30"
+ },
+ {
+  "rpm": 2100,
+  "load": 30,
+  "base": 110,
+  "tag": "plfit_2100_30"
+ },
+ {
+  "rpm": 2100,
+  "load": 30,
+  "base": 135,
+  "tag": "plfit_2100_30"
+ },
+ {
+  "rpm": 2100,
+  "load": 30,
+  "base": 160,
+  "tag": "plfit_2100_30"
+ },
+ {
+  "rpm": 2900,
+  "load": 30,
+  "base": 110,
+  "tag": "plfit_2900_30"
+ },
+ {
+  "rpm": 2900,
+  "load": 30,
+  "base": 125,
+  "tag": "plfit_2900_30"
+ },
+ {
+  "rpm": 2900,
+  "load": 30,
+  "base": 142,
+  "tag": "plfit_2900_30"
+ },
+ {
+  "rpm": 2900,
+  "load": 30,
+  "base": 155,
+  "tag": "plfit_2900_30"
+ },
+ {
+  "rpm": 1800,
+  "load": 65,
+  "base": 110,
+  "tag": "plfit_1800_65"
+ },
+ {
+  "rpm": 1800,
+  "load": 65,
+  "base": 130,
+  "tag": "plfit_1800_65"
+ },
+ {
+  "rpm": 1800,
+  "load": 65,
+  "base": 150,
+  "tag": "plfit_1800_65"
+ },
+ {
+  "rpm": 1800,
+  "load": 65,
+  "base": 170,
+  "tag": "plfit_1800_65"
+ },
+ {
+  "rpm": 2200,
+  "load": 65,
+  "base": 110,
+  "tag": "plfit_2200_65"
+ },
+ {
+  "rpm": 2200,
+  "load": 65,
+  "base": 130,
+  "tag": "plfit_2200_65"
+ },
+ {
+  "rpm": 2200,
+  "load": 65,
+  "base": 150,
+  "tag": "plfit_2200_65"
+ },
+ {
+  "rpm": 2200,
+  "load": 65,
+  "base": 170,
+  "tag": "plfit_2200_65"
+ },
+ {
+  "rpm": 7300,
+  "load": 65,
+  "base": 150,
+  "tag": "plfit_7300_65"
+ },
+ {
+  "rpm": 7300,
+  "load": 65,
+  "base": 160,
+  "tag": "plfit_7300_65"
+ },
+ {
+  "rpm": 7300,
+  "load": 65,
+  "base": 180,
+  "tag": "plfit_7300_65"
+ }
+]
