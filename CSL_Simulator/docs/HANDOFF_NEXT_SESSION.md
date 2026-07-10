@@ -1,6 +1,34 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-> **🧪🧪🧪🧪🧪🧪🧪🧪🧪 2026-07-10 (newest) — STAGE 66: GIANT-PIPE BOX (box1d)
+> **🏆🏆🏆🏆🏆🏆🏆🏆🏆 2026-07-10 (newest) — STAGE 67: TASK-5 MOD EXPLORATION
+> COMPLETE. THE ANSWER: RESTORE THE CSL FLAP SYSTEM. Read
+> EXHAUST_STABILIZATION_NOTES Stage 67 (final ranking table).**
+> Method: fixed Stage-65 baseline twin; mods as --set deltas; deliverable =
+> ΔVE rank + magnitude bucket + confidence (never calibrated absolutes);
+> valley cell = 2700 WOT (+PL 2700/30, 2700/65); 3900 directional-only.
+> 13-variant screen + robustness finals (66 cells; stage67_*.csv; t5_mod_rank.py):
+> - **WINNER (only robust mod): flap-pipe restore (phi50 x 700-900mm switched
+>   resonance pipe — the owner's CSL box has the factory system REMOVED).
+>   Valley +33~35pp LARGE, CARRIES TO PART LOAD (+29~35pp, converged), smooth
+>   across two lengths, and QUANTITATIVELY matches the factory-map delta
+>   (+29pp @2700) = model & reality cross-validate. HIGH confidence. 4600
+>   diverges flap-open — the real device CLOSES there (annotated). Opt-in
+>   config intake.inlet.flap_pipe_length/diameter (default 0 = absent, golden
+>   green).**
+> - **FALSE POSITIVES identified and killed by robustness probes: duct500
+>   (+16.5), hdr250 (+15.4), ductD210 (+15.0) — all the SAME non-physical
+>   2700-WOT high-fill attractor (VE~86-96; real car = 74.8 = low branch):
+>   non-monotonic parameter response + part-load blow-ups/negatives. LOW conf.**
+> - VANOS retime (in/ex): NO valley headroom (calibrated bases already
+>   optimal). Trumpet 120/220, sec1 length, duct shrink: noise-to-bad-trade.
+> - **CSL cams 268/264: NEGATIVE for the valley (-6 @2700, -22 @3900-dir) with
+>   small top gains — myth-check: do NOT buy CSL cams to fix the valley.**
+> **Remaining follow-ups (optional): (1) model the flap CLOSED/OPEN schedule
+> (switched topology per rpm) for a full-map picture; (2) full phase5 map/UI
+> refresh (~3h) under the Stage-65 calibration; (3) idle-band columns
+> (600-2400) remain unfitted (Stage-58 deferral stands).**
+
+> **🧪🧪🧪🧪🧪🧪🧪🧪🧪 2026-07-10 — STAGE 66: GIANT-PIPE BOX (box1d)
 > PROBE EXECUTED — the 1D wave field EXISTS but is ADVERSE; the box-mode
 > hypothesis is now falsified in BOTH representations. FINAL SEAL on 3900.
 > Read EXHAUST_STABILIZATION_NOTES Stage 66.**
