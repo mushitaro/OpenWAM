@@ -32,6 +32,15 @@ class InletConfig(BaseModel):
     exit_height: Optional[float] = 190.0 # mm
     filter_diameter: float = 300.0       # mm (slot Deq used when exit_* given)
     filter_thickness: float = 20.0       # mm
+    # CSL flap resonance pipe (Stage 67 mod probe). The owner's CSL airbox has
+    # the factory phi50 x ~700mm flap pipe REMOVED; the factory system opens it
+    # at low rpm as a switched second intake path / resonator -- it exists
+    # precisely to fill the 2000-4000 valley this car has. length 0 = absent
+    # (DEFAULT, byte-identical legacy deck). >0 = fitted OPEN (model the
+    # low-rpm flap-open state; the real device closes at high rpm, so top-end
+    # deltas with it open are annotated, not penalized).
+    flap_pipe_length: float = 0.0        # mm (700-900 = factory-ish)
+    flap_pipe_diameter: float = 50.0     # mm
 
 class BellmouthConfig(BaseModel):
     # MEASURED trumpet length (owner's car, 2026-07): 170mm. Adopted as the

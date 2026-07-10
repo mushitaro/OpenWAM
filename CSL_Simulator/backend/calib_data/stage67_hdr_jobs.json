@@ -1,0 +1,66 @@
+[
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "hdr280",
+  "set": {
+   "exhaust.headers.primary_length": "280"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "hdr280",
+  "set": {
+   "exhaust.headers.primary_length": "280"
+  }
+ },
+ {
+  "rpm": 5300,
+  "load": 100,
+  "tag": "hdr280",
+  "set": {
+   "exhaust.headers.primary_length": "280"
+  }
+ },
+ {
+  "rpm": 6900,
+  "load": 100,
+  "tag": "hdr280",
+  "set": {
+   "exhaust.headers.primary_length": "280"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 30,
+  "tag": "hdr280",
+  "set": {
+   "exhaust.headers.primary_length": "280"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 65,
+  "tag": "hdr280",
+  "set": {
+   "exhaust.headers.primary_length": "280"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "hdr265",
+  "set": {
+   "exhaust.headers.primary_length": "265"
+  }
+ },
+ {
+  "rpm": 5300,
+  "load": 100,
+  "tag": "hdr265",
+  "set": {
+   "exhaust.headers.primary_length": "265"
+  }
+ }
+]

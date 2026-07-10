@@ -1,0 +1,9 @@
+id,tag,rpm,load,base,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+8aa873b9463e,hdr280,4600,100.0,130.0,,,,"{""exhaust.headers.primary_length"": ""280""}",120.11,118.2,1.0162,35,0.0033,1,1,0.0054,0,1,0,1,315.0
+e00ab153cb3f,hdr280,6900,100.0,170.0,,,,"{""exhaust.headers.primary_length"": ""280""}",110.1,107.0,1.029,37,0.1541,1,1,0.0432,0,1,0,1,364.8
+52a9efaa4cab,hdr265,2700,100.0,130.0,,,,"{""exhaust.headers.primary_length"": ""265""}",76.31,74.8,1.0202,25,0.1405,1,1,0.0114,0,1,0,1,406.7
+a35a7f11e053,hdr280,5300,100.0,155.0,,,,"{""exhaust.headers.primary_length"": ""280""}",103.01,117.1,0.8797,38,0.1834,1,1,0.1873,0,1,0,1,411.7
+bf3bfb272959,hdr265,5300,100.0,155.0,,,,"{""exhaust.headers.primary_length"": ""265""}",110.21,117.1,0.9412,37,0.2146,1,1,0.0034,0,1,0,1,436.0
+52b8c3b7c919,hdr280,3900,100.0,130.0,,,,"{""exhaust.headers.primary_length"": ""280""}",94.29,129.5,0.7281,42,0.2868,1,1,0.0014,0,1,0,1,504.2
+17e02943a259,hdr280,2700,30.0,135.0,,,,"{""exhaust.headers.primary_length"": ""280""}",101.22,71.8,1.4097,25,0.0046,1,0,0.9974,2,1,0,0,683.5
+166dab935e78,hdr280,2700,65.0,149.99,,,,"{""exhaust.headers.primary_length"": ""280""}",298.1,73.6,4.0502,40,-14.2967,0,0,0.9391,1,1,1,0,1203.9

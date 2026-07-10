@@ -1,0 +1,34 @@
+[
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "ductD165",
+  "set": {
+   "intake.inlet.duct_diameter": "165"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "ductD165",
+  "set": {
+   "intake.inlet.duct_diameter": "165"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "ductD210",
+  "set": {
+   "intake.inlet.duct_diameter": "210"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "ductD210",
+  "set": {
+   "intake.inlet.duct_diameter": "210"
+  }
+ }
+]

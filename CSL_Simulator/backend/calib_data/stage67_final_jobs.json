@@ -1,0 +1,158 @@
+[
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "duct450",
+  "set": {
+   "intake.inlet.duct_length": "450"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "duct450",
+  "set": {
+   "intake.inlet.duct_length": "450"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "duct550",
+  "set": {
+   "intake.inlet.duct_length": "550"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "duct550",
+  "set": {
+   "intake.inlet.duct_length": "550"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "duct600",
+  "set": {
+   "intake.inlet.duct_length": "600"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "duct600",
+  "set": {
+   "intake.inlet.duct_length": "600"
+  }
+ },
+ {
+  "rpm": 5300,
+  "load": 100,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 6900,
+  "load": 100,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 30,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 65,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 45,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 5300,
+  "load": 100,
+  "tag": "hdr250",
+  "set": {
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 6900,
+  "load": 100,
+  "tag": "hdr250",
+  "set": {
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "hdr280",
+  "set": {
+   "exhaust.headers.primary_length": "280"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "hdr280",
+  "set": {
+   "exhaust.headers.primary_length": "280"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "combo_d500h250",
+  "set": {
+   "intake.inlet.duct_length": "500",
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "combo_d500h250",
+  "set": {
+   "intake.inlet.duct_length": "500",
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "combo_d500h250",
+  "set": {
+   "intake.inlet.duct_length": "500",
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "combo_d500h250",
+  "set": {
+   "intake.inlet.duct_length": "500",
+   "exhaust.headers.primary_length": "250"
+  }
+ }
+]

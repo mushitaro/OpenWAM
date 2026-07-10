@@ -1,0 +1,302 @@
+[
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "hdr250",
+  "set": {
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "hdr250",
+  "set": {
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "hdr250",
+  "set": {
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "hdr250",
+  "set": {
+   "exhaust.headers.primary_length": "250"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "hdr450",
+  "set": {
+   "exhaust.headers.primary_length": "450"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "hdr450",
+  "set": {
+   "exhaust.headers.primary_length": "450"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "hdr450",
+  "set": {
+   "exhaust.headers.primary_length": "450"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "hdr450",
+  "set": {
+   "exhaust.headers.primary_length": "450"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "sec1_900",
+  "set": {
+   "exhaust.section1_1.length": "900",
+   "exhaust.section1_2.length": "900"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "sec1_900",
+  "set": {
+   "exhaust.section1_1.length": "900",
+   "exhaust.section1_2.length": "900"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "sec1_900",
+  "set": {
+   "exhaust.section1_1.length": "900",
+   "exhaust.section1_2.length": "900"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "sec1_900",
+  "set": {
+   "exhaust.section1_1.length": "900",
+   "exhaust.section1_2.length": "900"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "sec1_1500",
+  "set": {
+   "exhaust.section1_1.length": "1500",
+   "exhaust.section1_2.length": "1500"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "sec1_1500",
+  "set": {
+   "exhaust.section1_1.length": "1500",
+   "exhaust.section1_2.length": "1500"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "sec1_1500",
+  "set": {
+   "exhaust.section1_1.length": "1500",
+   "exhaust.section1_2.length": "1500"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "sec1_1500",
+  "set": {
+   "exhaust.section1_1.length": "1500",
+   "exhaust.section1_2.length": "1500"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "bell120",
+  "set": {
+   "intake.bellmouth.length": "120"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "bell120",
+  "set": {
+   "intake.bellmouth.length": "120"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "bell120",
+  "set": {
+   "intake.bellmouth.length": "120"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "bell120",
+  "set": {
+   "intake.bellmouth.length": "120"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "bell220",
+  "set": {
+   "intake.bellmouth.length": "220"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "bell220",
+  "set": {
+   "intake.bellmouth.length": "220"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "bell220",
+  "set": {
+   "intake.bellmouth.length": "220"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "bell220",
+  "set": {
+   "intake.bellmouth.length": "220"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "duct300",
+  "set": {
+   "intake.inlet.duct_length": "300"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "duct300",
+  "set": {
+   "intake.inlet.duct_length": "300"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "duct300",
+  "set": {
+   "intake.inlet.duct_length": "300"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "duct300",
+  "set": {
+   "intake.inlet.duct_length": "300"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "duct500",
+  "set": {
+   "intake.inlet.duct_length": "500"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "cam268",
+  "set": {
+   "engine.head.intake_valve.duration": "268",
+   "engine.head.exhaust_valve.duration": "264"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "cam268",
+  "set": {
+   "engine.head.intake_valve.duration": "268",
+   "engine.head.exhaust_valve.duration": "264"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "cam268",
+  "set": {
+   "engine.head.intake_valve.duration": "268",
+   "engine.head.exhaust_valve.duration": "264"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "cam268",
+  "set": {
+   "engine.head.intake_valve.duration": "268",
+   "engine.head.exhaust_valve.duration": "264"
+  }
+ }
+]

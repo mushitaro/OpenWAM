@@ -1,0 +1,82 @@
+[
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "flap700",
+  "set": {
+   "intake.inlet.flap_pipe_length": "700"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "flap700",
+  "set": {
+   "intake.inlet.flap_pipe_length": "700"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 30,
+  "tag": "flap700",
+  "set": {
+   "intake.inlet.flap_pipe_length": "700"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 65,
+  "tag": "flap700",
+  "set": {
+   "intake.inlet.flap_pipe_length": "700"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "flap900",
+  "set": {
+   "intake.inlet.flap_pipe_length": "900"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "flap900",
+  "set": {
+   "intake.inlet.flap_pipe_length": "900"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 30,
+  "tag": "flap900",
+  "set": {
+   "intake.inlet.flap_pipe_length": "900"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 65,
+  "tag": "flap900",
+  "set": {
+   "intake.inlet.flap_pipe_length": "900"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "flap700",
+  "set": {
+   "intake.inlet.flap_pipe_length": "700"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "flap700",
+  "set": {
+   "intake.inlet.flap_pipe_length": "700"
+  }
+ }
+]

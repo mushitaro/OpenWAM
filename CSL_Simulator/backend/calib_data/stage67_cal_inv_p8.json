@@ -1,0 +1,187 @@
+{
+ "schema_version": 2,
+ "_comment": "Model-calibration constants (UX_APP_DEV_SPEC.md 4.C/10; schema v2 per PLAN_PARTLOAD_CALIBRATION.md 4.0). All null/absent fit fields = LEGACY behaviour, so this schema lands BEFORE the fits. thr_sigma.points / icv.sigma / exvanos_base.surface are written by scripts/fit_partload.py (atomic tmp+replace, with fit_meta provenance); mouth_rad.alpha and exvanos_base.wot_base_stable are re-fitted in Phase 3 on the measured geometry. Env vars (OPENWAM_MOUTH_RAD/_W, OPENWAM_EXVANOS_BASE/_SCALE, OPENWAM_THR_SIGMA_BP, OPENWAM_ICV_SIGMA) still override at runtime for studies.",
+ "mouth_rad": {
+  "alpha": 0.4,
+  "w": 0.005,
+  "wot_tps_threshold": 85.0,
+  "part_load_alpha": 0.4,
+  "part_load_alpha_load_min": 40.0
+ },
+ "thr_choke": 1,
+ "intake_vanos_base": 138.0,
+ "thr_sigma": {
+  "_comment": "Calibrated pedal->sigma breakpoints (Phase 4B). Lives HERE, not in ThrottleConfig: it is a fitted, run-traceable, foldable calibration curve (ThrottleConfig keeps only the physical offset/gamma). Anchors: 0.0->0.001 and 1.0->0.96 keep the closed/WOT terminations unchanged. enabled=false or null sigmas -> geometric legacy path.",
+  "enabled": true,
+  "points": [
+   [
+    0.0,
+    0.001
+   ],
+   [
+    0.2,
+    0.06545
+   ],
+   [
+    0.3,
+    0.17949
+   ],
+   [
+    0.45,
+    0.36281
+   ],
+   [
+    0.65,
+    0.83295
+   ],
+   [
+    0.85,
+    0.93759
+   ],
+   [
+    1.0,
+    0.96
+   ]
+  ],
+  "fit_meta": {
+   "date": "2026-07-05",
+   "commit": "7c1dd21bddb0",
+   "exe_sig": "1435648:1783119758",
+   "csv": "fit_sigma_sweep.csv",
+   "residual": null
+  }
+ },
+ "icv": {
+  "_comment": "Fitted ICV effective open-area ratio (Phase 4A; rail model only). null -> SimConfig intake.eq_tube.icv_sigma default. Physically the ICV is ECU duty-cycle controlled (risk R3): we fit ONE constant for loads >= 10% and do NOT table it.",
+  "sigma": 0.3,
+  "fit_meta": {
+   "date": "2026-07-05",
+   "commit": "7c1dd21bddb0",
+   "exe_sig": "1435648:1783119758",
+   "csv": "fit_icv_sweep.csv",
+   "residual": null
+  }
+ },
+ "exvanos_base": {
+  "_comment": "WOT: per-rpm points (Phase-3 measured-geometry fit, fit_cam_deg 260, use_shape_fit=true). wot_base_stable is the flat fallback datum (set use_shape_fit=false to fold). Part load: surface (Phase 4C) or part_load_const. is_wot short-circuits to the WOT table, so the WOT row cannot regress from part-load fitting. +-5 pert map at the fitted bases: 6300/6900 smooth (<=3.3pp); 5300 -5 smooth, +5 dips -15pp (converged); 2700/3900 sit on sharp lever-ceiling PEAKS (+-5 loses 7-20pp, converged, no collapse). Hard cliffs: 3900@b150 and 6900@b177 blow up. See EXHAUST_STABILIZATION_NOTES Stage 57.",
+  "fit_cam_deg": 260,
+  "stale": false,
+  "wot_base_stable": 150.0,
+  "part_load_const": 150.0,
+  "scale": 1.0,
+  "points": [
+   [
+    2700,
+    130.0
+   ],
+   [
+    3900,
+    130.0
+   ],
+   [
+    4600,
+    130.0
+   ],
+   [
+    5300,
+    155.0
+   ],
+   [
+    6300,
+    170.0
+   ],
+   [
+    6900,
+    170.0
+   ]
+  ],
+  "surface": {
+   "rpms": [
+    2700.0,
+    3900.0,
+    4600.0,
+    5300.0,
+    6300.0,
+    6900.0
+   ],
+   "loads": [
+    20.0,
+    30.0,
+    45.0,
+    64.99,
+    100.0
+   ],
+   "values": [
+    [
+     150.0,
+     150.0,
+     62.4,
+     71.4,
+     115.0,
+     110.0
+    ],
+    [
+     135.0,
+     142.0,
+     95.0,
+     125.0,
+     120.0,
+     130.0
+    ],
+    [
+     131.7,
+     132.1,
+     132.4,
+     150.0,
+     150.0,
+     150.0
+    ],
+    [
+     150.0,
+     110.0,
+     132.0,
+     140.0,
+     175.0,
+     170.1
+    ],
+    [
+     130.0,
+     130.0,
+     130.0,
+     155.0,
+     170.0,
+     170.0
+    ]
+   ]
+  },
+  "use_shape_fit": true,
+  "fit_meta": {
+   "date": "2026-07-05",
+   "commit": "565d0b20ff36",
+   "exe_sig": "1435648:1783119758",
+   "csv": "phase3_basefit.csv",
+   "note": "Measured-geometry rail WOT fit (alpha 0.4, rail/tap fric 0.1). BEST-ACHIEVABLE points: fitted row [87.5, 91.8, 116.6, 112.6, 110.7, 109.8] vs stock [103.7, 115.7, 111.3, 110.1, 108.7, 106.0] -> r 0.05, max_norm_shape_err 0.176, peak 5300 vs stock 3900: the r>=0.95 gate is NOT met. 2700/3900 are base-lever CEILINGS (b130; lower bases REVERSE), 6900 is a floor (b177 blows up), i.e. the low-rpm charge deficit of the measured geometry is outside the EXVANOS lever range. Ratio-wise 4600-6900 sit at 1.02-1.05 of stock (legacy datum was 0.79-0.87 everywhere). Part-load calibration is insulated by the p=VE/VE_WOT normalization. Header-length hypothesis falsified (650mm primaries: 2700 -5.9pp, 6900 blow-up)."
+  },
+  "surface_fit_meta": {
+   "date": "2026-07-07",
+   "note": "Stage 60 HYBRID: load 20/30 rows = Stage-57 alpha-null; load 45/65 rows = stage58_alpha04 fit. Paired with mouth_rad.part_load_alpha_load_min=40 (damping ON only at load>=45) and the hybrid sigma table. Captures alpha-0.4 mid/high-load wins (6900/65 0.265->0.024, 3900/65 0.137->0.041, all load-45) with ZERO regression on load 20/30 (kept at Stage-57). Trade: the un-fixable 2700/65 regresses 0.168->0.254 (Stage 59: 2700 is supply-limited). NOTE: part-load rows still fit at STRAIGHT+150mm -- re-validate/re-fit under X+170mm (Stage 63 task 4)."
+  },
+  "stage65_partload_refit": {
+   "date": "2026-07-08",
+   "note": "Task 4: part-load surface re-fit under X-Pipe+170mm (Stage-63 production). With CSL_FIT_TIMEOUT-class 1500s runs ALL cells converge (the Stage-63 550s FLAGs were under-convergence, incl. 3900/65 -> GREEN dp 0.048 at the EXISTING b110: the p=VE/VE_WOT metric divides out the 3900 WOT structural limit, so the part-load 3900 column FITS). Re-fit: load-30 row 3900 150->142 (dp 0.101->0.078), 6300 130->120 (0.157->0.102, lever ceiling: b115 blows up 969, b125 equal); load-65 row 4600 150->132 (0.187->0.002), 5300 150->140 (0.361->0.078; b170 dp0.014 REJECTED nan_free=0, b140-150 attractor cliff), 6300 150->175 (0.104->0.002). Loads 20/45 kept (spot dp<=0.05 except 2700/20 0.104 = known supply floor, improved from 0.137). Final row means: load-30 0.056 / load-65 0.031 (was 0.069 / 0.126). Data: calib_data/stage64_t4_*.csv.",
+   "sim_wot_row_x170": {
+    "2700": 75.3,
+    "3900": 96.2,
+    "4600": 121.2,
+    "5300": 115.6,
+    "6300": 112.4,
+    "6900": 110.2
+   }
+  },
+  "stage63_refit": {
+   "date": "2026-07-08",
+   "note": "X-Pipe (owner equal-length crosspipe) + 170mm bellmouth adopted as production defaults. WOT base re-fit under X: 4600 145->130 (X regressed 4600 to 99 at b145; b130 -> 121.2, owner 118.2, Delta+3.0). Other WOT bases UNCHANGED (2700/5300/6300/6900 already owner +-5pp under X; 2700=75.3/5300=115.6/6300=112.4/6900=110.2). 3900 LEFT at b130=96.2 (Delta-33 vs owner 129.5): a KNOWN MODEL LIMIT -- the 22.9L plenum Helmholtz null (n=1~3650) sits under 3900; NO geometry lever reaches it (runner-length sweep flat-to-worse, header length falsified Stage 57, base118=113.5 is a fragile bistable high-branch, neighbors FLAG). 3900 is the mod-exploration frontier (intake acoustic model). WOT mean|err| vs owner: 7.4pp all-6, 2.2pp on the 5 fittable cols (straight was 9.1/3.6). Data: /tmp/x4600.csv, sc_nb.csv, ram_x.csv, sc_base.csv."
+  }
+ },
+ "_variant": "stage67 intake-VANOS mod probe: intake_vanos_base=138.0"
+}

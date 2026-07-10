@@ -743,6 +743,21 @@ class WAMGenerator:
                            cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
             self._box_cells = [plenum_id]
 
+        # CSL flap resonance pipe (Stage 67 mod probe): a second ambient->plenum
+        # path (factory: phi50 x ~700mm, switched OPEN at low rpm) modelled in
+        # its OPEN state. length 0 (default) = absent -> byte-identical deck.
+        if inl.flap_pipe_length and inl.flap_pipe_length > 0:
+            flap_id = self.pipe_counter; self.pipe_counter += 1
+            cid_fa = self._add_con_plenum_pipe_v2(amb_in_id, flap_id, 0)
+            cid_fp = self._add_con_plenum_pipe_v2(plenum_id, flap_id, 1)
+            self._add_pipe(flap_id, "CSL_Flap_Pipe",
+                           inl.flap_pipe_length / 1000.0,
+                           inl.flap_pipe_diameter / 1000.0,
+                           inl.flap_pipe_diameter / 1000.0, 27,
+                           cid_fa, cid_fp, friction=0.05, dx_mesh=0.035)
+            print(f"DEBUG: CSL flap pipe fitted (open): "
+                  f"phi{inl.flap_pipe_diameter:.0f} x {inl.flap_pipe_length:.0f}mm")
+
 
         # Estimated manifold absolute pressure (MAP) downstream of the throttle.
         # A part-throttle manifold settles to a vacuum; initialising those pipes
