@@ -1,6 +1,28 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-> **🏆🏆🏆🏆🏆🏆🏆🏆🏆 2026-07-10 (newest) — STAGE 67: TASK-5 MOD EXPLORATION
+> **🚨🚨🚨🚨🚨🚨🚨🚨🚨 2026-07-10 (CORRECTION, read BEFORE the Stage-67 banner
+> below) — THE STAGE-67 "RESTORE THE FLAP" RECOMMENDATION IS RETRACTED (owner
+> correction; memory `csl-mission-vanos-valley` is now the NEVER-FORGET
+> mission statement).** The owner's car = standard M3 with the flap + piping
+> DELIBERATELY REMOVED; **the simulator's PURPOSE is to find VANOS OPTIMAL
+> VALUES that restore the valley the removal dropped** — never to pull the
+> topology back toward factory CSL (that approach was rejected long ago).
+> Also: the genuine CSL's flap is FULLY OPEN at 4000+ = IDENTICAL to the
+> current model (the flap acts only below 4000), so the Stage-67 always-open
+> parallel-pipe flap model is topologically doubtful — the flap probe stands
+> ONLY as a model-fidelity note, NOT a recommendation. AND the Wave-B exv±10
+> sweep was methodologically INVALID: base (EXVANOS scaffold) is CALIBRATION
+> ONLY, never a mod/optimization variable (M4 rule: physical cams are the only
+> search variables; exhaust retime = exhaust_cam map target, not base).
+> Stage-63/65 base changes were owner-approved CALIBRATION re-fits — distinct.
+> **STAGE 68 (correct Task 5, running): M4 optimizer
+> (`optimization_service.optimize_wot`) — per-rpm coordinate descent over
+> PHYSICAL (intake_cam, exhaust_cam), base untouched, bounds = stock ECU
+> table envelope, on the 6 validated columns -> optimal KF_EVAN1_SOLL /
+> KF_AVAN1_SOLL WOT rows. Valid Stage-67 leftovers: attractor false-positive
+> lesson, CSL cams negative for the valley, trumpet/sec1/duct = noise.**
+
+> **🏆🏆🏆🏆🏆🏆🏆🏆🏆 2026-07-10 (RETRACTED — see correction above) — STAGE 67: TASK-5 MOD EXPLORATION
 > COMPLETE. THE ANSWER: RESTORE THE CSL FLAP SYSTEM. Read
 > EXHAUST_STABILIZATION_NOTES Stage 67 (final ranking table).**
 > Method: fixed Stage-65 baseline twin; mods as --set deltas; deliverable =
