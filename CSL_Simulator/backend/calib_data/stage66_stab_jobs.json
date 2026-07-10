@@ -1,0 +1,31 @@
+[
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "b1d_f0.1",
+  "set": {
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": "1.0",
+   "intake.plenum_box.connector_friction": "0.1"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "b1d_f0.3",
+  "set": {
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": "1.0",
+   "intake.plenum_box.connector_friction": "0.3"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "b1d_cap2",
+  "set": {
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": "2.0"
+  }
+ }
+]

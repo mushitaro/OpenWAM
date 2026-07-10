@@ -53,6 +53,13 @@ TCCRamificacion::TCCRamificacion(nmTypeBC TipoCC, int numCC,
 
   FTuboExtremo = NULL;
 
+  // Stage 66: Type-12 mouth radiation damping (env-gated, default OFF)
+  FT12RadAlpha = -1.0; // sentinel: env not yet read
+  FT12RadW = 0.0;
+  FT12RadGated = false;
+  FT12DampEnd = -1;
+  FVelBarT12 = 0.0;
+
   FNodoFin = NULL;
   FIndiceCC = NULL;
   FEntropia = NULL;
@@ -204,6 +211,29 @@ void TCCRamificacion::TuboCalculandose(int TuboActual) {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
+// Stage 66: mouth acoustic-radiation damping at a Type-12 branch end. Same
+// physics as the TCCDeposito Type-11 block (TCCDeposito.cpp Stage 56): damp
+// ONLY the AC (oscillating) part of the junction-oriented end velocity about a
+// per-junction running mean, attenuating the reflected standing wave at the
+// trumpet-adapter mouth WITHOUT touching the DC mean flow (identity at a
+// converged fixed point). Junction conventions (see the writeback above):
+//   v_junction = (*FCC - *FCD) / G1   (positive = OUT of the pipe),
+//   a          = (*FCC + *FCD) / 2,   G1 = 2*G3.
+// Applied only to pipe-end k == FT12DampEnd (the smallest section = the
+// adapter mouth), only when its own tube is being updated, so the EWMA
+// advances exactly once per time step.
+void TCCRamificacion::T12MouthRad(int k) {
+  if (!FT12RadGated || k != FT12DampEnd)
+    return;
+  const double vin = (*FCC[k] - *FCD[k]) / FGamma1;
+  const double a_end = 0.5 * (*FCC[k] + *FCD[k]);
+  FVelBarT12 = (1.0 - FT12RadW) * FVelBarT12 + FT12RadW * vin;
+  const double vnew = FVelBarT12 + (1.0 - FT12RadAlpha) * (vin - FVelBarT12);
+  *FCC[k] = a_end + FGamma3 * vnew;
+  *FCD[k] = a_end - FGamma3 * vnew;
+  FVelocity[k] = vnew;
+}
+
 void TCCRamificacion::CalculaCondicionContorno(double Time) {
   try {
     double sonido_supuesta_ad, sonido_ant_ad, entropia_entrante, corr_entropia;
@@ -241,6 +271,46 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
     FGamma1 = __Gamma::G1(FGamma);
     FGamma3 = __Gamma::G3(FGamma);
     FGamma4 = __Gamma::G4(FGamma);
+
+    // Stage 66: cache the Type-12 mouth-rad env once (unset -> gate stays
+    // false -> zero behavioral change). FNumeroCC matches the deck cid + 1.
+    if (FT12RadAlpha < 0.0) {
+      FT12RadAlpha = 0.0;
+      const char *el = getenv("OPENWAM_MOUTH_RAD_T12_CC");
+      if (el) {
+        bool listed = false;
+        const char *p = el;
+        while (*p) {
+          char *endp = NULL;
+          long cc = strtol(p, &endp, 10);
+          if (endp == p) { ++p; continue; }
+          if ((int)cc == FNumeroCC) { listed = true; break; }
+          p = endp;
+        }
+        if (listed) {
+          const char *ev = getenv("OPENWAM_MOUTH_RAD");
+          double a = ev ? atof(ev) : 0.0;
+          if (a < 0.0) a = 0.0;
+          if (a > 1.0) a = 1.0;
+          const char *ew = getenv("OPENWAM_MOUTH_RAD_W");
+          double w = ew ? atof(ew) : 0.02;
+          if (w < 0.0) w = 0.0;
+          if (w > 1.0) w = 1.0;
+          FT12RadAlpha = a;
+          FT12RadW = w;
+          FT12RadGated = (a > 1e-8) && (FNumeroTubosCC > 0);
+          if (FT12RadGated) {
+            int k = 0;
+            for (int i = 1; i < FNumeroTubosCC; i++)
+              if (FSeccionTubo[i] < FSeccionTubo[k])
+                k = i;
+            FT12DampEnd = k;
+            printf("T12 MOUTHRAD CC%d: damping end %d (S=%.5f m2) a=%.3f w=%.3f\n",
+                   FNumeroCC, k, FSeccionTubo[k], FT12RadAlpha, FT12RadW);
+          }
+        }
+      }
+    }
 
     for (int i = 0; i < FNumeroTubosCC; i++) {
       FEntropia[i] = FTuboExtremo[i].Entropia;
@@ -328,6 +398,7 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
         *FCC[TuboCalculado] = ason + FGamma3 * FVelocity[TuboCalculado];
         *FCD[TuboCalculado] = ason - FGamma3 * FVelocity[TuboCalculado];
       }
+      T12MouthRad(TuboCalculado); // Stage 66 (no-op unless env-gated)
     } else {
       for (int i = 0; i < FNumeroTubosCC; i++) {
         corr_entropia = FTuboExtremo[i].Entropia / FEntropia[i];
@@ -359,6 +430,7 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
           *FCC[i] = Sonidoy + FGamma3 * Velocidady;
           *FCD[i] = Sonidoy - FGamma3 * Velocidady;
         }
+        T12MouthRad(i); // Stage 66 (no-op unless env-gated)
       }
     }
 

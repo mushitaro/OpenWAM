@@ -60,7 +60,7 @@ MAPS = json.load(open(os.path.join(DATA_DIR, "csl_ecu_maps.json")))
 
 # stations monitored for the census (mouth-side columns read at distance 0)
 MON_RE = re.compile(r"^(Bellmouth_\d+|CSL_Intake_Pipe|CSL_Panel_Filter"
-                    r"|PlenumConn_\d+|Runner_Lower_1$)")
+                    r"|PlenumConn_\d+|PlenumBox_\w+|Runner_Lower_1$)")
 ORDERS = [1.5, 3.0, 4.5, 6.0, 7.5]
 
 

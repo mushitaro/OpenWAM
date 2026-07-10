@@ -588,10 +588,86 @@ class WAMGenerator:
         #     connector pipe volume.
         box = c.intake.plenum_box
         self._box_cells = []       # cell plenum ids; single mode -> [Plenum_Main]
-        self._box_cc_map = {}      # station label -> connection id (skip-CC studies)
+        self._box_cc_map = {}      # station label -> connection id (skip-CC / T12 studies)
+        self._box_mouth_cids = []  # box1d: per-cyl Type-6 cids (adapter -> bellmouth)
         filt_len = inl.filter_thickness / 1000.0
         filt_dia = duct_d_out if _has_slot else inl.filter_diameter / 1000.0
-        if getattr(box, "model", "single") == "cells":
+        if getattr(box, "model", "single") == "box1d":
+            # --- Stage 66: the airbox as a TRUE 1D fat pipe -----------------
+            # The internal standing wave lives INSIDE one wave-resolved pipe
+            # (the representation the solver already handles for the runner
+            # organ-pipe ram) instead of the falsified 0D-0D lumped Helmholtz
+            # (Stage 64). Trumpets tee in via taper adapters at Type-12
+            # station tees (area ratio (D_box/adapter)^2 ~ 2.3:1, inside the
+            # ~3:1 window; the second transition phi140->phi70 is an in-pipe
+            # taper, no junction discontinuity). Both box ends anchor on tiny
+            # Type-11 end-cap plenums (ICV return + plenum_intake bookkeeping).
+            # The trumpet mouths are Type-12 here -> no Type-11 alpha; the C++
+            # OPENWAM_MOUTH_RAD_T12_CC knob supplies the damping at the tees.
+            L_box = box.box_length / 1000.0
+            pitch = box.station_pitch / 1000.0
+            adp_d = box.adapter_diameter / 1000.0
+            adp_l = box.adapter_length / 1000.0
+            mouth_d = c.intake.runner.entry_diameter / 1000.0   # phi70 trumpet mouth
+            cap_v = box.end_cap_vol_l / 1000.0
+            ncyl = c.engine.cylinders
+            # volume conservation: the box pipe carries plenum_vol minus the
+            # adapter (conical frustum) and end-cap volumes
+            v_adp = (math.pi * adp_l / 12.0) * (adp_d ** 2 + adp_d * mouth_d
+                                                + mouth_d ** 2)
+            if box.box_diameter:
+                box_d = box.box_diameter / 1000.0
+            else:
+                v_box = c.intake.plenum_vol / 1000.0 - ncyl * v_adp - 2.0 * cap_v
+                box_d = math.sqrt(4.0 * v_box / (math.pi * L_box))
+            first = (L_box - pitch * (ncyl - 1)) / 2.0
+            stations = [first + pitch * k for k in range(ncyl)]
+            filter_x = L_box / 2.0
+            taps = sorted(set(stations + [filter_x]))
+            # end caps
+            cap1 = self.plenum_counter; self.plenum_counter += 1
+            self._add_plenum(cap1, "PlenumBox_Cap_1", cap_v, 40)
+            cap2 = self.plenum_counter; self.plenum_counter += 1
+            self._add_plenum(cap2, "PlenumBox_Cap_2", cap_v, 40)
+            self._box_cells = [cap1, cap2]
+            plenum_id = cap1
+            self.ids['plenum_intake'] = cap1
+            # one Type-12 tee per tap; box segments run cap1 -> taps -> cap2
+            tap_cids = [self._create_branch_junction() for _ in taps]
+            seg_bounds = [0.0] + taps + [L_box]
+            fric = box.connector_friction
+            for s in range(len(seg_bounds) - 1):
+                ln = seg_bounds[s + 1] - seg_bounds[s]
+                pid = self.pipe_counter; self.pipe_counter += 1
+                left = (self._add_con_plenum_pipe_v2(cap1, pid, 0) if s == 0
+                        else tap_cids[s - 1])
+                right = (self._add_con_plenum_pipe_v2(cap2, pid, 1)
+                         if s == len(seg_bounds) - 2 else tap_cids[s])
+                self._add_pipe(pid, f"PlenumBox_Seg_{s+1}", ln, box_d, box_d, 40,
+                               left, right, friction=fric,
+                               dx_mesh=box.connector_dx)
+            # taper adapters at the 6 stations (tee -> Type-6 -> Bellmouth.L)
+            for i in range(ncyl):
+                ti = taps.index(stations[i])
+                adp_pid = self.pipe_counter; self.pipe_counter += 1
+                cid_bot = self._create_pipe_to_pipe_connection()
+                self._add_pipe(adp_pid, f"PlenumBox_Adp_{i+1}", adp_l,
+                               adp_d, mouth_d, 40, tap_cids[ti], cid_bot,
+                               friction=fric, dx_mesh=0.02)
+                self._box_mouth_cids.append(cid_bot)
+                self._box_cc_map[f"BoxTee_{i+1}"] = tap_cids[ti]
+            # panel filter into its own mid-span tee (3-pipe: seg + seg + filter)
+            fi = taps.index(filter_x)
+            fid = self.pipe_counter; self.pipe_counter += 1
+            self._add_pipe(fid, "CSL_Panel_Filter", filt_len, filt_dia,
+                           filt_dia, 27, c_pipe_to_filter, tap_cids[fi],
+                           friction=0.8, dx_mesh=0.01)
+            self._box_cc_map["FilterTee"] = tap_cids[fi]
+            print(f"DEBUG: plenum_box=box1d D={box_d*1000:.0f}mm L={L_box*1000:.0f}mm "
+                  f"adp {adp_d*1000:.0f}->{mouth_d*1000:.0f}x{adp_l*1000:.0f}mm "
+                  f"caps {cap_v*1e6:.0f}cc cc_map={self._box_cc_map} "
+                  f"T12_CC(env,+1)={[cid+1 for k, cid in self._box_cc_map.items() if k.startswith('BoxTee')]}")
+        elif getattr(box, "model", "single") == "cells":
             n = max(2, int(box.n_cells))
             conn_d = box.connector_diameter / 1000.0
             conn_l = box.connector_length / 1000.0
@@ -817,14 +893,20 @@ class WAMGenerator:
             # --- BELLMOUTH PIPE (Plenum → Bellmouth, φ70→φ52, measured 170mm) ---
             bellmouth_id = self.pipe_counter; self.pipe_counter += 1
             
-            cid_bell_start = self.connection_counter
-            # Stage 64: each trumpet mouth opens into ITS cell (cyl 1-3 -> first,
-            # 4-6 -> last; n=6 -> one cell per cylinder). Single mode -> the one
-            # Plenum_Main (byte-identical). Type-11 either way, so MOUTH_RAD
-            # alpha keeps applying at every mouth.
-            _mouth_pl = self._box_cells[self._cell_for_cyl(i)]
-            self._add_con_plenum_pipe_v2(_mouth_pl, bellmouth_id, 0, valve_idx=self._mouth_valve_id)
-            self._box_cc_map[f"Bellmouth_{cyl_idx}.mouth"] = cid_bell_start
+            if self._box_mouth_cids:
+                # Stage 66 box1d: the mouth is the Type-6 junction to the box
+                # taper adapter (phi70 == phi70). No Type-11 alpha here -- the
+                # OPENWAM_MOUTH_RAD_T12_CC damping at the station tee replaces it.
+                cid_bell_start = self._box_mouth_cids[i]
+            else:
+                cid_bell_start = self.connection_counter
+                # Stage 64: each trumpet mouth opens into ITS cell (cyl 1-3 -> first,
+                # 4-6 -> last; n=6 -> one cell per cylinder). Single mode -> the one
+                # Plenum_Main (byte-identical). Type-11 either way, so MOUTH_RAD
+                # alpha keeps applying at every mouth.
+                _mouth_pl = self._box_cells[self._cell_for_cyl(i)]
+                self._add_con_plenum_pipe_v2(_mouth_pl, bellmouth_id, 0, valve_idx=self._mouth_valve_id)
+                self._box_cc_map[f"Bellmouth_{cyl_idx}.mouth"] = cid_bell_start
             
             # --- THROTTLE VALVE (ITB) - STRATEGY A: PIPE-TO-PIPE ---
             vid_throttle = 26 + i

@@ -116,7 +116,15 @@ class PlenumBoxConfig(BaseModel):
     # the MOUTH_RAD alpha damping (the only proven WOT monostability mechanism)
     # still applies at every mouth. Default "single" = legacy 0D (byte-identical,
     # pinned in golden_deck_check).
-    model: str = "single"              # "single" (legacy 0D) | "cells"
+    # "box1d" (Stage 66): the box as a TRUE 1D fat pipe — the internal standing
+    # wave lives INSIDE one wave-resolved pipe (the same representation the
+    # solver already handles for the runner organ-pipe ram), NOT as the
+    # falsified 0D-0D lumped Helmholtz (Stage 64). Trumpets tee into the box
+    # pipe via taper adapters at Type-12 station tees; both box ends anchor on
+    # tiny Type-11 end-cap plenums (ICV return / plenum_intake bookkeeping).
+    # The trumpet mouths lose the Type-11 alpha there — the C++
+    # OPENWAM_MOUTH_RAD_T12_CC knob applies the same damping at the tees.
+    model: str = "single"              # "single" (legacy 0D) | "cells" | "box1d"
     n_cells: int = 2                   # 2 | 3 | 6 (6 = quasi-1D box)
     connector_diameter: float = 230.0  # mm (box Deq = open box; small = baffled)
     connector_length: float = 70.0     # mm (cell-center pitch, lumping-corrected)
@@ -130,6 +138,15 @@ class PlenumBoxConfig(BaseModel):
     # low-frequency (duct-Helmholtz / mean-flow) behaviour the 5 matched WOT
     # columns depend on is untouched.
     volume_split: Optional[List[float]] = None
+    # --- "box1d" geometry (Stage 66) ---
+    box_length: float = 550.0        # mm (trumpet row span + end stubs; f1=a/2L~318Hz)
+    station_pitch: float = 91.0      # mm (S54 cylinder pitch; stations at 47.5+91k)
+    adapter_diameter: float = 140.0  # mm tee-side ((D_box/140)^2 ~ 2.3:1, inside the
+                                     # ~3:1 Type-12 window); tapers to phi70 in-pipe
+    adapter_length: float = 60.0     # mm (taper adapter, tee -> trumpet mouth)
+    end_cap_vol_l: float = 0.05      # L per end-cap plenum (Type-11 anchors)
+    box_diameter: Optional[float] = None  # mm; None = AUTO volume-conserving:
+                                     # V_box = plenum_vol - adapters - end caps
 
 
 class IntakeConfig(BaseModel):

@@ -1,0 +1,4 @@
+id,tag,rpm,load,base,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+74435029ad7d,b1d_f0.1,3900,100.0,130.0,,,,"{""intake.plenum_box.connector_friction"": ""0.1"", ""intake.plenum_box.end_cap_vol_l"": ""1.0"", ""intake.plenum_box.model"": ""box1d""}",448.96,129.5,3.4668,38,18.1436,0,0,1.1035,2,1,1,0,901.7
+9acad3bf4846,b1d_cap2,3900,100.0,130.0,,,,"{""intake.plenum_box.end_cap_vol_l"": ""2.0"", ""intake.plenum_box.model"": ""box1d""}",582.56,129.5,4.4985,27,18.26,0,1,0.1984,0,1,1,0,901.9
+39a5e3094205,b1d_f0.3,3900,100.0,130.0,,,,"{""intake.plenum_box.connector_friction"": ""0.3"", ""intake.plenum_box.end_cap_vol_l"": ""1.0"", ""intake.plenum_box.model"": ""box1d""}",496.89,129.5,3.837,36,-28.4405,0,0,0.6591,2,1,1,0,902.3

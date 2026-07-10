@@ -70,7 +70,8 @@ _CACHE_DIR = os.environ.get("OPENWAM_CACHE_DIR") or os.path.join(_REPO, ".sim_ca
 # env vars that change the SOLVER result -> part of the cache key
 _RESULT_ENV = ["OPENWAM_HLLC", "OPENWAM_THR_CHOKE", "OPENWAM_THR_AGAIN", "OPENWAM_THR_GAMMA",
                "OPENWAM_MOUTH_RAD", "OPENWAM_MOUTH_RAD_W", "OPENWAM_VEDIAG", "OPENWAM_K_CEIL",
-               "OPENWAM_FAST_OUTPUT", "OPENWAM_MOUTH_RAD_SKIP_CC"]
+               "OPENWAM_FAST_OUTPUT", "OPENWAM_MOUTH_RAD_SKIP_CC",
+               "OPENWAM_MOUTH_RAD_T12_CC"]
 
 
 def _bin_sig():

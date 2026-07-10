@@ -52,6 +52,21 @@ private:
   double FTiempoActual;
   double FTiempoAnterior;
 
+  // --- Stage 66: gated mouth acoustic-radiation damping at a Type-12 branch
+  // (env OPENWAM_MOUTH_RAD_T12_CC = comma-separated CC numbers; unset = this
+  // block is dead = bit-identical legacy). At a listed junction the SMALLEST-
+  // SECTION pipe end (the trumpet-adapter mouth teeing into the fat 1D airbox
+  // pipe) gets the SAME EWMA AC-velocity damping TCCDeposito applies at
+  // Type-11 mouths (alpha/w shared via OPENWAM_MOUTH_RAD / _W): the box
+  // standing wave passing through the two fat ends is NOT damped.
+  double FT12RadAlpha; // <0 = env not yet cached; else damping fraction [0,1]
+  double FT12RadW;     // EMA weight for the DC (cycle-mean) velocity estimate
+  bool FT12RadGated;   // this CC is listed AND alpha > 0
+  int FT12DampEnd;     // index of the smallest-section pipe end (-1 = none)
+  double FVelBarT12;   // running-mean (DC) junction-oriented end velocity
+
+  void T12MouthRad(int k); // apply the damping to pipe-end k (if gated)
+
   // Variables del Transporte de Especies.
   double FGamma3;
   double FGamma4;

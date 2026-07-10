@@ -24,7 +24,8 @@ APP_VERSION = "csl-ux-app/m1"
 # them -- keeping them here (env-driven) would both shadow the config and double-key.
 _RESULT_ENV = ["OPENWAM_HLLC", "OPENWAM_THR_CHOKE", "OPENWAM_THR_AGAIN",
                "OPENWAM_MOUTH_RAD", "OPENWAM_MOUTH_RAD_W", "OPENWAM_VEDIAG", "OPENWAM_K_CEIL",
-               "OPENWAM_FAST_OUTPUT", "OPENWAM_MOUTH_RAD_SKIP_CC"]
+               "OPENWAM_FAST_OUTPUT", "OPENWAM_MOUTH_RAD_SKIP_CC",
+               "OPENWAM_MOUTH_RAD_T12_CC"]
 
 
 class SimulationService:
@@ -710,7 +711,7 @@ class SimulationService:
         # ~13 -> ~21 monitored pipes; the INS buffer handles this fine.
         _keep = re.compile(r"^(Runner_Lower_\d+|Port_Ex_\d+_1|Col_Out_"
                            r"|Bellmouth_\d+|CSL_Intake_Pipe|CSL_Panel_Filter"
-                           r"|PlenumConn_\d+)")
+                           r"|PlenumConn_\d+|PlenumBox_\w+)")
         mon_pids = sorted(pid for pid, lab in pipe_labels.items() if _keep.match(lab))
 
         gen = WAMGenerator(point_config, self.simulator_dir)
