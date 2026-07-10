@@ -1,6 +1,43 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-> **✅✅✅✅✅✅✅✅✅ 2026-07-08 (newest) — STAGE 65: TASK-4 PART-LOAD RE-FIT
+> **🧪🧪🧪🧪🧪🧪🧪🧪🧪 2026-07-10 (newest) — STAGE 66: GIANT-PIPE BOX (box1d)
+> PROBE EXECUTED — the 1D wave field EXISTS but is ADVERSE; the box-mode
+> hypothesis is now falsified in BOTH representations. FINAL SEAL on 3900.
+> Read EXHAUST_STABILIZATION_NOTES Stage 66.**
+> Owner asked: can OpenWAM express the 3900 limit at all / add new source /
+> the giant-pipe idea? Full probe (C++ included) answered it empirically:
+> - **Built (all committed, golden green, bit-identical unset):** C++
+>   `OPENWAM_MOUTH_RAD_T12_CC` (TCCRamificacion: EWMA-AC damping on the
+>   smallest-section end = the trumpet-adapter mouth at listed Type-12 tees;
+>   alpha/w shared with MOUTH_RAD; verified 96.2 reproduced; fires at all 6
+>   tees). `plenum_box.model="box1d"`: box = 8 fat 1D segments (phi~202 auto
+>   volume-conserving x 550mm) + 6 station tees (2.3:1) + taper adapters
+>   phi140->70 + Type-6 to bellmouths + end caps + mid filter tee. T12_CC env
+>   = 3,4,5,7,8,9. **End caps MUST be >= 1.0L** (50cc = instant "plenum too
+>   small" abort).
+> - **Measured:** 4600 STABLE (100.7 OK) -> box1d works as an implementation.
+>   FFT census at the stable point: bank-differential rms 0.82 -> **14.72 mbar
+>   (18x)** = the internal anti-symmetric wave field EXISTS in 1D. BUT it is
+>   dominated by the FORCED o1.5 sloshing (19.2 mbar) timing ADVERSELY with
+>   induction (supply metric **-14.5 mbar** vs +1.5 in 0D -> the 4600 VE drop
+>   121->101); the resonant o4.5 component (the hypothesized booster, 318Hz)
+>   stays weak (4 mbar) because the tee damping required for stability caps
+>   Q < the ~3x needed to beat the o1.5 forcing ratio. **3900 diverges under
+>   EVERY configuration** (raw 479 / T12-alpha 426 / fric 0.1/0.3 449/497 /
+>   2L caps 583 — all FLAG).
+> - **VERDICT: "can it be expressed?" YES (the wave field exists). "does it
+>   help?" NO (adverse phasing; beneficial window absent). 3900 cannot even
+>   be stabilized.** Same explode-or-overdamp boundary pathology as Stage 56.
+>   The adverse phasing also casts doubt on the hypothesis itself (the real
+>   car's boost may be 3D-geometry physics beyond 1D fidelity). **3900 WOT =
+>   PERMANENT model limit. Never re-attempt: base118 / ram-length / 0D cells
+>   (St.64) / 1D box pipe + T12 alpha (St.66).** Assets kept: box1d opt-in,
+>   T12 alpha (generic knob), census data.
+> **NEXT = Task 5: mod exploration from the X+170mm + part-load-refit twin
+> (Stage 65 state). Re-scope wf_55d4dd42-933; 3900 col annotated as
+> un-scoreable in mod deliverables.**
+
+> **✅✅✅✅✅✅✅✅✅ 2026-07-08 — STAGE 65: TASK-4 PART-LOAD RE-FIT
 > UNDER X+170mm DONE. Read EXHAUST_STABILIZATION_NOTES Stage 65.**
 > Two key discoveries: (1) the Stage-63 load-65 FLAGs were UNDER-CONVERGENCE
 > (1500s timeout -> ALL cells converge); (2) **the part-load 3900 column FITS**
