@@ -25,7 +25,8 @@ APP_VERSION = "csl-ux-app/m1"
 _RESULT_ENV = ["OPENWAM_HLLC", "OPENWAM_THR_CHOKE", "OPENWAM_THR_AGAIN",
                "OPENWAM_MOUTH_RAD", "OPENWAM_MOUTH_RAD_W", "OPENWAM_VEDIAG", "OPENWAM_K_CEIL",
                "OPENWAM_FAST_OUTPUT", "OPENWAM_MOUTH_RAD_SKIP_CC",
-               "OPENWAM_MOUTH_RAD_T12_CC"]
+               "OPENWAM_MOUTH_RAD_T12_CC",
+               "OPENWAM_CAM_EXP"]
 
 
 class SimulationService:
