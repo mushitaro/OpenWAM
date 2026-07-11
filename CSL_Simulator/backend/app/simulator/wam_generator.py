@@ -1166,6 +1166,27 @@ class WAMGenerator:
                            friction=rail_fric, dx_mesh=0.025,
                            init_p=intake_map_bar)
 
+        # --- HEAD -> PLENUM RETURN (Stage 70, opt-in; owner-reported hardware
+        # that was MISSING from the model): the crankcase-ventilation return
+        # from the cylinder head into the airbox. Modelled as a closed hot
+        # volume (cam cover + crankcase, HeadVol) breathing into Plenum_Main
+        # through a hose -- acoustically a Helmholtz side branch on the box.
+        # Default disabled = byte-identical decks.
+        hr = c.intake.head_return
+        if hr.enabled:
+            hv_id = self.plenum_counter; self.plenum_counter += 1
+            self._add_plenum(hv_id, "HeadVol", hr.volume / 1000.0, hr.wall_temp)
+            hr_pid = self.pipe_counter; self.pipe_counter += 1
+            cid_hv = self._add_con_plenum_pipe_v2(hv_id, hr_pid, 0)
+            cid_pl = self._add_con_plenum_pipe_v2(plenum_id, hr_pid, 1)
+            self._add_pipe(hr_pid, "Head_Return", hr.pipe_length / 1000.0,
+                           hr.pipe_diameter / 1000.0, hr.pipe_diameter / 1000.0,
+                           hr.wall_temp, cid_hv, cid_pl,
+                           friction=hr.friction, dx_mesh=0.025,
+                           init_p=intake_map_bar)
+            print(f"DEBUG: Head_Return wired: HeadVol {hr.volume:.1f}L -> "
+                  f"phi{hr.pipe_diameter:.0f}x{hr.pipe_length:.0f}mm -> Plenum_Main")
+
     def _generate_simplified_exhaust(self, c):
         print("DEBUG: Generating SIMPLIFIED Exhaust")
         # first exhaust pipe id (49 legacy; higher when the EQ rail adds pipes)

@@ -73,6 +73,21 @@ class RunnerConfig(BaseModel):
     length_scale: float = 1.0       # global ram-length scalar (was OPENWAM_RUNNER_SC)
     friction_multiplier: float = 1.0  # intake-tract friction scale (was OPENWAM_RUNNER_FRIC_MULT)
 
+class HeadReturnConfig(BaseModel):
+    # Head -> plenum return hose (owner-reported hardware, Stage 70; previously
+    # missing from the model entirely). Physically the crankcase-ventilation
+    # return from the cylinder head (cam cover / crankcase volume) into the
+    # intake plenum: acoustically a Helmholtz side branch on the airbox, plus a
+    # small DC bypass. Default DISABLED = byte-identical decks (golden green).
+    # Dimensions are placeholders until the owner measures them.
+    enabled: bool = False
+    pipe_diameter: float = 19.0   # mm hose inner diameter (placeholder)
+    pipe_length: float = 400.0    # mm hose length (placeholder)
+    volume: float = 3.0           # L effective head/crankcase volume (placeholder)
+    friction: float = 0.1         # corrugated rubber hose
+    wall_temp: float = 90.0       # degC (engine-hot hose/volume)
+
+
 class EqTubeConfig(BaseModel):
     # Equalization tube (Gleichdruckrohr). Promoted from OPENWAM_EQ_* / OPENWAM_NO_EQTUBE
     # / OPENWAM_EQ_CHAIN. Defaults reproduce the validated Stage-35/56 plenum model.
@@ -168,6 +183,7 @@ class IntakeConfig(BaseModel):
     throttle: ThrottleConfig = ThrottleConfig()
     runner: RunnerConfig = RunnerConfig()
     eq_tube: EqTubeConfig = EqTubeConfig()
+    head_return: HeadReturnConfig = HeadReturnConfig()  # Stage 70 opt-in
     runner_friction: float = 0.015 # F1-Spec Polished (was 0.08)
     min_plenum_vol: float = 0.00005 # Default 50cc (m3). Adjustable for high-vacuum testing.
 
