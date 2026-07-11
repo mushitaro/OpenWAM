@@ -5,12 +5,12 @@
   "alpha": 0.6,
   "w": 0.005,
   "wot_tps_threshold": 85.0,
-  "part_load_alpha": 0.4,
+  "part_load_alpha": 0.6,
   "part_load_alpha_load_min": 40.0,
   "fit_meta": {
    "date": "2026-07-11",
-   "note": "stage69_r2: WOT alpha ladder 0.3/0.4/0.5/0.6/0.8 on the 6 validated columns under PURE timing; 0.6 dominates every cell (3900 99.6->119.7, 4600 dead-on kept, top-end/2700 all improved); 0.8 = over-damped cliff (3900 falls to 109, 4600/6900 blow up). alpha is the ONLY surviving global knob of the R2 screen (discarded: IN_FRIC, PORT_TWALL, CAM_EXP, MESH_SCALE 0.75/1.5, RUNNER_FRIC_MULT, IN_HMULT, port_flow_coeff). part_load_alpha 0.4 kept pending R3 part-load rows.",
-   "csv": "stage69_r2*.csv"
+   "note": "stage69_r2: WOT alpha ladder 0.3/0.4/0.5/0.6/0.8 on the 6 validated columns under PURE timing; 0.6 dominates every cell (3900 99.6->119.7, 4600 dead-on kept, top-end/2700 all improved); 0.8 = over-damped cliff (3900 falls to 109, 4600/6900 blow up). alpha is the ONLY surviving global knob of the R2 screen (discarded: IN_FRIC, PORT_TWALL, CAM_EXP, MESH_SCALE 0.75/1.5, RUNNER_FRIC_MULT, IN_HMULT, port_flow_coeff). stage69_r31: part_load_alpha follows to 0.6 (6/7 probed misfit cells improve, 2200/65 0.493->0.023, none regress; full 45/64.99-row validation = stage69_r3v2).",
+   "csv": "stage69_r2*.csv, stage69_r31_pla6.csv"
   }
  },
  "thr_choke": 1,
