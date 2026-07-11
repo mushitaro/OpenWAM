@@ -1,0 +1,50 @@
+[
+ {
+  "rpm": 3900,
+  "load": 45,
+  "alpha": 0.6,
+  "tag": "r31_pla6"
+ },
+ {
+  "rpm": 3900,
+  "load": 64.99,
+  "alpha": 0.6,
+  "tag": "r31_pla6"
+ },
+ {
+  "rpm": 1600,
+  "load": 45,
+  "alpha": 0.6,
+  "tag": "r31_pla6"
+ },
+ {
+  "rpm": 1600,
+  "load": 64.99,
+  "alpha": 0.6,
+  "tag": "r31_pla6"
+ },
+ {
+  "rpm": 2200,
+  "load": 64.99,
+  "alpha": 0.6,
+  "tag": "r31_pla6"
+ },
+ {
+  "rpm": 5300,
+  "load": 45,
+  "alpha": 0.6,
+  "tag": "r31_pla6"
+ },
+ {
+  "rpm": 4600,
+  "load": 45,
+  "alpha": 0.6,
+  "tag": "r31_pla6"
+ },
+ {
+  "rpm": 870,
+  "load": 64.99,
+  "alpha": 0.6,
+  "tag": "r31_pla6"
+ }
+]

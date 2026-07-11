@@ -8,8 +8,11 @@ map:
              amber<=0.12) -- the Stage-57/60 p-metric; simWOT(rpm) comes from
              the SAME csv's load-100 row (self-consistent, no hardcoding).
 
-Cell flags: '!' invalid (FLAG row), '?' missing. Known permanent limit: the
-3900 WOT column (annotate, don't chase).
+Cell flags: '!' invalid (FLAG row), '?' missing.
+Stage-69 note: the old "3900 WOT = permanent limit" annotation was FALSIFIED
+under pure timing (alpha 0.6 brings it to -10pp amber); the honest hard cells
+are the 600/870 columns (low-rpm numeric limits) and the 2100-3100 valley
+depth (high-fill attractor branch). See EXHAUST_STABILIZATION_NOTES Stage 69.
 
 Usage: python t6_map_heatmap.py csv1 [csv2 ...]
 """
