@@ -248,80 +248,9 @@ def cmd_sigma(args):
 
 
 # ------------------------------------------------------------------- Step C
-def cmd_base(args):
-    wot_ve, wot_doc = load_wot_row(args.wot_json)
-    wot_base = wot_doc.get("base_by_rpm") or {
-        str(r): wot_doc.get("base", 150.0) for r in BASE_RPMS}
-    wot_base = {float(k): float(v) for k, v in wot_base.items()}
-    b0 = statistics.mean(wot_base.values())
-    brackets = [round(b0 - 40), round(b0), round(b0 + 40)]
-
-    # pass 1: bracket
-    jobs = [{"rpm": r, "load": l, "base": b, "tag": "baseC"}
-            for r in BASE_RPMS for l in BASE_LOADS for b in brackets]
-    rows, csv_path = run_jobs(jobs, "fit_base_sweep.csv", cycles=args.cycles)
-
-    # pass 2: one secant per cell
-    evals = {}
-    for r in rows:
-        if r.get("valid") != "1":
-            continue
-        key = (float(r["rpm"]), float(r["load"]))
-        ps = p_sim_of(r, wot_ve)
-        if ps is None:
-            continue
-        evals.setdefault(key, []).append((float(r["base"]), ps))
-    jobs2 = []
-    for (rpm, load), evs in evals.items():
-        target = p_stock(rpm, load)
-        nx, done, _ = F.secant_step(evs, target, lo=60.0, hi=220.0)
-        if not done:
-            jobs2.append({"rpm": rpm, "load": load, "base": round(nx, 1),
-                          "tag": "baseC2"})
-    if jobs2:
-        rows2, _ = run_jobs(jobs2, "fit_base_sweep.csv", cycles=args.cycles)
-        for r in rows2:
-            if r.get("valid") != "1":
-                continue
-            key = (float(r["rpm"]), float(r["load"]))
-            ps = p_sim_of(r, wot_ve)
-            if ps is not None:
-                evals.setdefault(key, []).append((float(r["base"]), ps))
-
-    solutions = {}
-    for (rpm, load), evs in evals.items():
-        target = p_stock(rpm, load)
-        _, _, best = F.secant_step(evs, target, lo=60.0, hi=220.0)
-        solutions[(rpm, load)] = best
-    surface = F.fit_base_surface(solutions, BASE_RPMS, BASE_LOADS, wot_base)
-
-    # post-fit re-gate: run every solved cell AT its fitted base; a cell that
-    # now collapses (low base can induce it) is dropped and refilled
-    regate = [{"rpm": int(r), "load": l,
-               "base": surface["values"][surface["loads"].index(l)][surface["rpms"].index(float(r))],
-               "tag": "baseC-regate"}
-              for l in BASE_LOADS for r in BASE_RPMS]
-    rows3, _ = run_jobs(regate, "fit_base_sweep.csv", cycles=args.cycles)
-    dropped = []
-    for r in rows3:
-        if r.get("valid") == "1":
-            continue
-        key = (float(r["rpm"]), float(r["load"]))
-        if key in solutions:
-            solutions[key] = None
-            dropped.append(key)
-    if dropped:
-        surface = F.fit_base_surface(solutions, BASE_RPMS, BASE_LOADS, wot_base)
-
-    res = {"surface": surface,
-           "solutions": {f"{int(k[0])}/{k[1]}": v for k, v in solutions.items()},
-           "regate_dropped": [f"{int(a)}/{b}" for a, b in dropped],
-           "fit_meta": fit_meta(csv_path)}
-    out = os.path.join(OUT, "fit_base.json")
-    json.dump(res, open(out, "w"), indent=2, default=str)
-    print(json.dumps(surface, indent=1))
-    print("dropped by re-gate:", dropped or "none")
-    print("wrote", out)
+# Stage 69: cmd_base (the per-cell EXVANOS base-surface fitter) is DELETED —
+# cam phase never absorbs model error. Global-only recalibration lives in
+# the Stage-69 R2 campaign (global_solver block).
 
 
 # ------------------------------------------------------------------- Step D
@@ -336,13 +265,12 @@ def cmd_alpha(args):
                 if alpha is not None:
                     j["alpha"] = alpha
                 jobs.append(j)
-    # +/-5 base smoothness probes at 3900/5300 x load 20, per variant
-    cal = calib.load(DATA_DIR)
+    # +/-5 PHYSICAL exhaust-cam delta smoothness probes (Stage 69: the base
+    # scaffold is deleted; perturb the cam itself)
     for tag, alpha in variants:
         for r in (3900, 5300):
-            b = calib.exvanos_base_for(cal, r, False, load=20.0)
             for db in (-5.0, 5.0):
-                j = {"rpm": r, "load": 20.0, "base": b + db,
+                j = {"rpm": r, "load": 20.0, "d_ex_cam": db,
                      "tag": f"alphaD-{tag}-perturb"}
                 if alpha is not None:
                     j["alpha"] = alpha
@@ -454,11 +382,6 @@ def main():
     p.add_argument("--probe2-mult", type=float, default=3.0)
     p.add_argument("--cycles", type=int, default=60)
     p.set_defaults(fn=cmd_sigma)
-
-    p = sub.add_parser("base")
-    p.add_argument("--wot-json", default=os.path.join(OUT, "phase3_wot_row.json"))
-    p.add_argument("--cycles", type=int, default=60)
-    p.set_defaults(fn=cmd_base)
 
     p = sub.add_parser("alpha")
     p.add_argument("--wot-json", default=os.path.join(OUT, "phase3_wot_row.json"))

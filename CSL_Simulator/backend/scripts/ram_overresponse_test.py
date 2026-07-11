@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# =====================================================================
+# !! TIMING-INVALID (Stage 69): this script predates the pure BMW-spread
+# !! conversion. It uses the DELETED EXVANOS-base / sign-inverted exhaust
+# !! convention (or the pre-datum-fix intake). DO NOT RE-RUN as-is --
+# !! migrate to engine.intake_cam_spread / exhaust_cam_spread first.
+# =====================================================================
 """Stage 53 (Step 3) — is the VANOS over-response an over-strong intake RAM?
 
 Stage 52 found at 3900 WOT the intake-advance response is over-steep: VE jumps +40pp going

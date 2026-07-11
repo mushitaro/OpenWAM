@@ -21,8 +21,8 @@ before any fit exists):
 
 Runtime env vars still win for one-off studies:
   OPENWAM_MOUTH_RAD / OPENWAM_MOUTH_RAD_W / OPENWAM_MOUTH_RAD_OFF
-  OPENWAM_EXVANOS_BASE (scalar override) / OPENWAM_EXVANOS_SCALE
   OPENWAM_THR_SIGMA_BP / OPENWAM_ICV_SIGMA
+(Stage 69: OPENWAM_EXVANOS_BASE/_SCALE died with the scaffold.)
 
 The cache is mtime-checked (risk R4): a fitter writing calibration.json is
 picked up by the running server on the next load() without a restart.
@@ -36,25 +36,16 @@ _LOCK = threading.Lock()
 
 
 def _default():
+    # schema v3 (Stage 69): GLOBAL solver constants + component flow
+    # characterizations ONLY. No cam-phase keys — ever.
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "mouth_rad": {"alpha": 0.4, "w": 0.005, "wot_tps_threshold": 85.0,
                       "part_load_alpha": None},
         "thr_choke": 1,
-        "intake_vanos_base": 130.0,
         "thr_sigma": {"enabled": False, "points": None, "fit_meta": None},
         "icv": {"sigma": None, "fit_meta": None},
-        "exvanos_base": {
-            "fit_cam_deg": 268,
-            "stale": True,
-            "use_stale_shape_fit": False,
-            "wot_base_stable": 150.0,
-            "part_load_const": 150.0,
-            "scale": 1.0,
-            "points": [[2700, 150.0], [3900, 115.0], [4600, 155.0],
-                       [5300, 160.0], [6300, 160.0], [6900, 160.0]],
-            "surface": None,
-        },
+        "global_solver": {},
     }
 
 
@@ -80,6 +71,12 @@ def load(data_dir):
                 cal = json.load(f)
         except Exception:
             cal = _default()
+        # Stage 69: v2 files carried the deleted cam-phase scaffold — warn
+        # loudly and IGNORE those keys (the accessors no longer exist).
+        if cal.get("schema_version", 0) < 3 and (
+                "exvanos_base" in cal or "intake_vanos_base" in cal):
+            print("WARNING: calibration.json is schema v2 (EXVANOS scaffold) — "
+                  "scaffold keys are DELETED/IGNORED (Stage 69). Migrate to v3.")
         _CACHE[path] = (mtime, cal)
     return cal
 
@@ -140,80 +137,21 @@ def icv_sigma(cal):
     return None if v is None else float(v)
 
 
-def intake_vanos_base(cal):
-    return float((cal or {}).get("intake_vanos_base", 130.0))
+# ---------------------------------------------------------------------------
+# Stage 69: the EXVANOS base scaffold (intake_vanos_base / exvanos_scale /
+# exvanos_base_for / _interp1) is DELETED. Cam phase is a TUNING variable
+# (duration/profile will be too) and must never absorb model error; valve
+# timing is now a PURE fixed conversion from the ECU spread maps inside
+# WAMGenerator (engine.intake_cam_spread / exhaust_cam_spread). Calibration
+# holds ONLY global solver-characteristic constants (owner directive
+# 2026-07-11; the deleted scaffold had also sign-inverted the exhaust cam
+# response since Stage 47 — see EXHAUST_STABILIZATION_NOTES Stage 69).
+# ---------------------------------------------------------------------------
 
 
-def exvanos_scale(cal):
-    return float((cal or {}).get("exvanos_base", {}).get("scale", 1.0))
-
-
-def _interp1(pts, x):
-    pts = sorted((float(a), float(b)) for a, b in pts)
-    if x <= pts[0][0]:
-        return pts[0][1]
-    if x >= pts[-1][0]:
-        return pts[-1][1]
-    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-        if x0 <= x <= x1:
-            t = 0.0 if x1 == x0 else (x - x0) / (x1 - x0)
-            return y0 * (1 - t) + y1 * t
-    return pts[-1][1]
-
-
-def exvanos_base_for(cal, rpm, is_wot, load=None):
-    """EXVANOS_BASE for a cell -- the foldable calibration scaffold (§4.C).
-
-    WOT (is_wot=True): unchanged from v1 -- the folded stable datum
-    ``wot_base_stable`` unless the (stale) per-rpm shape fit is re-enabled.
-    The WOT row therefore CANNOT regress from part-load fitting.
-
-    Part load: if a fitted ``surface`` exists, bilinear-interpolate base(rpm,
-    load) with clamping (the surface's load=100 row is anchored to the WOT
-    fit); else the legacy constant ``part_load_const``.
-    """
-    ex = (cal or {}).get("exvanos_base", {})
-    part_const = float(ex.get("part_load_const", 150.0))
-    if is_wot:
-        # "use_shape_fit" = the current per-rpm points table (Phase-3 measured-
-        # geometry fit); legacy key "use_stale_shape_fit" still honored.
-        use_points = ex.get("use_shape_fit", ex.get("use_stale_shape_fit", False))
-        if not use_points:
-            return float(ex.get("wot_base_stable", 150.0))
-        pts = ex.get("points") or [[2700, 150.0], [3900, 115.0], [4600, 155.0],
-                                   [5300, 160.0], [6300, 160.0], [6900, 160.0]]
-        return _interp1(pts, rpm)
-
-    surf = ex.get("surface")
-    if not surf or load is None:
-        return part_const
-    try:
-        rpms = [float(r) for r in surf["rpms"]]
-        loads = [float(l) for l in surf["loads"]]
-        vals = surf["values"]          # vals[load_idx][rpm_idx]
-    except (KeyError, TypeError, ValueError):
-        return part_const
-    if not rpms or not loads or not vals:
-        return part_const
-
-    def _bracket(ax, x):
-        if x <= ax[0]:
-            return 0, 0, 0.0
-        if x >= ax[-1]:
-            return len(ax) - 1, len(ax) - 1, 0.0
-        for i in range(len(ax) - 1):
-            if ax[i] <= x <= ax[i + 1]:
-                t = 0.0 if ax[i + 1] == ax[i] else (x - ax[i]) / (ax[i + 1] - ax[i])
-                return i, i + 1, t
-        return len(ax) - 1, len(ax) - 1, 0.0
-
-    i0, i1, ti = _bracket(rpms, float(rpm))
-    j0, j1, tj = _bracket(loads, float(load))
-    try:
-        v00, v01 = float(vals[j0][i0]), float(vals[j0][i1])
-        v10, v11 = float(vals[j1][i0]), float(vals[j1][i1])
-    except (IndexError, TypeError, ValueError):
-        return part_const
-    v0 = v00 * (1 - ti) + v01 * ti
-    v1 = v10 * (1 - ti) + v11 * ti
-    return v0 * (1 - tj) + v1 * tj
+def global_solver(cal, key, default):
+    """Fitted GLOBAL solver-characteristic constant (schema v3 block
+    ``global_solver``): e.g. mesh_scale, in_fric_mult, in_hmult, cam_exp.
+    These are the ONLY legitimate fitted VE-matching knobs besides mouth_rad."""
+    v = ((cal or {}).get("global_solver") or {}).get(key)
+    return default if v is None else float(v)

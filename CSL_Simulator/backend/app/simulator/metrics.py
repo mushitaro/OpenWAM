@@ -25,6 +25,37 @@ WOT_TPS = 85.0
 _SEVERITY = {"green": 0, "yellow": 1, "red": 2}
 
 
+# ---- physical ignition input (Stage 69) -------------------------------------
+def ignition_for(maps, rpm, load_tps, default_wot=20.0, default_pl=15.0):
+    """Ignition advance (deg BTDC) from the owner's MSS54 KF_TZ_GRUND map.
+
+    TWO-STAGE physical lookup (the ECU indexes ignition by RELATIVE FILL rf,
+    not throttle): (rpm, load%) -> rf via kf_rf_soll -> KF_TZ_GRUND(rpm, rf).
+    Nearest-breakpoint on both stages (same convention as every other map
+    lookup -> deck-cache determinism). Falls back to the legacy fixed recipe
+    (20 deg WOT / 15 deg part-load) when kf_tz_grund is absent."""
+    def _lut(m, x, y):
+        xs, ys, vs = m.get("x_axis"), m.get("y_axis"), m.get("values")
+        if not (xs and ys and vs):
+            return None
+        xi = min(range(len(xs)), key=lambda i: abs(xs[i] - x))
+        yi = min(range(len(ys)), key=lambda i: abs(ys[i] - y))
+        try:
+            return float(vs[yi][xi])
+        except (IndexError, TypeError, ValueError):
+            return None
+
+    tz = (maps or {}).get("kf_tz_grund")
+    rf_map = (maps or {}).get("kf_rf_soll")
+    if tz and rf_map:
+        rf = _lut(rf_map, float(rpm), float(load_tps))
+        if rf is not None:
+            ign = _lut(tz, float(rpm), float(rf))
+            if ign is not None:
+                return ign
+    return default_wot if float(load_tps) >= WOT_TPS else default_pl
+
+
 # ---- NaN gate (shared by run_point / run_cells_local / optimizer) -----------
 def nan_persistent(output, startup_cycles=5, tail_cycles=5):
     """True iff the solver stdout shows NaN with NO recovery evidence.

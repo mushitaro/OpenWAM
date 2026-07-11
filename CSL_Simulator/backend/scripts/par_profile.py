@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# =====================================================================
+# !! TIMING-INVALID (Stage 69): this script predates the pure BMW-spread
+# !! conversion. It uses the DELETED EXVANOS-base / sign-inverted exhaust
+# !! convention (or the pre-datum-fix intake). DO NOT RE-RUN as-is --
+# !! migrate to engine.intake_cam_spread / exhaust_cam_spread first.
+# =====================================================================
 """Verify a PER-RPM EXVANOS_BASE(rpm) profile at WOT (deterministic, omp1).
 
 Unlike par_exvanos (one base for all rpm), this runs each rpm at its OWN base from a

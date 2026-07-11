@@ -179,10 +179,14 @@ class EngineGeometry(BaseModel):
     rod_length: float = 139.0 # mm
 
 class CombustionConfig(BaseModel):
+    # Stage 69: defaults ALIGNED to the values the deck generator actually
+    # emits in the Wiebe line (previously hardcoded "2.0 6.9 0.0 60.0" while
+    # this config said 2.2/65 and was ignored). The generator now READS these
+    # fields; aligned defaults keep every legacy deck byte-identical.
     ignition_timing: float = -15.0 # BTDC
-    duration: float = 65.0 # Degrees (Faster burn for high RPM)
+    duration: float = 60.0 # Wiebe burn duration (deg)
     efficiency_a: float = 6.9
-    shape_parameter_m: float = 2.2 # Steeper burn rate
+    shape_parameter_m: float = 2.0 # Wiebe m
     start_angle: float = -15.0 # Wiebe Model
     mass_burned_b: float = 0.5 # 50% mass burned location roughly
 
@@ -237,8 +241,25 @@ class EngineConfig(BaseModel):
     friction: FrictionConfig = FrictionConfig()
     combustion: CombustionConfig = CombustionConfig()
     heat_transfer: HeatTransferConfig = HeatTransferConfig()
-    vanos_intake_bias: float = 0.0 # deg (dynamic target from kf_evan1_soll map)
-    vanos_exhaust_bias: float = 0.0 # deg (dynamic target from kf_avan1_soll map)
+    # --- Stage 69 PURE physical cam timing (BMW spread convention) ----------
+    # kf_evan1_soll / kf_avan1_soll values ARE the max-open-point (MOP)
+    # positions on the BMW factory lift diagram (overlap TDC at center, intake
+    # measured to the RIGHT of TDC, exhaust to the LEFT):
+    #   MOP_intake  = 360 + intake_cam_spread   (crank deg; 360 = overlap TDC)
+    #   MOP_exhaust = 360 - exhaust_cam_spread
+    #   open_angle  = MOP - duration/2 - (offset + delta)   [+ = advance]
+    # When a spread is set, the generator uses this PURE conversion and the
+    # bias fields below become pure TUNING DELTAS (0 = stock ECU timing).
+    # None (default) -> legacy bias path (golden decks byte-identical).
+    # The Stage-47..68 "EXVANOS base" scaffold (per-cell fitted exhaust datum,
+    # SIGN-INVERTED vs this convention) is DELETED — cam phase is a tuning
+    # variable and must never absorb model error (owner directive 2026-07-11).
+    intake_cam_spread: Optional[float] = None   # deg (ECU map value, 70..130)
+    exhaust_cam_spread: Optional[float] = None  # deg (ECU map value, 83..128)
+    # Pure path: tuning deltas (+ = advance = earlier opening). Legacy path:
+    # the old open_angle biases (kept only for golden byte-identity).
+    vanos_intake_bias: float = 0.0 # deg
+    vanos_exhaust_bias: float = 0.0 # deg
 
     # MSS54 DME VANOS reference offsets — K_EVAN1_OFFSET / K_AVAN1_OFFSET.
     # Unit on the DME is "W" = Winkel (German "angle") = °KW (degrees crankshaft).

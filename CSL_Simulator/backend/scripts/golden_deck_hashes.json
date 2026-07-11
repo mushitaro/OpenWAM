@@ -1,11 +1,17 @@
 {
-  "recorded_at_commit": "796d4c8ada6b421bc678439c45759d5b0e98331a",
+  "recorded_at_commit": "7264ca0537c37cf0c597744e7725eb98b27f8d00",
   "hashes": {
     "wot_fast": "165ef06752af05c8712c6a2dc66d8812b4f5f6065de5fb8dc620fa5ee5c9b213",
     "wot_full": "8c06a836fb1a0cea72848f0ba9539b2c0650e320590c7cd392e96d2d14b363cd",
     "pl20_fast": "fff69fb23b998ede6595e7fe3d6edcce744088c8946b7043158d45fb1cb48306",
     "pl20_full": "f5d033dc1d6d4b8325ddef71bdffe455bac93c279210f7d5d71ef7a3b19af8da",
     "chain_fast": "50d78e1348e7e1e5996f09ce15df56150d24a0d5b472f876a69f9ce53eee34f7",
-    "chain_full": "0b7eeac18d910639b1a505ea72e8ef2fdd7c813114a1cc7294f1ad41a1a60d85"
+    "chain_full": "0b7eeac18d910639b1a505ea72e8ef2fdd7c813114a1cc7294f1ad41a1a60d85",
+    "pure_wot_fast": "69ed14831df3652c70baf0f232d77407f76dcd212fe13113ce1d28a445103460",
+    "pure_wot_full": "4c9fa3b3e589064673cc253db31f3c152b10568e50f149b01f8540b11dd7d2d0",
+    "pure_pl20_fast": "3f7e4d0ffea5cba48fcd2596bb1be6f3d20c685d1eeeb0c537391cba48775935",
+    "pure_pl20_full": "1d9cf8ce5b5aa20be687820785205701193520f0344d91ff50f357b43363ce34",
+    "pure_delta_fast": "2960226880e9f3254be5cff3e2868065f31ec626bae30ca8d407b408f03a8302",
+    "pure_delta_full": "c774cbe6b1350919cbb48069692cbc276f5465361bf6b38f8f62e72a7996fb27"
   }
 }

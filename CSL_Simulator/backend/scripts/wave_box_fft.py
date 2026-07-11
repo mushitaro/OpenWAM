@@ -96,14 +96,11 @@ def build_config(rpm, sets, cycles):
 
 
 def coordinate_vanos(cfg, cal, rpm):
-    """Identical to run_cells_local: calibrated WOT VANOS + exhaust base."""
-    intake_base = calib.intake_vanos_base(cal)
-    ex_scale = calib.exvanos_scale(cal)
-    intake_cam = _lut(MAPS["kf_evan1_soll"], rpm, 100.0)
-    exhaust_cam = _lut(MAPS["kf_avan1_soll"], rpm, 100.0)
-    base = calib.exvanos_base_for(cal, rpm, True, load=100.0)
-    cfg.engine.vanos_intake_bias = float(intake_base - intake_cam)
-    cfg.engine.vanos_exhaust_bias = float((float(base) - exhaust_cam) * ex_scale)
+    """Stage 69: PURE spread inputs (identical to run_cells_local)."""
+    cfg.engine.intake_cam_spread = float(_lut(MAPS["kf_evan1_soll"], rpm, 100.0))
+    cfg.engine.exhaust_cam_spread = float(_lut(MAPS["kf_avan1_soll"], rpm, 100.0))
+    cfg.engine.vanos_intake_bias = 0.0
+    cfg.engine.vanos_exhaust_bias = 0.0
 
 
 def gen_deck(cfg, cal, wd, cycles):
@@ -117,7 +114,7 @@ def gen_deck(cfg, cal, wd, cycles):
     disc = WAMGenerator(cfg, wd)
     disc._sigma_bp = sigma_bp
     with contextlib.redirect_stdout(io.StringIO()):
-        disc.generate(ignition_timing=20.0)
+        disc.generate(ignition_timing=M.ignition_for(MAPS, cfg.engine.rpm, cfg.engine.throttle_position * 100.0))
     labels = {pid: disc.pipes[pid].get("label", f"pipe{pid}") for pid in disc.pipes}
     mon = sorted(pid for pid, lab in labels.items() if MON_RE.match(lab))
 
@@ -127,7 +124,7 @@ def gen_deck(cfg, cal, wd, cycles):
     gen._run_duration_override = f"1.0 {cycles}"  # 1-deg INS sampling, N cycles
     gen._monitor_pipe_ids = set(mon)
     with contextlib.redirect_stdout(io.StringIO()):
-        deck = gen.generate(ignition_timing=20.0)
+        deck = gen.generate(ignition_timing=M.ignition_for(MAPS, cfg.engine.rpm, cfg.engine.throttle_position * 100.0))
     with open(os.path.join(wd, "cell.wam"), "w") as f:
         f.write(deck)
     return labels, mon
@@ -142,7 +139,7 @@ def print_cc(sets):
     os.makedirs(gen.output_dir, exist_ok=True)
     gen._sigma_bp = sigma_bp
     with contextlib.redirect_stdout(io.StringIO()):
-        gen.generate(ignition_timing=20.0)
+        gen.generate(ignition_timing=M.ignition_for(MAPS, 3900, 100.0))
     labels = {pid: p.get("label", f"pipe{pid}") for pid, p in gen.pipes.items()}
     refs = {}
     for pid, p in gen.pipes.items():

@@ -358,9 +358,13 @@ class WAMGenerator:
         self._add("1", "Num Heat Laws")
         self._add("1.0 1.0 2000.0", "Heat Law logic")
         self._add("1", "Num Wiebes")
-        # Wiebe: m=2.0, a=6.9, FQL_ini=0.0, Duration=60deg, Start=ignition_timing (BTDC, negative)
+        # Wiebe params now READ from CombustionConfig (Stage 69; previously the
+        # deck hardcoded "2.0 6.9 0.0 60.0" and ignored the config -- defaults
+        # were ALIGNED in models.py so legacy decks stay byte-identical).
         ign_start = -self.ignition_timing if hasattr(self, 'ignition_timing') else -15.0
-        self._add(f"2.0 6.9 0.0 60.0 {ign_start:.1f}", "Wiebe Params")
+        _cmb = c.engine.combustion
+        self._add(f"{_cmb.shape_parameter_m:.1f} {_cmb.efficiency_a:.1f} 0.0 "
+                  f"{_cmb.duration:.1f} {ign_start:.1f}", "Wiebe Params")
         
         # 14. Injections Logic
         self._add("0", "Injection Data Type")
@@ -1900,7 +1904,14 @@ class WAMGenerator:
             # Default Sizing (Refined for Stability)
                 # 50mm segments -> 25mm mesh (2 nodes)
                 dx = min(0.05, p['length'] / 2.0)
-            
+            # Stage 69: GLOBAL mesh multiplier (OPENWAM_MESH_SCALE, default 1.0
+            # = byte-identical). One of the allowed GLOBAL solver-characteristic
+            # calibration constants: <1 refines every pipe's mesh uniformly
+            # (finer waves, ~1/scale slower), >1 coarsens. Never per-pipe.
+            _mesh_sc = float(os.environ.get("OPENWAM_MESH_SCALE", "1.0"))
+            if _mesh_sc != 1.0:
+                dx = max(0.002, dx * _mesh_sc)
+
             print(f"DEBUG: Pipe Finalize: ID={pid} Label={p.get('label','?')} L={p['length']:.3f} dx={dx:.3f}")
 
             # Line 6: Mesh & Thermal Model (dx, Implicit)
@@ -2037,12 +2048,50 @@ class WAMGenerator:
         vanos_offset = (self.config.engine.vanos_intake_offset if is_intake
                         else self.config.engine.vanos_exhaust_offset)
 
-        # If controlled, we don't apply static bias here (Controller handles it dynamically)
-        # BUT, standard OpenWAM logic adds "Angle0" + Gap.
-        # Angle0 usually comes from 'open_angle' in file.
-        # So we should probably set Angle0 to Base?
-        # If static (no control):
-        if not control_ids:
+        # Duration is resolved BEFORE the open angle: the Stage-69 pure spread
+        # path anchors the MAX-OPEN POINT (MOP = open + dur/2), so a duration
+        # change re-centers symmetrically around the commanded MOP -- exactly
+        # how a physical cam swap under VANOS behaves (future duration tuning).
+        step = 1.0 # High resolution for stability (was 5.0)
+        duration = valve_conf.duration
+        if is_intake and _os.environ.get("OPENWAM_IN_DUR"):
+            duration = float(_os.environ["OPENWAM_IN_DUR"])
+        # Exhaust duration override (OPENWAM_EX_DUR): in the legacy path EVO
+        # stays at open_angle, so a longer duration pushes EVC later.
+        if (not is_intake) and _os.environ.get("OPENWAM_EX_DUR"):
+            duration = float(_os.environ["OPENWAM_EX_DUR"])
+
+        # ================= Stage 69: PURE physical conversion =================
+        # BMW factory lift-diagram convention (owner-confirmed): overlap TDC at
+        # center (=360 crank deg), intake MOP measured to the RIGHT, exhaust
+        # MOP to the LEFT. kf_evan1_soll / kf_avan1_soll values ARE those MOPs:
+        #   open_intake  = 360 + spread_in  - dur/2 - (offset + delta)
+        #   open_exhaust = 360 - spread_ex  - dur/2 - (offset + delta)
+        # offset = K_EVAN1/K_AVAN1_OFFSET (DME mechanical trim), delta = pure
+        # tuning shift; both signed "positive = advance = earlier opening".
+        # Response signs: d(IVO)/d(evan) = +1, d(EVO)/d(avan) = -1.
+        # This REPLACES the Stage-47..68 EXVANOS-base scaffold, whose exhaust
+        # response was SIGN-INVERTED vs this convention (bias = base - raw)
+        # and whose intake datum hid a -28 deg calibration (OPENWAM_IVO=330).
+        # Spreads unset (None) -> legacy path below, byte-identical (golden).
+        _spread = (self.config.engine.intake_cam_spread if is_intake
+                   else self.config.engine.exhaust_cam_spread)
+        if _spread is not None:
+            if _os.environ.get("OPENWAM_IVO") or _os.environ.get("OPENWAM_VANOS_SCALE"):
+                print("WARNING: OPENWAM_IVO / OPENWAM_VANOS_SCALE are IGNORED "
+                      "in the pure spread path (Stage 69) -- unset them.")
+            delta = (self.config.engine.vanos_intake_bias if is_intake
+                     else self.config.engine.vanos_exhaust_bias)
+            if control_ids:
+                delta = 0.0   # controller applies the dynamic shift itself
+            self._validate_valve_config(valve_conf, delta)
+            if is_intake:
+                open_angle = 360.0 + float(_spread) - duration / 2.0 - (vanos_offset + delta)
+            else:
+                open_angle = 360.0 - float(_spread) - duration / 2.0 - (vanos_offset + delta)
+            vanos_bias = delta
+        # ============== legacy bias path (DEPRECATED, golden-pinned) ==========
+        elif not control_ids:
             if is_intake:
                 # VANOS authority calibration (OPENWAM_VANOS_SCALE, default 1.0). The
                 # sim over-responds to intake cam advance: at the stock VANOS the
@@ -2064,19 +2113,8 @@ class WAMGenerator:
              # open_angle = Angle0
              base_open = base_open_intake if is_intake else base_open_exhaust
              open_angle = base_open - vanos_offset
-            
+
         self.wam_lines_valves.append("1")
-        # Dynamic Duration Logic
-        step = 1.0 # High resolution for stability (was 5.0)
-        duration = valve_conf.duration
-        if is_intake and _os.environ.get("OPENWAM_IN_DUR"):
-            duration = float(_os.environ["OPENWAM_IN_DUR"])
-        # Exhaust duration override (OPENWAM_EX_DUR): EVO stays at open_angle (102),
-        # so increasing the duration pushes EVC later (= keeps exhaust-valve lift up
-        # through gas-exchange TDC). Tests hypothesis (3): vent the compressed hot
-        # clearance-gas residual at TDC so it cannot revert into the intake.
-        if (not is_intake) and _os.environ.get("OPENWAM_EX_DUR"):
-            duration = float(_os.environ["OPENWAM_EX_DUR"])
         num_lev = int(duration / step) + 1
         
         # Ensure we cover the full duration

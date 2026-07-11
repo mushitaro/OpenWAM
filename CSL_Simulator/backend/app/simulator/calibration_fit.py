@@ -150,44 +150,12 @@ def fit_sigma_bp(evals_by_pedal, anchors=((0.0, 0.001), (1.0, 0.96))):
     return table
 
 
-# ------------------------------------------------- Step C: base(rpm, load)
-def fit_base_surface(cell_solutions, rpms, loads, wot_row,
-                     base_lo=60.0, base_hi=220.0):
-    """Assemble the exvanos_base surface {rpms, loads, values[load][rpm]}.
-
-    cell_solutions: {(rpm, load): base or None} from the per-cell solves
-    (None = unsolved/gated cell). wot_row: {rpm: base} -- the Phase-3 WOT fit;
-    written as the load=100 row VERBATIM (anchor; exvanos_base_for's is_wot
-    short-circuit makes it unreachable at true WOT anyway, but interpolation
-    toward load->100 must aim at the WOT fit).
-    Missing cells fill from the nearest solved load in the same rpm column
-    (then the WOT anchor). Values clamp to [base_lo, base_hi].
-    """
-    rpms = [float(r) for r in rpms]
-    loads = sorted(float(l) for l in loads)
-    if 100.0 not in loads:
-        loads = loads + [100.0]
-    values = []
-    for load in loads:
-        row = []
-        for rpm in rpms:
-            if load == 100.0:
-                v = wot_row.get(rpm) or wot_row.get(int(rpm)) or 150.0
-            else:
-                v = cell_solutions.get((rpm, load))
-                if v is None:
-                    v = cell_solutions.get((int(rpm), load))
-                if v is None:
-                    # nearest solved load at this rpm (then WOT anchor)
-                    cands = [(abs(l2 - load), b) for (r2, l2), b in cell_solutions.items()
-                             if b is not None and float(r2) == rpm]
-                    if cands:
-                        v = min(cands)[1]
-                    else:
-                        v = wot_row.get(rpm) or wot_row.get(int(rpm)) or 150.0
-            row.append(round(max(base_lo, min(base_hi, float(v))), 1))
-        values.append(row)
-    return {"rpms": rpms, "loads": loads, "values": values}
+# ---------------------------------------------------------------------------
+# Stage 69: fit_base_surface (the per-cell EXVANOS base surface fitter) is
+# DELETED — cam phase is a tuning variable and never absorbs model error.
+# Legitimate fitters remaining: sigma(pedal) + ICV (component flow
+# characterization) and, per Stage-69 R2, GLOBAL solver constants only.
+# ---------------------------------------------------------------------------
 
 
 # ----------------------------------------------------------------- residuals
@@ -206,16 +174,15 @@ def residual_report(rows):
 
 # --------------------------------------------------------------- apply_fits
 def apply_fits(cal, icv_sigma=None, icv_meta=None, sigma_points=None,
-               sigma_meta=None, surface=None, part_load_alpha="keep",
-               fit_meta=None):
-    """Return a NEW calibration dict (schema v2) with the given fits applied.
+               sigma_meta=None, part_load_alpha="keep", fit_meta=None):
+    """Return a NEW calibration dict (schema v3) with the given fits applied.
 
-    Only the passed pieces change; ``part_load_alpha="keep"`` leaves it as-is
-    (pass None explicitly to clear it). fit_meta (dict: date/commit/exe/csv/
-    residual) lands next to each written piece for provenance.
+    Stage 69: the ``surface`` (EXVANOS base) writer is DELETED. Only component
+    characterization (sigma/ICV) and mouth_rad remain writable here; GLOBAL
+    solver constants go into the ``global_solver`` block by the R2 campaign.
     """
     out = copy.deepcopy(cal)
-    out["schema_version"] = 2
+    out["schema_version"] = 3
     if icv_sigma is not None:
         out.setdefault("icv", {})
         out["icv"]["sigma"] = round(float(icv_sigma), 4)
@@ -225,10 +192,6 @@ def apply_fits(cal, icv_sigma=None, icv_meta=None, sigma_points=None,
         out["thr_sigma"]["points"] = sigma_points
         out["thr_sigma"]["enabled"] = True
         out["thr_sigma"]["fit_meta"] = sigma_meta or fit_meta
-    if surface is not None:
-        out.setdefault("exvanos_base", {})
-        out["exvanos_base"]["surface"] = surface
-        out["exvanos_base"]["surface_fit_meta"] = fit_meta
     if part_load_alpha != "keep":
         out.setdefault("mouth_rad", {})
         out["mouth_rad"]["part_load_alpha"] = part_load_alpha

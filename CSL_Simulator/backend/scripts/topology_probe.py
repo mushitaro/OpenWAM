@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# =====================================================================
+# !! TIMING-INVALID (Stage 69): this script predates the pure BMW-spread
+# !! conversion. It uses the DELETED EXVANOS-base / sign-inverted exhaust
+# !! convention (or the pre-datum-fix intake). DO NOT RE-RUN as-is --
+# !! migrate to engine.intake_cam_spread / exhaust_cam_spread first.
+# =====================================================================
 """Stage 55 — topology probe: which intake element makes the ram resonance too sharp?
 
 Stage 54: the resonance is structurally too sharp (high Q); scalar knobs can't broaden it.

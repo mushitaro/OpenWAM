@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# =====================================================================
+# !! TIMING-INVALID (Stage 69): this script predates the pure BMW-spread
+# !! conversion. It uses the DELETED EXVANOS-base / sign-inverted exhaust
+# !! convention (or the pre-datum-fix intake). DO NOT RE-RUN as-is --
+# !! migrate to engine.intake_cam_spread / exhaust_cam_spread first.
+# =====================================================================
 """Task 4 (Stage 65) — part-load dp scorer for run_cells_local CSVs.
 
 dp = |p_sim - p_stock|, p = VE(load)/VE(WOT) per rpm column: the part-load

@@ -355,8 +355,10 @@ class SimulationService:
             "part_load_alpha_load_min": (cal.get("mouth_rad", {}) or {}).get("part_load_alpha_load_min"),
             "icv_sigma": calib.icv_sigma(cal),
             "thr_sigma_sha1": _sha1(calib.thr_sigma_points(cal)),
-            "exvanos_surface_sha1": _sha1(
-                (cal.get("exvanos_base") or {}).get("surface")),
+            # Stage 69: pure BMW-spread timing + KF_TZ_GRUND ignition input;
+            # the v2 EXVANOS scaffold (exvanos_surface_sha1) is deleted.
+            "timing_mode": "pure_v3",
+            "ignition_map": bool(maps.get("kf_tz_grund")),
         }
 
         total = len(rpms) * len(loads)
@@ -367,8 +369,6 @@ class SimulationService:
         sem = asyncio.Semaphore(conc)
 
         exe_path = self._resolve_exe()
-        intake_base = calib.intake_vanos_base(cal)
-        ex_scale = calib.exvanos_scale(cal)
         m_ref_mg = self._m_ref_mg
 
         async def run_point(rpm, load_tps):
@@ -379,7 +379,10 @@ class SimulationService:
                 is_wot = load_tps >= wot_thr
 
                 intake_cam = exhaust_cam = None
-                # --- VANOS lookup ----------------------------------------
+                # --- VANOS lookup (Stage 69: PURE spread inputs) ----------
+                # kf_evan1/avan1_soll values go into the spread fields VERBATIM
+                # -- WAMGenerator applies the fixed BMW-spread conversion. The
+                # bias fields stay 0 (pure stock); tuning shifts them only.
                 try:
                     van_in = maps.get("kf_evan1_soll", {})
                     v_x, v_y, v_vals = van_in.get("x_axis", []), van_in.get("y_axis", []), van_in.get("values", [])
@@ -387,18 +390,14 @@ class SimulationService:
                         vi = min(range(len(v_x)), key=lambda i: abs(v_x[i] - rpm))
                         vyi = min(range(len(v_y)), key=lambda i: abs(v_y[i] - load_tps))
                         intake_cam = v_vals[vyi][vi]
-                        point_config.engine.vanos_intake_bias = float(intake_base - intake_cam)
+                        point_config.engine.intake_cam_spread = float(intake_cam)
                     av = maps.get("kf_avan1_soll", {})
                     a_x, a_y, a_vals = av.get("x_axis", []), av.get("y_axis", []), av.get("values", [])
                     if a_x and a_y and a_vals:
                         ai = min(range(len(a_x)), key=lambda i: abs(a_x[i] - rpm))
                         ayi = min(range(len(a_y)), key=lambda i: abs(a_y[i] - load_tps))
                         exhaust_cam = a_vals[ayi][ai]
-                        env_b = os.environ.get("OPENWAM_EXVANOS_BASE")
-                        ex_base = float(env_b) if env_b else calib.exvanos_base_for(
-                            cal, rpm, is_wot, load=load_tps)
-                        scale = float(os.environ.get("OPENWAM_EXVANOS_SCALE", str(ex_scale)))
-                        point_config.engine.vanos_exhaust_bias = float((ex_base - exhaust_cam) * scale)
+                        point_config.engine.exhaust_cam_spread = float(exhaust_cam)
                 except Exception:
                     pass
 
@@ -416,7 +415,10 @@ class SimulationService:
                 gen = WAMGenerator(point_config, self.simulator_dir)
                 # calibrated sigma(pedal) table (deck-baked operating angle)
                 gen._sigma_bp = calib.thr_sigma_points(cal)
-                content = gen.generate(ignition_timing=20.0) if is_wot else gen.generate()
+                # Stage 69: physical ignition from KF_TZ_GRUND (two-stage
+                # rf lookup); falls back to the legacy 20/15 recipe if absent
+                _ign = M.ignition_for(maps, rpm, load_tps)
+                content = gen.generate(ignition_timing=_ign)
                 with open(wam_path, "w") as f:
                     f.write(content)
                 sim_env = self._build_sim_env(cal, is_wot, fast=True, load=load_tps)
@@ -659,31 +661,24 @@ class SimulationService:
                 maps = json.load(f)
         except Exception:
             maps = {}
-        intake_base = calib.intake_vanos_base(cal)
-        ex_scale = calib.exvanos_scale(cal)
-
         point_config = config.model_copy(deep=True)
         point_config.engine.rpm = rpm
         point_config.engine.throttle_position = load / 100.0
-        # VANOS coordination -- identical to run_ve_map_generation.run_point so the
-        # waveform matches the cell the user just ran.
+        # VANOS coordination (Stage 69: PURE spread inputs) -- identical to
+        # run_ve_map_generation.run_point so the waveform matches the cell.
         try:
             van_in = maps.get("kf_evan1_soll", {})
             v_x, v_y, v_vals = van_in.get("x_axis", []), van_in.get("y_axis", []), van_in.get("values", [])
             if v_x and v_y and v_vals:
                 vi = min(range(len(v_x)), key=lambda i: abs(v_x[i] - rpm))
                 vyi = min(range(len(v_y)), key=lambda i: abs(v_y[i] - load))
-                point_config.engine.vanos_intake_bias = float(intake_base - v_vals[vyi][vi])
+                point_config.engine.intake_cam_spread = float(v_vals[vyi][vi])
             av = maps.get("kf_avan1_soll", {})
             a_x, a_y, a_vals = av.get("x_axis", []), av.get("y_axis", []), av.get("values", [])
             if a_x and a_y and a_vals:
                 ai = min(range(len(a_x)), key=lambda i: abs(a_x[i] - rpm))
                 ayi = min(range(len(a_y)), key=lambda i: abs(a_y[i] - load))
-                env_b = os.environ.get("OPENWAM_EXVANOS_BASE")
-                ex_base = float(env_b) if env_b else calib.exvanos_base_for(
-                    cal, rpm, is_wot, load=load)
-                scale = float(os.environ.get("OPENWAM_EXVANOS_SCALE", str(ex_scale)))
-                point_config.engine.vanos_exhaust_bias = float((ex_base - a_vals[ayi][ai]) * scale)
+                point_config.engine.exhaust_cam_spread = float(a_vals[ayi][ai])
         except Exception:
             pass
 
@@ -701,9 +696,10 @@ class SimulationService:
         # the in-memory INS buffer super-linearly and stalls the sim, so we
         # monitor only the pipes we actually return: intake runners + exhaust
         # ports + collector outlets (one wave per cylinder + collector).
+        _ign = M.ignition_for(maps, rpm, load)   # Stage 69: KF_TZ_GRUND input
         _disc = WAMGenerator(point_config, self.simulator_dir)
         _disc._sigma_bp = _sigma_bp
-        _disc.generate(ignition_timing=20.0) if is_wot else _disc.generate()
+        _disc.generate(ignition_timing=_ign)
         pipe_labels = {pid: _disc.pipes[pid].get("label", f"pipe{pid}") for pid in _disc.pipes}
         # Stage 64: intake-acoustics stations added (bellmouth mouths, duct,
         # filter, and the multi-cell box connectors) so the waveform view /
@@ -723,7 +719,7 @@ class SimulationService:
         # cycles -> INS.DAT is flushed and the last cycle is complete).
         gen._run_duration_override = f"1.0 {n_cyc}"
         gen._monitor_pipe_ids = set(mon_pids)              # curated subset only
-        content = gen.generate(ignition_timing=20.0) if is_wot else gen.generate()
+        content = gen.generate(ignition_timing=_ign)
 
         env = self._build_sim_env(cal, is_wot, fast=False, load=load)
         env.pop("OPENWAM_FAST_OUTPUT", None)               # belt+braces: pipe monitoring ON

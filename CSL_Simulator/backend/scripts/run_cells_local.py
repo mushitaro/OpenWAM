@@ -92,14 +92,18 @@ def build_config(job, cycles):
 
 
 def job_id(job):
-    """Stable resume key over the semantically-relevant job fields."""
+    """Stable resume key over the semantically-relevant job fields.
+    Stage 69: 'base' (scaffold) died; spreads/deltas key the timing instead —
+    pre-69 CSVs do NOT resume against v3 runs (intended)."""
     key = {k: job.get(k) for k in
-           ("rpm", "load", "base", "alpha", "again", "sigma_bp", "tag")}
+           ("rpm", "load", "in_spread", "ex_spread", "d_in_cam", "d_ex_cam",
+            "alpha", "again", "sigma_bp", "tag")}
     key["set"] = dict(sorted((job.get("set") or {}).items()))
     return hashlib.sha1(json.dumps(key, sort_keys=True).encode()).hexdigest()[:12]
 
 
-CSV_COLS = ["id", "tag", "rpm", "load", "base", "alpha", "again", "sigma_bp",
+CSV_COLS = ["id", "tag", "rpm", "load", "in_spread", "ex_spread", "d_in_cam",
+            "d_ex_cam", "ign", "alpha", "again", "sigma_bp",
             "sets", "ve", "stock", "ratio", "cyc", "slope", "converged",
             "cyl_ok", "spread", "collapsed_n", "nan_free", "blew_up", "valid",
             "elapsed_s"]
@@ -128,16 +132,24 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         if _icv is not None and "intake.eq_tube.icv_sigma" not in (job.get("set") or {}):
             cfg.intake.eq_tube.icv_sigma = _icv
 
-        # --- VANOS coordination (identical to run_ve_map_generation) --------
-        intake_base = calib.intake_vanos_base(cal)
-        ex_scale = calib.exvanos_scale(cal)
-        intake_cam = _lut(MAPS["kf_evan1_soll"], rpm, load)
-        exhaust_cam = _lut(MAPS["kf_avan1_soll"], rpm, load)
-        cfg.engine.vanos_intake_bias = float(intake_base - intake_cam)
-        base = job.get("base")
-        if base is None:
-            base = calib.exvanos_base_for(cal, rpm, is_wot, load=load)
-        cfg.engine.vanos_exhaust_bias = float((float(base) - exhaust_cam) * ex_scale)
+        # --- VANOS coordination (Stage 69: PURE spread inputs) ---------------
+        # Spreads = ECU map values verbatim (or explicit job overrides
+        # in_spread/ex_spread); d_in_cam/d_ex_cam = pure TUNING deltas
+        # (+ = advance). The v2 "base" scaffold job param is DELETED.
+        if job.get("base") is not None:
+            raise ValueError(
+                "job param 'base' is DELETED (Stage 69: the EXVANOS scaffold "
+                "was removed; use d_ex_cam for a physical exhaust-cam delta)")
+        in_spread = job.get("in_spread")
+        ex_spread = job.get("ex_spread")
+        cfg.engine.intake_cam_spread = float(
+            in_spread if in_spread is not None
+            else _lut(MAPS["kf_evan1_soll"], rpm, load))
+        cfg.engine.exhaust_cam_spread = float(
+            ex_spread if ex_spread is not None
+            else _lut(MAPS["kf_avan1_soll"], rpm, load))
+        cfg.engine.vanos_intake_bias = float(job.get("d_in_cam") or 0.0)
+        cfg.engine.vanos_exhaust_bias = float(job.get("d_ex_cam") or 0.0)
 
         # --- deck ------------------------------------------------------------
         sub = f"cells_{job_id(job)}_{int(rpm)}_{int(load)}"
@@ -151,9 +163,12 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
             # mirror the app: inject the calibrated sigma(pedal) table when one
             # is enabled (None -> geometric legacy path)
             gen._sigma_bp = calib.thr_sigma_points(cal)
+        # Stage 69: physical ignition from KF_TZ_GRUND (two-stage rf lookup;
+        # legacy 20/15 fallback if absent). Explicit job override: "ign".
+        ign = float(job["ign"]) if job.get("ign") is not None else M.ignition_for(MAPS, rpm, load)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            content = gen.generate(ignition_timing=20.0) if is_wot else gen.generate()
+            content = gen.generate(ignition_timing=ign)
         with open(wam_path, "w") as f:
             f.write(content)
 
@@ -216,7 +231,12 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         ratio = (ve / stock) if stock else float("nan")
         row = {
             "id": job_id(job), "tag": job.get("tag", ""),
-            "rpm": int(rpm), "load": load, "base": round(float(base), 2),
+            "rpm": int(rpm), "load": load,
+            "in_spread": round(cfg.engine.intake_cam_spread, 2),
+            "ex_spread": round(cfg.engine.exhaust_cam_spread, 2),
+            "d_in_cam": round(float(job.get("d_in_cam") or 0.0), 2),
+            "d_ex_cam": round(float(job.get("d_ex_cam") or 0.0), 2),
+            "ign": round(float(ign), 2),
             "alpha": job.get("alpha", ""), "again": job.get("again", ""),
             "sigma_bp": json.dumps(job["sigma_bp"]) if job.get("sigma_bp") else "",
             "sets": json.dumps(job.get("set") or {}, sort_keys=True),
@@ -237,7 +257,11 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
                 if new:
                     w.writeheader()
                 w.writerow(row)
-        print(f"  {job.get('tag','')} {int(rpm)}/{int(load)} base{base} "
+        _dd = ""
+        if row["d_in_cam"] or row["d_ex_cam"]:
+            _dd = f" d{row['d_in_cam']:+.0f}/{row['d_ex_cam']:+.0f}"
+        print(f"  {job.get('tag','')} {int(rpm)}/{int(load)} "
+              f"sp{row['in_spread']:.0f}/{row['ex_spread']:.0f}{_dd} ign{ign:.0f} "
               f"-> ve {ve:.1f} (stock {stock:.1f}, p {ratio:.3f}) "
               f"{'OK' if valid else 'FLAG'} cyc{ncyc} {row['elapsed_s']}s", flush=True)
         return row
@@ -251,11 +275,20 @@ def parse_jobs(args):
     else:
         rpms = [float(x) for x in args.rpms.split(",") if x.strip()]
         loads = [float(x) for x in args.loads.split(",") if x.strip()]
-        bases = ([float(x) for x in args.bases.split(",")] if args.bases else [None])
+        d_ins = ([float(x) for x in args.d_in_cam.split(",")]
+                 if args.d_in_cam else [None])
+        d_exs = ([float(x) for x in args.d_ex_cam.split(",")]
+                 if args.d_ex_cam else [None])
         for r in rpms:
             for l in loads:
-                for b in bases:
-                    jobs.append({"rpm": r, "load": l, "base": b})
+                for di in d_ins:
+                    for de in d_exs:
+                        j = {"rpm": r, "load": l}
+                        if di is not None:
+                            j["d_in_cam"] = di
+                        if de is not None:
+                            j["d_ex_cam"] = de
+                        jobs.append(j)
     g_set = {}
     for s in args.set or []:
         k, _, v = s.partition("=")
@@ -317,7 +350,10 @@ def main():
     ap.add_argument("--csv", required=True)
     ap.add_argument("--rpms", default="5300")
     ap.add_argument("--loads", default="100")
-    ap.add_argument("--bases", default=None, help="comma list; default=calibration")
+    ap.add_argument("--d-in-cam", dest="d_in_cam", default=None,
+                    help="comma list of intake cam TUNING deltas (deg, +=advance)")
+    ap.add_argument("--d-ex-cam", dest="d_ex_cam", default=None,
+                    help="comma list of exhaust cam TUNING deltas (deg, +=advance)")
     ap.add_argument("--jobs-json", default=None)
     ap.add_argument("--set", action="append", default=[],
                     help="dotted SimConfig override, e.g. intake.eq_tube.model=rail")

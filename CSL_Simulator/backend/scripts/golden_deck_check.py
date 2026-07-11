@@ -112,6 +112,22 @@ def _all_hashes(keep_decks=None):
     chain.intake.eq_tube.model = "chain"
     variants.append(("chain", chain, 20.0))
 
+    # --- Stage 69 PURE-timing decks (BMW-spread conversion) ----------------
+    # pure_wot / pure_pl20 pin the conversion itself; pure_delta pins the
+    # TUNING-DELTA response SIGNS in bytes (d(open)/d(delta) = -1 both sides).
+    def _pure_config(tps, d_in=0.0, d_ex=0.0):
+        cfg = _legacy_config()
+        cfg.engine.throttle_position = tps
+        cfg.engine.intake_cam_spread = 70.0     # 5300-WOT map values
+        cfg.engine.exhaust_cam_spread = 105.0
+        cfg.engine.vanos_intake_bias = d_in     # pure tuning deltas
+        cfg.engine.vanos_exhaust_bias = d_ex
+        return cfg
+
+    variants.append(("pure_wot", _pure_config(1.0), 20.0))
+    variants.append(("pure_pl20", _pure_config(0.20), None))
+    variants.append(("pure_delta", _pure_config(1.0, d_in=4.0, d_ex=-3.0), 20.0))
+
     for name, cfg, ign in variants:
         for fast in (True, False):
             key = f"{name}_{'fast' if fast else 'full'}"

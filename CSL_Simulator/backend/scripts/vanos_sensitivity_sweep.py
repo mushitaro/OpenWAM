@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# =====================================================================
+# !! TIMING-INVALID (Stage 69): this script predates the pure BMW-spread
+# !! conversion. It uses the DELETED EXVANOS-base / sign-inverted exhaust
+# !! convention (or the pre-datum-fix intake). DO NOT RE-RUN as-is --
+# !! migrate to engine.intake_cam_spread / exhaust_cam_spread first.
+# =====================================================================
 """Stage 51 Step 2 — VANOS sensitivity at WOT (converged, throttle non-confounding).
 
 The "VANOS over-response" (Stage 44/47) is the WOT-row over-fill that rises with rpm. At

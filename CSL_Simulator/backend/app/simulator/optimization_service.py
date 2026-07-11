@@ -84,13 +84,11 @@ class OptimizationService:
             point_config = config.model_copy(deep=True)
             point_config.engine.rpm = float(rpm)
             point_config.engine.throttle_position = 1.0          # WOT
-            intake_base = calib.intake_vanos_base(cal)
-            ex_scale = calib.exvanos_scale(cal)
-            env_b = os.environ.get("OPENWAM_EXVANOS_BASE")
-            ex_base = float(env_b) if env_b else calib.exvanos_base_for(cal, rpm, True)
-            scale = float(os.environ.get("OPENWAM_EXVANOS_SCALE", str(ex_scale)))
-            point_config.engine.vanos_intake_bias = float(intake_base - cam_in)
-            point_config.engine.vanos_exhaust_bias = float((ex_base - cam_ex) * scale)
+            # Stage 69: cam_in/cam_ex ARE the ECU spread values -- assign them
+            # to the PURE spread fields verbatim (the generator applies the
+            # fixed BMW-spread conversion). No scaffold, no scale, no env.
+            point_config.engine.intake_cam_spread = float(cam_in)
+            point_config.engine.exhaust_cam_spread = float(cam_ex)
 
             from .wam_generator import WAMGenerator
             gen = WAMGenerator(point_config, self.simulator_dir)
@@ -98,7 +96,9 @@ class OptimizationService:
             # independent of os.environ state, and byte-identical to the map
             # run's deck (which sets the env var before generating).
             gen._fast_output_override = True
-            content = gen.generate(ignition_timing=20.0)          # WOT recipe
+            # Stage 69: physical ignition (KF_TZ_GRUND two-stage; legacy 20.0
+            # fallback when the map is absent)
+            content = gen.generate(ignition_timing=M.ignition_for(maps, rpm, 100.0))
 
             sub = f"ve_opt_{run_id}_{int(rpm)}_{int(cam_in)}_{int(cam_ex)}"
             wam_path = os.path.join(self.simulator_dir, sub + ".wam")
