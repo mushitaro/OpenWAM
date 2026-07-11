@@ -1,5 +1,42 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️ 2026-07-11 — STAGE 69: CALIBRATION-ARCHITECTURE
+> PURIFICATION COMPLETE; ⚡ALL STAGE 57-68 VE-LEVEL CONCLUSIONS BELOW THIS
+> BANNER ARE TIMING-INVALID. Read EXHAUST_STABILIZATION_NOTES Stage 69 +
+> memories `csl-mission-vanos-valley` / `csl-partload-calibration-state`.**
+> Owner directive (correct): tuning variables (cam phase; later duration/
+> profile) must NEVER absorb model error → the per-cell EXVANOS base scaffold
+> was **DELETED** (`aa1fc19`). Audit had found the Stage-47 exhaust conversion
+> SIGN-INVERTED vs BMW physics (d(EVO)/d(avan) must be −1) and the produced
+> timing non-physical (EVO 116-129° BBDC; EVC before overlap TDC) — the fitted
+> base had been absorbing exactly this.
+> **The new architecture:** pure BMW-spread conversion (`open_in = 360 + evan
+> − dur/2 − delta`, `open_ex = 360 − avan − dur/2 − delta`; crank 360° =
+> overlap TDC; deltas = pure tuning offsets, 0 = stock), KF_TZ_GRUND ignition
+> (owner-provided 18×12 map, two-stage rpm→rf→°BTDC), `timing_sanity.py` gate,
+> golden = 6 legacy + 3 pure decks (pure_delta pins the response signs).
+> Calibration = GLOBAL solver constants + component characterization ONLY.
+> **R2 (10-knob screen on 6 WOT cols): sole survivor = mouth-rad α; frozen
+> vector = UNIFORM α 0.6** (WOT + part-load ≥40; α0.8 = over-damped cliff;
+> IN_HMULT was the only top-end lever but interacts destructively with α at
+> 3900; port_flow_coeff proves top-end is NOT valve-Cd-limited).
+> **R3 honest heatmap** (`stage69_r3_final.csv`, no per-cell knobs): GREEN 24 /
+> amber 20 / RED 56. **R4 verdicts: "3900 permanent limit" FALSIFIED (−10pp
+> amber now); "idle n=2-null structural deficits" mostly FALSIFIED (1600 +2
+> GREEN; 1800 dead-on but slow/beating = the n=2 resonance's real face).
+> HONEST frontier: (a) the 2100-3100 valley depth is NOT reproducible — the
+> sim locks onto the high-fill attractor branch (95-99 VE) vs the car's low
+> branch (74-81), unreachable by every global knob; (b) top-end 5300-7300
+> +12..+32 over-supply; (c) 600/870 columns = low-rpm numeric limits.**
+> Commits: aa1fc19 → 3565b6e → d393aa0 → e7a4b16 → dc4d3cd → b260560.
+> **RUNNING: R5 VANOS tuning** (`stage68_vanos_opt.py` → optimize_wot,
+> physical cam spreads, stock-ECU-envelope bounds, budget 18×6 rpm →
+> `calib_data/stage69_r5_vanos_opt.json`). Interpret 2100-3100 results as
+> Δ-response shapes (attractor caveat), never absolute VE promises.
+> ⚠ Ops: background Bash starts at the REPO ROOT — always `cd .../backend &&`
+> (memory `openwam-background-bash-cwd-trap`); sweeps at omp1; map-axis loads
+> (64.99); rebuilds flip marginal cells.
+
 > **🚨🚨🚨🚨🚨🚨🚨🚨🚨 2026-07-10 (CORRECTION, read BEFORE the Stage-67 banner
 > below) — THE STAGE-67 "RESTORE THE FLAP" RECOMMENDATION IS RETRACTED (owner
 > correction; memory `csl-mission-vanos-valley` is now the NEVER-FORGET
