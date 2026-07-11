@@ -77,6 +77,13 @@ def _apply_set(cfg, dotted, value):
             value = value.lower() in ("1", "true", "yes")
         elif isinstance(cur, (int, float)) and cur is not None:
             value = type(cur)(float(value))
+        elif cur is None:
+            # Optional[float]-style fields (e.g. rail_tap_taper_end): pydantic
+            # does not validate on assignment, so coerce numeric strings here.
+            try:
+                value = float(value)
+            except ValueError:
+                pass
     setattr(obj, keys[-1], value)
 
 

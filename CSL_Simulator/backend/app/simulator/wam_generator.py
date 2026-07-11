@@ -1030,8 +1030,13 @@ class WAMGenerator:
                     cid_eq_end = self.connection_counter
                     self._add_con_plenum_pipe_v2(eq_tube_id, eq_pipe_id, 1)
 
+                # Stage 70: optional taper (runner-side dia -> rail-side hose
+                # dia). None = straight (byte-identical legacy path).
+                eq_pipe_dia2 = eq_pipe_dia
+                if self._eq_rail and c.intake.eq_tube.rail_tap_taper_end is not None:
+                    eq_pipe_dia2 = c.intake.eq_tube.rail_tap_taper_end / 1000.0
                 self._add_pipe(eq_pipe_id, eq_label, eq_stub_len,
-                               eq_pipe_dia, eq_pipe_dia, 40,
+                               eq_pipe_dia, eq_pipe_dia2, 40,
                                cid_eq_branch, cid_eq_end, friction=eq_pipe_fric, dx_mesh=0.025,
                                init_p=intake_map_bar)
 

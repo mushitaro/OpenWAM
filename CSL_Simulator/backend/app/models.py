@@ -108,6 +108,12 @@ class EqTubeConfig(BaseModel):
     rail_diameter: float = 21.0        # mm common-rail inner diameter
     rail_length: float = 570.0         # mm tap-1..tap-6 span (5 segments)
     rail_tap_diameter: float = 30.0    # mm numerical stability floor (physical: 21)
+    # Stage 70: tapered tap (runner-side boss -> rail-side hose). None = straight
+    # (byte-identical legacy). Setting e.g. 21.0 keeps the RUNNER tee at the
+    # stable rail_tap_diameter area ratio while the branch necks to the physical
+    # phi21 at the rail end -- the representable form of the owner's real
+    # "branch pipe" attachment (direct phi21 at the tee blows up: 6.1:1 > 3:1).
+    rail_tap_taper_end: Optional[float] = None
     rail_tap_length: float = 30.0      # mm runner-tee -> rail-tee stub (10mm re-collapses
                                        # 2700/6300 WOT -- keep 30, Phase-3 A/B)
     return_pipe_diameter: float = 21.0 # mm rubber return hose
