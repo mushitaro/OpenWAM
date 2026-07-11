@@ -2,11 +2,16 @@
  "schema_version": 3,
  "_comment": "Stage 69 (2026-07-11) schema v3: GLOBAL solver-characteristic constants + component flow characterizations ONLY. The v2 EXVANOS base scaffold (intake_vanos_base + exvanos_base points/surface/scale) is DELETED: cam phase is a TUNING variable and must never absorb model error; its exhaust response had also been SIGN-INVERTED vs the BMW spread convention since Stage 47 (see EXHAUST_STABILIZATION_NOTES Stage 69 post-mortem). Valve timing is now the PURE fixed conversion inside WAMGenerator from engine.intake/exhaust_cam_spread (= kf_evan1/avan1_soll values). Ignition is the owner-provided KF_TZ_GRUND map (physical input, two-stage lookup via kf_rf_soll). Allowed fitted knobs: mouth_rad, global_solver.*, thr_sigma + icv (component characterization, owner-approved to retain; re-validate under pure timing).",
  "mouth_rad": {
-  "alpha": 0.4,
+  "alpha": 0.6,
   "w": 0.005,
   "wot_tps_threshold": 85.0,
   "part_load_alpha": 0.4,
-  "part_load_alpha_load_min": 40.0
+  "part_load_alpha_load_min": 40.0,
+  "fit_meta": {
+   "date": "2026-07-11",
+   "note": "stage69_r2: WOT alpha ladder 0.3/0.4/0.5/0.6/0.8 on the 6 validated columns under PURE timing; 0.6 dominates every cell (3900 99.6->119.7, 4600 dead-on kept, top-end/2700 all improved); 0.8 = over-damped cliff (3900 falls to 109, 4600/6900 blow up). alpha is the ONLY surviving global knob of the R2 screen (discarded: IN_FRIC, PORT_TWALL, CAM_EXP, MESH_SCALE 0.75/1.5, RUNNER_FRIC_MULT, IN_HMULT, port_flow_coeff). part_load_alpha 0.4 kept pending R3 part-load rows.",
+   "csv": "stage69_r2*.csv"
+  }
  },
  "thr_choke": 1,
  "thr_sigma": {
