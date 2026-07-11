@@ -89,6 +89,13 @@ class OptimizationService:
             # fixed BMW-spread conversion). No scaffold, no scale, no env.
             point_config.engine.intake_cam_spread = float(cam_in)
             point_config.engine.exhaust_cam_spread = float(cam_ex)
+            # fitted ICV effective area (calibration.json > SimConfig default),
+            # identical to the map/waveform/run_cells paths -- without it the
+            # deck bakes the un-calibrated 0.15 (vs fitted 0.30) and the search
+            # runs on a different (chaotic at 2700) twin than the frozen map.
+            _icv = calib.icv_sigma(cal)
+            if _icv is not None:
+                point_config.intake.eq_tube.icv_sigma = _icv
 
             from .wam_generator import WAMGenerator
             gen = WAMGenerator(point_config, self.simulator_dir)
