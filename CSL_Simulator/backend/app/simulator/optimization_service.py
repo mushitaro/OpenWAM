@@ -96,6 +96,12 @@ class OptimizationService:
             # independent of os.environ state, and byte-identical to the map
             # run's deck (which sets the env var before generating).
             gen._fast_output_override = True
+            # Calibrated sigma(pedal) table, exactly as the map/run_cells paths
+            # inject it -- without this the deck falls back to the geometric
+            # legacy throttle and diverges from the frozen twin (the M4
+            # byte-identical-baseline contract breaks: stock-cam VE landed on a
+            # different attractor than the R3 map, e.g. 2700 66.1 vs 94.9).
+            gen._sigma_bp = calib.thr_sigma_points(cal)
             # Stage 69: physical ignition (KF_TZ_GRUND two-stage; legacy 20.0
             # fallback when the map is absent)
             content = gen.generate(ignition_timing=M.ignition_for(maps, rpm, 100.0))
