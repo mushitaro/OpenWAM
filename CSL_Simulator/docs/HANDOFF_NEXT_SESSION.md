@@ -28,11 +28,21 @@
 > sim locks onto the high-fill attractor branch (95-99 VE) vs the car's low
 > branch (74-81), unreachable by every global knob; (b) top-end 5300-7300
 > +12..+32 over-supply; (c) 600/870 columns = low-rpm numeric limits.**
-> Commits: aa1fc19 → 3565b6e → d393aa0 → e7a4b16 → dc4d3cd → b260560.
-> **RUNNING: R5 VANOS tuning** (`stage68_vanos_opt.py` → optimize_wot,
-> physical cam spreads, stock-ECU-envelope bounds, budget 18×6 rpm →
-> `calib_data/stage69_r5_vanos_opt.json`). Interpret 2100-3100 results as
-> Δ-response shapes (attractor caveat), never absolute VE promises.
+> Commits: aa1fc19 → 3565b6e → d393aa0 → e7a4b16 → dc4d3cd → b260560 →
+> 6638a8a/e3dc836 (R5 twin fix) → a9e9ddb (R5).
+> **R5 VANOS tuning DONE on the frozen twin** (after fixing the optimizer's
+> missing σ-table + ICV injections — the wrong-twin bug; new rule: ALWAYS
+> parity-gate optimizer paths via stock-baseline cache hits): **2700 → 70/89
+> +6.5pp (ok; the valley's VANOS headroom), 3900 → stock 70/87 already
+> model-optimal (+0.0), 4600 → 88/112 +8.7 ok, 5300 +13.2 / 6900 +5.7 both
+> conf-LOW (attractor-hop suspicion — smoothness + PL-carry probes required
+> before any adoption).** Deliverable: `calib_data/stage69_r5_vanos_opt.json`
+> (KF_EVAN1_SOLL/KF_AVAN1_SOLL WOT rows). Interpret 2100-3100 results as
+> Δ-response shapes (high-fill-branch caveat), never absolute VE promises.
+> **NEXT candidates: (1) verify the two conf-LOW cells (neighbor smoothness
+> + part-load carry); (2) extend the optimizer to the part-load VANOS rows
+> (~108 cells); (3) the honest-frontier research items (valley-depth
+> mechanism, top-end over-supply) — owner input recommended on priorities.**
 > ⚠ Ops: background Bash starts at the REPO ROOT — always `cd .../backend &&`
 > (memory `openwam-background-bash-cwd-trap`); sweeps at omp1; map-axis loads
 > (64.99); rebuilds flip marginal cells.
