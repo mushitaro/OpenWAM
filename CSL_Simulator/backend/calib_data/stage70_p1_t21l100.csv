@@ -1,0 +1,5 @@
+id,tag,rpm,load,in_spread,ex_spread,d_in_cam,d_ex_cam,ign,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+751fc95bf968,p1_t21l100,2400,100.0,75.0,93.0,0.0,0.0,23.0,,,,"{""intake.eq_tube.rail_tap_diameter"": ""21"", ""intake.eq_tube.rail_tap_length"": ""100""}",160.1,79.8,2.0063,25,0.0,1,1,0.0037,0,1,0,0,1036.7
+2bc301356cb2,p1_t21l100,2100,100.0,75.0,83.0,0.0,0.0,23.0,,,,"{""intake.eq_tube.rail_tap_diameter"": ""21"", ""intake.eq_tube.rail_tap_length"": ""100""}",162.96,68.9,2.3651,25,0.0,1,1,0.0036,0,1,0,0,1221.1
+1bd1ba2dfd3f,p1_t21l100,2700,100.0,80.0,93.0,0.0,0.0,24.0,,,,"{""intake.eq_tube.rail_tap_diameter"": ""21"", ""intake.eq_tube.rail_tap_length"": ""100""}",156.58,74.8,2.0933,25,-0.002,1,1,0.0035,0,1,0,1,1022.2
+beeec4aed86c,p1_t21l100,2900,100.0,80.0,93.0,0.0,0.0,26.0,,,,"{""intake.eq_tube.rail_tap_diameter"": ""21"", ""intake.eq_tube.rail_tap_length"": ""100""}",153.92,73.1,2.1056,25,0.0,1,1,0.0034,0,1,0,1,854.3

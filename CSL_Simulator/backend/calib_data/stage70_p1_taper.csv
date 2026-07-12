@@ -1,0 +1,8 @@
+id,tag,rpm,load,in_spread,ex_spread,d_in_cam,d_ex_cam,ign,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+d804d2a076d6,p1_taper,2400,100.0,75.0,93.0,0.0,0.0,23.0,,,,"{""intake.eq_tube.rail_tap_taper_end"": ""21""}",88.23,79.8,1.1057,31,0.2484,1,1,0.0937,0,1,0,1,682.1
+f59ad460b133,p1_taper,2100,100.0,75.0,83.0,0.0,0.0,23.0,,,,"{""intake.eq_tube.rail_tap_taper_end"": ""21""}",79.65,68.9,1.156,25,0.091,1,1,0.0212,0,1,0,1,810.9
+fb552746c185,p1_taper,2700,100.0,80.0,93.0,0.0,0.0,24.0,,,,"{""intake.eq_tube.rail_tap_taper_end"": ""21""}",75.75,74.8,1.0126,25,0.197,1,1,0.0116,0,1,0,1,613.6
+7ab02b4f489f,p1_taper,2900,100.0,80.0,93.0,0.0,0.0,26.0,,,,"{""intake.eq_tube.rail_tap_taper_end"": ""21""}",84.99,73.1,1.1626,26,0.2868,1,1,0.031,0,1,0,1,622.6
+9eddf3a0ed8f,p1_taper,3100,100.0,70.0,87.0,0.0,0.0,26.0,,,,"{""intake.eq_tube.rail_tap_taper_end"": ""21""}",100.31,68.4,1.4665,26,-0.1632,1,1,0.1169,0,1,0,1,496.3
+0551e783faf0,p1_taper,3900,100.0,70.0,87.0,0.0,0.0,25.0,,,,"{""intake.eq_tube.rail_tap_taper_end"": ""21""}",100.12,129.5,0.7731,38,-0.1626,1,1,0.1261,0,1,0,1,524.4
+3176ffb9005b,p1_taper,4600,100.0,88.0,104.0,0.0,0.0,27.0,,,,"{""intake.eq_tube.rail_tap_taper_end"": ""21""}",95.37,118.2,0.8069,42,0.2874,1,1,0.0725,0,1,0,1,468.5
