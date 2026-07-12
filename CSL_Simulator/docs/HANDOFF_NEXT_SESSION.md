@@ -1,5 +1,28 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **🔬🔬🔬🔬🔬🔬🔬🔬🔬 2026-07-12 — STAGE 70: VALLEY MECHANISM IDENTIFIED
+> (owner's structural corrections); RESEARCH IS NOW MEASUREMENT-GATED.
+> Read EXHAUST_STABILIZATION_NOTES Stage 70.**
+> Owner reported 3 model defects: eq_tube attaches to runner tops via
+> BRANCH PIPES (model had near-direct phi30x30 taps), the head->plenum
+> return hose was MISSING, exhaust lengths are placeholders. Probes:
+> **the 2100-3100 valley IS 1D-reproducible** — combo (tapered tap
+> phi30->21 [direct phi21 = numeric blow-up, 6.1:1>3:1] + head_return
+> 600mm): valley errors +13..+40 → −1.4..+12.8 (2400/2700 dead-on),
+> 3900 recovers to −10 via resonator interaction at alpha 0.8 (alpha
+> optimum is TOPOLOGY-DEPENDENT), mean|err| 16.4→12.6. 4600 = sole
+> broken column under taper (−26..−42) but P3 shows 4600 has −29pp
+> sensitivity to the UNMEASURED Section2 length. Real 3900-4400 peak =
+> 3D bank-differential box mode (1D-impossible, St.64) — two-mechanism
+> model of the car's 50pp step. Exhaust audit: header length −12..−43pp
+> across the valley, sec1 −26 @3900. **STOP: further placeholder sweeps
+> = fitting noise. GATE = owner measurements: (1) head-return hose
+> dia/length/route + cam-cover volume, (2) branch-pipe dia/length/
+> position, (3) header primary/sec1/sec2/muffler lengths. Then: rebuild
+> combo on real dims -> alpha refit -> R3 heatmap -> R5 VANOS re-run.**
+> New opt-ins (golden 12/12 green): intake.head_return.*,
+> eq_tube.rail_tap_taper_end. Data: stage70_*.csv.
+
 > **⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️ 2026-07-11 — STAGE 69: CALIBRATION-ARCHITECTURE
 > PURIFICATION COMPLETE; ⚡ALL STAGE 57-68 VE-LEVEL CONCLUSIONS BELOW THIS
 > BANNER ARE TIMING-INVALID. Read EXHAUST_STABILIZATION_NOTES Stage 69 +
