@@ -1470,7 +1470,9 @@ class WAMGenerator:
         # User Spec: 400mm -> H-Pipe (200mm) -> 800mm. Total 1400mm.
         sec2_total_len = c.exhaust.section2.length / 1000.0
         h_len = 0.2 # 200mm for H-section
-        part2_1_len = 0.4 # 400mm
+        # Stage 72: H position from config (owner diagram: H sits right after
+        # the cats, ~80mm; 400mm default = legacy hardcode, byte-identical).
+        part2_1_len = c.exhaust.section2.h_offset / 1000.0
         part2_2_len = max(0.1, sec2_total_len - part2_1_len - h_len) # 800mm
         dia2 = c.exhaust.section2.diameter / 1000.0
         
@@ -1528,8 +1530,34 @@ class WAMGenerator:
         c_s22_to_muf = self._create_pipe_to_pipe_connection()
         c_s22_to_muf_R = self._create_pipe_to_pipe_connection()
         
-        self._add_pipe(p5_1, "Sec2_2_L", part2_2_len, dia2, dia2, 350, c5_1_start, c_s22_to_muf)
-        self._add_pipe(p5_2, "Sec2_2_R", part2_2_len, dia2, dia2, 350, c5_2_start, c_s22_to_muf_R)
+        # Stage 72: optional straight-through RESONATOR (owner diagram) inline
+        # in Sec2_2 -- an enlarged, high-friction segment (absorber), per side.
+        # resonator_length 0 (default) = legacy single Sec2_2 pipes.
+        _rz = c.exhaust.section2
+        _rz_len = _rz.resonator_length / 1000.0
+        if _rz_len > 0:
+            _rz_dia = _rz.resonator_diameter / 1000.0
+            _rz_off = min(_rz.resonator_offset / 1000.0, max(0.05, part2_2_len - _rz_len - 0.05))
+            _tail = max(0.05, part2_2_len - _rz_off - _rz_len)
+            pr1 = self.pipe_counter; self.pipe_counter += 1
+            pr2 = self.pipe_counter; self.pipe_counter += 1
+            pt1 = self.pipe_counter; self.pipe_counter += 1
+            pt2 = self.pipe_counter; self.pipe_counter += 1
+            cA1 = self._create_pipe_to_pipe_connection()
+            cA2 = self._create_pipe_to_pipe_connection()
+            cB1 = self._create_pipe_to_pipe_connection()
+            cB2 = self._create_pipe_to_pipe_connection()
+            self._add_pipe(p5_1, "Sec2_2_L", _rz_off, dia2, dia2, 350, c5_1_start, cA1)
+            self._add_pipe(p5_2, "Sec2_2_R", _rz_off, dia2, dia2, 350, c5_2_start, cA2)
+            self._add_pipe(pr1, "Resonator_L", _rz_len, _rz_dia, _rz_dia, 350, cA1, cB1,
+                           friction=_rz.resonator_friction)
+            self._add_pipe(pr2, "Resonator_R", _rz_len, _rz_dia, _rz_dia, 350, cA2, cB2,
+                           friction=_rz.resonator_friction)
+            self._add_pipe(pt1, "Sec2_3_L", _tail, dia2, dia2, 350, cB1, c_s22_to_muf)
+            self._add_pipe(pt2, "Sec2_3_R", _tail, dia2, dia2, 350, cB2, c_s22_to_muf_R)
+        else:
+            self._add_pipe(p5_1, "Sec2_2_L", part2_2_len, dia2, dia2, 350, c5_1_start, c_s22_to_muf)
+            self._add_pipe(p5_2, "Sec2_2_R", part2_2_len, dia2, dia2, 350, c5_2_start, c_s22_to_muf_R)
         
         node_left, node_right = c_s22_to_muf, c_s22_to_muf_R
 

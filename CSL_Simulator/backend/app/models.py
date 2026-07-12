@@ -361,6 +361,15 @@ class Section2Config(ExhaustSectionConfig):
     resonator_fitted: bool = False # User didn't mention resonator, just pipes
     resonator_location: str = "none"
     # Logic needs to split this based on H-Pipe location
+    # Stage 72 (owner's stock-exhaust diagram): the real H sits IMMEDIATELY
+    # after the cats (h_offset ~80), and a straight-through RESONATOR sits
+    # mid-pipe between the H and the rear muffler. Defaults = legacy
+    # (byte-identical: h_offset 400 was the old hardcode; resonator 0 = absent).
+    h_offset: float = 400.0          # mm cat-exit -> H section
+    resonator_length: float = 0.0    # mm (0 = no resonator)
+    resonator_diameter: float = 90.0 # mm case bore (straight-through absorber)
+    resonator_offset: float = 400.0  # mm H-exit -> resonator inlet
+    resonator_friction: float = 0.1  # perforated/absorptive lining
 
 class Section3Config(ExhaustSectionConfig):
     name: str = "Muffler"
