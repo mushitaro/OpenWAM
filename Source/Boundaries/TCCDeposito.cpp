@@ -78,6 +78,8 @@ struct TBoxModeROM {
   double lastT = -1.0;
   double fAcc = 0.0;  // bank-differential flow accumulated THIS step
   double fPrev = 0.0; // forcing applied during the step being integrated
+  int fN = 0;         // contributions in fAcc (normalizer)
+  double fEma = 0.0;  // v2: one-pole smoothed forcing (tames impulsive noise)
 };
 static TBoxModeROM BoxMode;
 
@@ -673,14 +675,27 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
       if (tNow > BoxMode.lastT) { // first boundary of a new global step
         double dt = (BoxMode.lastT < 0.0) ? 0.0 : (tNow - BoxMode.lastT);
         if (dt > 0.0 && dt < 0.01) {
-          BoxMode.fPrev = BoxMode.fAcc;
+          // v2: normalize the accumulated bank-differential flow by its
+          // contribution count and one-pole smooth it (tau ~ 1 ms) -- the raw
+          // per-fire sum was impulsive (6 mouths x ~16 global steps) and blew
+          // pure-timing decks up at every gain.
+          double fRaw = (BoxMode.fN > 0) ? BoxMode.fAcc / BoxMode.fN : 0.0;
+          double aEma = dt / (0.001 + dt); // tau = 1 ms
+          BoxMode.fEma += aEma * (fRaw - BoxMode.fEma);
+          BoxMode.fPrev = BoxMode.fEma;
           double acc = BoxMode.gain * BoxMode.w * BoxMode.w * BoxMode.fPrev -
                        2.0 * BoxMode.zeta * BoxMode.w * BoxMode.qd -
                        BoxMode.w * BoxMode.w * BoxMode.q;
           BoxMode.qd += acc * dt; // semi-implicit Euler (energy-stable)
           BoxMode.q += BoxMode.qd * dt;
+          // hard amplitude guard: the mode is a perturbation; cap |q| at 8 kPa
+          // so a mis-scaled gain degrades gracefully instead of draining a
+          // plenum (the probe scans gain over decades).
+          if (BoxMode.q > 8000.0) BoxMode.q = 8000.0;
+          if (BoxMode.q < -8000.0) BoxMode.q = -8000.0;
         }
         BoxMode.fAcc = 0.0;
+        BoxMode.fN = 0;
         BoxMode.lastT = Time;
         if (getenv("OPENWAM_BOX_MODE_DIAG")) {
           static long bmDiag = 0;
@@ -881,6 +896,7 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
         (FSentidoFlujo == nmEntrante || FSentidoFlujo == nmSaliente)) {
       double s = (FSentidoFlujo == nmSaliente) ? 1.0 : -1.0;
       BoxMode.fAcc += FBoxModeSign * s * fabs(FGasto);
+      BoxMode.fN += 1;
     }
 
     FValvula->AcumulaCDMedio(Time);
