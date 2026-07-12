@@ -1,0 +1,7 @@
+id,tag,rpm,load,in_spread,ex_spread,d_in_cam,d_ex_cam,ign,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+12b28cc4fb0c,v8_min,1600,100.0,70.0,83.0,0.0,0.0,18.0,,,,"{""exhaust.section2.diameter"": ""49.6"", ""exhaust.section2.h_offset"": ""80""}",67.66,105.3,0.6426,25,0.1268,1,1,0.0243,0,1,0,1,1113.9
+a8880bcd6e6e,v8_min,1300,100.0,70.0,83.0,0.0,0.0,17.0,,,,"{""exhaust.section2.diameter"": ""49.6"", ""exhaust.section2.h_offset"": ""80""}",67.8,66.6,1.018,25,0.1314,1,1,0.0217,0,1,0,1,1656.7
+2f22fcb219eb,v8_min,2700,100.0,80.0,93.0,0.0,0.0,24.0,,,,"{""exhaust.section2.diameter"": ""49.6"", ""exhaust.section2.h_offset"": ""80""}",1650.72,74.8,22.0684,25,0.3388,0,0,12.2857,2,1,1,0,1803.5
+a2d72e69c37e,v8_min,6300,100.0,96.0,108.0,0.0,0.0,29.0,,,,"{""exhaust.section2.diameter"": ""49.6"", ""exhaust.section2.h_offset"": ""80""}",141.24,109.7,1.2875,40,0.2933,1,1,0.0311,0,1,0,1,489.0
+dffe86fbb26b,v8_min,3900,100.0,70.0,87.0,0.0,0.0,25.0,,,,"{""exhaust.section2.diameter"": ""49.6"", ""exhaust.section2.h_offset"": ""80""}",93.15,129.5,0.7193,55,0.2835,1,1,0.0202,0,1,0,1,1192.7
+e5359e9d2fbc,v8_min,6900,100.0,111.0,111.0,0.0,0.0,27.0,,,,"{""exhaust.section2.diameter"": ""49.6"", ""exhaust.section2.h_offset"": ""80""}",136.58,107.0,1.2764,41,0.2751,1,1,0.039,0,1,0,1,642.1
