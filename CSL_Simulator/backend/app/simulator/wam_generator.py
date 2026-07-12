@@ -1564,7 +1564,26 @@ class WAMGenerator:
         # --- MUFFLER & TAILPIPES ---
         muffler_id = self.plenum_counter; self.plenum_counter += 1
         muff_vol_m3 = max(c.exhaust.section3.volume / 1000.0, 0.030)
-        self._add_plenum(muffler_id, "Muffler_Dual", muff_vol_m3, 400)
+        _s3 = c.exhaust.section3
+        _muf_chambers = _s3.internal_model == "chambers"
+        if _muf_chambers:
+            # Stage 72: multi-pass reflection internals (owner diagram).
+            # muffler_id becomes ChamberA (inlet side); ChamberB feeds tails.
+            _va = muff_vol_m3 * min(max(_s3.chamber_split, 0.1), 0.9)
+            _vb = muff_vol_m3 - _va
+            self._add_plenum(muffler_id, "Muf_ChamberA", _va, 400)
+            _muf_b_id = self.plenum_counter; self.plenum_counter += 1
+            self._add_plenum(_muf_b_id, "Muf_ChamberB", _vb, 380)
+            _pp_dia = _s3.pass_diameter / 1000.0
+            for _i, _plen in ((1, _s3.pass1_length), (2, _s3.pass2_length)):
+                _pp = self.pipe_counter; self.pipe_counter += 1
+                _ca = self._add_con_plenum_pipe_v2(muffler_id, _pp, 0)
+                _cb = self._add_con_plenum_pipe_v2(_muf_b_id, _pp, 1)
+                self._add_pipe(_pp, f"Muf_Pass{_i}", _plen / 1000.0,
+                               _pp_dia, _pp_dia, 390, _ca, _cb,
+                               friction=_s3.pass_friction, dx_mesh=0.05)
+        else:
+            self._add_plenum(muffler_id, "Muffler_Dual", muff_vol_m3, 400)
         
         # Connect to Muffler
         if c.exhaust.section2.layout == "Single":
@@ -1609,10 +1628,11 @@ class WAMGenerator:
         tail_len = c.exhaust.section3.tailpipe_length / 1000.0
         tail_dia = c.exhaust.section3.diameter / 1000.0
         
+        _tail_src = _muf_b_id if _muf_chambers else muffler_id
         for i in range(2):
             pid_tail = self.pipe_counter; self.pipe_counter += 1
             cid_muf_out = self.connection_counter
-            self._add_con_plenum_pipe_v2(muffler_id, pid_tail, 0) 
+            self._add_con_plenum_pipe_v2(_tail_src, pid_tail, 0) 
             cid_amb_out = self.connection_counter
             self._add_con_plenum_pipe_v2(amb_out_id, pid_tail, 1)
             self._add_pipe(pid_tail, f"Tail_{i+1}", tail_len, tail_dia, tail_dia, 350, cid_muf_out, cid_amb_out)

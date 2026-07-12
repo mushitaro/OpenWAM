@@ -376,6 +376,17 @@ class Section3Config(ExhaustSectionConfig):
     muffler_type: str = "Reflection"
     tailpipe_length: float = 150.0
     volume: float = 15.0 # Liters
+    # Stage 72 (owner diagram): the real rear muffler is a multi-pass
+    # reflection case (~1500x550x200): gases enter a chamber, run 180-deg
+    # (~1.7m) and 360-deg (~2.9m) internal pass pipes, hit the wall chamber
+    # and exit to the tips. "single" = legacy one-volume (byte-identical);
+    # "chambers" = ChamberA -> two pass pipes -> ChamberB -> tails.
+    internal_model: str = "single"
+    chamber_split: float = 0.6      # ChamberA volume fraction
+    pass1_length: float = 1700.0    # mm (180-deg path)
+    pass2_length: float = 2900.0    # mm (360-deg path)
+    pass_diameter: float = 50.0     # mm internal pass-pipe bore
+    pass_friction: float = 0.1
 
 class ExhaustConfig(BaseModel):
     headers: HeaderConfig = HeaderConfig()
