@@ -1311,7 +1311,11 @@ class WAMGenerator:
             # End connects to collector branch junction (Type 12)
             header_len = c.exhaust.headers.primary_length / 1000.0
             header_dia = c.exhaust.headers.primary_diameter / 1000.0
-            col_dia = c.exhaust.headers.collector_dia / 1000.0
+            # Stage 71: primary exit dia. None = legacy taper to collector_dia
+            # (byte-identical); measured car = constant phi37.6 (no taper).
+            _ped = c.exhaust.headers.primary_end_diameter
+            col_dia = (_ped / 1000.0 if _ped is not None
+                       else c.exhaust.headers.collector_dia / 1000.0)
 
             pid_prim = self.pipe_counter; self.pipe_counter += 1
             self.ids['headers'].append(pid_prim)
@@ -1325,7 +1329,9 @@ class WAMGenerator:
 
         # COLLECTOR OUTPUT PIPES
         # Col_Out left_node = same branch junction CID (Type 12)
-        col_out_len = 0.500  # 500mm
+        # Stage 71: length from config (500mm was a hardcoded placeholder;
+        # measured car = 90mm merged 3x-primary-area body).
+        col_out_len = c.exhaust.headers.collector_length / 1000.0
         col_out_dia = c.exhaust.headers.collector_dia / 1000.0  # Model default 68mm
         
         p_buf1 = self.pipe_counter; self.pipe_counter += 1
@@ -1349,7 +1355,10 @@ class WAMGenerator:
         
         cat_len = c.exhaust.catalyst.length / 1000.0 if c.exhaust.catalyst.installed else 0.0
         sec1_total_len = s1.length / 1000.0
-        part1_1_len = s1.cat_offset / 1000.0 # 600mm
+        part1_1_len = s1.cat_offset / 1000.0 # bank 1 (L) collector -> crossover
+        # Stage 71: bank-asymmetric legs (measured: 680 L / 730 R). section1_2
+        # defaults to the same values -> byte-identical legacy decks.
+        part1_1_len_R = s2.cat_offset / 1000.0
         part1_2_len = max(0.1, sec1_total_len - part1_1_len - cat_len) # Remainder (~300mm)
         dia1 = s1.diameter / 1000.0
         
@@ -1385,7 +1394,7 @@ class WAMGenerator:
             print("DEBUG: Section-1 crossover = X-Pipe (owner equal-length crosspipe)")
             xj = self._create_branch_junction()
             self._add_pipe(p1_1, "Sec1_1_L", part1_1_len, dia1, dia1, 380, c1_1_start, xj)
-            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len, dia1, dia1, 380, c1_2_start, xj)
+            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len_R, dia1, dia1, 380, c1_2_start, xj)
             node_left, node_right = xj, xj
         elif _s1_cross == "h":
             # H / balance tube: each bank flows straight through its own 3-pipe
@@ -1398,7 +1407,7 @@ class WAMGenerator:
             jR = self._create_branch_junction()
             p_s1cross = self.pipe_counter; self.pipe_counter += 1
             self._add_pipe(p1_1, "Sec1_1_L", part1_1_len, dia1, dia1, 380, c1_1_start, jL)
-            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len, dia1, dia1, 380, c1_2_start, jR)
+            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len_R, dia1, dia1, 380, c1_2_start, jR)
             self._add_pipe(p_s1cross, "Sec1_H_Cross", s1_cross_len, dia1, dia1, 380, jL, jR)
             node_left, node_right = jL, jR
         else:
@@ -1408,10 +1417,35 @@ class WAMGenerator:
             c_s11_to_cat = self._create_pipe_to_pipe_connection()
             c_s11_to_cat_R = self._create_pipe_to_pipe_connection()
             self._add_pipe(p1_1, "Sec1_1_L", part1_1_len, dia1, dia1, 380, c1_1_start, c_s11_to_cat)
-            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len, dia1, dia1, 380, c1_2_start, c_s11_to_cat_R)
+            self._add_pipe(p1_2, "Sec1_1_R", part1_1_len_R, dia1, dia1, 380, c1_2_start, c_s11_to_cat_R)
             # node_left/right hold the Type 6 connection IDs for the next section
             node_left, node_right = c_s11_to_cat, c_s11_to_cat_R
         
+        # --- Stage 71: measured pipe between the crossover and the cats -------
+        # Real car: cross -> 440mm straight (phi52.6) -> 120mm taper -> cat.
+        # cross_to_cat = 0 (default) = legacy (cat starts at the crossover node,
+        # byte-identical). With the X layout the two mid pipes both leave the
+        # single X junction (4-pipe Type-12, same primitive as the collectors).
+        _mid_len = s1.cross_to_cat / 1000.0
+        if _mid_len > 0:
+            p_m1 = self.pipe_counter; self.pipe_counter += 1
+            p_m2 = self.pipe_counter; self.pipe_counter += 1
+            c_m1_end = self._create_pipe_to_pipe_connection()
+            c_m2_end = self._create_pipe_to_pipe_connection()
+            self._add_pipe(p_m1, "Sec1_Mid_L", _mid_len, dia1, dia1, 380, node_left, c_m1_end)
+            self._add_pipe(p_m2, "Sec1_Mid_R", _mid_len, dia1, dia1, 380, node_right, c_m2_end)
+            node_left, node_right = c_m1_end, c_m2_end
+        _ctap_len = s1.cat_taper_length / 1000.0
+        if _ctap_len > 0 and c.exhaust.catalyst.installed:
+            _cat_dia = c.exhaust.catalyst.diameter / 1000.0
+            p_t1 = self.pipe_counter; self.pipe_counter += 1
+            p_t2 = self.pipe_counter; self.pipe_counter += 1
+            c_t1_end = self._create_pipe_to_pipe_connection()
+            c_t2_end = self._create_pipe_to_pipe_connection()
+            self._add_pipe(p_t1, "Sec1_CatTaper_L", _ctap_len, dia1, _cat_dia, 380, node_left, c_t1_end)
+            self._add_pipe(p_t2, "Sec1_CatTaper_R", _ctap_len, dia1, _cat_dia, 380, node_right, c_t2_end)
+            node_left, node_right = c_t1_end, c_t2_end
+
         # Catalyst
         if c.exhaust.catalyst.installed:
             node_left, node_right = self._add_catalyst_section(node_left, node_right, c.exhaust.catalyst, "FrontCat")

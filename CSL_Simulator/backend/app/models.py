@@ -297,11 +297,18 @@ class EngineConfig(BaseModel):
 # 3. Exhaust System (Modular Toplogy)
 class HeaderConfig(BaseModel):
     type: str = "Stock Euro"
-    primary_length: float = 300.0 # mm [KI Master Spec: 300mm Headers]
+    primary_length: float = 300.0 # mm [measured 2026-07-12: 300mm, phi40 OD ~= 37.6 ID]
     primary_diameter: float = 48.0 # mm
+    # Stage 71: primary EXIT diameter. None = legacy (tapers to collector_dia,
+    # byte-identical). Measured car: primaries stay phi37.6 (no taper) into the
+    # 90mm collector body.
+    primary_end_diameter: Optional[float] = None
     collector_count: int = 2 # 2 for 6-cyl (3-into-1 x 2)
     collector_vol: float = 1.5 # Liters
-    collector_dia: float = 68.0 # mm
+    collector_dia: float = 68.0 # mm (measured body: 3x phi40 area -> ~65 equiv ID)
+    # Stage 71: collector body length (the Col_Out pipe). 500mm was a hardcoded
+    # placeholder; measured car = 90mm merged section (3x primary area).
+    collector_length: float = 500.0 # mm
     wall_temp: float = 800.0 # K
     heat_coeff: float = 45.0
     header_friction: float = 0.02 # Stainless Smooth (was 0.5)
@@ -335,10 +342,17 @@ class Section1Config(ExhaustSectionConfig): # Backward Compat wrap
     length: float = 1200.0 # Total Length (600 + 300 + 300)
     cat_fitted: bool = True
     cat_offset: float = 600.0 # mm from start (Section 1-1 Length)
-    # Cat length is usually defined in CatalystConfig, or we assume implicit? 
+    # Cat length is usually defined in CatalystConfig, or we assume implicit?
     # Let's assume the conversion logic splits this based on `catalyst` config or internal logic.
     # User said: Sec1-1(600) -> Cat(300) -> Sec1-2(300). Total 1200.
     crossover_type: str = "none" # Straight
+    # Stage 71 (measured 2026-07-12): the real car has PIPE between the
+    # crosspipe and the cats -- cross -> 440mm phi52.6 -> 120mm taper -> cat.
+    # 0.0 = legacy (cat starts at the X junction; byte-identical).
+    # Per-bank asymmetric legs: the generator reads section1_1.cat_offset for
+    # bank 1 (measured 680) and section1_2.cat_offset for bank 2 (730).
+    cross_to_cat: float = 0.0     # mm straight run after the crossover
+    cat_taper_length: float = 0.0 # mm taper (section dia -> catalyst dia)
 
 class Section2Config(ExhaustSectionConfig):
     name: str = "Section 2"
