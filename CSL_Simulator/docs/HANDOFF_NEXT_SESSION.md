@@ -1,5 +1,27 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **📐📐📐📐📐📐📐📐📐 2026-07-12 (LATEST) — STAGE 71: OWNER-MEASURED DIMS
+> WIRED; THE 1D EITHER/OR THEOREM. Read EXHAUST_STABILIZATION_NOTES
+> Stage 71.** Measured: head-return 250x15 (cam-cover VOLUME unmeasured —
+> ladder shows 1-2L makes 2400 dead-on; 3L/5L break it), eq branch 50xphi10
+> (phi10 ends NOT representable — every variant diverges at the 21:10 rail
+> tee; stable forms: phi21x30 taper / phi15x225 equiv), exhaust primaries
+> 300x37.6ID, collector 90mm (65 equiv), **sec1 legs EQUAL 750/750
+> (corrected)**, cross->440->taper120->cat 180x105.6 (1.2mm wall assumed).
+> Generator knobs committed 4f70daf (default-neutral, golden 12/12):
+> collector_length, primary_end_diameter, per-bank cat_offset,
+> cross_to_cat + cat_taper_length. **THEOREM: 1D holds EITHER the
+> resonator valley (2100 -0.6 / 2400 +0.8 / 2700 -4.0 / 2900 -0.1 each
+> achieved) OR the 3900-4600 recovery (alpha-crutch, no resonators) —
+> never both; the car's recovery = the 3D bank-differential box mode
+> (St.64, 1D-impossible). OWNER DECISION PENDING: (A) keep frozen
+> Stage-69 twin / (B) adopt measured-resonator twin (valley right,
+> 3900-4600 low) / (C) band-split twin — optimize valley VANOS rows on B,
+> 3900+ rows on A.** Best measured twin: v4(+vol2) ~16 mean|err|; S70
+> placeholder combo 12.6; production 16.4. Still unmeasured: cam-cover
+> effective volume, Section2, muffler, wall thickness. Data:
+> stage71_*.csv.
+
 > **🔬🔬🔬🔬🔬🔬🔬🔬🔬 2026-07-12 — STAGE 70: VALLEY MECHANISM IDENTIFIED
 > (owner's structural corrections); RESEARCH IS NOW MEASUREMENT-GATED.
 > Read EXHAUST_STABILIZATION_NOTES Stage 70.**
