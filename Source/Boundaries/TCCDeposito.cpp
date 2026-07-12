@@ -691,8 +691,8 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
           // hard amplitude guard: the mode is a perturbation; cap |q| at 8 kPa
           // so a mis-scaled gain degrades gracefully instead of draining a
           // plenum (the probe scans gain over decades).
-          if (BoxMode.q > 8000.0) BoxMode.q = 8000.0;
-          if (BoxMode.q < -8000.0) BoxMode.q = -8000.0;
+          if (BoxMode.q > 1000.0) BoxMode.q = 1000.0;
+          if (BoxMode.q < -1000.0) BoxMode.q = -1000.0;
         }
         BoxMode.fAcc = 0.0;
         BoxMode.fN = 0;
@@ -716,8 +716,17 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
         BoxMode.fEma = 0.0;
         FBoxModeDp = 0.0;
       } else {
-        FBoxModeDp = (FBoxModeSign > 0) ? BoxMode.q
-                                        : (FBoxModeSign < 0 ? -BoxMode.q : 0.0);
+        // v4: engage GRADUALLY -- ramp the applied perturbation from 0 to
+        // full over 0.1 s after engagement (the v3 step engagement killed
+        // the run at cyc5 regardless of gain: a loop instability, masked by
+        // the old 8 kPa cap; soft engagement + tighter cap let the flow
+        // field track the growing mode instead of shocking it).
+        double ramp = (tNow - 0.15) / 0.10;
+        if (ramp > 1.0)
+          ramp = 1.0;
+        FBoxModeDp = ramp * ((FBoxModeSign > 0)
+                                 ? BoxMode.q
+                                 : (FBoxModeSign < 0 ? -BoxMode.q : 0.0));
       }
     } else {
       FBoxModeDp = 0.0;
