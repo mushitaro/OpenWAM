@@ -1,0 +1,8 @@
+id,tag,rpm,load,in_spread,ex_spread,d_in_cam,d_ex_cam,ign,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+20f01ad64acd,p2_hret800,2100,100.0,75.0,83.0,0.0,0.0,23.0,,,,"{""intake.head_return.enabled"": ""true"", ""intake.head_return.pipe_length"": ""800""}",98.52,68.9,1.4299,43,0.2952,1,1,0.0025,0,1,0,1,1011.7
+43131d13cd0b,p2_hret800,2400,100.0,75.0,93.0,0.0,0.0,23.0,,,,"{""intake.head_return.enabled"": ""true"", ""intake.head_return.pipe_length"": ""800""}",98.6,79.8,1.2355,42,0.2692,1,1,0.0078,0,1,0,1,1025.2
+b7ac0524e0a1,p2_hret800,2900,100.0,80.0,93.0,0.0,0.0,26.0,,,,"{""intake.head_return.enabled"": ""true"", ""intake.head_return.pipe_length"": ""800""}",73.0,73.1,0.9986,25,-0.0475,1,1,0.0122,0,1,0,1,358.3
+876e482d1b1f,p2_hret800,2700,100.0,80.0,93.0,0.0,0.0,24.0,,,,"{""intake.head_return.enabled"": ""true"", ""intake.head_return.pipe_length"": ""800""}",95.88,74.8,1.2819,42,0.2783,1,1,0.0071,0,1,0,1,846.9
+14355278dac1,p2_hret800,3100,100.0,70.0,87.0,0.0,0.0,26.0,,,,"{""intake.head_return.enabled"": ""true"", ""intake.head_return.pipe_length"": ""800""}",82.33,68.4,1.2037,25,0.0572,1,1,0.0324,0,1,0,1,624.0
+f8447272d42c,p2_hret800,3900,100.0,70.0,87.0,0.0,0.0,25.0,,,,"{""intake.head_return.enabled"": ""true"", ""intake.head_return.pipe_length"": ""800""}",74.29,129.5,0.5737,25,-0.0325,1,1,0.0387,0,1,0,1,334.1
+d2fdb3a15e63,p2_hret800,4600,100.0,88.0,104.0,0.0,0.0,27.0,,,,"{""intake.head_return.enabled"": ""true"", ""intake.head_return.pipe_length"": ""800""}",118.12,118.2,0.9993,33,0.277,1,1,0.0094,0,1,0,1,273.8

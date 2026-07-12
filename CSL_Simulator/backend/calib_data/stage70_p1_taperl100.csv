@@ -1,0 +1,8 @@
+id,tag,rpm,load,in_spread,ex_spread,d_in_cam,d_ex_cam,ign,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s
+63e153cd921d,p1_taperl100,2100,100.0,75.0,83.0,0.0,0.0,23.0,,,,"{""intake.eq_tube.rail_tap_length"": ""100"", ""intake.eq_tube.rail_tap_taper_end"": ""21""}",115.11,68.9,1.6707,27,0.2282,1,1,0.0425,0,1,0,1,680.0
+336cdcaeaf70,p1_taperl100,2400,100.0,75.0,93.0,0.0,0.0,23.0,,,,"{""intake.eq_tube.rail_tap_length"": ""100"", ""intake.eq_tube.rail_tap_taper_end"": ""21""}",88.31,79.8,1.1066,39,0.279,1,1,0.054,0,1,0,1,1010.4
+db3ec1712e57,p1_taperl100,2900,100.0,80.0,93.0,0.0,0.0,26.0,,,,"{""intake.eq_tube.rail_tap_length"": ""100"", ""intake.eq_tube.rail_tap_taper_end"": ""21""}",76.65,73.1,1.0486,25,0.0501,1,1,0.0093,0,1,0,1,497.2
+c6424a7a0d62,p1_taperl100,3100,100.0,70.0,87.0,0.0,0.0,26.0,,,,"{""intake.eq_tube.rail_tap_length"": ""100"", ""intake.eq_tube.rail_tap_taper_end"": ""21""}",85.7,68.4,1.253,26,0.2757,1,1,0.0255,0,1,0,1,374.7
+9bb2228b70c2,p1_taperl100,2700,100.0,80.0,93.0,0.0,0.0,24.0,,,,"{""intake.eq_tube.rail_tap_length"": ""100"", ""intake.eq_tube.rail_tap_taper_end"": ""21""}",92.14,74.8,1.2318,59,-0.368,0,1,0.0444,0,1,0,0,1456.3
+00ee417cbcd8,p1_taperl100,3900,100.0,70.0,87.0,0.0,0.0,25.0,,,,"{""intake.eq_tube.rail_tap_length"": ""100"", ""intake.eq_tube.rail_tap_taper_end"": ""21""}",110.69,129.5,0.8547,44,0.2647,1,1,0.0873,0,1,0,1,638.7
+1f9c23c1ae5d,p1_taperl100,4600,100.0,88.0,104.0,0.0,0.0,27.0,,,,"{""intake.eq_tube.rail_tap_length"": ""100"", ""intake.eq_tube.rail_tap_taper_end"": ""21""}",130.68,118.2,1.1056,34,-0.0345,1,1,0.0696,0,1,0,1,570.9

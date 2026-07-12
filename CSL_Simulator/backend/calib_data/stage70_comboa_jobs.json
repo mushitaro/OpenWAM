@@ -1,0 +1,101 @@
+[
+ {
+  "rpm": 3900,
+  "load": 100,
+  "alpha": 0.7,
+  "tag": "comboA0.7",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "alpha": 0.7,
+  "tag": "comboA0.7",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ },
+ {
+  "rpm": 2100,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "comboA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ },
+ {
+  "rpm": 2400,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "comboA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "comboA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ },
+ {
+  "rpm": 2900,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "comboA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ },
+ {
+  "rpm": 3100,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "comboA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "comboA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "comboA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21",
+   "intake.head_return.enabled": "true",
+   "intake.head_return.pipe_length": "600"
+  }
+ }
+]

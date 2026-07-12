@@ -1,0 +1,65 @@
+[
+ {
+  "rpm": 3100,
+  "load": 100,
+  "alpha": 0.7,
+  "tag": "tapA0.7",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "alpha": 0.7,
+  "tag": "tapA0.7",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "alpha": 0.7,
+  "tag": "tapA0.7",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21"
+  }
+ },
+ {
+  "rpm": 3100,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "tapA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "tapA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "tapA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "alpha": 0.8,
+  "tag": "tapA0.8",
+  "set": {
+   "intake.eq_tube.rail_tap_taper_end": "21"
+  }
+ }
+]
