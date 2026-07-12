@@ -98,6 +98,21 @@ private:
   // boundary skips -> bit-identical to legacy.
   bool FMouthRadSkip;    // this CC is in the skip list (cached with the env read)
 
+  // --- Stage 72: gated bank-differential box-mode ROM (env OPENWAM_BOX_MODE,
+  // default OFF = bit-identical). The 0D plenum is perfectly mixed and cannot
+  // host the real airbox's internal anti-symmetric (bank-differential)
+  // standing wave (~318 Hz, order 4.5 = the real car's 3900-4400 VE recovery;
+  // Stage 64 census). This ROM adds ONE global oscillator q(t) [Pa]:
+  //   qdd + 2*zeta*w*qd + w^2*q = gain*w^2*F,   F = sum(sgn_cc * FGasto)
+  // (F = bank-differential boundary flow), and every listed mouth CC sees the
+  // plenum through a LOCALLY perturbed state P + sgn*q (speed of sound scaled
+  // isentropically) -- the "slosh" the perfectly mixed 0D volume lacks.
+  // OPENWAM_BOX_MODE="freq_hz,zeta,gain"; _CC1/_CC2 = comma CC lists (+/-).
+  int FBoxModeSign;   // +1 bank1, -1 bank2, 0 unlisted; -2 = env not yet cached
+  double FBoxModeDp;  // this call's local pressure perturbation [Pa]
+  double PlenumP();   // FDeposito pressure + FBoxModeDp (defined in .cpp)
+  double PlenumA();   // FDeposito speedsound, isentropically consistent
+
   double FRegimen;
 
   double FGamma1;

@@ -61,6 +61,57 @@ Valencia
 #include "TCanalDPF.h"
 
 // ---------------------------------------------------------------------------
+// Stage 72: bank-differential box-mode ROM state (ONE global oscillator; the
+// CSL model has a single main plenum). Gated by env OPENWAM_BOX_MODE
+// ("freq_hz,zeta,gain"); unset -> on=false -> bit-identical legacy behaviour.
+// Deterministic only at OMP_NUM_THREADS=1 (like the whole calibration stack).
+// ---------------------------------------------------------------------------
+namespace {
+struct TBoxModeROM {
+  bool parsed = false;
+  bool on = false;
+  double w = 0.0;    // 2*pi*freq
+  double zeta = 0.1; // modal damping ratio
+  double gain = 0.0; // [Pa/(unit FGasto)] modal forcing gain
+  double q = 0.0;    // modal pressure amplitude [Pa]
+  double qd = 0.0;
+  double lastT = -1.0;
+  double fAcc = 0.0;  // bank-differential flow accumulated THIS step
+  double fPrev = 0.0; // forcing applied during the step being integrated
+};
+static TBoxModeROM BoxMode;
+
+static bool BoxModeCCListed(const char *env, int cc) {
+  const char *p = getenv(env);
+  if (!p)
+    return false;
+  while (*p) {
+    char *endp = NULL;
+    long v = strtol(p, &endp, 10);
+    if (endp == p) {
+      ++p;
+      continue;
+    }
+    if ((int)v == cc)
+      return true;
+    p = endp;
+  }
+  return false;
+}
+} // namespace
+
+double TCCDeposito::PlenumP() {
+  return FDeposito->getPressure() + FBoxModeDp;
+}
+
+double TCCDeposito::PlenumA() {
+  if (FBoxModeDp == 0.0)
+    return FDeposito->getSpeedsound(); // exact legacy value when unperturbed
+  double P = FDeposito->getPressure();
+  return FDeposito->getSpeedsound() * pow((P + FBoxModeDp) / P, 1.0 / FGamma4);
+}
+
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
 TCCDeposito::TCCDeposito(nmTypeBC TipoCC, int numCC,
@@ -86,6 +137,10 @@ TCCDeposito::TCCDeposito(nmTypeBC TipoCC, int numCC,
   FMouthRadGated = false;
   FVelBar = 0.0;
   FMouthRadSkip = false;
+
+  // Stage 72: box-mode ROM (env OPENWAM_BOX_MODE); off by default.
+  FBoxModeSign = -2; // sentinel: env not yet read
+  FBoxModeDp = 0.0;
 
   FTime0 = 0.;
   FTime1 = 0.;
@@ -417,7 +472,7 @@ void TCCDeposito::CalculaCoeficientesDescarga(double TiempoActual,
       } else
         NodoFin = FTuboExtremo[0].Pipe->getNin() - 1;
       DeltaP =
-          FTuboExtremo[0].Pipe->GetPresion(NodoFin) - FDeposito->getPressure();
+          FTuboExtremo[0].Pipe->GetPresion(NodoFin) - PlenumP();
       dynamic_cast<TLamina *>(FValvula)->CalculaCD(
           DeltaP, FTuboExtremo[0].Pipe->getTime1());
       break;
@@ -478,7 +533,7 @@ void TCCDeposito::CalculaCoeficientesDescarga(double TiempoActual,
       } else
         NodoFin = FTuboExtremo[0].Pipe->getNin() - 1;
       PTub = FTuboExtremo[0].Pipe->GetPresion(NodoFin);
-      PVol = FDeposito->getPressure();
+      PVol = PlenumP();
       nodoadm = dynamic_cast<TWasteGate *>(FValvula)->getNodoAdm();
       distancia = dynamic_cast<TWasteGate *>(FValvula)->getDist();
       p1 = dynamic_cast<TWasteGate *>(FValvula)->getTuboAdm()->GetPresion(
@@ -585,6 +640,51 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
   try {
     double rel_CCon_Entropia, FraccionMasicaAcum = 0.;
 
+    // === Stage 72: box-mode ROM -- parse once, advance once per timestep ===
+    if (FBoxModeSign == -2) { // per-CC env cache
+      if (!BoxMode.parsed) {
+        BoxMode.parsed = true;
+        if (const char *ev = getenv("OPENWAM_BOX_MODE")) {
+          double f = 0.0, z = 0.1, g = 0.0;
+          if (sscanf(ev, "%lf,%lf,%lf", &f, &z, &g) >= 1 && f > 0.0) {
+            BoxMode.on = true;
+            BoxMode.w = 2.0 * 3.14159265358979 * f;
+            BoxMode.zeta = (z > 0.0) ? z : 0.1;
+            BoxMode.gain = g;
+            printf("BOXMODE ROM on: f=%.1fHz zeta=%.3f gain=%.3g\n", f,
+                   BoxMode.zeta, BoxMode.gain);
+            fflush(stdout);
+          }
+        }
+      }
+      FBoxModeSign = 0;
+      if (BoxMode.on) {
+        if (BoxModeCCListed("OPENWAM_BOX_MODE_CC1", FNumeroCC))
+          FBoxModeSign = 1;
+        else if (BoxModeCCListed("OPENWAM_BOX_MODE_CC2", FNumeroCC))
+          FBoxModeSign = -1;
+      }
+    }
+    if (BoxMode.on) {
+      if (Time > BoxMode.lastT) { // first boundary of a new global step
+        double dt = (BoxMode.lastT < 0.0) ? 0.0 : (Time - BoxMode.lastT);
+        if (dt > 0.0 && dt < 0.01) {
+          BoxMode.fPrev = BoxMode.fAcc;
+          double acc = BoxMode.gain * BoxMode.w * BoxMode.w * BoxMode.fPrev -
+                       2.0 * BoxMode.zeta * BoxMode.w * BoxMode.qd -
+                       BoxMode.w * BoxMode.w * BoxMode.q;
+          BoxMode.qd += acc * dt; // semi-implicit Euler (energy-stable)
+          BoxMode.q += BoxMode.qd * dt;
+        }
+        BoxMode.fAcc = 0.0;
+        BoxMode.lastT = Time;
+      }
+      FBoxModeDp =
+          (FBoxModeSign > 0) ? BoxMode.q : (FBoxModeSign < 0 ? -BoxMode.q : 0.0);
+    } else {
+      FBoxModeDp = 0.0;
+    }
+
     if (!FUnionDPF) {
       FGamma = FTuboExtremo[0].Pipe->GetGamma(FNodoFin);
     } else {
@@ -603,7 +703,7 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
     FGamma5 = __Gamma::G5(FGamma);
     FGamma6 = __Gamma::G6(FGamma);
 
-    FAd = pow(FDeposito->getPressure() / FPref, 1. / FGamma4);
+    FAd = pow(PlenumP() / FPref, 1. / FGamma4);
     rel_CCon_Entropia = *FCC / FTuboExtremo[0].Entropia;
     FAdCr = FAd / sqrt(1 + pow2(FMachVenturi) *
                                FGamma3); // Importante solo si hay venturi.
@@ -762,6 +862,14 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
       }
     }
 
+    // Stage 72: accumulate this boundary's signed flow into the box-mode
+    // forcing (bank1 minus bank2). Sign convention folds into `gain`.
+    if (BoxMode.on && FBoxModeSign != 0 &&
+        (FSentidoFlujo == nmEntrante || FSentidoFlujo == nmSaliente)) {
+      double s = (FSentidoFlujo == nmSaliente) ? 1.0 : -1.0;
+      BoxMode.fAcc += FBoxModeSign * s * fabs(FGasto);
+    }
+
     FValvula->AcumulaCDMedio(Time);
   } catch (exception &N) {
     std::cout << "ERROR: TCCDeposito::CalculaCondicionContorno en la condicion "
@@ -907,9 +1015,9 @@ void TCCDeposito::FlujoSalienteDeposito() {
 
     /* Calculo del valor de la velocidad del sonido en el extremo del tubo para
      el cual el salto es critico. */
-    u2cr = FDeposito->getSpeedsound() * sqrt(2. / FGamma2) *
+    u2cr = PlenumA() * sqrt(2. / FGamma2) *
            (sqrt(pow2(Fk) + FGamma1 * FGamma2) - Fk) / FGamma1;
-    a2cr = sqrt(pow2(FDeposito->getSpeedsound()) - FGamma3 * pow2(u2cr));
+    a2cr = sqrt(pow2(PlenumA()) - FGamma3 * pow2(u2cr));
     // Ecuacion de la energia. Garganta-Deposito.
 
     /* A partir  de a2cr se determina el error en el calculo de A2 al suponer
@@ -917,7 +1025,7 @@ void TCCDeposito::FlujoSalienteDeposito() {
      el salto es subcritico. */
     // FSSubcritico(a2cr,&error,&miembro2);
     stFSSub FSA2(FTuboExtremo[0].Entropia, FAdCr, FGamma, Fk, *FCC,
-                 FDeposito->getSpeedsound());
+                 PlenumA());
 
     error = FSA2(a2cr);
 
@@ -926,14 +1034,14 @@ void TCCDeposito::FlujoSalienteDeposito() {
       /* Determinacion del intervalo de iteracion. Para ello se supone que
        en el extremo del tubo se dan las condiciones criticas. Explicado en
        los apuntes de Pedro. */
-      a1 = sqrt(2. / FGamma2) * FDeposito->getSpeedsound();
+      a1 = sqrt(2. / FGamma2) * PlenumA();
       FVelocidadGarganta = a1;
-      xx = pow(FAdCr / FDeposito->getSpeedsound(), FGamma4);
+      xx = pow(FAdCr / PlenumA(), FGamma4);
       yy = pow(a1, 2. / FGamma1);
       Fcc = FVelocidadGarganta * yy * xx / Fk;
 
       stFSSup FU2(FTuboExtremo[0].Entropia, Fcc, FGamma, Fk, *FCC,
-                  FDeposito->getSpeedsound());
+                  PlenumA());
       val1 = FU2(FVelocidadGarganta);
 
       // FSSupercritico(FVelocidadGarganta,&val1,&val2);
@@ -941,7 +1049,7 @@ void TCCDeposito::FlujoSalienteDeposito() {
         valde = FVelocidadGarganta;
       if (val1 >= 0.) {
         double Epsilon = numeric_limits<double>::epsilon();
-        valde = FDeposito->getSpeedsound() / sqrt(FGamma3) - Epsilon;
+        valde = PlenumA() / sqrt(FGamma3) - Epsilon;
       }
 
       /* Una vez conocido el intervalo de iteracion, se pasa a la resolucion
@@ -955,7 +1063,7 @@ void TCCDeposito::FlujoSalienteDeposito() {
       yy = pow(FAdCr, FGamma4);
       FGasto =
           __units::BarToPa(FCDSalida * FSeccionValvula * FGamma * xx * yy) /
-          (FDeposito->getSpeedsound() * __cons::ARef);
+          (PlenumA() * __cons::ARef);
 
       /* Reduccion a flujo subsonico mediante onda de choque plana en el caso
        de que se hayan obtenido condiciones supersonicas en el extremo del
@@ -986,18 +1094,18 @@ void TCCDeposito::FlujoSalienteDeposito() {
 
       // Resolucion del caso de flujo saliente salto subcritico.
       FCaso = nmFlujoSalienteSaltoSubcritico;
-      Resolucion(a2cr, FDeposito->getSpeedsound(), FCaso, &ycal, &FSonido);
+      Resolucion(a2cr, PlenumA(), FCaso, &ycal, &FSonido);
       // Aplicando la Ecuacion de la Energia entre el deposito y la garganta:
       FVelocity =
-          sqrt((pow2(FDeposito->getSpeedsound()) - pow2(FSonido)) / FGamma3);
+          sqrt((pow2(PlenumA()) - pow2(FSonido)) / FGamma3);
 
       // Calculo del massflow. Como es saliente del deposito, siempre es
       // positivo.
-      a1 = FDeposito->getSpeedsound() * (*FCC + FGamma3 * FVelocity) /
+      a1 = PlenumA() * (*FCC + FGamma3 * FVelocity) /
            (FTuboExtremo[0].Entropia * FAd);
       FVelocidadGarganta = Fk * pow2(a1) * FVelocity / pow2(FSonido);
       FGasto = __units::BarToPa(FCDSalida * FSeccionValvula * FGamma *
-                                pow(FAd / FDeposito->getSpeedsound(), FGamma4) *
+                                pow(FAd / PlenumA(), FGamma4) *
                                 FVelocidadGarganta * pow(a1, 2. / FGamma1)) /
                __cons::ARef;
       xx = *FCC + FGamma3 * FVelocity;
@@ -1039,12 +1147,12 @@ void TCCDeposito::Resolucion(double ext1, double ext2, nmCaso Caso, double *u2t,
       *u2t = 0.;
     } else if (Caso == nmFlujoSalienteSaltoSubcritico) {
       stFSSub FSA2(FTuboExtremo[0].Entropia, FAdCr, FGamma, Fk, *FCC,
-                   FDeposito->getSpeedsound());
+                   PlenumA());
       *a2t = FindRoot(FSA2, ext1, ext2);
       *u2t = FSA2.U2;
     } else if (Caso == nmFlujoSalienteSaltoSupercritico) {
       stFSSup FU2(FTuboExtremo[0].Entropia, Fcc, FGamma, Fk, *FCC,
-                  FDeposito->getSpeedsound());
+                  PlenumA());
       *u2t = FindRoot(FU2, ext1, ext2);
       *a2t = FU2.A2;
     } else {
