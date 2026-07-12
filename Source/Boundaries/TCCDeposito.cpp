@@ -666,8 +666,12 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
       }
     }
     if (BoxMode.on) {
-      if (Time > BoxMode.lastT) { // first boundary of a new global step
-        double dt = (BoxMode.lastT < 0.0) ? 0.0 : (Time - BoxMode.lastT);
+      // NB: the `Time` parameter is NOT a reliable absolute clock here; use
+      // the attached pipe's absolute time (same clock the wastegate case
+      // reads via getTime1()) so the oscillator advances once per global step.
+      double tNow = FTuboExtremo[0].Pipe->getTime1();
+      if (tNow > BoxMode.lastT) { // first boundary of a new global step
+        double dt = (BoxMode.lastT < 0.0) ? 0.0 : (tNow - BoxMode.lastT);
         if (dt > 0.0 && dt < 0.01) {
           BoxMode.fPrev = BoxMode.fAcc;
           double acc = BoxMode.gain * BoxMode.w * BoxMode.w * BoxMode.fPrev -
@@ -678,6 +682,15 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
         }
         BoxMode.fAcc = 0.0;
         BoxMode.lastT = Time;
+        if (getenv("OPENWAM_BOX_MODE_DIAG")) {
+          static long bmDiag = 0;
+          if ((bmDiag % 2000) == 0) {
+            printf("BOXMODE q=%.1fPa qd=%.1f F=%.4g t=%.4f\n", BoxMode.q,
+                   BoxMode.qd, BoxMode.fPrev, Time);
+            fflush(stdout);
+          }
+          ++bmDiag;
+        }
       }
       FBoxModeDp =
           (FBoxModeSign > 0) ? BoxMode.q : (FBoxModeSign < 0 ? -BoxMode.q : 0.0);
