@@ -707,8 +707,18 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
           ++bmDiag;
         }
       }
-      FBoxModeDp =
-          (FBoxModeSign > 0) ? BoxMode.q : (FBoxModeSign < 0 ? -BoxMode.q : 0.0);
+      // Ramp-in: keep the mode fully decoupled until the flow field has
+      // established (the pure-timing decks start from rest on a stability
+      // knife edge; engaging the mode during warmup kills the run at cycle 0).
+      if (tNow < 0.15) {
+        BoxMode.q = 0.0;
+        BoxMode.qd = 0.0;
+        BoxMode.fEma = 0.0;
+        FBoxModeDp = 0.0;
+      } else {
+        FBoxModeDp = (FBoxModeSign > 0) ? BoxMode.q
+                                        : (FBoxModeSign < 0 ? -BoxMode.q : 0.0);
+      }
     } else {
       FBoxModeDp = 0.0;
     }
