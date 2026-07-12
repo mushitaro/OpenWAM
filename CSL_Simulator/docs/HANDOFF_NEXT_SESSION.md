@@ -1,5 +1,29 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
+> **🧩🧩🧩🧩🧩🧩🧩🧩🧩 2026-07-12 (LATEST) — STAGE 72: BOX-MODE ROM (C++)
+> IMPLEMENTED, FIRST FORMULATION INCOMPATIBLE WITH PURE-TIMING DECKS.
+> Read EXHAUST_STABILIZATION_NOTES Stage 72.** Owner verdict: no current
+> config is usable for VANOS tuning — the mission is gated on making the
+> 1D model hold BOTH the resonator valley and the 3900-4600 recovery
+> (= the 3D bank-differential box mode). New: OPENWAM_BOX_MODE=
+> "freq,zeta,gain" + _CC1/_CC2 (mouths 4,11,18 / 25,32,39) in
+> TCCDeposito: 1-DOF oscillator q[Pa], listed CCs see P±q via
+> PlenumP()/PlenumA() wrappers (all 21 read sites). OFF = bit-identical
+> (verified). ⚡Lessons: Time param is NOT a clock (use pipe getTime1);
+> test with the SVC binary build_ux (NOT build/ = stale _local.BIN!);
+> +gain diverges (positive feedback), use −gain. v1 raw forcing / v2
+> EMA+8kPa-cap die at cyc0 on pure-timing decks; v3 ramp-in (t<0.15s)
+> dies AT engagement (cyc5, gain-independent) — legacy decks run it fine
+> (q~400Pa) so the mechanism is sound but the mouth-pressure injection
+> clashes with the alpha-stabilized knife edge. NEXT DESIGNS: (a) resolve
+> ordering/interference with the mouth-rad damping block, (b) apply dp
+> only during intake-valve-open windows, (c) entropy/temperature
+> injection instead of pressure, (d) gradual gain ramp over cycles,
+> (e) implicit coupling. Also correct: eq-rail RETURN hose = 500-600mm
+> (owner eyeball, was 250) — v5 all-measured config = stage71_v5.csv.
+> Still unmeasured: cam-cover effective volume (1-2L indicated by
+> ladder), Section2, muffler, wall thickness.
+
 > **📐📐📐📐📐📐📐📐📐 2026-07-12 (LATEST) — STAGE 71: OWNER-MEASURED DIMS
 > WIRED; THE 1D EITHER/OR THEOREM. Read EXHAUST_STABILIZATION_NOTES
 > Stage 71.** Measured: head-return 250x15 (cam-cover VOLUME unmeasured —
