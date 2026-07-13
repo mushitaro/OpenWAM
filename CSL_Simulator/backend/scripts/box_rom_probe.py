@@ -32,7 +32,12 @@ tag = sys.argv[5] if len(sys.argv) > 5 else "diag"
 vgate = sys.argv[6] if len(sys.argv) > 6 else ""
 cap = sys.argv[7] if len(sys.argv) > 7 else ""
 
-V11A = json.load(open(os.path.join(BACKEND, "calib_data", "stage72_v11_jobs.json")))[0]["set"]
+# BOXDIAG_SETS = path to a json with the sets dict (or a jobs list; default v11a)
+_sets_path = os.environ.get(
+    "BOXDIAG_SETS",
+    os.path.join(BACKEND, "calib_data", "stage72_v11_jobs.json"))
+_loaded = json.load(open(_sets_path))
+V11A = _loaded[0]["set"] if isinstance(_loaded, list) else _loaded
 
 job = {"rpm": rpm, "load": 100, "set": V11A, "tag": tag}
 cfg = R.build_config(job, int(os.environ.get("BOXDIAG_CYCLES", "60")))

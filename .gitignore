@@ -95,3 +95,4 @@ CSL_Simulator/backend/intake.vlv
 CSL_Simulator/backend/exhaust.vlv
 .sim_cache/
 build_rom/
+rom_probe_out/
