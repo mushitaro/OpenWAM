@@ -28,12 +28,29 @@
 > OPENWAM_BOX_MODE_POST=1: post-solve characteristic velocity kick
 > (mouth-rad's proven rewrite; branch decision untouched) — SURVIVES at
 > gain 300-3000 but DC loop pegged q at the rail (VE 1500%/0.4% nonphysical
-> equilibria) → v6b adds forcing HIGH-PASS (OPENWAM_BOX_MODE_HP, default
-> 0.02s) + saturation (OPENWAM_BOX_MODE_FSAT 0.5) — ladder running at
-> session end. ⚡Probe traps: FNumeroCC = deck cid+1 (mouths 4,11,18/25,32,39);
-> OPENWAM_FAST_OUTPUT must be set BEFORE deck generation; probe binary =
-> build_rom/ via OPENWAM_EXE (build_ux untouched); boxdiag/boxladder tools
-> in the session scratchpad.**
+> equilibria) → v6b forcing HIGH-PASS (OPENWAM_BOX_MODE_HP) + saturation
+> (_FSAT) bounds q but the flow STILL self-organizes into VE 400-2300%
+> supercharging → v6c dF/dt passive drive (_DDT=1) same → + eq-tee T12
+> damping (OPENWAM_MOUTH_RAD_T12_CC=6,13,20,27,34,41,7,14,21,28,35,42)
+> same → tight caps 150-200Pa: VE parks at 200-500% nonphysical.
+> ⚡CAMPAIGN VERDICT (12+ runs): the COUPLING WORKS (sign-coherent
+> short-term response, +gain lifts VE 15-23pp before escape) but ANY
+> phase-locked mouth-band forcing ≥~100Pa does unbounded work — the
+> intake network hosts a PARASITIC RESONANCE with ~100x amplification
+> (150Pa = 0.15% ambient moves VE +130pp) that alpha0.6 does not touch.
+> Third independent proof of the Stage-64/66 wall. NEXT SESSION: (1)
+> wave_box_fft.py census ON A PUMPED STATE (e.g. cap150 run) to identify
+> WHERE the parasitic mode lives (eq rail? runner pair? plenum-runner?);
+> (2) add PHYSICAL loss there (wall compliance / porous / band-limited
+> friction — eq-tee T12 damping alone is harmless and lifts baseline
+> 82.8→85.9, promising direction); (3) re-enter the ROM ladder (all
+> machinery ready: OPENWAM_BOX_MODE + _POST/_DDT/_HP/_FSAT/_CAP/_T0/_TR/
+> _VGATE, exact integrator, build_rom probe binary, boxdiag/boxladder in
+> scratchpad — copy them to backend/scripts if the scratchpad is gone).
+> Best config = v11c + KF_TZ_VL (old scoring: 1600 −58.6 / 2700 +5.9 /
+> 3900 −59 / 4600 −34.9 / 5300 −28.2 / 6300 −10.4 / 6900 −0.9).
+> OWNER GATES: approve CSL_MREF_ECU=1 scoring switch (targets ×0.9458);
+> the mid-band deficit after correction is −25..−53, ends +4..+6.**
 
 > **🧩🧩🧩🧩🧩🧩🧩🧩🧩 2026-07-12 — STAGE 72: BOX-MODE ROM (C++)
 > IMPLEMENTED, FIRST FORMULATION INCOMPATIBLE WITH PURE-TIMING DECKS.
