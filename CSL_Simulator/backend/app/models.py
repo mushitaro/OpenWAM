@@ -387,6 +387,11 @@ class Section3Config(ExhaustSectionConfig):
     pass2_length: float = 2900.0    # mm (360-deg path)
     pass_diameter: float = 50.0     # mm internal pass-pipe bore
     pass_friction: float = 0.1
+    # Stage 72 (DME doc mfp-brk p37: "funnel-shaped openings" inside the rear
+    # silencers): >0 = each pass pipe enters at this bore and tapers down to
+    # pass_diameter (single-cone approximation of the funnel's reduced entry
+    # reflection). 0 = straight pipes (byte-identical legacy).
+    pass_entry_diameter: float = 0.0
 
 class ExhaustConfig(BaseModel):
     headers: HeaderConfig = HeaderConfig()

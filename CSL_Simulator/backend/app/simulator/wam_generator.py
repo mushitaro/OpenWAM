@@ -1575,12 +1575,14 @@ class WAMGenerator:
             _muf_b_id = self.plenum_counter; self.plenum_counter += 1
             self._add_plenum(_muf_b_id, "Muf_ChamberB", _vb, 380)
             _pp_dia = _s3.pass_diameter / 1000.0
+            _pp_d0 = (_s3.pass_entry_diameter / 1000.0
+                      if _s3.pass_entry_diameter > 0 else _pp_dia)
             for _i, _plen in ((1, _s3.pass1_length), (2, _s3.pass2_length)):
                 _pp = self.pipe_counter; self.pipe_counter += 1
                 _ca = self._add_con_plenum_pipe_v2(muffler_id, _pp, 0)
                 _cb = self._add_con_plenum_pipe_v2(_muf_b_id, _pp, 1)
                 self._add_pipe(_pp, f"Muf_Pass{_i}", _plen / 1000.0,
-                               _pp_dia, _pp_dia, 390, _ca, _cb,
+                               _pp_d0, _pp_dia, 390, _ca, _cb,
                                friction=_s3.pass_friction, dx_mesh=0.05)
         else:
             self._add_plenum(muffler_id, "Muffler_Dual", muff_vol_m3, 400)
