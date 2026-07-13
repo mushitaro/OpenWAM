@@ -287,9 +287,12 @@ class SimulationService:
         wot_thr = M.WOT_TPS
 
         # per-cylinder reference trapped mass at VE=100% (constant across cells)
+        # Stage 73: CSL_MREF_ECU=1 -> the ECU's own rf normalization (BIN
+        # K_RF_LUFTDICHTE x K_RF_HUBVOLUMEN); default = legacy standard-air.
         geo0 = config.engine.geometry
-        rho0 = config.environment.ambient_pressure / (287.058 * config.environment.ambient_temp)
-        self._m_ref_mg = math.pi * ((geo0.bore / 20.0) ** 2) * (geo0.stroke / 10.0) * rho0
+        self._m_ref_mg = M.m_ref_mg(geo0.bore, geo0.stroke,
+                                    config.environment.ambient_pressure,
+                                    config.environment.ambient_temp)
 
         # axes from the CSL ECU maps (kf_rf_soll)
         maps_file = os.path.join(self.data_dir, "csl_ecu_maps.json")

@@ -189,10 +189,10 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         if job.get("again") is not None:
             env["OPENWAM_THR_AGAIN"] = str(job["again"])
 
-        m_ref = (math.pi * ((cfg.engine.geometry.bore / 20.0) ** 2)
-                 * (cfg.engine.geometry.stroke / 10.0)
-                 * (cfg.environment.ambient_pressure
-                    / (287.058 * cfg.environment.ambient_temp)))
+        # Stage 73: CSL_MREF_ECU=1 -> ECU rf normalization (see metrics.m_ref_mg)
+        m_ref = M.m_ref_mg(cfg.engine.geometry.bore, cfg.engine.geometry.stroke,
+                           cfg.environment.ambient_pressure,
+                           cfg.environment.ambient_temp)
         svc._m_ref_mg = m_ref
 
         output = ""

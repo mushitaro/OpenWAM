@@ -84,6 +84,13 @@ struct TBoxModeROM {
                          // the DC loop gain*F_dc pegged POST runs at the rail)
   double hpTau = 0.02;   // slow-EMA tau [s] (OPENWAM_BOX_MODE_HP; 0 = no HP)
   double fSat = 0.5;     // forcing saturation [kg/s] (OPENWAM_BOX_MODE_FSAT)
+  bool ddt = false;      // v6c (OPENWAM_BOX_MODE_DDT=1): drive with dF/dt --
+                         // the passive-resonator form (modal pressure is
+                         // driven by volume-flow ACCELERATION; F-drive is 90
+                         // deg off and turns the mode into an active pump:
+                         // v6b runs self-organized into VE 400-2300%
+                         // supercharging at every gain/sign).
+  double fUsePrev = 0.0; // previous filtered forcing (for the derivative)
   // v5 knobs (env, all with safe defaults)
   double cap = 1000.0;  // |q| clamp [Pa] (OPENWAM_BOX_MODE_CAP)
   double t0 = 0.15;     // engage time [s] (OPENWAM_BOX_MODE_T0)
@@ -688,6 +695,8 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
             if (const char *ef = getenv("OPENWAM_BOX_MODE_FSAT"))
               BoxMode.fSat = atof(ef);
             if (BoxMode.fSat <= 0.0) BoxMode.fSat = 0.5;
+            if (const char *ed = getenv("OPENWAM_BOX_MODE_DDT"))
+              BoxMode.ddt = (atoi(ed) != 0);
             printf("BOXMODE ROM on (v5): f=%.1fHz zeta=%.3f gain=%.3g "
                    "cap=%.0fPa t0=%.3f tr=%.3f vgate=%.4f\n", f,
                    BoxMode.zeta, BoxMode.gain, BoxMode.cap, BoxMode.t0,
@@ -737,6 +746,15 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
             fUse -= BoxMode.fEmaSlow;
           }
           fUse = BoxMode.fSat * tanh(fUse / BoxMode.fSat);
+          if (BoxMode.ddt) { // v6c: passive form -- drive with dF/dt,
+            // slope-saturated at fSat per millisecond.
+            double fDot = (fUse - BoxMode.fUsePrev) / dt;
+            BoxMode.fUsePrev = fUse;
+            double dCap = BoxMode.fSat / 0.001;
+            fUse = dCap * tanh(fDot / dCap);
+          } else {
+            BoxMode.fUsePrev = fUse;
+          }
           BoxMode.fPrev = fUse;
           // exact update of  q'' + 2*zeta*w*q' + w^2*q = u,
           // u = gain*w^2*F held constant over dt. Underdamped closed form
