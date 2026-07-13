@@ -90,9 +90,8 @@ out = p.stdout
 open(os.path.join(HERE, f"boxdiag_{tag}_{int(rpm)}.out"), "w").write(out + "\n=== STDERR ===\n" + (p.stderr or ""))
 
 mtrap = [float(x) for x in re.findall(r"Mtrap:([0-9.]+) g", out)]
-m_ref = (math.pi * ((cfg.engine.geometry.bore / 20.0) ** 2)
-         * (cfg.engine.geometry.stroke / 10.0)
-         * (cfg.environment.ambient_pressure / (287.058 * cfg.environment.ambient_temp)))
+m_ref = M.m_ref_mg(cfg.engine.geometry.bore, cfg.engine.geometry.stroke,
+                   cfg.environment.ambient_pressure, cfg.environment.ambient_temp)
 ncyc = len(mtrap) // 6
 cyc_ve = [sum(mtrap[c*6:(c+1)*6]) / 6.0 * 1000.0 / m_ref * 100.0 for c in range(ncyc)]
 print(f"rc={p.returncode} t={time.time()-t0:.0f}s cycles={ncyc}", flush=True)

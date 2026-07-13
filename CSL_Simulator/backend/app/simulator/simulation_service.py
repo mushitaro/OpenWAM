@@ -38,7 +38,10 @@ class SimulationService:
         self.repo_root = os.path.dirname(simulator_dir)
         self._cache_dir = os.environ.get("OPENWAM_CACHE_DIR") or os.path.join(self.repo_root, ".sim_cache")
         self._exe_path = None
-        self._m_ref_mg = 640.4   # per-cylinder trapped mass at VE=100% (recomputed per run)
+        # per-cylinder trapped mass at VE=100% (recomputed per run); default =
+        # the ECU rf reference (Stage 74, owner-approved; CSL_MREF_LEGACY=1
+        # restores the old 640.77 standard-air unit)
+        self._m_ref_mg = M.m_ref_mg(87.0, 91.0, 101325.0, 298.0)
         # M5 cancellable runs: every long path (map cells, optimizer evals,
         # waveform) registers its asyncio Tasks here; POST /simulate/cancel
         # cancels them (task cancellation reaches _run_solver's finally, which
@@ -160,7 +163,7 @@ class SimulationService:
             return []
         ms = re.findall(r"Mtrap:([0-9.]+) g", t)
         n = len(ms) // 6
-        mref = self._m_ref_mg or 640.4
+        mref = self._m_ref_mg or M.m_ref_mg(87.0, 91.0, 101325.0, 298.0)
         return [sum(float(x) for x in ms[c * 6:(c + 1) * 6]) / 6.0 * 1000.0 / mref * 100.0
                 for c in range(n)]
 

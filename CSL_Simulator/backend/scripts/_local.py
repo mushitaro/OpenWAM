@@ -65,7 +65,13 @@ def run_capped(args, cwd, log_path, timeout, env):
 # Speed levers (Stage 56): slope-based EARLY STOP + a deck/result CACHE. Both cut
 # calibration/optimization cost dramatically without changing the physics.
 # ---------------------------------------------------------------------------
-_M_REF = math.pi * (0.087 / 2) ** 2 * 0.091 * (101325 / (287.05 * 298.0)) * 1000  # 0.6408 g = 100% VE
+# Stage 74 (owner-approved): default = the ECU rf reference (BIN
+# K_RF_LUFTDICHTE x K_RF_HUBVOLUMEN/6 = 0.6061 g); CSL_MREF_LEGACY=1
+# restores the old standard-air 0.6408 g for stage<=73 CSV comparisons.
+import os as _os
+_M_REF = (math.pi * (0.087 / 2) ** 2 * 0.091 * (101325 / (287.05 * 298.0)) * 1000
+          if _os.environ.get("CSL_MREF_LEGACY") == "1"
+          else 1.136 * (3.201 / 6.0))
 _CACHE_DIR = os.environ.get("OPENWAM_CACHE_DIR") or os.path.join(_REPO, ".sim_cache")
 # env vars that change the SOLVER result -> part of the cache key
 _RESULT_ENV = ["OPENWAM_HLLC", "OPENWAM_THR_CHOKE", "OPENWAM_THR_AGAIN", "OPENWAM_THR_GAMMA",

@@ -25,13 +25,15 @@ WOT_TPS = 85.0
 _SEVERITY = {"green": 0, "yellow": 1, "red": 2}
 
 
-# ---- reference trapped mass (Stage 73) ---------------------------------------
+# ---- reference trapped mass (Stage 73/74) ------------------------------------
 # The MSS54 normalizes relative fill rf by K_RF_LUFTDICHTE * K_RF_HUBVOLUMEN
 # (owner BIN: 1.136 kg/m3 [960mbar/293K family] x 3.201 dm3), i.e. rf=100% =
 # 0.6061 g/cyl -- NOT the standard-atmosphere 0.6408 g the sim historically
-# used. CSL_MREF_ECU=1 switches VE scoring to the ECU reference so sim VE%
-# and the owner's rf*100 targets are the same unit (uniform x1.0573 on sim
-# VE). Default OFF: legacy value, all historical CSVs stay comparable.
+# used. Stage 74 (owner-approved): the ECU reference IS the production
+# scoring unit -- sim VE% and the owner's rf*100 targets are now the same
+# quantity (uniform x1.0573 vs the legacy unit). CSL_MREF_LEGACY=1 restores
+# the old standard-air value for comparisons against stage<=73 CSVs (whose
+# `ve` columns are all legacy-unit).
 ECU_RF_LUFTDICHTE = 1.136   # kg/m3 (BIN 0xD21E, big-endian, x/1000)
 ECU_RF_HUBVOLUMEN = 3.201   # dm3   (BIN 0xD21C)
 
@@ -39,16 +41,17 @@ ECU_RF_HUBVOLUMEN = 3.201   # dm3   (BIN 0xD21C)
 def m_ref_mg(bore_mm, stroke_mm, ambient_pa, ambient_k):
     """Per-cylinder trapped mass at VE=100% in the sim's mg-like unit.
 
-    Legacy: geometric cylinder volume x standard-atmosphere density from the
-    SimConfig environment. CSL_MREF_ECU=1: the ECU's own normalization
-    (K_RF_LUFTDICHTE x K_RF_HUBVOLUMEN/6) read from the owner BIN."""
+    Default (Stage 74, owner-approved): the ECU's own rf normalization
+    (K_RF_LUFTDICHTE x K_RF_HUBVOLUMEN/6) read from the owner BIN = 606.06.
+    CSL_MREF_LEGACY=1: geometric cylinder volume x standard-atmosphere
+    density (640.77) for old-CSV comparisons."""
     import math as _math
     import os as _os
-    if _os.environ.get("CSL_MREF_ECU") == "1":
-        # kg/m3 x dm3 = g; the sim's m_ref unit is mg -> x1000
-        return ECU_RF_LUFTDICHTE * (ECU_RF_HUBVOLUMEN / 6.0) * 1000.0
-    rho = ambient_pa / (287.058 * ambient_k)
-    return _math.pi * ((bore_mm / 20.0) ** 2) * (stroke_mm / 10.0) * rho
+    if _os.environ.get("CSL_MREF_LEGACY") == "1":
+        rho = ambient_pa / (287.058 * ambient_k)
+        return _math.pi * ((bore_mm / 20.0) ** 2) * (stroke_mm / 10.0) * rho
+    # kg/m3 x dm3 = g; the sim's m_ref unit is mg -> x1000
+    return ECU_RF_LUFTDICHTE * (ECU_RF_HUBVOLUMEN / 6.0) * 1000.0
 
 
 # ---- physical ignition input (Stage 69) -------------------------------------
