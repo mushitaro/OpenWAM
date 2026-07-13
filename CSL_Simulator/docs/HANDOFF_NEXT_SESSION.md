@@ -1,6 +1,28 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-> **🔭🔭🔭🔭🔭🔭🔭🔭🔭 2026-07-13 (LATEST) — STAGE 73: DME DOC VERIFY +
+> **🧭🧭🧭🧭🧭🧭🧭🧭🧭 2026-07-13 (LATEST-2) — STAGE 74: CORRECTIONS ADOPTED
+> (owner OK) + ROM ROUTE SEALED. Read EXHAUST_STABILIZATION_NOTES Stage 74.**
+> ECU M_REF (606.06 mg) is now the DEFAULT scoring unit (CSL_MREF_LEGACY=1
+> opt-out; ⚠ stage<=73 CSVs' ve columns are legacy-unit — multiply by
+> 1.0573). KF_TZ_VL WOT ignition adopted (csl_ecu_maps.json). **v14 = the
+> true-unit baseline (v11c + KF_TZ_VL)**: 1300 −19 / 1600 −56 / 2100 +21 /
+> 2400 +1.3 / 2700 +10.8 / 2900 +14 / 3100 +17 / 3900 −55 / 4600 −30 /
+> 5300 −23 / 6300 −4.8 / 6900 +5.2 (mean|err| 21.4).
+> **parasite_census.py** (wave_box_fft fork, 28 stations, ROM env
+> passthrough) localized the band-excitation runaway to the EqRail taps
+> (50-220 bar rms, 2 orders above everything) — but E1 (physical tap loss
+> rail_tap_friction=15 ≈ the real phi10's K≈19 which the phi21-taper
+> representation dropped) improves 2700 (+10.8→+3.6, monotone) while E2
+> (ROM on the damped deck) STILL escapes ⇒ the super-fill branch is the
+> GLOBAL high-fill attractor (R4 / Stage-67 family), not a local parasite.
+> **ROM route = SEALED (16+ runs, 5 formulations, 2 damping schemes).
+> Remaining mission path = Stage-71 option C: BAND-SPLIT TWIN — valley
+> rows (≤3100) on the v14 real-dims twin (candidate: adopt tap-loss 15 +
+> re-fit; 6300 is a known ±14.5 bistable), 3900+ rows on the frozen
+> Stage-69 twin. OWNER DECISION PENDING on C; then re-run the M4 VANOS
+> optimizer per band and merge the KF_EVAN/KF_AVAN rows.**
+
+> **🔭🔭🔭🔭🔭🔭🔭🔭🔭 2026-07-13 — STAGE 73: DME DOC VERIFY +
 > SYSTEMATIC CORRECTIONS + ROM v5/v6 CAMPAIGN. Read EXHAUST_STABILIZATION_NOTES
 > Stage 73.** Owner answers wired: muffler EXTERNAL 1000x300x160 (~48L; the
 > 150L was a drawing overread — v11: mid-band hole INVARIANT to all muffler
