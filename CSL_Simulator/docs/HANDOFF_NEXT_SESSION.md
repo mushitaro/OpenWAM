@@ -1,6 +1,41 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-> **🧩🧩🧩🧩🧩🧩🧩🧩🧩 2026-07-12 (LATEST) — STAGE 72: BOX-MODE ROM (C++)
+> **🔭🔭🔭🔭🔭🔭🔭🔭🔭 2026-07-13 (LATEST) — STAGE 73: DME DOC VERIFY +
+> SYSTEMATIC CORRECTIONS + ROM v5/v6 CAMPAIGN. Read EXHAUST_STABILIZATION_NOTES
+> Stage 73.** Owner answers wired: muffler EXTERNAL 1000x300x160 (~48L; the
+> 150L was a drawing overread — v11: mid-band hole INVARIANT to all muffler
+> dims; 6300 wants vol 46; v11c = best real-dims config), cam-cover stays 2L
+> placeholder. **DME docs (doc/ 2 PDFs, 6-agent verify): stock cams 260/260
+> CONFIRMED (CSL=268/264, retires 268/280); Funktionsrahmen = EVT research
+> variant, NO VANOS content (conversion unverifiable from docs, frame
+> precedent supports ours); ⚡M_REF SYSTEMATIC ERROR FOUND: MSS54 rf reference
+> = 960mbar/293K; BIN read (0xD21C/1E BE): K_RF_HUBVOLUMEN=3.201 dm3,
+> K_RF_LUFTDICHTE=1.136 kg/m3 ⇒ ECU rf100% = 0.6061 g/cyl vs our 0.6408 ⇒
+> owner targets = our VE x0.9458 (−5.4%) — scoring fix PENDING OWNER OK
+> (memory csl-mref-ecu-reference); ⚡KF_TZ_VL (WOT ignition) found in BIN and
+> ADOPTED into csl_ecu_maps.json (metrics.py map-gated): old two-stage lookup
+> was 3-5deg over-advanced at WOT (A/B: 5300 +7.2, 6900 +1.2, 6300 −8.7 —
+> honest with correct input).** 1600 removal-isolation DONE: culprits =
+> h_offset80 (+39pp when removed) + muffler internals (+37pp) + sec2 phi49.6
+> (+23pp); return line/resonator/sec2len/taper irrelevant. Funnel-entry knob
+> (section3.pass_entry_diameter, doc p37) helps 5300 +3.8 / 6300 +2.4.
+> **ROM: v3/v4 deaths were BYTE-IDENTICAL across gains = q railed at the cap
+> = semi-implicit Euler UNSTABLE on the ragged multi-pipe clock + lastT=Time
+> bug — "formulation broken" verdict WRONG. v5 = exact exponential integrator
+> (survives engagement at small gain). BUT pre-solve plenum perturbation
+> (PlenumP/FAd) kills the alpha-stabilized deck at ~100Pa even fully
+> converged (T0=0.8s late engage) — that CHANNEL is dead. v6 =
+> OPENWAM_BOX_MODE_POST=1: post-solve characteristic velocity kick
+> (mouth-rad's proven rewrite; branch decision untouched) — SURVIVES at
+> gain 300-3000 but DC loop pegged q at the rail (VE 1500%/0.4% nonphysical
+> equilibria) → v6b adds forcing HIGH-PASS (OPENWAM_BOX_MODE_HP, default
+> 0.02s) + saturation (OPENWAM_BOX_MODE_FSAT 0.5) — ladder running at
+> session end. ⚡Probe traps: FNumeroCC = deck cid+1 (mouths 4,11,18/25,32,39);
+> OPENWAM_FAST_OUTPUT must be set BEFORE deck generation; probe binary =
+> build_rom/ via OPENWAM_EXE (build_ux untouched); boxdiag/boxladder tools
+> in the session scratchpad.**
+
+> **🧩🧩🧩🧩🧩🧩🧩🧩🧩 2026-07-12 — STAGE 72: BOX-MODE ROM (C++)
 > IMPLEMENTED, FIRST FORMULATION INCOMPATIBLE WITH PURE-TIMING DECKS.
 > Read EXHAUST_STABILIZATION_NOTES Stage 72.** Owner verdict: no current
 > config is usable for VANOS tuning — the mission is gated on making the

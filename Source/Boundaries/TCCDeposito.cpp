@@ -80,6 +80,10 @@ struct TBoxModeROM {
   double fPrev = 0.0; // forcing applied during the step being integrated
   int fN = 0;         // contributions in fAcc (normalizer)
   double fEma = 0.0;  // v2: one-pole smoothed forcing (tames impulsive noise)
+  double fEmaSlow = 0.0; // v6b: slow EMA -- F_ac = fEma - fEmaSlow (high-pass;
+                         // the DC loop gain*F_dc pegged POST runs at the rail)
+  double hpTau = 0.02;   // slow-EMA tau [s] (OPENWAM_BOX_MODE_HP; 0 = no HP)
+  double fSat = 0.5;     // forcing saturation [kg/s] (OPENWAM_BOX_MODE_FSAT)
   // v5 knobs (env, all with safe defaults)
   double cap = 1000.0;  // |q| clamp [Pa] (OPENWAM_BOX_MODE_CAP)
   double t0 = 0.15;     // engage time [s] (OPENWAM_BOX_MODE_T0)
@@ -679,6 +683,11 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
               BoxMode.vgate = atof(eg);
             if (const char *ep = getenv("OPENWAM_BOX_MODE_POST"))
               BoxMode.post = (atoi(ep) != 0);
+            if (const char *eh = getenv("OPENWAM_BOX_MODE_HP"))
+              BoxMode.hpTau = atof(eh);
+            if (const char *ef = getenv("OPENWAM_BOX_MODE_FSAT"))
+              BoxMode.fSat = atof(ef);
+            if (BoxMode.fSat <= 0.0) BoxMode.fSat = 0.5;
             printf("BOXMODE ROM on (v5): f=%.1fHz zeta=%.3f gain=%.3g "
                    "cap=%.0fPa t0=%.3f tr=%.3f vgate=%.4f\n", f,
                    BoxMode.zeta, BoxMode.gain, BoxMode.cap, BoxMode.t0,
@@ -718,7 +727,17 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
           double fRaw = (BoxMode.fN > 0) ? BoxMode.fAcc / BoxMode.fN : 0.0;
           double aEma = dt / (0.001 + dt); // tau = 1 ms
           BoxMode.fEma += aEma * (fRaw - BoxMode.fEma);
-          BoxMode.fPrev = BoxMode.fEma;
+          // v6b: high-pass (remove the DC/slow component -- the DC loop
+          // qe = gain*F_dc pegged every POST run at the amplitude rail) and
+          // soft-saturate the forcing so the loop gain is bounded.
+          double fUse = BoxMode.fEma;
+          if (BoxMode.hpTau > 0.0) {
+            double aSlow = dt / (BoxMode.hpTau + dt);
+            BoxMode.fEmaSlow += aSlow * (BoxMode.fEma - BoxMode.fEmaSlow);
+            fUse -= BoxMode.fEmaSlow;
+          }
+          fUse = BoxMode.fSat * tanh(fUse / BoxMode.fSat);
+          BoxMode.fPrev = fUse;
           // exact update of  q'' + 2*zeta*w*q' + w^2*q = u,
           // u = gain*w^2*F held constant over dt. Underdamped closed form
           // about the equilibrium qe = u/w^2 (zeta < 1 always in practice;
@@ -770,9 +789,11 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
       // established (the pure-timing decks start from rest on a stability
       // knife edge; engaging the mode during warmup kills the run at cycle 0).
       if (tNow < BoxMode.t0) {
+        // v6b: keep the forcing EMAs TRACKING during warmup (so F_ac is
+        // already regular at engagement); only the oscillator state and the
+        // applied perturbation stay clamped to zero.
         BoxMode.q = 0.0;
         BoxMode.qd = 0.0;
-        BoxMode.fEma = 0.0;
         FBoxModeDp = 0.0;
         FBoxModePost = 0.0;
       } else {
