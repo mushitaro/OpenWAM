@@ -87,6 +87,12 @@ struct TBoxModeROM {
   double vgate = 0.0;   // per-mouth |velocity| envelope ref, characteristic
                         // units (v/aref); 0 = ungated (OPENWAM_BOX_MODE_VGATE)
   double qMax = 0.0;    // max |q| since last DIAG print
+  bool post = false;    // v6 (OPENWAM_BOX_MODE_POST=1): inject as a POST-
+                        // solve characteristic velocity kick (mouth-rad's
+                        // proven mechanism) instead of perturbing the
+                        // pre-solve plenum state -- the pre-solve form
+                        // kills the alpha-stabilized deck at ~100 Pa even
+                        // fully converged (v5b/T0 ladders).
 };
 static TBoxModeROM BoxMode;
 
@@ -150,6 +156,7 @@ TCCDeposito::TCCDeposito(nmTypeBC TipoCC, int numCC,
   // Stage 72: box-mode ROM (env OPENWAM_BOX_MODE); off by default.
   FBoxModeSign = -2; // sentinel: env not yet read
   FBoxModeDp = 0.0;
+  FBoxModePost = 0.0;
 
   FTime0 = 0.;
   FTime1 = 0.;
@@ -670,6 +677,8 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
             if (BoxMode.tr < 1e-6) BoxMode.tr = 1e-6;
             if (const char *eg = getenv("OPENWAM_BOX_MODE_VGATE"))
               BoxMode.vgate = atof(eg);
+            if (const char *ep = getenv("OPENWAM_BOX_MODE_POST"))
+              BoxMode.post = (atoi(ep) != 0);
             printf("BOXMODE ROM on (v5): f=%.1fHz zeta=%.3f gain=%.3g "
                    "cap=%.0fPa t0=%.3f tr=%.3f vgate=%.4f\n", f,
                    BoxMode.zeta, BoxMode.gain, BoxMode.cap, BoxMode.t0,
@@ -733,10 +742,13 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
             BoxMode.q = qe + (x0 + v0 * dt) * E;
             BoxMode.qd = v0 * E;
           }
-          // amplitude guard: the mode is a perturbation; clamp so a
-          // mis-scaled gain degrades gracefully instead of draining a plenum.
-          if (BoxMode.q > BoxMode.cap) BoxMode.q = BoxMode.cap;
-          if (BoxMode.q < -BoxMode.cap) BoxMode.q = -BoxMode.cap;
+          // amplitude guard: hard backstop at 5*cap on the STATE (the applied
+          // dp is soft-saturated with tanh below, so a plant-loop windup
+          // degrades into a smooth bounded perturbation instead of a
+          // rail-to-rail square wave -- the v5 ladder showed the hard clamp
+          // itself becomes the killer once the loop gain exceeds 1).
+          if (BoxMode.q > 5.0 * BoxMode.cap) BoxMode.q = 5.0 * BoxMode.cap;
+          if (BoxMode.q < -5.0 * BoxMode.cap) BoxMode.q = -5.0 * BoxMode.cap;
           double aq = fabs(BoxMode.q);
           if (aq > BoxMode.qMax) BoxMode.qMax = aq;
         }
@@ -762,6 +774,7 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
         BoxMode.qd = 0.0;
         BoxMode.fEma = 0.0;
         FBoxModeDp = 0.0;
+        FBoxModePost = 0.0;
       } else {
         // engage GRADUALLY -- ramp the applied perturbation from 0 to full
         // over tr seconds after t0 so the flow field tracks the growing mode
@@ -769,9 +782,12 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
         double ramp = (tNow - BoxMode.t0) / BoxMode.tr;
         if (ramp > 1.0)
           ramp = 1.0;
+        // v5b: SOFT saturation of the applied perturbation (tanh) -- |dp|
+        // approaches cap asymptotically; no discontinuous rail clipping.
+        double qs = BoxMode.cap * tanh(BoxMode.q / BoxMode.cap);
         double dp = ramp * ((FBoxModeSign > 0)
-                                ? BoxMode.q
-                                : (FBoxModeSign < 0 ? -BoxMode.q : 0.0));
+                                ? qs
+                                : (FBoxModeSign < 0 ? -qs : 0.0));
         // v5 velocity-envelope gate: fade dp out smoothly as THIS mouth
         // approaches stall/flow reversal. The plenum-side dp shifts the
         // entrante/saliente branch decision (rel/FAdCr vs 1 +/- 1e-5); near
@@ -786,10 +802,17 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
           double g = (x * x) / (1.0 + x * x);
           dp *= g;
         }
-        FBoxModeDp = dp;
+        if (BoxMode.post) { // v6: keep the flow solve unperturbed
+          FBoxModePost = dp;
+          FBoxModeDp = 0.0;
+        } else {
+          FBoxModeDp = dp;
+          FBoxModePost = 0.0;
+        }
       }
     } else {
       FBoxModeDp = 0.0;
+      FBoxModePost = 0.0;
     }
 
     if (!FUnionDPF) {
@@ -966,6 +989,34 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
           fflush(stdout);
         }
         ++mrDiag;
+      }
+    }
+
+    // === v6 POST-mode box-mode injection (after mouth-rad, same proven
+    // characteristic-rewrite mechanism): a +dp on the plenum side of this
+    // mouth is a small acoustic wave entering the pipe -- dv = dp/(rho*a),
+    // in characteristic units dv_char = (dp/(gamma*P)) * FSonido. It ADDS to
+    // outflow (saliente, plenum->pipe) and OPPOSES inflow (entrante), i.e.
+    // the same per-direction sign s the flow routines and mouth-rad use.
+    // The pre-solve branch decision is untouched, so the entrante/saliente/
+    // parado switching stays exactly legacy -- the discontinuity channel
+    // that killed v1-v5 at ~100 Pa is structurally absent.
+    if (BoxMode.on && FBoxModePost != 0.0 && FBoxModeSign != 0 &&
+        (FSentidoFlujo == nmEntrante || FSentidoFlujo == nmSaliente)) {
+      const double s = (FSentidoFlujo == nmSaliente) ? 1.0 : -1.0;
+      double P = FDeposito->getPressure();
+      if (P > 1.0) {
+        double dv = (FBoxModePost / (FGamma * P)) * FSonido;
+        const double Vold = FVelocity;
+        double Vnew = FVelocity + s * dv;
+        // do not let the kick flip the already-solved flow direction
+        if (Vold != 0.0 && Vnew * Vold < 0.0)
+          Vnew = 0.0;
+        if (fabs(Vold) > 1e-30)
+          FGasto *= (Vnew / Vold);
+        FVelocity = Vnew;
+        *FCD = FSonido + s * FGamma3 * FVelocity;
+        *FCC = FSonido - s * FGamma3 * FVelocity;
       }
     }
 

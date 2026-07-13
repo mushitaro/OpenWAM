@@ -45,6 +45,20 @@ def ignition_for(maps, rpm, load_tps, default_wot=20.0, default_pl=15.0):
         except (IndexError, TypeError, ValueError):
             return None
 
+    # Stage 73: the production BIN carries a dedicated WOT ignition map
+    # KF_TZ_VL (Volllast; 18 rpm x 3 lambda rows, identical rows in the
+    # owner's dump) -- at WOT the DME uses it, not the base map, and the
+    # two-stage KF_TZ_GRUND path runs 3-5 deg more advanced than KF_TZ_VL.
+    # Map-present-gated: a csl_ecu_maps.json without "kf_tz_vl" keeps the
+    # legacy two-stage result byte-identical (deck-cache safe).
+    if float(load_tps) >= WOT_TPS:
+        tz_vl = (maps or {}).get("kf_tz_vl")
+        if tz_vl:
+            ys = tz_vl.get("y_axis") or [1.0]
+            ign = _lut(tz_vl, float(rpm), ys[-1])
+            if ign is not None:
+                return ign
+
     tz = (maps or {}).get("kf_tz_grund")
     rf_map = (maps or {}).get("kf_rf_soll")
     if tz and rf_map:

@@ -110,6 +110,8 @@ private:
   // OPENWAM_BOX_MODE="freq_hz,zeta,gain"; _CC1/_CC2 = comma CC lists (+/-).
   int FBoxModeSign;   // +1 bank1, -1 bank2, 0 unlisted; -2 = env not yet cached
   double FBoxModeDp;  // this call's local pressure perturbation [Pa]
+  double FBoxModePost; // v6 POST mode: dp applied as a post-solve
+                       // characteristic velocity kick instead (Pa)
   double PlenumP();   // FDeposito pressure + FBoxModeDp (defined in .cpp)
   double PlenumA();   // FDeposito speedsound, isentropically consistent
 
