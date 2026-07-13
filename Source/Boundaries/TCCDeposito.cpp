@@ -80,6 +80,13 @@ struct TBoxModeROM {
   double fPrev = 0.0; // forcing applied during the step being integrated
   int fN = 0;         // contributions in fAcc (normalizer)
   double fEma = 0.0;  // v2: one-pole smoothed forcing (tames impulsive noise)
+  // v5 knobs (env, all with safe defaults)
+  double cap = 1000.0;  // |q| clamp [Pa] (OPENWAM_BOX_MODE_CAP)
+  double t0 = 0.15;     // engage time [s] (OPENWAM_BOX_MODE_T0)
+  double tr = 0.10;     // engage ramp [s] (OPENWAM_BOX_MODE_TR)
+  double vgate = 0.0;   // per-mouth |velocity| envelope ref, characteristic
+                        // units (v/aref); 0 = ungated (OPENWAM_BOX_MODE_VGATE)
+  double qMax = 0.0;    // max |q| since last DIAG print
 };
 static TBoxModeROM BoxMode;
 
@@ -653,8 +660,20 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
             BoxMode.w = 2.0 * 3.14159265358979 * f;
             BoxMode.zeta = (z > 0.0) ? z : 0.1;
             BoxMode.gain = g;
-            printf("BOXMODE ROM on: f=%.1fHz zeta=%.3f gain=%.3g\n", f,
-                   BoxMode.zeta, BoxMode.gain);
+            if (const char *ec = getenv("OPENWAM_BOX_MODE_CAP"))
+              BoxMode.cap = atof(ec);
+            if (BoxMode.cap <= 0.0) BoxMode.cap = 1000.0;
+            if (const char *e0 = getenv("OPENWAM_BOX_MODE_T0"))
+              BoxMode.t0 = atof(e0);
+            if (const char *er = getenv("OPENWAM_BOX_MODE_TR"))
+              BoxMode.tr = atof(er);
+            if (BoxMode.tr < 1e-6) BoxMode.tr = 1e-6;
+            if (const char *eg = getenv("OPENWAM_BOX_MODE_VGATE"))
+              BoxMode.vgate = atof(eg);
+            printf("BOXMODE ROM on (v5): f=%.1fHz zeta=%.3f gain=%.3g "
+                   "cap=%.0fPa t0=%.3f tr=%.3f vgate=%.4f\n", f,
+                   BoxMode.zeta, BoxMode.gain, BoxMode.cap, BoxMode.t0,
+                   BoxMode.tr, BoxMode.vgate);
             fflush(stdout);
           }
         }
@@ -672,37 +691,65 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
       // the attached pipe's absolute time (same clock the wastegate case
       // reads via getTime1()) so the oscillator advances once per global step.
       double tNow = FTuboExtremo[0].Pipe->getTime1();
-      if (tNow > BoxMode.lastT) { // first boundary of a new global step
+      if (tNow > BoxMode.lastT) { // a boundary whose clock moved us forward
+        // v5 POST-MORTEM of v3/v4: gain 1e-4 and 1e-5 produced BYTE-IDENTICAL
+        // dead runs (ve 47.56 / slope -91.4476) => the applied dp was gain-
+        // independent => q sat clamped at the +/-cap rails: the semi-implicit
+        // Euler advance was numerically UNSTABLE on the ragged multi-pipe
+        // clock (dt spikes up to the old 0.01 guard give w*dt >> 2), and the
+        // "lastT = Time" bookkeeping mixed the unreliable Time argument into
+        // the pipe-clock comparisons. Fix: exact exponential integrator of
+        // the damped oscillator (unconditionally stable for ANY dt) and a
+        // consistent lastT = tNow.
         double dt = (BoxMode.lastT < 0.0) ? 0.0 : (tNow - BoxMode.lastT);
-        if (dt > 0.0 && dt < 0.01) {
-          // v2: normalize the accumulated bank-differential flow by its
+        if (dt > 0.0 && dt < 0.05) {
+          // normalize the accumulated bank-differential flow by its
           // contribution count and one-pole smooth it (tau ~ 1 ms) -- the raw
-          // per-fire sum was impulsive (6 mouths x ~16 global steps) and blew
-          // pure-timing decks up at every gain.
+          // per-fire sum was impulsive and noisy on the ragged clock.
           double fRaw = (BoxMode.fN > 0) ? BoxMode.fAcc / BoxMode.fN : 0.0;
           double aEma = dt / (0.001 + dt); // tau = 1 ms
           BoxMode.fEma += aEma * (fRaw - BoxMode.fEma);
           BoxMode.fPrev = BoxMode.fEma;
-          double acc = BoxMode.gain * BoxMode.w * BoxMode.w * BoxMode.fPrev -
-                       2.0 * BoxMode.zeta * BoxMode.w * BoxMode.qd -
-                       BoxMode.w * BoxMode.w * BoxMode.q;
-          BoxMode.qd += acc * dt; // semi-implicit Euler (energy-stable)
-          BoxMode.q += BoxMode.qd * dt;
-          // hard amplitude guard: the mode is a perturbation; cap |q| at 8 kPa
-          // so a mis-scaled gain degrades gracefully instead of draining a
-          // plenum (the probe scans gain over decades).
-          if (BoxMode.q > 1000.0) BoxMode.q = 1000.0;
-          if (BoxMode.q < -1000.0) BoxMode.q = -1000.0;
+          // exact update of  q'' + 2*zeta*w*q' + w^2*q = u,
+          // u = gain*w^2*F held constant over dt. Underdamped closed form
+          // about the equilibrium qe = u/w^2 (zeta < 1 always in practice;
+          // guard the discriminant anyway).
+          double zw = BoxMode.zeta * BoxMode.w;
+          double disc = 1.0 - BoxMode.zeta * BoxMode.zeta;
+          double qe = BoxMode.gain * BoxMode.fPrev; // u/w^2
+          double x0 = BoxMode.q - qe;
+          double v0 = BoxMode.qd;
+          if (disc > 1e-12) {
+            double wd = BoxMode.w * sqrt(disc);
+            double E = exp(-zw * dt);
+            double c = cos(wd * dt), s = sin(wd * dt);
+            double B = (v0 + zw * x0) / wd;
+            double x1 = E * (x0 * c + B * s);
+            double v1 = -zw * x1 + E * wd * (B * c - x0 * s);
+            BoxMode.q = qe + x1;
+            BoxMode.qd = v1;
+          } else { // critically/over-damped: stable first-order fallback
+            double E = exp(-zw * dt);
+            BoxMode.q = qe + (x0 + v0 * dt) * E;
+            BoxMode.qd = v0 * E;
+          }
+          // amplitude guard: the mode is a perturbation; clamp so a
+          // mis-scaled gain degrades gracefully instead of draining a plenum.
+          if (BoxMode.q > BoxMode.cap) BoxMode.q = BoxMode.cap;
+          if (BoxMode.q < -BoxMode.cap) BoxMode.q = -BoxMode.cap;
+          double aq = fabs(BoxMode.q);
+          if (aq > BoxMode.qMax) BoxMode.qMax = aq;
         }
         BoxMode.fAcc = 0.0;
         BoxMode.fN = 0;
-        BoxMode.lastT = Time;
+        BoxMode.lastT = tNow;
         if (getenv("OPENWAM_BOX_MODE_DIAG")) {
           static long bmDiag = 0;
           if ((bmDiag % 2000) == 0) {
-            printf("BOXMODE q=%.1fPa qd=%.1f F=%.4g t=%.4f\n", BoxMode.q,
-                   BoxMode.qd, BoxMode.fPrev, Time);
+            printf("BOXMODE q=%.2fPa qmax=%.2f qd=%.1f F=%.4g t=%.4f\n",
+                   BoxMode.q, BoxMode.qMax, BoxMode.qd, BoxMode.fPrev, tNow);
             fflush(stdout);
+            BoxMode.qMax = 0.0;
           }
           ++bmDiag;
         }
@@ -710,23 +757,36 @@ void TCCDeposito::CalculaCondicionContorno(double Time) {
       // Ramp-in: keep the mode fully decoupled until the flow field has
       // established (the pure-timing decks start from rest on a stability
       // knife edge; engaging the mode during warmup kills the run at cycle 0).
-      if (tNow < 0.15) {
+      if (tNow < BoxMode.t0) {
         BoxMode.q = 0.0;
         BoxMode.qd = 0.0;
         BoxMode.fEma = 0.0;
         FBoxModeDp = 0.0;
       } else {
-        // v4: engage GRADUALLY -- ramp the applied perturbation from 0 to
-        // full over 0.1 s after engagement (the v3 step engagement killed
-        // the run at cyc5 regardless of gain: a loop instability, masked by
-        // the old 8 kPa cap; soft engagement + tighter cap let the flow
-        // field track the growing mode instead of shocking it).
-        double ramp = (tNow - 0.15) / 0.10;
+        // engage GRADUALLY -- ramp the applied perturbation from 0 to full
+        // over tr seconds after t0 so the flow field tracks the growing mode
+        // instead of being shocked by it.
+        double ramp = (tNow - BoxMode.t0) / BoxMode.tr;
         if (ramp > 1.0)
           ramp = 1.0;
-        FBoxModeDp = ramp * ((FBoxModeSign > 0)
-                                 ? BoxMode.q
-                                 : (FBoxModeSign < 0 ? -BoxMode.q : 0.0));
+        double dp = ramp * ((FBoxModeSign > 0)
+                                ? BoxMode.q
+                                : (FBoxModeSign < 0 ? -BoxMode.q : 0.0));
+        // v5 velocity-envelope gate: fade dp out smoothly as THIS mouth
+        // approaches stall/flow reversal. The plenum-side dp shifts the
+        // entrante/saliente branch decision (rel/FAdCr vs 1 +/- 1e-5); near
+        // stall even a ~Pa dp flips the branch discontinuously, which is
+        // lethal on the alpha-stabilized knife edge. g = x^2/(1+x^2) with
+        // x = |FVelocity_prev| / vgate keeps the perturbation acting only
+        // while the mouth genuinely flows (also approximates the intake-
+        // valve-open window, when induction flow is strong). vgate is in
+        // characteristic units (v/aref); 0 = ungated (v3/v4 behaviour).
+        if (BoxMode.vgate > 0.0 && dp != 0.0) {
+          double x = fabs(FVelocity) / BoxMode.vgate;
+          double g = (x * x) / (1.0 + x * x);
+          dp *= g;
+        }
+        FBoxModeDp = dp;
       }
     } else {
       FBoxModeDp = 0.0;
