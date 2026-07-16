@@ -2761,3 +2761,12 @@ Builder 全ノードの新フィールド表示を DOM で確認(head_return 15/
 Sec1 750/440/120・触媒 180×105.6、Sec2 2200/49.6/h80/reso 300×90@800、マフラー 46L/chambers/1130/1930/φ65)。
 ⚠ backend を叩く機能(Run/STALE バッジ表示)は埋め込みプレビューのネットワーク隔離により UI 経由では検証不可 —
 HTTP 直叩きで検証し、実ブラウザでの最終確認はオーナーに依頼。
+
+### Stage 75 追記: 長時間ランは HTTP サーバに載せない(full_map 死亡の教訓)
+最初の full_map 再生成は **3.27 時間走った末に curl 56(受信失敗)で死亡、結果は未永続化**。死因は
+コードではなく**ホスティング**: エージェントのバックグラウンドタスクとして起動した uvicorn/preview サーバは
+長時間で回収される(csl-simulator-run スキルの既知事項)。**480 セル級は HTTP 経由で回してはいけない。**
+対策として `scripts/regen_last_run.py` を新設 — POST /simulate/run と**同一の**
+`SimulationService.run_ve_map_generation(SimConfig(**v14_owner.json), mode)` を HTTP 層抜きで直接呼び、
+サービス自身が last_run_<mode>.json を永続化する(成果物は同一)。デッキキャッシュ(2252 セル分/15GB)が
+効くので、死亡した実行の完了セルは即時リプレイされ再実行は安価。
