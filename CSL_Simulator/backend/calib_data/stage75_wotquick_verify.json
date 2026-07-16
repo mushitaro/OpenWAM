@@ -1,0 +1,175 @@
+{
+ "_note": "Stage 75 app-reflection verification: the v14 preset POSTed to /simulate/run?mode=wot_quick reproduced calib_data/stage74_v14.csv exactly (12/12 deck-cache hits) = the app and research paths emit byte-identical decks.",
+ "schema_version": 2,
+ "unit": "rf_ecu",
+ "m_ref_mg": 606.06,
+ "created_at": "2026-07-16T14:21:25+00:00",
+ "sim_binary_sig": "1439232:1783859375",
+ "calib": {
+  "schema_version": 3,
+  "alpha": 0.6,
+  "w": 0.005,
+  "thr_choke": 1,
+  "part_load_alpha": 0.6,
+  "part_load_alpha_load_min": 40.0,
+  "icv_sigma": 0.3,
+  "thr_sigma_sha1": "7346d6e7c8",
+  "timing_mode": "pure_v3",
+  "ignition_map": true
+ },
+ "elapsed_sec": 1731.8,
+ "overall": {
+  "r": 0.0551,
+  "max_shape_err": 0.6491,
+  "score": 3,
+  "status": "red",
+  "verdict": "Not valid — resolve health/shape flags before tuning",
+  "any_red_health": true,
+  "n_cells": 20,
+  "n_converged": 18,
+  "n_cyl_ok": 19
+ },
+ "rows": [
+  {
+   "load": 100.0,
+   "r": 0.0551,
+   "max_shape_err": 0.6491,
+   "peak_rpm_sim": 6900.0,
+   "peak_rpm_stock": 3900.0,
+   "peak_match": false,
+   "range_sim_pp": 68.74,
+   "range_stock_pp": 62.9,
+   "tilt_sim": 0.368,
+   "tilt_stock": 0.137,
+   "wot_ratio_maxdp": null,
+   "score": 3,
+   "status": "red",
+   "n_trusted": 17,
+   "n_gated": 3,
+   "r_ex_limit": 0.0335,
+   "max_shape_err_ex_limit": 0.6706
+  }
+ ],
+ "wot_cells": [
+  {
+   "rpm": 600.0,
+   "ve_sim": 54.69,
+   "ve_stock": 120.2,
+   "valid": true
+  },
+  {
+   "rpm": 870.0,
+   "ve_sim": 50.68,
+   "ve_stock": 115.7,
+   "valid": true
+  },
+  {
+   "rpm": 1100.0,
+   "ve_sim": 82.19,
+   "ve_stock": 84.9,
+   "valid": true
+  },
+  {
+   "rpm": 1300.0,
+   "ve_sim": 47.42,
+   "ve_stock": 66.6,
+   "valid": true
+  },
+  {
+   "rpm": 1400.0,
+   "ve_sim": 90.31,
+   "ve_stock": 78.8,
+   "valid": true
+  },
+  {
+   "rpm": 1600.0,
+   "ve_sim": 49.1,
+   "ve_stock": 105.3,
+   "valid": true
+  },
+  {
+   "rpm": 1800.0,
+   "ve_sim": 43.42,
+   "ve_stock": 81.0,
+   "valid": false
+  },
+  {
+   "rpm": 2100.0,
+   "ve_sim": 89.83,
+   "ve_stock": 68.9,
+   "valid": true
+  },
+  {
+   "rpm": 2200.0,
+   "ve_sim": 68.94,
+   "ve_stock": 76.1,
+   "valid": true
+  },
+  {
+   "rpm": 2400.0,
+   "ve_sim": 81.14,
+   "ve_stock": 79.8,
+   "valid": true
+  },
+  {
+   "rpm": 2700.0,
+   "ve_sim": 85.58,
+   "ve_stock": 74.8,
+   "valid": true
+  },
+  {
+   "rpm": 2900.0,
+   "ve_sim": 86.77,
+   "ve_stock": 73.1,
+   "valid": true
+  },
+  {
+   "rpm": 3100.0,
+   "ve_sim": 85.48,
+   "ve_stock": 68.4,
+   "valid": true
+  },
+  {
+   "rpm": 3900.0,
+   "ve_sim": 74.59,
+   "ve_stock": 129.5,
+   "valid": false
+  },
+  {
+   "rpm": 4600.0,
+   "ve_sim": 88.09,
+   "ve_stock": 118.2,
+   "valid": true
+  },
+  {
+   "rpm": 5300.0,
+   "ve_sim": 93.94,
+   "ve_stock": 117.1,
+   "valid": false
+  },
+  {
+   "rpm": 6300.0,
+   "ve_sim": 104.95,
+   "ve_stock": 109.7,
+   "valid": true
+  },
+  {
+   "rpm": 6900.0,
+   "ve_sim": 112.16,
+   "ve_stock": 107.0,
+   "valid": true
+  },
+  {
+   "rpm": 7300.0,
+   "ve_sim": 111.36,
+   "ve_stock": 107.1,
+   "valid": true
+  },
+  {
+   "rpm": 7900.0,
+   "ve_sim": 111.8,
+   "ve_stock": 101.7,
+   "valid": true
+  }
+ ]
+}
