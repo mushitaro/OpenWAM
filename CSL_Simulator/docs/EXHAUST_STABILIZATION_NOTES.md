@@ -2716,3 +2716,48 @@ cap 150Pa(ζ1.5)+T12: VE 74→200-265% の擬似周期帯 / cap 200Pa: ~500%。*
 - **E2(f15 減衰デッキ + ROM ladder)**: 有界化せず — 全 gain で VE 3000-4000% の超充填アトラクタへ(対照 E2off = 88.3 健全)。eq ティー T12 減衰・タップ K≈19 の両方を投入しても脱出は起きる。
 - **最終解釈**: この超充填枝は R4(「シミュは高充填アトラクタ 95-99 に籠もる」)・Stage-67 偽陽性(duct500/hdr250 の 86-96 枝)と同一の**モデル大域アトラクタ**。バンク差動帯域励振はそこへの遷移経路の一つに過ぎず、局所減衰では除去できない。**箱モード ROM 経路は本セッションの 16+ ラン(定式化5系統×安全装置全数+減衰2種)で決定的に封印** — Stage 64(0D)・66(1D)に続く第3の、最も徹底した実証。
 - **ミッションへの含意(オーナー判断待ち)**: 3900-4600 の 3D モード再現は 1D では不可能が確定。Stage 71 の選択肢 **C(帯域分割ツイン)** が残る道: 谷帯(≤3100)= v14 系実寸ツイン(+タップ物理損失の再校正)で VANOS 行を最適化、3900+ 行 = 凍結 Stage-69 ツイン(α クラッチで中域を持つ)で最適化。v14(実寸+正点火+ECU 単位)は両端 ±5、谷 +1〜+21、中域 −23〜−56。
+
+## Stage 75 — アプリ UX への全成果反映(2026-07-13)
+
+Stage 70-74 の成果(実測ツイン v14・スコア基準・点火・新ノブ・既知限界)を UX に漏れなく反映。
+オーナーがアプリだけで v14 ツインを再現・編集・実行・解釈できる状態にした(コミット 0599164)。
+
+### ⚡発見: アプリのデッキは研究デッキと別物だった(パリティ断絶)
+プラン探索で判明した**既存の重大バグ 5 件**(いずれも「UI から Run した結果は検証済みデッキと違う」):
+1. **Wiebe 65/2.2**(フロント既定)vs **60/2.0**(models.py = 研究デッキ) — Stage 69 で generator が
+   この値を読むようになったが、フロント既定は旧値のまま = **全 UI 実行が別燃焼モデル**
+2. **duration_cycles 30**(フロント)vs **60**(models.py) — WOT セルが未収束で切られる(実測系は cyc48 必要)
+3. **bellmouth 150**(フロント)vs **170**(Stage 63 で採用済みの実測値)
+4. **section1 layout "Independent"**(= ストレート)vs **X-Pipe**(オーナー実車のクロスパイプ、Stage 63 で既定化)
+5. **幽霊レゾネーター**: フロントは `resonator_fitted=false` でも `resonator_length=300` を送信 —
+   generator のゲートは **length>0** なので、チェックが外れていても**デッキには 300mm レゾネーターが入っていた**
++ `crossover_offset`(フロント専用)編集は `cat_offset`(generator が読む実体)に届いていなかった。
++ optimizer/calibration_service の m_ref がインライン旧式(640.77)= マップ実行(606.06)と 5.7% 不一致。
+**全て修正**し、恒久ゲート `scripts/v14_parity_check.py`(app デッキ vs 研究デッキの sha256、12/12 一致)を新設。
+
+### 実装(M0-M7)
+- **プリセット機構**: `frontend/presets/v14_owner.json` = **単一の真実**(TS 既定と Python パリティゲートが共有)。
+  起動時から v14 オーナー実車。「レガシー中立 (Stage 69 基準)」へ切替可。旧プロジェクト JSON のロードは
+  LEGACY_NEUTRAL にマージ(当時実際に走った値を再現; v14 を遡及注入しない)。
+- **新フィールド ~22 個を Builder に公開**: head_return 専用ノード(SVG 弧、無効時破線)、eq タップテーパ、
+  collector_length / primary_end_diameter、Sec1 脚長(cat_offset 整合)・cross_to_cat・cat_taper・触媒径、
+  Sec2 h_offset・レゾネーター offset/friction、マフラー chambers(パス長/径/ファンネル/摩擦、SVG 内部描画)。
+- **来歴 + STALE**: schema v2(created_at/unit/m_ref_mg/model_limits)、`GET /meta`、ProvenanceStrip。
+  7/5-7/12 の旧 last_run は schema v1 → **STALE(旧世代)バッジ**(旧単位 ×1.0573 の警告付き)。
+- **モデル限界の可視化**: metrics.MODEL_LIMITS を全結果に同梱 → overlay の ReferenceArea(3900-5300)、
+  6300 双安定線、ValidityPanel の **r\***(限界帯除外の補助相関、スコアは不変)、Tuning 表の limit/bistable
+  チップ、Waveform バッジ。単位表記は全て「VE %rf (ECU basis)」。
+- **波形モニタ拡張**(wave_v4): Head_Return/EqRail/Sec1/Sec2/Resonator/Muf_Pass/Tail を追加(~21→~36 管、
+  対称ペアは L 側代表)。チップを In-cyl/Intake/EQ・ベント/Exh front/Exh rear に分割。
+- **計測シート v3**: 実測可能な新項目 16 件を JA ラベル+計測手順付きで追加(フィット系は除外)。全 77 項目の
+  パスが models.py と v14 preset の両方で解決することを検証。
+- **死にコード削除**: verification ページ(501 依存・カム 280/276 架空値)、PhysicalParamTuner、MapVisualizer
+  (捏造軸)、SimulationController、runCalibration。カムラベルを "Stock CSL" → **"S54 Standard (260°/260°)"**
+  (値 260/260 は正しい = オーナー車の標準 S54 カム。DME 文書確認済み、CSL 純正 268/264 は非装着)。
+
+### 検証
+golden 12/12 緑 · v14 パリティ 12/12 バイト一致 · tsc/npm build クリーン · `/meta` 応答確認 ·
+Builder 全ノードの新フィールド表示を DOM で確認(head_return 15/250/2、テーパ 21、戻り 550、collector 90、
+Sec1 750/440/120・触媒 180×105.6、Sec2 2200/49.6/h80/reso 300×90@800、マフラー 46L/chambers/1130/1930/φ65)。
+⚠ backend を叩く機能(Run/STALE バッジ表示)は埋め込みプレビューのネットワーク隔離により UI 経由では検証不可 —
+HTTP 直叩きで検証し、実ブラウザでの最終確認はオーナーに依頼。
