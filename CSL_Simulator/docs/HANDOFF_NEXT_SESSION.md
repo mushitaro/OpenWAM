@@ -1,6 +1,45 @@
 # HANDOFF — CSL_Simulator VE calibration (continue here)
 
-> **🧭🧭🧭🧭🧭🧭🧭🧭🧭 2026-07-13 (LATEST-2) — STAGE 74: CORRECTIONS ADOPTED
+> **📱📱📱📱📱📱📱📱📱 2026-07-13 (LATEST-3) — STAGE 75: THE APP NOW *IS* THE
+> v14 TWIN. Read EXHAUST_STABILIZATION_NOTES Stage 75.** Commit `0599164`.
+> **⚡THE HEADLINE: the UI had been running a DIFFERENT DECK than every
+> validated research run** — 5 silent parity breaks found & fixed: Wiebe
+> 65/2.2 vs the real 60/2.0; duration_cycles 30 vs 60 (WOT cells truncated
+> un-converged); bellmouth 150 vs the adopted 170; section1 layout
+> "Independent"(=straight) vs X-Pipe (the owner's crosspipe); and a PHANTOM
+> 300mm resonator (the UI sent resonator_length=300 with the box unchecked —
+> the generator gates on length>0, so every UI deck had a resonator). Plus
+> `crossover_offset` edits never reached `cat_offset` (the field the deck
+> reads), and the optimizer/calibration m_ref was still the legacy 640.77.
+> **NEW PERMANENT GATE: `backend/scripts/v14_parity_check.py`** — app deck vs
+> research deck sha256, 12/12 byte-identical. Run it with golden_deck_check
+> after ANY frontend-default / models.py / generator change.
+> **What the app has now:** `frontend/presets/v14_owner.json` = the single
+> source of truth (TS default + Python gate read the same file), v14 = the
+> boot preset, "レガシー中立 (Stage 69基準)" = the reset/compare preset (old
+> saved projects merge onto LEGACY_NEUTRAL, never onto v14). All ~22 Stage
+> 70-74 fields are editable (head_return node w/ dashed-when-off SVG, eq tap
+> taper, collector_length, primary_end_dia, Sec1 legs/cross_to_cat/cat_taper,
+> cat dia, Sec2 h_offset + resonator offset/friction, muffler chambers +
+> passes + funnel, with the internals drawn in the SVG). Provenance: schema
+> v2 (created_at/unit/m_ref_mg/model_limits) + `GET /meta` + ProvenanceStrip
+> with a **STALE(旧世代) badge** (the 7/5-7/12 last_runs are schema v1 =
+> legacy unit ×1.0573 low). Model limits are served from
+> `metrics.MODEL_LIMITS` and drawn everywhere (overlay ReferenceArea
+> 3900-5300, 6300 bistable line, ValidityPanel **r\*** = correlation
+> excluding the band [score untouched], Tuning limit/bistable chips,
+> Waveform badge); every axis reads "VE %rf (ECU basis)". Waveform monitors
+> the measured exhaust + eq/vent network (wave_v4, ~36 pipes). Sheet v3
+> (+16 measurable params). Dead code deleted; cam label now "S54 Standard
+> (260°/260°)" (values were always right — the LABEL was wrong).
+> **⚠ Verification limit:** the embedded preview cannot reach the backend
+> (network isolation) — Run/STALE-badge must be confirmed in a REAL browser
+> (`CSL_Simulator/start_app.bat`). UI/field verification was done via DOM.
+> **NEXT: (1) finish the data regeneration** (wot_quick then full_map ~3h)
+> so `last_run_*` stop being STALE; **(2) the mission item — owner GO on
+> Stage-71 option C (band-split twin)**, then the M4 optimizer per band.
+
+> **🧭🧭🧭🧭🧭🧭🧭🧭🧭 2026-07-13 — STAGE 74: CORRECTIONS ADOPTED
 > (owner OK) + ROM ROUTE SEALED. Read EXHAUST_STABILIZATION_NOTES Stage 74.**
 > ECU M_REF (606.06 mg) is now the DEFAULT scoring unit (CSL_MREF_LEGACY=1
 > opt-out; ⚠ stage<=73 CSVs' ve columns are legacy-unit — multiply by
