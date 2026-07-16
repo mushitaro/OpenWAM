@@ -20,6 +20,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import sys
 
 os.environ["OPENWAM_FAST_OUTPUT"] = "1"   # deck-side; matches app + research runs
@@ -75,12 +76,49 @@ def deck_app(preset_json, rpm, load, cal, maps):
         return gen.generate(ignition_timing=ign)
 
 
+def check_neutral_preset(cal):
+    """LEGACY_NEUTRAL must be deck-equivalent to a bare SimConfig().
+
+    The preset claims this (it is the merge base for old saved projects, so a
+    drift would silently rewrite what those projects ran). Compare at the DECK
+    level, not field-by-field: cosmetic fields the generator never reads
+    (lift_profile, flow_coeff_map, section names, resonator_location) are
+    allowed to differ, real inputs are not.
+    """
+    ts = open(os.path.join(os.path.dirname(PRESET), "..", "app", "presets.ts"),
+              encoding="utf-8").read()
+    body = ts.split("export const LEGACY_NEUTRAL: SimConfig = ", 1)[1]
+    body = body.rsplit("} as unknown as SimConfig;", 1)[0] + "}"
+    body = re.sub(r"//[^\n]*", "", body)
+    j = re.sub(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:', r'\1"\2":', body)
+    j = re.sub(r",(\s*[}\]])", r"\1", j)
+    neutral = json.loads(j)
+    rpm, load = 4600.0, 100.0
+    a = deck_app(neutral, rpm, load, cal, R.MAPS)          # preset path
+    b = deck_app(json.loads(SimConfig().model_dump_json()), rpm, load, cal, R.MAPS)
+    ha = hashlib.sha256(a.encode()).hexdigest()[:16]
+    hb = hashlib.sha256(b.encode()).hexdigest()[:16]
+    ok = ha == hb
+    print(f"  LEGACY_NEUTRAL {ha}  vs models.py defaults {hb}  "
+          f"{'OK' if ok else 'MISMATCH'}")
+    if not ok:
+        for i, (x, y) in enumerate(zip(a.splitlines(), b.splitlines())):
+            if x != y:
+                print(f"    L{i}: preset={x!r}")
+                print(f"    L{i}: models={y!r}")
+                break
+    return ok
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     cal = calib.load(R.DATA_DIR)
     preset = json.load(open(PRESET, encoding="utf-8"))
     jobs = json.load(open(JOBS, encoding="utf-8"))
     bad = []
+    print("# LEGACY_NEUTRAL == models.py defaults (deck level)")
+    neutral_ok = check_neutral_preset(cal)
+    print("# v14 preset == research baseline (per cell)")
     for job in jobs:
         rpm, load = float(job["rpm"]), float(job["load"])
         a = deck_research(job, cal)
@@ -99,10 +137,14 @@ def main():
                 print(f"    L{i}: research={x!r}")
                 print(f"    L{i}:      app={y!r}")
             bad.append(int(rpm))
-    if bad:
-        print(f"PARITY FAIL: {bad}")
+    if bad or not neutral_ok:
+        if bad:
+            print(f"PARITY FAIL (v14 cells): {bad}")
+        if not neutral_ok:
+            print("PARITY FAIL: LEGACY_NEUTRAL drifted from models.py defaults")
         sys.exit(1)
-    print(f"v14 parity OK ({len(jobs)} cells byte-identical)")
+    print(f"parity OK ({len(jobs)} v14 cells byte-identical; "
+          f"LEGACY_NEUTRAL == models.py defaults)")
 
 
 if __name__ == "__main__":
