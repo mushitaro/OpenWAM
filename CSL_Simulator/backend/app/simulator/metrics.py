@@ -24,6 +24,38 @@ WOT_TPS = 85.0
 
 _SEVERITY = {"green": 0, "yellow": 1, "red": 2}
 
+# ---- result provenance (Stage 74 app-reflection) -----------------------------
+# schema_version 2 = ECU rf scoring unit (m_ref 606.06) + KF_TZ_VL WOT ignition
+# + model_limits metadata. Results with schema_version < 2 (or absent) were
+# produced under the legacy standard-air unit (x1.0573 low) and old ignition --
+# the frontend shows a STALE badge for them.
+SCHEMA_VERSION = 2
+
+
+def mref_mode():
+    """Scoring-unit mode: 'rf_ecu' (default) or 've_legacy' (CSL_MREF_LEGACY=1)."""
+    import os as _os
+    return "ve_legacy" if _os.environ.get("CSL_MREF_LEGACY") == "1" else "rf_ecu"
+
+
+# Known PERMANENT model limits (Stage 64/66/74: the 3900-5300 WOT band needs
+# the 3D bank-differential box mode, sealed three independent ways; 6300 WOT is
+# a bistable attractor cell). Served via /meta and embedded in run results so
+# every consumer (UI charts, scripts, optimizer displays) annotates the same
+# band. Display metadata ONLY -- §5 scoring/verdicts are unchanged.
+MODEL_LIMITS = {
+    "wot_deficit_band": {
+        "load_min": 85.0, "rpm_min": 3900, "rpm_max": 5300,
+        "label_ja": "1Dモデル恒久限界(3D箱モード)",
+        "note": "deficit-by-design; un-scoreable (sealed Stage 64/66/74)",
+        "treatment": "unscoreable",
+    },
+    "bistable_cells": [
+        {"rpm": 6300, "load_min": 85.0, "amplitude_pp": 14.5,
+         "note": "bistable attractor -- result may flip ±14.5pp between builds/params"},
+    ],
+}
+
 
 # ---- reference trapped mass (Stage 73/74) ------------------------------------
 # The MSS54 normalizes relative fill rf by K_RF_LUFTDICHTE * K_RF_HUBVOLUMEN

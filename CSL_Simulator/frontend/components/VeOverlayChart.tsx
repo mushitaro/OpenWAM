@@ -3,7 +3,7 @@
 import React from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-    ResponsiveContainer, ReferenceLine,
+    ResponsiveContainer, ReferenceLine, ReferenceArea,
 } from "recharts";
 import { RunResponse } from "../app/api";
 
@@ -38,6 +38,12 @@ const VeOverlayChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
 
     const peakStock = runData.rows[wotRow]?.peak_rpm_stock ?? null;
 
+    // Stage 74: permanent model-limit band (3900-5300 = missing 3D box mode,
+    // sealed) + the bistable 6300 cell -- annotate so nobody reads the WOT
+    // deficit there as a tuning problem.
+    const band = runData.model_limits?.wot_deficit_band;
+    const bistable = runData.model_limits?.bistable_cells ?? [];
+
     return (
         <div className="flex flex-col gap-2 h-full">
             <div className="flex items-center justify-between">
@@ -55,10 +61,19 @@ const VeOverlayChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
                         <XAxis dataKey="rpm" stroke="#a3a3a3" tick={{ fontSize: 11 }}
                                tickFormatter={(v) => `${Math.round(v / 100) / 10}k`} />
                         <YAxis stroke="#a3a3a3" tick={{ fontSize: 11 }} domain={["auto", "auto"]}
-                               label={{ value: "VE %", angle: -90, position: "insideLeft", fill: "#a3a3a3", fontSize: 11 }} />
+                               label={{ value: "VE %rf (ECU basis)", angle: -90, position: "insideLeft", fill: "#a3a3a3", fontSize: 11 }} />
                         <Tooltip contentStyle={{ background: "#171717", border: "1px solid #262626", borderRadius: 8, fontSize: 12 }}
                                  labelStyle={{ color: "#e5e5e5" }} formatter={(v: any) => (v == null ? "-" : Number(v).toFixed(1) + " %")} />
                         <Legend wrapperStyle={{ fontSize: 12 }} />
+                        {band && (
+                            <ReferenceArea x1={band.rpm_min} x2={band.rpm_max}
+                                           fill="#f59e0b" fillOpacity={0.07} stroke="#f59e0b" strokeOpacity={0.25}
+                                           label={{ value: "model limit (3D box mode)", fill: "#b45309", fontSize: 9, position: "insideTop" }} />
+                        )}
+                        {bistable.map((b) => (
+                            <ReferenceLine key={b.rpm} x={b.rpm} stroke="#a16207" strokeDasharray="2 3"
+                                           label={{ value: `bistable ±${b.amplitude_pp}pp`, fill: "#a16207", fontSize: 9, position: "insideBottomRight" }} />
+                        ))}
                         {peakStock != null && (
                             <ReferenceLine x={peakStock} stroke="#f59e0b" strokeDasharray="4 4"
                                            label={{ value: "stock peak", fill: "#f59e0b", fontSize: 10, position: "top" }} />

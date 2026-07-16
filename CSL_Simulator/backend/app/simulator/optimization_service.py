@@ -298,10 +298,14 @@ class OptimizationService:
                     f"rpms {missed} are not on the sim rpm axis; valid values: "
                     f"{[int(r) for r in rpm_axis]}")
 
-        # per-cylinder VE=100% reference mass (same formula as the Run path)
+        # per-cylinder VE=100% reference mass (same helper as the Run path --
+        # Stage 74: default = the ECU rf reference 606.06 mg; an inline legacy
+        # formula here previously left the optimizer on the OLD 640.77 scale,
+        # 5.7% off the map run)
         geo0 = config.engine.geometry
-        rho0 = config.environment.ambient_pressure / (287.058 * config.environment.ambient_temp)
-        m_ref_mg = math.pi * ((geo0.bore / 20.0) ** 2) * (geo0.stroke / 10.0) * rho0
+        m_ref_mg = M.m_ref_mg(geo0.bore, geo0.stroke,
+                              config.environment.ambient_pressure,
+                              config.environment.ambient_temp)
         # keep _run_solver's slope early-stop on the right VE scale for this
         # geometry (same assignment the map Run makes).
         self.svc._m_ref_mg = m_ref_mg
@@ -435,7 +439,12 @@ class OptimizationService:
                        if v is not None]
 
         result = {
-            "schema_version": 1,
+            "schema_version": M.SCHEMA_VERSION,
+            "created_at": datetime.datetime.now(datetime.timezone.utc)
+                          .isoformat(timespec="seconds"),
+            "unit": M.mref_mode(),
+            "m_ref_mg": round(m_ref_mg, 2),
+            "model_limits": M.MODEL_LIMITS,
             "mode": "optimization",
             "run_id": run_id,
             "sim_binary_sig": meta["sim_sig"],

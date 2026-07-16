@@ -8,6 +8,7 @@
 import React, { useMemo, useState } from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    ReferenceArea, ReferenceLine,
 } from "recharts";
 import { Copy, Download, SlidersHorizontal, AlertTriangle, Check } from "lucide-react";
 import type { OptimizationResponse, EcuTable } from "../app/api";
@@ -63,7 +64,12 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
     };
 
     const downloadCsv = () => {
+        // Stage 74: self-document the VE scoring unit in the export header
+        const unitNote = data.unit === "ve_legacy"
+            ? "# unit: VE% (legacy standard-air m_ref)"
+            : `# unit: %rf (ECU basis, m_ref ${data.m_ref_mg ?? 606.06} mg)`;
         const csv =
+            unitNote + "\n" +
             tableToDelim(data.tables.intake, ",") + "\n\n" +
             tableToDelim(data.tables.exhaust, ",") + "\n";
         downloadText(`vanos_tuning_${data.run_id}.csv`, csv);
@@ -130,6 +136,15 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
                                 labelStyle={{ color: TICK }}
                             />
                             <Legend wrapperStyle={{ fontSize: 10 }} />
+                            {data.model_limits && (
+                                <ReferenceArea x1={data.model_limits.wot_deficit_band.rpm_min}
+                                    x2={data.model_limits.wot_deficit_band.rpm_max}
+                                    fill="#f59e0b" fillOpacity={0.07} stroke="#f59e0b" strokeOpacity={0.25}
+                                    label={{ value: "model limit", fill: "#b45309", fontSize: 9, position: "insideTop" }} />
+                            )}
+                            {(data.model_limits?.bistable_cells ?? []).map((b) => (
+                                <ReferenceLine key={b.rpm} x={b.rpm} stroke="#a16207" strokeDasharray="2 3" />
+                            ))}
                             <Line type="monotone" dataKey="measured" name="Stock (measured)"
                                 stroke="#f43f5e" strokeDasharray="4 3" dot={false} connectNulls />
                             <Line type="monotone" dataKey="baseline" name="Sim baseline"
@@ -163,9 +178,16 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
                         {data.cells.map((c) => {
                             const changedIn = c.chosen.intake_cam !== c.stock.intake_cam;
                             const changedEx = c.chosen.exhaust_cam !== c.stock.exhaust_cam;
+                            const band = data.model_limits?.wot_deficit_band;
+                            const inBand = !!band && c.rpm >= band.rpm_min && c.rpm <= band.rpm_max;
+                            const isBistable = (data.model_limits?.bistable_cells ?? []).some(b => b.rpm === c.rpm);
                             return (
                                 <tr key={c.rpm} className="border-b border-neutral-800/40 text-neutral-300">
-                                    <td className="p-1.5 text-left text-neutral-400">{c.rpm}</td>
+                                    <td className="p-1.5 text-left text-neutral-400">
+                                        {c.rpm}
+                                        {inBand && <span className="ml-1 px-1 rounded bg-amber-900/50 text-amber-400 text-[9px]" title="1Dモデル恒久限界帯(3D箱モード欠落)— この帯の Δ VE は信頼できません">limit</span>}
+                                        {isBistable && <span className="ml-1 px-1 rounded bg-amber-900/50 text-amber-400 text-[9px]" title="双安定セル — 結果が ±14.5pp 振れることがあります">bistable</span>}
+                                    </td>
                                     <td className={`p-1.5 ${changedIn ? "text-emerald-300" : ""}`}>
                                         {c.stock.intake_cam}{changedIn ? ` → ${c.chosen.intake_cam}` : ""}
                                     </td>

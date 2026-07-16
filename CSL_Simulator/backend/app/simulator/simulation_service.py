@@ -591,7 +591,22 @@ class SimulationService:
             sim_row = [cells[li][ri]["ve_sim"] for ri in range(len(rpms))]
             stock_row = [cells[li][ri]["ve_stock"] for ri in range(len(rpms))]
             healths = [cells[li][ri]["health"] for ri in range(len(rpms))]
-            rows.append(M.row_metrics(l, sim_row, stock_row, rpms, healths))
+            row = M.row_metrics(l, sim_row, stock_row, rpms, healths)
+            # Stage 74: supplementary "excluding the known model-limit band"
+            # metrics for WOT rows (3900-5300 = the sealed 3D-box-mode
+            # deficit). DISPLAY-ONLY additive fields -- the validated §5
+            # row/status/score above are untouched.
+            band = M.MODEL_LIMITS["wot_deficit_band"]
+            if l >= band["load_min"]:
+                keep = [ri for ri, r in enumerate(rpms)
+                        if not (band["rpm_min"] <= r <= band["rpm_max"])]
+                ex = M.row_metrics(
+                    l, [sim_row[ri] for ri in keep],
+                    [stock_row[ri] for ri in keep],
+                    [rpms[ri] for ri in keep], [healths[ri] for ri in keep])
+                row["r_ex_limit"] = ex.get("r")
+                row["max_shape_err_ex_limit"] = ex.get("max_shape_err")
+            rows.append(row)
 
         # cross-row load-profile metric (§5 #8): needs the load=100 row of THIS
         # run; injected into each part-load row and folded into its status.
@@ -611,7 +626,12 @@ class SimulationService:
                        for r, v in zip(rpms, stock_axis) if v is not None]
 
         result = {
-            "schema_version": 1,
+            "schema_version": M.SCHEMA_VERSION,
+            "created_at": datetime.datetime.now(datetime.timezone.utc)
+                          .isoformat(timespec="seconds"),
+            "unit": M.mref_mode(),
+            "m_ref_mg": round(self._m_ref_mg, 2),
+            "model_limits": M.MODEL_LIMITS,
             "mode": mode,
             "run_id": run_id,
             "sim_binary_sig": sim_sig,
@@ -712,10 +732,17 @@ class SimulationService:
         # Stage 64: intake-acoustics stations added (bellmouth mouths, duct,
         # filter, and the multi-cell box connectors) so the waveform view /
         # wave_box_fft.py can place the intake resonances empirically.
-        # ~13 -> ~21 monitored pipes; the INS buffer handles this fine.
+        # Stage 74: the measured exhaust topology (Sec1 legs/crossover, Sec2,
+        # resonator, muffler pass pipes) + the eq-rail/head-return network are
+        # now monitorable too -- symmetric pairs keep the L side only and the
+        # eq rail keeps taps 1/6, bounding the INS width (~21 -> ~36 pipes).
         _keep = re.compile(r"^(Runner_Lower_\d+|Port_Ex_\d+_1|Col_Out_"
                            r"|Bellmouth_\d+|CSL_Intake_Pipe|CSL_Panel_Filter"
-                           r"|PlenumConn_\d+|PlenumBox_\w+)")
+                           r"|PlenumConn_\d+|PlenumBox_\w+"
+                           r"|Head_Return|EqRail_Return|EqRail_Tap_(1|6)$|EqTube_Stub_(1|6)$"
+                           r"|Sec1_1_L|Sec1_H_Cross|Sec1_Mid_L|Sec1_CatTaper_L|Sec1_2_L"
+                           r"|Sec2_1_L|Sec2_H_L|Sec2_2_L|Resonator_L|Sec2_3_L"
+                           r"|Muf_Pass\d|Tail_1$)")
         mon_pids = sorted(pid for pid, lab in pipe_labels.items() if _keep.match(lab))
 
         gen = WAMGenerator(point_config, self.simulator_dir)
@@ -740,7 +767,7 @@ class SimulationService:
         # (mirrors the map cache). The .wave.json suffix keeps it in a distinct
         # namespace from the map deck cache.
         wkey = hashlib.sha256(
-            (content + "|" + self._sim_binary_sig() + "|wave_v3|"
+            (content + "|" + self._sim_binary_sig() + "|wave_v4|"
              + json.dumps({k: env.get(k) for k in _RESULT_ENV}, sort_keys=True)
              ).encode("utf-8", "replace")
         ).hexdigest()
@@ -838,7 +865,8 @@ class SimulationService:
         ]
         # group from the LABEL, not a magic pid threshold (pid boundaries shift if
         # the eq-tube is disabled / chained -> pid<39 would mislabel exhaust pipes).
-        intake_re = re.compile(r"^(Runner|Bellmouth|Port_In|EqTube|CSL_Intake|CSL_Panel|Inlet|Plenum)")
+        intake_re = re.compile(r"^(Runner|Bellmouth|Port_In|EqTube|EqRail|Head_Return"
+                               r"|CSL_Intake|CSL_Panel|Inlet|Plenum)")
         pipes = []
         for pid in mon_pids:
             ps, vs = pipe_p.get(pid), pipe_v.get(pid)
@@ -856,6 +884,10 @@ class SimulationService:
 
         result = {
             "run_id": run_id, "sim_binary_sig": self._sim_binary_sig(),
+            "schema_version": M.SCHEMA_VERSION,
+            "created_at": datetime.datetime.now(datetime.timezone.utc)
+                          .isoformat(timespec="seconds"),
+            "model_limits": M.MODEL_LIMITS,
             "rpm": rpm, "load": load, "is_wot": is_wot, "n_cycles": n_cycles,
             "crank_deg": crank, "cylinders": cylinders, "pipes": pipes,
             "elapsed_sec": round(time.time() - t0, 1), "status": "success", "note": note,

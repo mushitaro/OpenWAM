@@ -103,7 +103,17 @@ MEASURABLE: list[Param] = [
     Param("intake.eq_tube.return_pipe_diameter", "EQ帰還パイプ内径", "mm", "吸気系", "float", 5.0, 40.0,
           "レール→ICV→プレナムのゴムパイプ内径（実測 φ21）"),
     Param("intake.eq_tube.return_pipe_length", "EQ帰還パイプ長", "mm", "吸気系", "float", 50.0, 800.0,
-          "帰還パイプ長（実測 250mm）"),
+          "帰還パイプ長（実測 250mm; Stage 72 訂正でオーナー車は 500-600mm → 550）"),
+    Param("intake.eq_tube.rail_tap_taper_end", "EQ分岐パイプ先端径(レール側)", "mm", "吸気系", "float", 5.0, 40.0,
+          "ランナー→レール分岐パイプのレール側内径（実車 φ21 のテーパ表現）。空欄=ストレート。実物 φ10 はソルバー数値限界のため φ21 で入力"),
+    Param("intake.head_return.enabled", "ヘッド戻りホース 装着", "", "吸気系", "bool", None, None,
+          "カムカバー→プレナムのブローバイ戻りホースの有無（オーナー車: 有）"),
+    Param("intake.head_return.pipe_diameter", "ヘッド戻りホース内径", "mm", "吸気系", "float", 5.0, 40.0,
+          "ホース内径をノギスで（実測 φ15）"),
+    Param("intake.head_return.pipe_length", "ヘッド戻りホース長", "mm", "吸気系", "float", 50.0, 1500.0,
+          "ホース経路長（実測 250mm）"),
+    Param("intake.head_return.volume", "ヘッド側実効容積", "L", "吸気系", "float", 0.5, 10.0,
+          "カムカバー+通路の実効容積（概算可; 感度試験は 1-2L を示唆、2L 仮置き）"),
 
     # --- ヘッド・バルブ ----------------------------------------------------
     Param("engine.head.valves_per_cyl", "1気筒バルブ数", "", "ヘッド・バルブ", "int", 2.0, 5.0,
@@ -140,6 +150,10 @@ MEASURABLE: list[Param] = [
           "集合部内径"),
     Param("exhaust.headers.collector_vol", "集合部容積", "L", "排気系", "float", 0.1, 5.0,
           "集合部容積（水置換）"),
+    Param("exhaust.headers.collector_length", "集合部長さ", "mm", "排気系", "float", 30.0, 800.0,
+          "集合部（Col_Out）本体長（実測 90mm; 旧仮値 500）"),
+    Param("exhaust.headers.primary_end_diameter", "一次パイプ出口内径", "mm", "排気系", "float", 25.0, 80.0,
+          "一次パイプの集合部側内径。テーパ無しなら一次内径と同値（実測 37.6）。空欄=集合部径へテーパ(レガシー)"),
     Param("exhaust.catalyst.installed", "触媒 装着", "", "排気系", "bool", None, None,
           "触媒の有無"),
     Param("exhaust.catalyst.cpsi", "触媒セル密度", "cpsi", "排気系", "float", 50.0, 900.0,
@@ -152,16 +166,40 @@ MEASURABLE: list[Param] = [
           "セクション1（触媒前後含む）全長"),
     Param("exhaust.section1_1.diameter", "セクション1 内径", "mm", "排気系", "float", 40.0, 120.0,
           "セクション1 パイプ内径"),
+    Param("exhaust.section1_1.cat_offset", "S1 バンク1 集合→クロス管長", "mm", "排気系", "float", 100.0, 2000.0,
+          "バンク1: 集合部出口からクロスパイプまでの脚長（実測 750mm、等長）"),
+    Param("exhaust.section1_2.cat_offset", "S1 バンク2 集合→クロス管長", "mm", "排気系", "float", 100.0, 2000.0,
+          "バンク2: 同上（実測 750mm、等長クロスパイプ仕様）"),
+    Param("exhaust.section1_1.cross_to_cat", "クロス→触媒 直管長", "mm", "排気系", "float", 0.0, 1500.0,
+          "クロスパイプ出口から触媒テーパ開始までの直管（実測 440mm）。0=クロス直後に触媒(レガシー)"),
+    Param("exhaust.section1_1.cat_taper_length", "触媒入口テーパ長", "mm", "排気系", "float", 0.0, 400.0,
+          "触媒入口のテーパ部長さ（実測 120mm）"),
     Param("exhaust.section2.length", "セクション2 全長", "mm", "排気系", "float", 100.0, 3000.0,
-          "セクション2（H/Xパイプ含む）全長"),
+          "セクション2（H/Xパイプ含む）全長（実測 2200mm）"),
     Param("exhaust.section2.diameter", "セクション2 内径", "mm", "排気系", "float", 40.0, 120.0,
-          "セクション2 パイプ内径"),
-    Param("exhaust.section3.volume", "マフラー容積", "L", "排気系", "float", 1.0, 40.0,
-          "マフラー容積（水置換 or CAD）"),
+          "セクション2 パイプ内径（実測 φ52 外径 ≈ 49.6 内径）"),
+    Param("exhaust.section2.h_offset", "触媒出口→H管 距離", "mm", "排気系", "float", 0.0, 1500.0,
+          "H 管の位置: 触媒出口から H ブリッジまで（実車 80mm = 触媒直後）"),
+    Param("exhaust.section2.resonator_length", "レゾネータ長", "mm", "排気系", "float", 0.0, 1000.0,
+          "中間の貫通レゾネータ長（実測 300mm）。0=無し"),
+    Param("exhaust.section2.resonator_diameter", "レゾネータ内径", "mm", "排気系", "float", 40.0, 200.0,
+          "レゾネータケース内径（実測 φ90）"),
+    Param("exhaust.section2.resonator_offset", "H→レゾネータ距離", "mm", "排気系", "float", 0.0, 2000.0,
+          "H 管出口からレゾネータ入口まで（実測 800mm）"),
+    Param("exhaust.section3.volume", "マフラー容積", "L", "排気系", "float", 1.0, 60.0,
+          "マフラー内容積（外形実測 1000×300×160 ≈ 48L → 内容積 ~46L）"),
     Param("exhaust.section3.tailpipe_length", "テールパイプ長", "mm", "排気系", "float", 30.0, 1000.0,
           "テールパイプ長"),
     Param("exhaust.section3.diameter", "マフラー/テール径", "mm", "排気系", "float", 40.0, 120.0,
           "マフラー/テールパイプ径"),
+    Param("exhaust.section3.pass1_length", "マフラー内パス1長(180°)", "mm", "排気系", "float", 300.0, 4000.0,
+          "前室→後室の 180° 通し管の経路長（1000mm ケース推定 1130mm）"),
+    Param("exhaust.section3.pass2_length", "マフラー内パス2長(360°)", "mm", "排気系", "float", 300.0, 5000.0,
+          "360° 通し管の経路長（推定 1930mm）"),
+    Param("exhaust.section3.pass_diameter", "マフラー通し管内径", "mm", "排気系", "float", 30.0, 100.0,
+          "通し管の内径（掃引最良 φ65; φ50 は絞りすぎ）"),
+    Param("exhaust.section3.pass_entry_diameter", "通し管入口ファンネル径", "mm", "排気系", "float", 0.0, 150.0,
+          "通し管入口のファンネル開口径（DME資料 p37）。0=ストレート"),
 ]
 
 # Fast lookup by path (used by the import parser).
@@ -170,7 +208,7 @@ BY_PATH: dict[str, Param] = {p.path: p for p in MEASURABLE}
 # v2: measured-geometry columns added (duct slot exit / filter thickness / EQ
 # rail dims); import matches by dotted path, so v1 sheets remain readable.
 # icv_sigma is deliberately NOT here: it is a FIT parameter, not measurable.
-SHEET_SCHEMA = 2  # bump when the sheet layout / column contract changes
+SHEET_SCHEMA = 3  # v3: Stage-74 measured params (head return, taper, Sec1 legs, H/resonator, muffler internals)
 
 
 def get_by_path(d: Any, path: str) -> Any:

@@ -13,7 +13,8 @@ export type SelectionType =
     | { type: "collector" }
     | { type: "section1", index: number }
     | { type: "section2" }
-    | { type: "muffler" };
+    | { type: "muffler" }
+    | { type: "head_return" };
 
 interface InteractiveTopologyProps {
     config: SimConfig;
@@ -113,6 +114,23 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
             {CYL_Y.map((y, i) => (
                 <line key={i} x1="175" y1={y} x2="212" y2={y} stroke="#525252" strokeWidth="4" className="pointer-events-none" />
             ))}
+
+            {/* 6. Head-return hose (Stage 70-71: cam cover -> plenum crankcase
+                vent, owner car phi15x250). Dashed when disabled. */}
+            <g
+                onClick={() => onSelect({ type: "head_return" })}
+                className="cursor-pointer hover:opacity-80 transition-all"
+            >
+                <path
+                    d="M 232,28 C 220,8 110,8 92,40"
+                    fill="none"
+                    stroke={getStroke(isSelected(s => s.type === "head_return"))}
+                    strokeWidth="4" strokeLinecap="round"
+                    strokeDasharray={config.intake.head_return?.enabled ? undefined : "5,4"}
+                    opacity={config.intake.head_return?.enabled ? 1 : 0.55}
+                />
+            </g>
+            <text x="162" y="10" textAnchor="middle" className="text-[9px] fill-neutral-600 font-mono tracking-wide pointer-events-none">HEAD RET.</text>
         </g>
     );
 
@@ -178,7 +196,9 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
         const s2 = config.exhaust.section2;
         const isH = s2.layout === "H-Pipe";
         const isSingle = s2.layout === "Single";
-        const res = s2.resonator_fitted;
+        // The deck generator gates the resonator on resonator_length > 0 (the
+        // fitted flag alone changes nothing) -- render what the deck will build.
+        const res = (s2.resonator_length ?? 0) > 0;
         const loc = s2.resonator_location || "before_h";
         const s2Scale = (s2EndX - s1EndX) / 100; // rescale legacy 0-100 local units onto the new span
         const bridgeX = s1EndX + ((res && loc === "before_h") ? 75 : 30) * s2Scale;
@@ -254,6 +274,15 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                     <rect x={s2EndX} y="90" width="80" height="180" rx="8"
                         fill={getFill(isSelected(s => s.type === "muffler"))}
                         stroke={getStroke(isSelected(s => s.type === "muffler"))} strokeWidth="2" />
+                    {/* Multi-pass internals (Stage 72): chamber divider + the
+                        180/360-deg pass pipes, drawn when internal_model=chambers */}
+                    {config.exhaust.section3.internal_model === "chambers" && (
+                        <g className="pointer-events-none" opacity="0.7">
+                            <line x1={s2EndX + 48} y1="94" x2={s2EndX + 48} y2="266" stroke="#404040" strokeWidth="2" strokeDasharray="3,3" />
+                            <path d={`M ${s2EndX + 8},130 L ${s2EndX + 66},130 C ${s2EndX + 74},130 ${s2EndX + 74},150 ${s2EndX + 66},150 L ${s2EndX + 14},150`} fill="none" stroke="#525252" strokeWidth="3" />
+                            <path d={`M ${s2EndX + 8},205 L ${s2EndX + 66},205 C ${s2EndX + 74},205 ${s2EndX + 74},225 ${s2EndX + 66},225 L ${s2EndX + 10},225 C ${s2EndX + 2},225 ${s2EndX + 2},243 ${s2EndX + 10},243 L ${s2EndX + 66},243`} fill="none" stroke="#525252" strokeWidth="3" />
+                        </g>
+                    )}
                     {/* Tips (Quad) */}
                     <line x1="676" y1="99" x2="698" y2="99" stroke="#737373" strokeWidth="5" strokeLinecap="round" />
                     <line x1="676" y1="111" x2="698" y2="111" stroke="#737373" strokeWidth="5" strokeLinecap="round" />

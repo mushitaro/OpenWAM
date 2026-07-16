@@ -51,6 +51,7 @@ const ValidityPanel: React.FC<{ overall: RunOverall; rows: RunRow[] }> = ({ over
                         <tr className="bg-neutral-950 text-neutral-500">
                             <th className="p-1.5">load</th>
                             <th className="p-1.5">r</th>
+                            <th className="p-1.5" title="r excluding the 3900-5300 model-limit band (Stage 74)">r*</th>
                             <th className="p-1.5">shapeErr</th>
                             <th className="p-1.5">maxΔp</th>
                             <th className="p-1.5">peak</th>
@@ -66,6 +67,7 @@ const ValidityPanel: React.FC<{ overall: RunOverall; rows: RunRow[] }> = ({ over
                             <tr key={i} className="border-t border-neutral-800 text-neutral-300">
                                 <td className="p-1.5">{row.load}%</td>
                                 <td className={`p-1.5 ${TEXT[statusOf(row.r, 0.95, 0.85, true)]}`}>{fmt(row.r)}</td>
+                                <td className="p-1.5 text-neutral-400" title="excl. 3900-5300 model-limit band">{fmt(row.r_ex_limit ?? null)}</td>
                                 <td className={`p-1.5 ${TEXT[statusOf(row.max_shape_err, 0.05, 0.12, false)]}`}>{fmt(row.max_shape_err)}</td>
                                 <td className={`p-1.5 ${row.wot_ratio_maxdp == null ? "text-neutral-600" : TEXT[statusOf(row.wot_ratio_maxdp, 0.05, 0.12, false)]}`}>{fmt(row.wot_ratio_maxdp)}</td>
                                 <td className="p-1.5">{row.peak_match == null ? "—" : row.peak_match ? "✓" : "✗"}</td>
@@ -82,6 +84,8 @@ const ValidityPanel: React.FC<{ overall: RunOverall; rows: RunRow[] }> = ({ over
             <div className="text-[10px] text-neutral-500">
                 WOT = wideband (tight tolerances); part-load = narrowband-log (shape-based). Cells failing
                 converged / cylinder-balance / VE-band are gated out of the shape metrics.
+                単位は %rf(ECU 基準、m_ref 606.06mg; Stage 74)。
+                r* = 既知のモデル恒久限界帯(WOT 3900-5300、3D箱モード欠落)を除外した相関。6300 は双安定セル(±14.5pp)。
             </div>
         </div>
     );

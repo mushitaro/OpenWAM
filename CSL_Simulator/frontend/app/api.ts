@@ -81,6 +81,20 @@ export interface EqTubeConfig {
     icv_sigma?: number;     // FIT parameter (Phase 4A), not measured
     rail_friction?: number;      // 0.1 kills the 2700-WOT cross-feed collapse
     rail_tap_friction?: number;
+    // Stage 70: tapered runner->rail branch (owner car: phi30 boss -> phi21
+    // hose, the representable form of the real phi10 pipe). null = straight.
+    rail_tap_taper_end?: number | null;
+}
+
+// Stage 70-71: head (cam cover) -> plenum crankcase-vent return hose.
+// Owner car: phi15 x 250mm into a ~2L effective head volume.
+export interface HeadReturnConfig {
+    enabled: boolean;
+    pipe_diameter: number;  // mm
+    pipe_length: number;    // mm
+    volume: number;         // L (cam cover + passages, effective)
+    friction: number;
+    wall_temp: number;      // degC
 }
 
 export interface IntakeConfig {
@@ -92,6 +106,7 @@ export interface IntakeConfig {
     throttle: ThrottleConfig;
     runner: RunnerConfig;
     eq_tube: EqTubeConfig;
+    head_return: HeadReturnConfig;
 }
 
 // 2. Engine Core
@@ -165,6 +180,11 @@ export interface HeaderConfig {
     wall_temp: number;
     heat_coeff: number;
     header_friction?: number;
+    // Stage 71 (owner-measured): collector body length (legacy hardcode was
+    // 500mm; real car 90mm) and primary exit bore (null = legacy taper to
+    // collector_dia; owner car 37.6 = no taper).
+    collector_length?: number;
+    primary_end_diameter?: number | null;
 }
 
 export interface ExhaustSectionConfig {
@@ -181,6 +201,11 @@ export interface ExhaustSectionConfig {
 export interface Section1Config extends ExhaustSectionConfig {
     crossover_type: string; // Alias for layout logic
     crossover_offset: number;
+    // Stage 71 (owner-measured): straight run after the crossover and the
+    // taper into the catalyst (cross -> 440mm -> 120mm taper -> cat).
+    // 0 = legacy (cat starts at the X junction).
+    cross_to_cat?: number;      // mm
+    cat_taper_length?: number;  // mm
 }
 
 export interface Section2Config extends ExhaustSectionConfig {
@@ -188,11 +213,26 @@ export interface Section2Config extends ExhaustSectionConfig {
     resonator_location: "before_h" | "after_h";
     resonator_length: number;   // mm
     resonator_diameter: number; // mm
+    // Stage 72 (owner's stock-exhaust diagram): H sits right after the cats
+    // (real 80mm; legacy hardcode 400) and a straight-through resonator sits
+    // mid-pipe (offset = H-exit -> resonator inlet).
+    h_offset?: number;            // mm
+    resonator_offset?: number;    // mm
+    resonator_friction?: number;
 }
 
 export interface Section3Config extends ExhaustSectionConfig {
     muffler_type: string;
     tailpipe_length: number;
+    // Stage 72-74: multi-pass reflection internals (owner diagram; DME doc
+    // p37 "funnel-shaped openings"). "single" = legacy one-volume.
+    internal_model?: "single" | "chambers";
+    chamber_split?: number;        // ChamberA volume fraction
+    pass1_length?: number;         // mm (180-deg path)
+    pass2_length?: number;         // mm (360-deg path)
+    pass_diameter?: number;        // mm
+    pass_friction?: number;
+    pass_entry_diameter?: number;  // mm funnel entry; 0 = straight
 }
 
 export interface EnvironmentConfig {
@@ -283,6 +323,10 @@ export interface RunRow {
     status: TrafficStatus;
     n_trusted: number;
     n_gated: number;
+    // Stage 74 supplementary (additive; §5 score/status untouched): the same
+    // metrics excluding the 3900-5300 model-limit band (WOT rows only).
+    r_ex_limit?: number | null;
+    max_shape_err_ex_limit?: number | null;
 }
 
 export interface RunOverall {
@@ -299,7 +343,32 @@ export interface RunOverall {
 
 export interface StockPoint { rpm: number; ve: number; }
 
-export interface RunResponse {
+// --- Stage 74 provenance (schema_version 2) ---------------------------------
+export interface ModelLimits {
+    wot_deficit_band: {
+        load_min: number; rpm_min: number; rpm_max: number;
+        label_ja: string; note: string; treatment: string;
+    };
+    bistable_cells: { rpm: number; load_min: number; amplitude_pp: number; note: string }[];
+}
+
+export interface ProvenanceFields {
+    created_at?: string;                 // ISO8601 UTC (schema v2+)
+    unit?: "rf_ecu" | "ve_legacy";       // scoring unit (v2+; absent = legacy)
+    m_ref_mg?: number;                   // reference mass the VE% is scaled by
+    model_limits?: ModelLimits;
+}
+
+export interface MetaResponse {
+    app_version: string;
+    sim_binary_sig: string;
+    schema_version: number;
+    unit: "rf_ecu" | "ve_legacy";
+    m_ref_mg: number;
+    model_limits: ModelLimits;
+}
+
+export interface RunResponse extends ProvenanceFields {
     schema_version: number;
     mode: "wot_quick" | "full_map";
     run_id: string;
@@ -327,7 +396,7 @@ export interface WaveformTrace {
     velocity_ms?: number[] | null; // pipes only (in-cylinder has no velocity)
 }
 
-export interface WaveformResponse {
+export interface WaveformResponse extends ProvenanceFields {
     run_id: string;
     sim_binary_sig: string;
     rpm: number;
@@ -383,7 +452,7 @@ export interface EcuTable {
     wot_row_index: number;
 }
 
-export interface OptimizationResponse {
+export interface OptimizationResponse extends ProvenanceFields {
     schema_version: number;
     mode: "optimization";
     run_id: string;
@@ -403,27 +472,19 @@ export interface OptimizationResponse {
 
 const API_BASE_URL = "http://localhost:8000";
 
-export const runCalibration = async (config: SimConfig): Promise<CalibrationResponse> => {
+// Current backend provenance — the STALE-badge reference (Stage 74).
+export const fetchMeta = async (): Promise<MetaResponse | null> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/simulate/calibration`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(config),
-        });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        return data as CalibrationResponse;
-    } catch (error) {
-        console.error("Calibration failed:", error);
-        throw error;
+        const response = await fetch(`${API_BASE_URL}/meta`);
+        if (!response.ok) return null;
+        return await response.json() as MetaResponse;
+    } catch {
+        return null;   // backend down — provenance strip simply omits the check
     }
 };
+
+// (runCalibration removed in Stage 74 cleanup — the /simulate/calibration
+// endpoint is a 501 stub; CalibrationResponse stays for VETableComparison.)
 
 export const runSimulation = async (
     config: SimConfig,

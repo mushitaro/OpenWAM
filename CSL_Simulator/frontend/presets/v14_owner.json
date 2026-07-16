@@ -1,0 +1,84 @@
+{
+  "_comment": "v14 owner-car digital twin (Stage 74, 2026-07). Single source of truth for the app's default vehicle AND the backend parity gate (scripts/v14_parity_check.py). Values mirror backend/calib_data/stage74_v14_jobs.json over the Stage-69 model defaults. Do not edit without re-running the parity check.",
+  "environment": { "ambient_temp": 298, "ambient_pressure": 101325 },
+  "fuel": { "lcv": 44000000, "density": 750, "stoich_ratio": 14.7 },
+  "simulation": { "mesh_size": 0.01, "openwam_version": 2200, "duration_cycles": 60, "step_size": 1.0 },
+  "intake": {
+    "type": "CSL Replica",
+    "inlet": { "duct_length": 400, "duct_diameter": 190, "exit_width": 550, "exit_height": 190, "filter_diameter": 300, "filter_thickness": 20 },
+    "plenum_vol": 22.9,
+    "bellmouth": { "length": 170, "diameter": 52, "taper_angle": 3.5 },
+    "itb": { "fitted": true, "diameter": 52, "plate_thickness": 2, "discharge_coeff_map": "default_butterfly" },
+    "throttle": { "idle_offset_deg": 2.0, "pedal_gamma": 1.4 },
+    "runner": { "upper_length": 10, "lower_length": 60, "entry_diameter": 70, "length_scale": 1.0, "friction_multiplier": 1.0 },
+    "eq_tube": {
+      "enabled": true, "model": "rail",
+      "stub_diameter": 30, "stub_length": 75, "stub_friction": 0.02,
+      "volume_scale": 1.0, "mistune_spread": 0.0,
+      "rail_diameter": 21, "rail_length": 570,
+      "rail_tap_diameter": 30, "rail_tap_length": 30,
+      "rail_tap_taper_end": 21,
+      "return_pipe_diameter": 21, "return_pipe_length": 550,
+      "return_tap": "center", "icv_sigma": 0.15,
+      "rail_friction": 0.1, "rail_tap_friction": 0.1
+    },
+    "head_return": { "enabled": true, "pipe_diameter": 15, "pipe_length": 250, "volume": 2, "friction": 0.1, "wall_temp": 90 }
+  },
+  "engine": {
+    "cam_profile": "S54 Standard (260°/260°)",
+    "rpm": 7900,
+    "cylinders": 6,
+    "geometry": { "bore": 87.0, "stroke": 91.0, "compression_ratio": 11.5, "rod_length": 139.0 },
+    "combustion": { "duration": 60.0, "start_angle": -15.0, "shape_parameter_m": 2.0, "efficiency_a": 6.9, "mass_burned_b": 0.5 },
+    "vanos_intake_bias": 0.0,
+    "vanos_exhaust_bias": 0.0,
+    "friction": { "coeffs": [0.9, 0.12, 0, 0] },
+    "heat_transfer": { "woschni_coeffs": [128.0, 2.28, 0.0], "global_factor": 1.0 },
+    "head": {
+      "port_flow_coeff": 1.0,
+      "valves_per_cyl": 4,
+      "wall_temp": 450,
+      "intake_port_wall_temp": 127,
+      "intake_port": { "length": 105, "diameter": 52, "wall_temp": 400 },
+      "exhaust_port": { "length": 90, "diameter": 48, "wall_temp": 800 },
+      "intake_valve": { "lift_profile": "Stock", "max_lift": 11.8, "duration": 260, "diameter": 35, "open_angle_base": 350, "flow_coeff_map": "S54_In" },
+      "exhaust_valve": { "lift_profile": "Stock", "max_lift": 11.2, "duration": 260, "diameter": 30.5, "open_angle_base": 130, "flow_coeff_map": "S54_Ex" }
+    }
+  },
+  "exhaust": {
+    "headers": {
+      "type": "Stock Euro", "collector_count": 2,
+      "primary_length": 300, "primary_diameter": 37.6,
+      "primary_end_diameter": 37.6,
+      "collector_vol": 1.5, "collector_dia": 65, "collector_length": 90,
+      "wall_temp": 800, "heat_coeff": 45, "header_friction": 0.02
+    },
+    "catalyst": { "installed": true, "location": "header_collector", "cpsi": 200, "length": 180, "diameter": 105.6 },
+    "section1_1": {
+      "name": "Section 1 (Bank 1)", "layout": "X-Pipe", "crossover_type": "none",
+      "length": 1200, "diameter": 52.6,
+      "cat_fitted": true, "cat_offset": 750, "crossover_offset": 750,
+      "cross_to_cat": 440, "cat_taper_length": 120, "wall_temp": 600
+    },
+    "section1_2": {
+      "name": "Section 1 (Bank 2)", "layout": "X-Pipe", "crossover_type": "none",
+      "length": 1200, "diameter": 52.6,
+      "cat_fitted": true, "cat_offset": 750, "crossover_offset": 750,
+      "cross_to_cat": 440, "cat_taper_length": 120, "wall_temp": 600
+    },
+    "section2": {
+      "name": "Section 2", "layout": "H-Pipe",
+      "length": 2200, "diameter": 49.6, "h_offset": 80,
+      "resonator_fitted": true, "resonator_location": "before_h",
+      "resonator_length": 300, "resonator_diameter": 90,
+      "resonator_offset": 800, "resonator_friction": 0.1,
+      "cat_fitted": false, "cat_offset": 200, "wall_temp": 600
+    },
+    "section3": {
+      "volume": 46, "tailpipe_length": 150, "diameter": 68,
+      "internal_model": "chambers", "chamber_split": 0.6,
+      "pass1_length": 1130, "pass2_length": 1930,
+      "pass_diameter": 65, "pass_friction": 0.02, "pass_entry_diameter": 0
+    }
+  }
+}

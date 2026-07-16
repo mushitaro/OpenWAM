@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 import { Activity, Play } from "lucide-react";
 import type { Data, Layout, Config } from "plotly.js";
 import { runWaveform, cancelRuns } from "../app/api";
-import type { SimConfig, RunResponse, WaveformResponse } from "../app/api";
+import type { SimConfig, RunResponse, WaveformResponse, WaveformTrace } from "../app/api";
 
 const Plot = dynamic(() => import("react-plotly.js"), {
     ssr: false,
@@ -150,6 +150,13 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
             <div className="flex items-center justify-between mb-2 flex-shrink-0 flex-wrap gap-2">
                 <div className="text-sm font-semibold text-neutral-200 flex items-center gap-2">
                     <Activity size={14} /> Crank-Angle Waveform
+                    {runData.model_limits && rpm >= runData.model_limits.wot_deficit_band.rpm_min
+                        && rpm <= runData.model_limits.wot_deficit_band.rpm_max && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-400 text-[9px] font-mono"
+                            title="1Dモデル恒久限界帯(3D箱モード欠落)。この回転域の波形は参考値です。">
+                            model-limit band
+                        </span>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     <label className="text-[11px] text-neutral-400">rpm</label>
@@ -228,16 +235,25 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
                             {data.cylinders.map((c) =>
                                 chip("c" + c.id, c.label, selected.has("c" + c.id), metric === "velocity"))}
                         </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider text-neutral-500 w-14">Intake</span>
-                            {data.pipes.filter((p) => p.group === "intake").map((p) =>
-                                chip("p" + p.id, p.label, selected.has("p" + p.id)))}
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider text-neutral-500 w-14">Exhaust</span>
-                            {data.pipes.filter((p) => p.group === "exhaust").map((p) =>
-                                chip("p" + p.id, p.label, selected.has("p" + p.id)))}
-                        </div>
+                        {/* Stage 74: the measured exhaust topology + eq/vent network are
+                            monitored too -- split the chips into readable rows by prefix
+                            (the WaveformGroup API stays intake/exhaust underneath). */}
+                        {([
+                            ["Intake", (p: WaveformTrace) => p.group === "intake" && !/^(EqRail|EqTube|Head_Return)/.test(p.label)],
+                            ["EQ・ベント", (p: WaveformTrace) => p.group === "intake" && /^(EqRail|EqTube|Head_Return)/.test(p.label)],
+                            ["Exh front", (p: WaveformTrace) => p.group === "exhaust" && /^(Port_Ex|Col_Out|Sec1)/.test(p.label)],
+                            ["Exh rear", (p: WaveformTrace) => p.group === "exhaust" && /^(Sec2|Resonator|Muf|Tail)/.test(p.label)],
+                            ["Exh other", (p: WaveformTrace) => p.group === "exhaust" && !/^(Port_Ex|Col_Out|Sec1|Sec2|Resonator|Muf|Tail)/.test(p.label)],
+                        ] as [string, (p: WaveformTrace) => boolean][]).map(([label, pred]) => {
+                            const pipes = data.pipes.filter(pred);
+                            if (!pipes.length) return null;
+                            return (
+                                <div key={label} className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[10px] uppercase tracking-wider text-neutral-500 w-14">{label}</span>
+                                    {pipes.map((p) => chip("p" + p.id, p.label, selected.has("p" + p.id)))}
+                                </div>
+                            );
+                        })}
                     </div>
                     <div className="flex-1 min-h-[260px]">
                         {traces.length === 0 ? (

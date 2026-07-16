@@ -60,6 +60,26 @@ async def root():
     return {"status": "ok", "service": "CSL Simulator API", "version": "m1"}
 
 
+@app.get("/meta")
+async def get_meta():
+    """Current backend provenance (Stage 74): the frontend compares a loaded
+    result's sim_binary_sig / schema_version against this to flag STALE runs
+    (e.g. the pre-Stage-74 last_run files are legacy-unit x1.0573 low)."""
+    from .simulator import metrics as M
+    try:
+        sig = simulation_service._sim_binary_sig()
+    except Exception:
+        sig = "unknown"
+    return {
+        "app_version": app.version,
+        "sim_binary_sig": sig,
+        "schema_version": M.SCHEMA_VERSION,
+        "unit": M.mref_mode(),
+        "m_ref_mg": round(M.m_ref_mg(87.0, 91.0, 101325.0, 298.0), 2),
+        "model_limits": M.MODEL_LIMITS,
+    }
+
+
 @app.get("/maps")
 async def get_maps():
     """OEM ECU maps (VE / VANOS) used for axes + VANOS lookup."""

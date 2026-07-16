@@ -5,12 +5,13 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { Play, Activity, Settings2, Info, Wrench, BarChart2, Save, Upload, Download, History, Square, FileSpreadsheet } from "lucide-react";
-import { runTuning, fetchLastTuning, runSimulation, fetchLastRun, cancelRuns, fetchMaps, fetchBinVeMap, CalibrationResponse, RunResponse, OptimizationResponse, SimConfig, EcuVeMap, WS_BASE_URL, downloadMeasurementSheet, importMeasurementSheet, SheetImportResult } from "../app/api";
+import { runTuning, fetchLastTuning, runSimulation, fetchLastRun, cancelRuns, fetchMaps, fetchBinVeMap, fetchMeta, CalibrationResponse, RunResponse, OptimizationResponse, MetaResponse, SimConfig, EcuVeMap, WS_BASE_URL, downloadMeasurementSheet, importMeasurementSheet, SheetImportResult } from "../app/api";
+import ProvenanceStrip from "./ProvenanceStrip";
 import VETableComparison from "./VETableComparison";
 import BinaryPatchManager from "./BinaryPatchManager";
 import SimulationDebugPanel from "./SimulationDebugPanel";
 import InteractiveTopology, { SelectionType } from "./InteractiveTopology";
-import SimulationController from "./SimulationController";
+import { V14_OWNER, LEGACY_NEUTRAL, deepMerge } from "../app/presets";
 import VeOverlayChart from "./VeOverlayChart";
 import ValidityPanel from "./ValidityPanel";
 import VeSurfaceChart from "./VeSurfaceChart";
@@ -65,6 +66,12 @@ const VehicleBuilder = () => {
     const [tuneProgress, setTuneProgress] = useState<{ done: number; total: number; eta?: number } | null>(null);
     // M3/M4: which results view is showing
     const [resultView, setResultView] = useState<"summary" | "surface" | "waveform" | "tuning">("summary");
+    // Stage 74 provenance: current backend meta (STALE-badge reference) and
+    // whether the shown result came from disk (Load last) vs a fresh run.
+    const [meta, setMeta] = useState<MetaResponse | null>(null);
+    const [runFromDisk, setRunFromDisk] = useState(false);
+    const [tuneFromDisk, setTuneFromDisk] = useState(false);
+    useEffect(() => { fetchMeta().then(setMeta); }, []);
 
     // Live progress: parse "CELL x/y" broadcasts on /ws/logs into a progress bar.
     useEffect(() => {
@@ -108,63 +115,19 @@ const VehicleBuilder = () => {
     // Builder State
     const [selection, setSelection] = useState<SelectionType | null>({ type: "environment" });
 
-    // config state
-    const [config, setConfig] = useState<SimConfig>({
-        environment: { ambient_temp: 298, ambient_pressure: 101325 },
-        fuel: { lcv: 44000000, density: 750, stoich_ratio: 14.7 },
-        simulation: { mesh_size: 0.01, openwam_version: 2200, duration_cycles: 30, step_size: 1.0 },
-        intake: {
-            type: "CSL Replica",
-            // MEASURED car defaults (2026-07, == backend models.py since Phase 3.5):
-            // 400mm φ190 duct opening through a 550x190 slot into the 22.9L plenum
-            inlet: { duct_length: 400, duct_diameter: 190, exit_width: 550, exit_height: 190, filter_diameter: 300, filter_thickness: 20 },
-            plenum_vol: 22.9,
-            bellmouth: { length: 150, diameter: 52, taper_angle: 3.5 },
-            itb: { fitted: true, diameter: 52, plate_thickness: 2, discharge_coeff_map: "default_butterfly" },
-            throttle: { idle_offset_deg: 2.0, pedal_gamma: 1.4 },
-            runner: { upper_length: 10, lower_length: 60, entry_diameter: 70, length_scale: 1.0, friction_multiplier: 1.0 },
-            eq_tube: {
-                enabled: true, model: "rail", stub_diameter: 30, stub_length: 75, stub_friction: 0.02, volume_scale: 1.0, mistune_spread: 0.0,
-                // "rail" model (measured car): φ21x570 common rail -> ICV -> plenum return.
-                // Tap φ30 = numerical floor; friction 0.1 kills the 2700-WOT cross-feed collapse.
-                rail_diameter: 21, rail_length: 570, rail_tap_diameter: 30, rail_tap_length: 30,
-                return_pipe_diameter: 21, return_pipe_length: 250, return_tap: "center", icv_sigma: 0.15,
-                rail_friction: 0.1, rail_tap_friction: 0.1
-            }
-        },
-        engine: {
-            cam_profile: "Stock CSL",
-            rpm: 7900, // Default RPM
-            cylinders: 6,
-            geometry: { bore: 87.0, stroke: 91.0, compression_ratio: 11.5, rod_length: 139.0 },
-            // Advanced Computed/Manual Overrides (Piston/Head Areas calculated in backend)
-            combustion: { duration: 65.0, start_angle: -15.0, shape_parameter_m: 2.2, efficiency_a: 6.9, mass_burned_b: 0.5 },
-            vanos_intake_bias: 0.0,
-            vanos_exhaust_bias: 0.0,
-            friction: { coeffs: [0.5, 0, 0, 0] },
-            heat_transfer: { woschni_coeffs: [2.28, 0.4, 0], global_factor: 1.0 },
-            head: {
-                port_flow_coeff: 1.0,
-                valves_per_cyl: 4,
-                wall_temp: 450,
-                intake_port_wall_temp: 127,
-                intake_port: { length: 105, diameter: 52, wall_temp: 400 },
-                exhaust_port: { length: 90, diameter: 48, wall_temp: 800 },
-                intake_valve: { lift_profile: "Stock", max_lift: 11.8, duration: 260, diameter: 35, open_angle_base: 350, flow_coeff_map: "S54_In" },
-                exhaust_valve: { lift_profile: "Stock", max_lift: 11.2, duration: 260, diameter: 30.5, open_angle_base: 130, flow_coeff_map: "S54_Ex" }
-            }
-        },
-        exhaust: {
-            headers: { primary_length: 300, primary_diameter: 48, collector_vol: 1.5, collector_dia: 68 }, // S54 Stock Headers (models.py canonical)
-            catalyst: { installed: true, location: "header_collector", cpsi: 200, length: 200, diameter: 120 }, // Default Catalyst
-            // models.py canonical: cat_offset must be > 0 or Section 1-1 becomes a
-            // zero-length pipe that aborts the solver (cyc=0). 68mm / 1200 / 1400 = stock.
-            section1_1: { length: 1200, diameter: 68, layout: "Independent", crossover_offset: 600, name: "Section 1 (Bank 1)", cat_fitted: true, cat_offset: 600, wall_temp: 600, crossover_type: "none" },
-            section1_2: { length: 1200, diameter: 68, layout: "Independent", crossover_offset: 600, name: "Section 1 (Bank 2)", cat_fitted: true, cat_offset: 600, wall_temp: 600, crossover_type: "none" },
-            section2: { length: 1400, diameter: 68, layout: "H-Pipe", resonator_fitted: false, resonator_location: "before_h", resonator_length: 300, resonator_diameter: 80, name: "Section 2", cat_fitted: false, cat_offset: 200, wall_temp: 600 },
-            section3: { volume: 15.0, tailpipe_length: 150, diameter: 68 }, // Stock Muffler
-        }
-    });
+    // config state — starts as the v14 owner-car digital twin (Stage 74).
+    // The full value set lives in presets/v14_owner.json (also read by the
+    // backend parity gate); LEGACY_NEUTRAL is the Stage-69 model baseline.
+    const [config, setConfig] = useState<SimConfig>(() => structuredClone(V14_OWNER));
+    const [activePreset, setActivePreset] = useState<"v14" | "legacy">("v14");
+    const applyPreset = (which: "v14" | "legacy") => {
+        if (!window.confirm("プリセットを適用すると未保存の編集は破棄されます。よろしいですか?")) return;
+        setConfig(structuredClone(which === "v14" ? V14_OWNER : LEGACY_NEUTRAL));
+        setActivePreset(which);
+        setNotice(which === "v14"
+            ? "プリセット「v14 オーナー実車」を適用しました(Stage 74 実測ツイン)。"
+            : "プリセット「レガシー中立 (Stage 69 基準)」を適用しました(モデル既定値)。");
+    };
 
     // --- UPDATERS ---
     const updateConfig = (section: keyof SimConfig, path: string, value: any) => {
@@ -190,6 +153,7 @@ const VehicleBuilder = () => {
             const runCfg = structuredClone(config);
             const data = await runSimulation(runCfg, mode);
             setRunData(data);
+            setRunFromDisk(false);
             setRunConfig(runCfg);   // snapshot geometry for the Waveform drill-down
             // fresh run results must be visible, not hidden behind a stale
             // "tuning" (or other) view selection.
@@ -216,6 +180,7 @@ const VehicleBuilder = () => {
         try {
             const data = await fetchLastRun(mode);
             setRunData(data);
+            setRunFromDisk(true);
             setRunConfig(null);   // saved geometry unknown; waveform falls back to live config
             setResultView("summary");
             setMainTab("simulation");
@@ -236,6 +201,7 @@ const VehicleBuilder = () => {
             const runCfg = structuredClone(config);
             const data = await runTuning(runCfg, tunePref);
             setTuneData(data);
+            setTuneFromDisk(false);
             setResultView("tuning");
         } catch (err: any) {
             const msg = err?.message || "Tuning failed";
@@ -259,6 +225,7 @@ const VehicleBuilder = () => {
         try {
             const data = await fetchLastTuning();
             setTuneData(data);
+            setTuneFromDisk(true);
             setResultView("tuning");
             setMainTab("simulation");
         } catch (err: any) {
@@ -281,20 +248,14 @@ const VehicleBuilder = () => {
     const configFileRef = useRef<HTMLInputElement>(null);
     // real-engine measurement sheet (.xlsx) import
     const sheetFileRef = useRef<HTMLInputElement>(null);
-    // pristine defaults, captured on FIRST render (before any edits): loading a
-    // project reproduces the state it was saved from, not defaults+edits+file.
+    // Merge base for loaded project files: LEGACY_NEUTRAL (= backend model
+    // defaults), NOT the active preset — a saved project missing new keys
+    // actually RAN with the backend defaults filling them (Pydantic), so
+    // merging over LEGACY_NEUTRAL reproduces that run exactly; merging over
+    // v14 would retroactively inject v14 geometry into old projects.
     const defaultConfigRef = useRef<SimConfig | null>(null);
-    if (defaultConfigRef.current === null) defaultConfigRef.current = structuredClone(config);
+    if (defaultConfigRef.current === null) defaultConfigRef.current = structuredClone(LEGACY_NEUTRAL);
     const handleConfigLoad = () => configFileRef.current?.click();
-    const deepMerge = (base: any, patch: any): any => {
-        if (patch === null || typeof patch !== "object" || Array.isArray(patch)) return patch;
-        const out: any = { ...(base && typeof base === "object" && !Array.isArray(base) ? base : {}) };
-        for (const k of Object.keys(patch)) {
-            if (k === "__proto__" || k === "constructor" || k === "prototype") continue; // no proto pollution
-            out[k] = deepMerge(out[k], patch[k]);
-        }
-        return out;
-    };
     const handleConfigFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = "";   // allow re-selecting the same file
@@ -402,6 +363,7 @@ const VehicleBuilder = () => {
             case "section1": return "Pipe (Merge)";
             case "section2": return "Pipe (Mid)";
             case "muffler": return "Plenum (Muffler)";
+            case "head_return": return "Pipe (Head Return)";
             default: return "-";
         }
     };
@@ -511,6 +473,8 @@ const VehicleBuilder = () => {
                                         <InputRow label="Rail Length" unit="mm" value={config.intake.eq_tube.rail_length} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_length", v)} />
                                         <InputRow label="Tap Diameter" unit="mm" value={config.intake.eq_tube.rail_tap_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_tap_diameter", v)} />
                                         <InputRow label="Tap Length" unit="mm" value={config.intake.eq_tube.rail_tap_length} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_tap_length", v)} />
+                                        <InputRow label="Tap Taper End Dia" unit="mm" value={config.intake.eq_tube.rail_tap_taper_end ?? ""} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_tap_taper_end", v === "" || v == null ? null : v)} />
+                                        <div className="text-[10px] text-neutral-600 mb-2">実車ブランチはレール側 φ21 へ絞る(テーパ表現; Stage 70)。空欄 = ストレート(レガシー)。実 φ10 は数値限界で直接表現不可。</div>
                                         <InputRow label="Return Pipe Dia" unit="mm" value={config.intake.eq_tube.return_pipe_diameter} onChange={(v: any) => updateConfig("intake", "eq_tube.return_pipe_diameter", v)} />
                                         <InputRow label="Return Pipe Len" unit="mm" value={config.intake.eq_tube.return_pipe_length} onChange={(v: any) => updateConfig("intake", "eq_tube.return_pipe_length", v)} />
                                         <InputRow label="Rail Friction" unit="-" value={config.intake.eq_tube.rail_friction} onChange={(v: any) => updateConfig("intake", "eq_tube.rail_friction", v)} />
@@ -536,6 +500,29 @@ const VehicleBuilder = () => {
                                         <div className="text-[10px] text-neutral-600">φ30 min stable; mistune detunes cyl-2 collapse</div>
                                     </>
                                 )}
+                            </>
+                        )}
+                    </>
+                )}
+
+                {type === "head_return" && (
+                    <>
+                        <SectionHeader title="Head Return (Crankcase Vent)" id={getPredictedID(selection)} />
+                        <div className="flex items-center gap-2 mb-4">
+                            <input type="checkbox" checked={config.intake.head_return.enabled} onChange={(e) => updateConfig("intake", "head_return.enabled", e.target.checked)} className="rounded border-neutral-700 bg-neutral-900" />
+                            <span className="text-sm font-medium text-neutral-300">Fitted (owner car: yes)</span>
+                        </div>
+                        {config.intake.head_return.enabled && (
+                            <>
+                                <InputRow label="Hose Dia" unit="mm" value={config.intake.head_return.pipe_diameter} onChange={(v: any) => updateConfig("intake", "head_return.pipe_diameter", v)} />
+                                <InputRow label="Hose Length" unit="mm" value={config.intake.head_return.pipe_length} onChange={(v: any) => updateConfig("intake", "head_return.pipe_length", v)} />
+                                <InputRow label="Head Volume" unit="L" value={config.intake.head_return.volume} onChange={(v: any) => updateConfig("intake", "head_return.volume", v)} />
+                                <div className="text-[10px] text-neutral-600 mb-2">ヘッド(カムカバー)→プレナムのブローバイ戻りホース(Stage 70-71 実測: φ15×250mm)。音響的にはエアボックスの Helmholtz 側枝。容積はカムカバー実効値(実測 2L 仮置き; オーナー承認済み)。</div>
+                                <div className="mt-3 pt-3 border-t border-neutral-800">
+                                    <h4 className="text-xs font-bold text-neutral-500 mb-2">ADVANCED</h4>
+                                    <InputRow label="Hose Friction" unit="-" value={config.intake.head_return.friction} onChange={(v: any) => updateConfig("intake", "head_return.friction", v)} />
+                                    <InputRow label="Wall Temp" unit="°C" value={config.intake.head_return.wall_temp} onChange={(v: any) => updateConfig("intake", "head_return.wall_temp", v)} />
+                                </div>
                             </>
                         )}
                     </>
@@ -615,6 +602,8 @@ const VehicleBuilder = () => {
                         <SectionHeader title="Header Primary" id={getPredictedID(selection)} />
                         <InputRow label="Primary Length" unit="mm" value={config.exhaust.headers.primary_length} onChange={(v: any) => updateConfig("exhaust", "headers.primary_length", v)} />
                         <InputRow label="Diameter" unit="mm" value={config.exhaust.headers.primary_diameter} onChange={(v: any) => updateConfig("exhaust", "headers.primary_diameter", v)} />
+                        <InputRow label="Primary Exit Dia" unit="mm" value={config.exhaust.headers.primary_end_diameter ?? ""} onChange={(v: any) => updateConfig("exhaust", "headers.primary_end_diameter", v === "" || v == null ? null : v)} />
+                        <div className="text-[10px] text-neutral-600 mb-2">一次管出口の内径。空欄 = 集合部径へテーパ(レガシー)。実車は φ37.6 のまま(テーパ無し; Stage 71 実測)。</div>
                         <InputRow label="Header Friction" unit="-" value={config.exhaust.headers.header_friction ?? 0.02} onChange={(v: any) => updateConfig("exhaust", "headers.header_friction", v)} />
                         <InputRow label="Wall Temp" unit="K" value={config.exhaust.headers.wall_temp ?? 800} onChange={(v: any) => updateConfig("exhaust", "headers.wall_temp", v)} />
                     </>
@@ -625,6 +614,8 @@ const VehicleBuilder = () => {
                         <SectionHeader title="Collector (Merge)" id={getPredictedID(selection)} />
                         <InputRow label="Collector Vol" unit="L" value={config.exhaust.headers.collector_vol} onChange={(v: any) => updateConfig("exhaust", "headers.collector_vol", v)} />
                         <InputRow label="Outlet Dia" unit="mm" value={config.exhaust.headers.collector_dia} onChange={(v: any) => updateConfig("exhaust", "headers.collector_dia", v)} />
+                        <InputRow label="Collector Length" unit="mm" value={config.exhaust.headers.collector_length ?? 500} onChange={(v: any) => updateConfig("exhaust", "headers.collector_length", v)} />
+                        <div className="text-[10px] text-neutral-600 mb-2">集合部本体(Col_Out 管)の長さ。実車 90mm(Stage 71 実測; 旧ハードコード 500mm)。</div>
                         <div className="mt-3 pt-3 border-t border-neutral-800">
                             <h4 className="text-xs font-bold text-neutral-500 mb-2">EXHAUST PORT JUNCTION</h4>
                             <InputRow label="Port Junction Vol" unit="cc" value={config.exhaust.port_junction_vol ?? 0.0} onChange={(v: any) => updateConfig("exhaust", "port_junction_vol", v)} />
@@ -689,8 +680,17 @@ const VehicleBuilder = () => {
                                                 </div>
                                                 <InputRow label="Cell Density (CPSI)" unit="cpsi" value={config.exhaust.catalyst.cpsi} onChange={(v: any) => updateConfig("exhaust", "catalyst.cpsi", v)} />
                                                 <InputRow label="Length" unit="mm" value={config.exhaust.catalyst.length} onChange={(v: any) => updateConfig("exhaust", "catalyst.length", v)} />
+                                                <InputRow label="Diameter" unit="mm" value={config.exhaust.catalyst.diameter} onChange={(v: any) => updateConfig("exhaust", "catalyst.diameter", v)} />
+                                                <div className="text-[10px] text-neutral-600">実車触媒 180×φ105.6(Stage 71 実測、壁厚 1.2mm 換算)。</div>
                                             </div>
                                         )}
+                                    </div>
+
+                                    <div className="p-3 bg-neutral-900 border border-neutral-800 rounded">
+                                        <h4 className="text-[10px] font-bold text-neutral-500 mb-2 border-b border-neutral-800 pb-1">CROSSOVER → CAT (両バンク共通)</h4>
+                                        <InputRow label="Straight Run" unit="mm" value={config.exhaust.section1_1.cross_to_cat ?? 0} onChange={(v: any) => updateConfig("exhaust", "section1_1.cross_to_cat", v)} />
+                                        <InputRow label="Cat Inlet Taper" unit="mm" value={config.exhaust.section1_1.cat_taper_length ?? 0} onChange={(v: any) => updateConfig("exhaust", "section1_1.cat_taper_length", v)} />
+                                        <div className="text-[10px] text-neutral-600">クロス管 → 直管 → テーパ → 触媒(実車: 440 + 120mm; Stage 71 実測)。0 = レガシー(クロス直後に触媒)。</div>
                                     </div>
 
                                     {(secConfig.layout === "X-Pipe" || secConfig.layout === "H-Pipe") ? (
@@ -701,6 +701,10 @@ const VehicleBuilder = () => {
                                                     const front = Number(v);
                                                     const rear = secConfig.length - secConfig.crossover_offset;
                                                     updateConfig("exhaust", `${bankKey}.crossover_offset`, front);
+                                                    // cat_offset is the field the deck generator actually
+                                                    // reads for the collector->crossover leg (Stage 71
+                                                    // per-bank wiring); crossover_offset is SVG-only.
+                                                    updateConfig("exhaust", `${bankKey}.cat_offset`, front);
                                                     updateConfig("exhaust", `${bankKey}.length`, front + rear);
                                                 }} />
                                                 <InputRow label="Diameter" unit="mm" value={secConfig.diameter} onChange={(v: any) => updateConfig("exhaust", `${bankKey}.diameter`, v)} />
@@ -738,13 +742,26 @@ const VehicleBuilder = () => {
                                 </div>
                                 <InputRow label="Diameter" unit="mm" value={config.exhaust.section2.diameter} onChange={(v: any) => updateConfig("exhaust", "section2.diameter", v)} />
                                 <InputRow label="Total Length" unit="mm" value={config.exhaust.section2.length} onChange={(v: any) => updateConfig("exhaust", "section2.length", v)} />
+                                {config.exhaust.section2.layout === "H-Pipe" && (
+                                    <>
+                                        <InputRow label="Cat Exit → H" unit="mm" value={config.exhaust.section2.h_offset ?? 400} onChange={(v: any) => updateConfig("exhaust", "section2.h_offset", v)} />
+                                        <div className="text-[10px] text-neutral-600">H 管の位置。実車は触媒直後 80mm(Stage 72 純正図面; 旧ハードコード 400)。1600rpm セルに ±40pp 級の感度(Stage 73 除去分離)。</div>
+                                    </>
+                                )}
 
                                 <div className="p-3 bg-neutral-900 border border-neutral-800 rounded mt-2">
                                     <h4 className="text-xs font-bold text-neutral-400 mb-2 flex items-center gap-2">
                                         RESONATOR
-                                        <input type="checkbox" checked={config.exhaust.section2.resonator_fitted} onChange={(e) => updateConfig("exhaust", "section2.resonator_fitted", e.target.checked)} />
+                                        {/* The deck generator gates the resonator on resonator_length>0
+                                            (resonator_fitted alone changed NOTHING — the old UI silently
+                                            shipped a 300mm resonator with the box unchecked). The checkbox
+                                            now drives the length so UI and deck can never disagree. */}
+                                        <input type="checkbox" checked={(config.exhaust.section2.resonator_length ?? 0) > 0} onChange={(e) => {
+                                            updateConfig("exhaust", "section2.resonator_fitted", e.target.checked);
+                                            updateConfig("exhaust", "section2.resonator_length", e.target.checked ? 300 : 0);
+                                        }} />
                                     </h4>
-                                    {config.exhaust.section2.resonator_fitted && (
+                                    {(config.exhaust.section2.resonator_length ?? 0) > 0 && (
                                         <div className="flex flex-col gap-2 mt-2">
                                             {config.exhaust.section2.layout === "H-Pipe" && (
                                                 <div className="flex flex-col gap-1">
@@ -755,8 +772,11 @@ const VehicleBuilder = () => {
                                                     </select>
                                                 </div>
                                             )}
-                                            <InputRow label="Length" unit="mm" value={config.exhaust.section2.resonator_length || 300} onChange={(v: any) => updateConfig("exhaust", "section2.resonator_length", v)} />
-                                            <InputRow label="Diameter" unit="mm" value={config.exhaust.section2.resonator_diameter || 80} onChange={(v: any) => updateConfig("exhaust", "section2.resonator_diameter", v)} />
+                                            <InputRow label="Length" unit="mm" value={config.exhaust.section2.resonator_length} onChange={(v: any) => updateConfig("exhaust", "section2.resonator_length", v)} />
+                                            <InputRow label="Diameter" unit="mm" value={config.exhaust.section2.resonator_diameter || 90} onChange={(v: any) => updateConfig("exhaust", "section2.resonator_diameter", v)} />
+                                            <InputRow label="H → Resonator" unit="mm" value={config.exhaust.section2.resonator_offset ?? 400} onChange={(v: any) => updateConfig("exhaust", "section2.resonator_offset", v)} />
+                                            <InputRow label="Lining Friction" unit="-" value={config.exhaust.section2.resonator_friction ?? 0.1} onChange={(v: any) => updateConfig("exhaust", "section2.resonator_friction", v)} />
+                                            <div className="text-[10px] text-neutral-600">貫通吸音レゾネーター(実車 φ90×300 @ H後 800mm; Stage 72 純正図面)。</div>
                                         </div>
                                     )}
                                 </div>
@@ -765,8 +785,30 @@ const VehicleBuilder = () => {
 
                         {type === "muffler" && (
                             <>
-                                <InputRow label="Tailpipe Length" unit="mm" value={config.exhaust.section3.tailpipe_length} onChange={(v: any) => updateConfig("exhaust", "section3.tailpipe_length", v)} />
                                 <InputRow label="Muffler Vol" unit="L" value={config.exhaust.section3.volume} onChange={(v: any) => updateConfig("exhaust", "section3.volume", v)} />
+                                <div className="text-[10px] text-neutral-600 mb-2">実車外形 1000×300×160mm ≈ 48L(オーナー実測; 内容積 ~46L)。生成側は 30L を下限に持ち上げる点に注意。</div>
+                                <InputRow label="Tailpipe Length" unit="mm" value={config.exhaust.section3.tailpipe_length} onChange={(v: any) => updateConfig("exhaust", "section3.tailpipe_length", v)} />
+                                <div className="mb-3">
+                                    <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">Internal Model</label>
+                                    <select value={config.exhaust.section3.internal_model ?? "single"} onChange={(e) => updateConfig("exhaust", "section3.internal_model", e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-200 outline-none">
+                                        <option value="single">Single volume (legacy)</option>
+                                        <option value="chambers">Multi-pass chambers (実車)</option>
+                                    </select>
+                                    <div className="text-[10px] text-neutral-600 mt-1">chambers = 前室 → 180°/360° 通し管 → 後室 → テール(Stage 72 オーナー図面)。中域 5300/6300 に ±20-30pp 級の感度。</div>
+                                </div>
+                                {config.exhaust.section3.internal_model === "chambers" && (
+                                    <div className="p-3 bg-neutral-900 border border-neutral-800 rounded">
+                                        <h4 className="text-[10px] font-bold text-neutral-500 mb-2 border-b border-neutral-800 pb-1">MULTI-PASS INTERNALS</h4>
+                                        <InputRow label="Front Chamber Frac" unit="-" value={config.exhaust.section3.chamber_split ?? 0.6} onChange={(v: any) => updateConfig("exhaust", "section3.chamber_split", v)} />
+                                        <InputRow label="Pass 1 Length (180°)" unit="mm" value={config.exhaust.section3.pass1_length ?? 1130} onChange={(v: any) => updateConfig("exhaust", "section3.pass1_length", v)} />
+                                        <InputRow label="Pass 2 Length (360°)" unit="mm" value={config.exhaust.section3.pass2_length ?? 1930} onChange={(v: any) => updateConfig("exhaust", "section3.pass2_length", v)} />
+                                        <InputRow label="Pass Bore" unit="mm" value={config.exhaust.section3.pass_diameter ?? 65} onChange={(v: any) => updateConfig("exhaust", "section3.pass_diameter", v)} />
+                                        <InputRow label="Funnel Entry Dia" unit="mm" value={config.exhaust.section3.pass_entry_diameter ?? 0} onChange={(v: any) => updateConfig("exhaust", "section3.pass_entry_diameter", v)} />
+                                        <div className="text-[10px] text-neutral-600 mb-2">ファンネル状開口(DME 文書 p37)。0 = ストレート。φ90 プローブで 5300 +3.8 / 6300 +2.4。</div>
+                                        <InputRow label="Pass Friction" unit="-" value={config.exhaust.section3.pass_friction ?? 0.02} onChange={(v: any) => updateConfig("exhaust", "section3.pass_friction", v)} />
+                                        <div className="text-[10px] text-neutral-600">通し管長は 1000mm ケースへの再スケール値(1130/1930)。旧 1700/2900 は 6300 を発散させる(Stage 73)。</div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </>
@@ -855,6 +897,12 @@ const VehicleBuilder = () => {
                                     <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
                                         <Activity size={14} /> Simulation Results
                                     </span>
+                                    {!loading && resultView !== "tuning" && runData && (
+                                        <ProvenanceStrip info={runData} meta={meta} loadedFromDisk={runFromDisk} />
+                                    )}
+                                    {!loading && resultView === "tuning" && tuneData && (
+                                        <ProvenanceStrip info={tuneData} meta={meta} loadedFromDisk={tuneFromDisk} />
+                                    )}
                                     {!loading && (runData || tuneData) && (
                                         <div className="flex gap-1">
                                             {([
@@ -1040,6 +1088,24 @@ const VehicleBuilder = () => {
                             {/* Config Actions */}
                             <div className="mt-auto">
                                 <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Configuration</h3>
+
+                                {/* Vehicle preset (Stage 74): the v14 owner-car twin vs the Stage-69 neutral baseline */}
+                                <div className="mb-2">
+                                    <div className="text-[10px] text-neutral-600 mb-1">プリセット</div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => applyPreset("v14")}
+                                            className={`flex-1 py-1.5 rounded text-[11px] border ${activePreset === "v14" ? "border-emerald-700 text-emerald-400 bg-emerald-950/40" : "border-neutral-800 text-neutral-400 hover:border-neutral-600"}`}
+                                            title="Stage 74 実測デジタルツイン(実測吸排気寸法・マフラー内部構造・ヘッド戻り管)">
+                                            v14 オーナー実車
+                                        </button>
+                                        <button onClick={() => applyPreset("legacy")}
+                                            className={`flex-1 py-1.5 rounded text-[11px] border ${activePreset === "legacy" ? "border-emerald-700 text-emerald-400 bg-emerald-950/40" : "border-neutral-800 text-neutral-400 hover:border-neutral-600"}`}
+                                            title="Stage 69 モデル既定値(バックエンド models.py と同一)">
+                                            レガシー中立
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div className="flex gap-2 text-neutral-400">
                                     <input type="file" accept=".json,application/json" ref={configFileRef}
                                         className="hidden" onChange={handleConfigFile} />

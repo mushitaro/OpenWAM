@@ -52,7 +52,7 @@ const VeSurfaceChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
     const [mode, setMode] = useState<Mode>("sim");
     const z = useMemo(() => buildZ(runData, mode), [runData, mode]);
 
-    const zLabel = mode === "delta" ? "Δ VE (sim − stock, pp)" : "VE %";
+    const zLabel = mode === "delta" ? "Δ VE (sim − stock, pp)" : "VE %rf (ECU basis)";
     const colorscale = mode === "delta" ? "RdBu" : "Viridis";
 
     // diverging scale centred at 0 for delta
@@ -160,6 +160,13 @@ const VeSurfaceChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
                 <div className="text-[10px] font-mono text-amber-500/80 mb-1 flex-shrink-0">
                     Single load row ({load[0] ?? "—"}% TPS). Run{" "}
                     <span className="text-amber-400">Full Map</span> for a rpm×load surface.
+                </div>
+            )}
+            {runData.model_limits && (
+                <div className="text-[10px] font-mono text-amber-700 mb-1 flex-shrink-0">
+                    ⚠ WOT {runData.model_limits.wot_deficit_band.rpm_min}-{runData.model_limits.wot_deficit_band.rpm_max}rpm:
+                    1Dモデル恒久限界(3D箱モード欠落)— この帯の不足は仕様 ·
+                    {runData.model_limits.bistable_cells.map(b => ` ${b.rpm}rpm: 双安定 ±${b.amplitude_pp}pp`)}
                 </div>
             )}
             <div className="flex-1 min-h-[300px]">

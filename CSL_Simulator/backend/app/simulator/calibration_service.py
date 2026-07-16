@@ -292,18 +292,14 @@ class CalibrationService:
             # Bore 87mm. Radius 4.35cm. Area = pi * 4.35^2 = 59.4 sqcm. Stroke 91mm = 9.1cm. Vol = 540cc.
             # config units are mm?
             # Geometry Config: bore (mm), stroke (mm)
-            b_cm = config.engine.geometry.bore / 10.0
-            s_cm = config.engine.geometry.stroke / 10.0
-            cyl_cc = math.pi * ((b_cm/2.0)**2) * s_cm
-            
-            # Ambient Density
-            # P / RT
-            p_pa = config.environment.ambient_pressure
-            t_k = config.environment.ambient_temp
-            r_air = 287.058
-            rho = p_pa / (r_air * t_k) # mg/cc == kg/m3
-            
-            theo_mass_mg = cyl_cc * rho
+            # Stage 74: shared reference-mass helper (ECU rf unit by default;
+            # CSL_MREF_LEGACY=1 restores standard-air) -- keeps this dormant
+            # endpoint consistent with the Run/optimizer paths.
+            from . import metrics as _M
+            theo_mass_mg = _M.m_ref_mg(config.engine.geometry.bore,
+                                       config.engine.geometry.stroke,
+                                       config.environment.ambient_pressure,
+                                       config.environment.ambient_temp)
             mass_mg = mass_g * 1000.0
             ve = (mass_mg / theo_mass_mg) * 100.0 if theo_mass_mg > 0 else 0.0
             
