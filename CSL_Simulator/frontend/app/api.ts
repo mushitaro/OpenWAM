@@ -481,17 +481,21 @@ export interface TelemetryLogMeta {
     software?: string;
     blocks?: number[];
     note?: string;
+    complete?: boolean;      // false = checkpoint of a recording still running
 }
 
 export interface TelemetryLogSummary { log_id: string; meta: TelemetryLogMeta; }
 
+/** Persist a recording into the repo (backend/app/data/telemetry/<id>.json).
+ *  Pass logId to overwrite an in-progress recording's file (checkpointing);
+ *  omit it to mint a new one. */
 export const saveTelemetryLog = async (
-    samples: unknown[], meta: TelemetryLogMeta,
-): Promise<{ log_id: string; n_samples: number }> => {
+    samples: unknown[], meta: TelemetryLogMeta, logId?: string | null,
+): Promise<{ log_id: string; n_samples: number; path: string }> => {
     const response = await fetch(`${API_BASE_URL}/telemetry/logs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ samples, meta }),
+        body: JSON.stringify({ samples, meta, log_id: logId ?? undefined }),
     });
     if (!response.ok) throw new Error(`telemetry save failed: ${response.statusText}`);
     return response.json();

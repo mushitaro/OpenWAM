@@ -23,9 +23,10 @@ backend/app/data/last_run_*.json
 # Uploaded ECU binary (runtime upload target for /binary/upload)
 backend/app/data/uploaded_mss54.bin
 
-# DS2 live-telemetry recordings (Stage 76) — measurement data recorded from
-# the owner's car (or mock/self-check runs), not source
-backend/app/data/telemetry/
+# DS2 mock-link / self-check recordings (Stage 76). REAL car logs
+# (telemetry/<timestamp>.json, no prefix) ARE tracked on purpose: they cost an
+# actual drive to produce and are the ground truth of the semi-empirical path.
+backend/app/data/telemetry/mock_*.json
 
 # Runtime error log
 backend/error_log.txt

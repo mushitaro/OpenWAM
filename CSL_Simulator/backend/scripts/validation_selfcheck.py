@@ -77,7 +77,8 @@ def main():
                 "tz": [tz_exp + rng.gauss(0, 0.2) for _ in range(6)],
             })
 
-    log_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    # mock_ prefix = synthetic, never to be read as measurement (and gitignored)
+    log_id = "mock_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     tdir = os.path.join(DATA_DIR, "telemetry")
     os.makedirs(tdir, exist_ok=True)
     path = os.path.join(tdir, f"{log_id}.json")

@@ -112,7 +112,9 @@ const ValidationView: React.FC = () => {
                     {logs.length === 0 && <option value="">(記録ログなし — Live タブで記録)</option>}
                     {logs.map(l => (
                         <option key={l.log_id} value={l.log_id}>
-                            {l.log_id}{l.meta?.source ? ` · ${l.meta.source}` : ""}{l.meta?.n_samples ? ` · ${l.meta.n_samples}pt` : ""}
+                            {l.log_id.startsWith("mock_") ? "[合成] " : ""}{l.log_id}
+                            {l.meta?.n_samples ? ` · ${l.meta.n_samples}pt` : ""}
+                            {l.meta?.complete === false ? " · ⚠未完(記録中/中断)" : ""}
                         </option>
                     ))}
                 </select>

@@ -1,5 +1,6 @@
 import os
 import json
+import re
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -307,10 +308,18 @@ async def binary_download():
 
 # --- DS2 live-telemetry logs (Stage 76) --------------------------------------
 # The frontend's Live (DS2) tab records LiveSample arrays from the real DME
-# (Web Serial) or the mock link, and persists them here for the validation
-# pipeline (P2: binning + measured-vs-sim comparison). Plain JSON files under
-# app/data/telemetry/, one per recording, newest-first listing.
+# (Web Serial) or the mock link, and persists them HERE, inside the repo, so a
+# drive log is analysable without any download step (owner's request).
+#
+# Naming carries provenance: a real-car log is "<timestamp>.json"; anything
+# from the mock link or a self-check is "mock_<timestamp>.json" (gitignored).
+# The prefix is the guard against ever reading synthetic data as measurement.
+#
+# The tab CHECKPOINTS while recording (same log_id, meta.complete=false) so a
+# dropped K-line / closed tab / dead backend cannot cost the owner a whole
+# drive; the stop writes the same file once more with complete=true.
 TELEMETRY_DIR = os.path.join(DATA_DIR, "telemetry")
+LOG_ID_RE = re.compile(r"^(mock_)?\d{8}_\d{6}$")
 
 
 @app.post("/telemetry/logs")
@@ -319,10 +328,20 @@ async def telemetry_save(payload: dict):
     if not isinstance(samples, list) or not samples:
         raise HTTPException(status_code=400, detail="samples[] required")
     import datetime as _dt
-    log_id = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     meta = dict(payload.get("meta") or {})
+
+    log_id = payload.get("log_id")           # present = checkpoint of a live recording
+    if log_id:
+        if not LOG_ID_RE.match(str(log_id)):
+            raise HTTPException(status_code=400, detail="invalid log id")
+        log_id = str(log_id)
+    else:
+        stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_id = stamp if meta.get("source") == "webserial" else f"mock_{stamp}"
+
     meta.setdefault("created_at", _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"))
     meta["n_samples"] = len(samples)
+    meta.setdefault("complete", True)        # false while checkpointing
     record = {"log_id": log_id, "meta": meta, "samples": samples}
     os.makedirs(TELEMETRY_DIR, exist_ok=True)
     path = os.path.join(TELEMETRY_DIR, f"{log_id}.json")
@@ -330,7 +349,8 @@ async def telemetry_save(payload: dict):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(record, f)
     os.replace(tmp, path)
-    return {"log_id": log_id, "n_samples": len(samples)}
+    return {"log_id": log_id, "n_samples": len(samples),
+            "path": f"CSL_Simulator/backend/app/data/telemetry/{log_id}.json"}
 
 
 @app.get("/telemetry/logs")
@@ -353,7 +373,7 @@ async def telemetry_list():
 @app.get("/telemetry/logs/{log_id}")
 async def telemetry_get(log_id: str):
     # log ids are timestamps we minted ourselves; reject anything path-like
-    if not log_id.replace("_", "").isdigit():
+    if not LOG_ID_RE.match(log_id):
         raise HTTPException(status_code=400, detail="invalid log id")
     path = os.path.join(TELEMETRY_DIR, f"{log_id}.json")
     if not os.path.exists(path):
@@ -368,7 +388,7 @@ async def validation_compare(payload: dict):
     if validation_service is None:
         raise HTTPException(status_code=503, detail="validation service unavailable")
     log_id = str(payload.get("log_id") or "")
-    if not log_id.replace("_", "").isdigit():
+    if not LOG_ID_RE.match(log_id):
         raise HTTPException(status_code=400, detail="invalid log id")
     mode = payload.get("mode") or "full_map"
     if mode not in ("wot_quick", "wot_standard", "full_map"):

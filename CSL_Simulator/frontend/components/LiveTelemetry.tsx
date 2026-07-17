@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
-import { Plug, PlugZap, Circle, Square, Download, Radio } from "lucide-react";
+import { Plug, PlugZap, Circle, Square, Download, Radio, HardDriveDownload } from "lucide-react";
 import { DmeTelemetryLink, DmeIdentity, LiveSample, LiveBlockSelection } from "../lib/dme-link/types";
 import { WebSerialTransport } from "../lib/dme-link/webSerialTransport";
 import { WebSerialDmeLink } from "../lib/dme-link/webSerialDmeLink";
@@ -18,6 +18,10 @@ import { saveTelemetryLog } from "../app/api";
  */
 
 const CHART_WINDOW_S = 60;
+// A drive log costs the owner an actual drive, so the recording is checkpointed
+// into the repo while it runs: a dropped K-line, a closed tab or a dead backend
+// can then cost at most this much data instead of the whole session.
+const CHECKPOINT_MS = 20_000;
 type ChartGroup = "rpm" | "load" | "vanos" | "ign";
 
 // MLV/Testo-compatible CSV channel names (megalogsetting/*.settings) so a
@@ -100,6 +104,8 @@ const LiveTelemetry: React.FC = () => {
     const [recording, setRecording] = useState(false);
     const [recCount, setRecCount] = useState(0);
     const [lastSaved, setLastSaved] = useState<string | null>(null);
+    const [savedPath, setSavedPath] = useState<string | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const [chartBoxRef, chartBox] = useElementSize();
     const linkRef = useRef<DmeTelemetryLink | null>(null);
@@ -109,10 +115,17 @@ const LiveTelemetry: React.FC = () => {
     const recordedRef = useRef<LiveSample[]>([]);
     const windowRef = useRef<LiveSample[]>([]);   // rolling chart window
     const stampsRef = useRef<number[]>([]);       // wall-clock stamps for the rate
+    const logIdRef = useRef<string | null>(null); // set by the first checkpoint
+    const savingRef = useRef(false);
+    const checkpointRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [, forceRender] = useState(0);
 
     useEffect(() => { blocksRef.current = blocks; }, [blocks]);
-    useEffect(() => () => { pollingRef.current = false; linkRef.current?.disconnect(); }, []);
+    useEffect(() => () => {
+        pollingRef.current = false;
+        if (checkpointRef.current) clearInterval(checkpointRef.current);
+        linkRef.current?.disconnect();
+    }, []);
 
     const connect = async () => {
         setError(null);
@@ -133,8 +146,8 @@ const LiveTelemetry: React.FC = () => {
 
     const disconnect = async () => {
         pollingRef.current = false;
-        recordingRef.current = false;
-        setRecording(false);
+        // a dropped link (or a stray disconnect click) must never cost the drive
+        if (recordingRef.current) await stopRecording();
         try { await linkRef.current?.disconnect(); } catch { }
         linkRef.current = null;
         setState("disconnected");
@@ -175,34 +188,69 @@ const LiveTelemetry: React.FC = () => {
         }
     };
 
+    /** Write the recording into the repo (backend/app/data/telemetry/<id>.json).
+     *  complete=false marks a mid-recording checkpoint of the SAME file. */
+    const saveLog = async (complete: boolean): Promise<boolean> => {
+        if (!recordedRef.current.length) return false;
+        if (savingRef.current) {
+            if (!complete) return false;                    // another checkpoint owns the file
+            for (let i = 0; savingRef.current && i < 50; i++)
+                await new Promise(r => setTimeout(r, 100)); // final write must land last
+        }
+        savingRef.current = true;
+        try {
+            const res = await saveTelemetryLog(recordedRef.current, {
+                source: mode, vin: identity?.vin, software: identity?.softwareVersion,
+                blocks: blocksRef.current, complete,
+            }, logIdRef.current);
+            logIdRef.current = res.log_id;
+            setLastSaved(res.log_id);
+            setSavedPath(res.path);
+            setSaveError(null);
+            if (complete) {
+                setNotice(`保存しました (${res.n_samples} サンプル) — Validation ビューで比較できます。`);
+            }
+            return true;
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            setSaveError(`保存に失敗: ${msg}`);
+            if (complete) {
+                setNotice(`バックエンドへの保存に失敗しました(${msg})。データはこのタブ内に残っています — バックエンド起動後に「再保存」、または CSV 退避を使ってください。`);
+            }
+            return false;
+        } finally {
+            savingRef.current = false;
+        }
+    };
+    const saveLogRef = useRef(saveLog);
+    useEffect(() => { saveLogRef.current = saveLog; });
+
     const startRecording = () => {
         recordedRef.current = [];
+        logIdRef.current = null;
         setRecCount(0);
+        setSavedPath(null);
+        setSaveError(null);
         linkRef.current?.resetClock();
         windowRef.current = [];
         recordingRef.current = true;
         setRecording(true);
         setNotice(null);
         setLastSaved(null);
+        if (checkpointRef.current) clearInterval(checkpointRef.current);
+        checkpointRef.current = setInterval(() => { void saveLogRef.current(false); }, CHECKPOINT_MS);
     };
 
     const stopRecording = async () => {
         recordingRef.current = false;
         setRecording(false);
-        const samples = recordedRef.current;
-        if (!samples.length) { setNotice("記録サンプルがありません。"); return; }
-        try {
-            const res = await saveTelemetryLog(samples, {
-                source: mode, vin: identity?.vin, software: identity?.softwareVersion,
-                blocks: blocksRef.current,
-            });
-            setLastSaved(res.log_id);
-            setNotice(`ログを保存しました: ${res.log_id}(${res.n_samples} サンプル)。Validation ビューで比較できます。`);
-        } catch (e) {
-            setNotice(`バックエンド保存に失敗(${e instanceof Error ? e.message : e})。CSV ダウンロードは可能です。`);
-        }
+        if (checkpointRef.current) { clearInterval(checkpointRef.current); checkpointRef.current = null; }
+        if (!recordedRef.current.length) { setNotice("記録サンプルがありません。"); return; }
+        await saveLog(true);
     };
 
+    /** Offline fallback only: if the backend is unreachable the samples live
+     *  solely in this tab, so keep an escape hatch that needs no server. */
     const downloadCsv = () => {
         const samples = recordedRef.current.length ? recordedRef.current : windowRef.current;
         if (!samples.length) return;
@@ -378,16 +426,38 @@ const LiveTelemetry: React.FC = () => {
                             <Square size={11} fill="currentColor" /> 停止して保存 ({recCount})
                         </button>
                     )}
+                    {saveError && recordedRef.current.length > 0 && (
+                        <button onClick={() => void saveLog(true)}
+                            className="px-3 py-1.5 rounded text-[12px] font-semibold border border-amber-700 text-amber-400 hover:bg-amber-950/40 flex items-center gap-1.5">
+                            <HardDriveDownload size={12} /> 再保存
+                        </button>
+                    )}
                     <button onClick={downloadCsv} disabled={!recordedRef.current.length && !windowRef.current.length}
-                        className="px-3 py-1.5 rounded text-[12px] border border-neutral-700 text-neutral-300 hover:bg-neutral-800 disabled:opacity-40 flex items-center gap-1.5">
-                        <Download size={12} /> CSV (MLV互換)
+                        title="予備: バックエンドに保存できないときの退避用 (MLV 互換 CSV)"
+                        className="px-3 py-1.5 rounded text-[12px] border border-neutral-800 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 disabled:opacity-40 flex items-center gap-1.5">
+                        <Download size={12} /> CSV 退避 (予備)
                     </button>
                     <span className="text-[10px] text-neutral-600 leading-tight max-w-md">
-                        WOT プル計測の推奨: 同一ギア・水温 80-100°C 窓・往復 N 回。保存したログは
-                        Validation ビューでシミュレーションと比較できます。
+                        WOT プル計測の推奨: 同一ギア・水温 80-100°C 窓・往復 N 回。停止すると
+                        リポジトリ内 (backend/app/data/telemetry/) に保存され、記録中も
+                        {Math.round(CHECKPOINT_MS / 1000)} 秒ごとに自動保存されます。
                         ⚠ 記録中はこのタブを前面に保ってください — ブラウザはバックグラウンドタブの
                         タイマーを間引くため、サンプリングが崩れます。
                     </span>
+                </div>
+            )}
+
+            {/* where the data landed — this is the path handed to analysis */}
+            {savedPath && (
+                <div className="text-[11px] font-mono flex items-center gap-2 flex-wrap">
+                    <span className={saveError ? "text-red-400" : "text-emerald-500"}>
+                        {saveError ? "未保存" : recording ? "自動保存中" : "保存済"}
+                    </span>
+                    <span className="text-neutral-400">{savedPath}</span>
+                    {recording && <span className="text-neutral-600">({recCount} サンプル · {Math.round(CHECKPOINT_MS / 1000)}s ごと)</span>}
+                    {!recording && logIdRef.current?.startsWith("mock_") && (
+                        <span className="text-amber-500/80">mock_ 接頭辞 = 合成データ(実測ではありません)</span>
+                    )}
                 </div>
             )}
 
