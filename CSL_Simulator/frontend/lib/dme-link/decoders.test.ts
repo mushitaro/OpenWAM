@@ -15,7 +15,7 @@ function expectClose(name: string, got: number | null | undefined, want: number,
 // --- block 3 (35 bytes) ------------------------------------------------------
 // Craft a payload: n=6900 (0x1AF4), ml=1000kg/h (4000=0x0FA0), rf=104.2% (1042=0x0412),
 // tan=32C (80=0x50), tmot=92C (140=0x8C), tumg=25C (73=0x49), ub=13.8V (138=0x8A),
-// pumg=995mbar ((995-500)/3=165=0xA5), aq_rel=100% (215=0x00D7), pwg1=55.5% (555=0x022B),
+// pumg=995mbar ((995-500)/3=165=0xA5), aq_rel=100% (32768=0x8000), pwg1=55.5% (555=0x022B),
 // wdk1=99.8% (998=0x03E6), edk_soll=100.0% (1000=0x03E8)
 const b3 = new Uint8Array(35);
 const dv3 = new DataView(b3.buffer);
@@ -27,7 +27,7 @@ b3[11] = 140;                 // tmot -> 92 C
 b3[15] = 73;                  // tumg -> 25 C
 b3[16] = 138;                 // ub   -> 13.8 V
 b3[19] = 165;                 // pumg -> 995 mbar
-dv3.setUint16(20, 215);       // aq_rel -> 100.0000000 % (215*0.46511627906976744)
+dv3.setUint16(20, 32768);     // aq_rel -> 100 % (32768*100/32768; NOT the catalog's 100/215)
 dv3.setInt16(23, 555);        // pwg1 -> 55.5 %
 dv3.setInt16(27, 998);        // wdk1 -> 99.8 %
 dv3.setInt16(31, 1000);       // edk_soll -> 100.0 %

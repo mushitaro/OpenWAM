@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { Plug, PlugZap, Circle, Square, Download, Radio, HardDriveDownload } from "lucide-react";
 import { DmeTelemetryLink, DmeIdentity, LiveSample, LiveBlockSelection } from "../lib/dme-link/types";
+import { DECODER_VERSION } from "../lib/dme-link/liveValueBlocks";
 import { WebSerialTransport } from "../lib/dme-link/webSerialTransport";
 import { WebSerialDmeLink } from "../lib/dme-link/webSerialDmeLink";
 import { MockDmeLink } from "../lib/dme-link/mockDmeLink";
@@ -201,7 +202,7 @@ const LiveTelemetry: React.FC = () => {
         try {
             const res = await saveTelemetryLog(recordedRef.current, {
                 source: mode, vin: identity?.vin, software: identity?.softwareVersion,
-                blocks: blocksRef.current, complete,
+                blocks: blocksRef.current, complete, decoder_version: DECODER_VERSION,
             }, logIdRef.current);
             logIdRef.current = res.log_id;
             setLastSaved(res.log_id);

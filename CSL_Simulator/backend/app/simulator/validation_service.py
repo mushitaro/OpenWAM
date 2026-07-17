@@ -31,6 +31,9 @@ MAX_DRO_DT = 60.0        # %/s  — rejects tip-in/tip-out transients
 MIN_COOLANT = 75.0       # degC — warm engine only
 MIN_HITS = 3             # min samples in a cell to report it
 RPM_MIN = 500.0          # below = cranking/stall noise (map axis reaches 600)
+# Logs recorded before the aq_rel-scale fix carry RO on the wrong scale (up to
+# 15000%); binning them onto the map axes is silently meaningless, so refuse.
+MIN_DECODER_VERSION = 2
 
 
 def _nearest(axis, v):
@@ -128,6 +131,12 @@ class ValidationService:
     # ------------------------------------------------------------ compare
     def compare(self, log_id, mode="full_map"):
         log = self._load_log(log_id)
+        dv = (log.get("meta") or {}).get("decoder_version", 1)
+        if dv < MIN_DECODER_VERSION:
+            raise ValueError(
+                f"log {log_id} was decoded with v{dv}: its RO (aq_rel) values are "
+                f"on the falsified 100/215 scale and cannot be binned onto the map "
+                f"axes. Run scripts/migrate_telemetry_ro.py --apply first.")
         run = self._load_run(mode)
         maps = self._load_maps()
 

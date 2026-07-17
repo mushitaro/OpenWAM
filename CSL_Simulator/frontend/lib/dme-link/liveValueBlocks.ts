@@ -13,6 +13,11 @@
  */
 import { LiveSample } from './types';
 
+/** Stamped into every recording's meta. Bump whenever a field's offset/format/
+ *  scale changes, so a log can never be read with the wrong decode silently.
+ *  v1 -> v2: aq_rel (RO) scale 100/215 (catalog, wrong) -> 100/32768. */
+export const DECODER_VERSION = 2;
+
 export type FieldFormat = 'int7' | 'uint8' | 'uint10' | 'int15' | 'uint16';
 
 export interface FieldDef {
@@ -65,7 +70,15 @@ export const BLOCK3 = {
         ambientTemp: F('tumg', 15, 'uint8', 1.0, -48),
         battV: F('ub', 16, 'uint8', 0.1),
         ambientPressure: F('pumg', 19, 'uint8', 3.0, 500),    // mbar
-        ro: F('aq_rel', 20, 'uint16', 0.46511627906976744),   // % relative opening (map load axis)
+        // Relative opening cross-section = the ECU's load axis (throttle+IVC).
+        // ⚠ The reference catalog's scale for this ONE field (0.46511627906976744
+        // = 100/215) is WRONG; the correct scale is 100/32768, i.e. the same
+        // U16-percent scale its sibling dr_rel uses. Falsified on the owner's car
+        // (log 20260717_152030, 2663 pts): with 100/32768 the measured rf matches
+        // the DME's OWN kf_rf_soll(rpm, aq_rel) model to mean -0.35pp / sd 3.2 and
+        // every sample lands in 0-100%; with the catalog scale, -65.7pp and 46%
+        // of samples exceed 100%. Do not "restore" it from the catalog.
+        ro: F('aq_rel', 20, 'uint16', 0.0030517578125),       // % (100/32768)
         pedal: F('pwg1', 23, 'int15', 0.1),                   // %
         throttle: F('wdk1', 27, 'int15', 0.1),                // %
         throttleTarget: F('edk_soll', 31, 'int15', 0.1),      // %

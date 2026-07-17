@@ -482,6 +482,7 @@ export interface TelemetryLogMeta {
     blocks?: number[];
     note?: string;
     complete?: boolean;      // false = checkpoint of a recording still running
+    decoder_version?: number;  // block-decode revision the samples were read with
 }
 
 export interface TelemetryLogSummary { log_id: string; meta: TelemetryLogMeta; }

@@ -397,6 +397,8 @@ async def validation_compare(payload: dict):
         return validation_service.compare(log_id, mode=mode)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:            # e.g. stale decoder version
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 # --- Measurement parameter sheet (real-engine values: download / import) ----

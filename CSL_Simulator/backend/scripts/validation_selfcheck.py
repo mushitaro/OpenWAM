@@ -85,7 +85,7 @@ def main():
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"log_id": log_id, "samples": samples,
                    "meta": {"source": "validation_selfcheck", "synthetic": True,
-                            "n_samples": len(samples)}}, f)
+                            "decoder_version": 2, "n_samples": len(samples)}}, f)
     print(f"synthetic log {log_id}: {len(targets)} cells x {HITS} hits = {len(samples)} samples")
 
     svc = ValidationService(data_dir=DATA_DIR)
