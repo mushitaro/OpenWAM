@@ -12,6 +12,7 @@ import BinaryPatchManager from "./BinaryPatchManager";
 import SimulationDebugPanel from "./SimulationDebugPanel";
 import InteractiveTopology, { SelectionType } from "./InteractiveTopology";
 import LiveTelemetry from "./LiveTelemetry";
+import ValidationView from "./ValidationView";
 import { V14_OWNER, LEGACY_NEUTRAL, deepMerge } from "../app/presets";
 import VeOverlayChart from "./VeOverlayChart";
 import ValidityPanel from "./ValidityPanel";
@@ -66,7 +67,7 @@ const VehicleBuilder = () => {
     const [tunePref, setTunePref] = useState<"max_ve" | "smooth">("max_ve");
     const [tuneProgress, setTuneProgress] = useState<{ done: number; total: number; eta?: number } | null>(null);
     // M3/M4: which results view is showing
-    const [resultView, setResultView] = useState<"summary" | "surface" | "waveform" | "tuning">("summary");
+    const [resultView, setResultView] = useState<"summary" | "surface" | "waveform" | "tuning" | "validation">("summary");
     // Stage 74 provenance: current backend meta (STALE-badge reference) and
     // whether the shown result came from disk (Load last) vs a fresh run.
     const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -910,11 +911,12 @@ const VehicleBuilder = () => {
                                     {!loading && resultView === "tuning" && tuneData && (
                                         <ProvenanceStrip info={tuneData} meta={meta} loadedFromDisk={tuneFromDisk} />
                                     )}
-                                    {!loading && (runData || tuneData) && (
+                                    {!loading && (
                                         <div className="flex gap-1">
                                             {([
                                                 ...(runData ? [["summary", "Charts"], ["surface", "3D Surface"], ["waveform", "Waveform"]] : []),
                                                 ...(tuneData ? [["tuning", "Tuning"]] : []),
+                                                ["validation", "Validation"],
                                             ] as [typeof resultView, string][]).map(([id, label]) => (
                                                 <button
                                                     key={id}
@@ -949,7 +951,7 @@ const VehicleBuilder = () => {
                                         </div>
                                     )}
 
-                                    {!loading && !runData && !tuneData && (
+                                    {!loading && !runData && !tuneData && resultView !== "validation" && (
                                         <div className="absolute inset-0 flex items-center justify-center flex-col gap-3 text-neutral-600 text-sm">
                                             {optimizing ? (
                                                 <>
@@ -989,6 +991,12 @@ const VehicleBuilder = () => {
                                     {!loading && tuneData && resultView === "tuning" && (
                                         <div className="absolute inset-0 overflow-auto p-4 animate-in fade-in duration-500">
                                             <TuningResults data={tuneData} />
+                                        </div>
+                                    )}
+
+                                    {!loading && resultView === "validation" && (
+                                        <div className="absolute inset-0">
+                                            <ValidationView />
                                         </div>
                                     )}
                                 </div>

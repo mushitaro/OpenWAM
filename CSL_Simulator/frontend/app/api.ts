@@ -503,6 +503,59 @@ export const fetchTelemetryLogs = async (): Promise<TelemetryLogSummary[]> => {
     return (await response.json()).logs as TelemetryLogSummary[];
 };
 
+// --- Stage 76 P2: measured-vs-sim validation ---------------------------------
+export interface ValidationCell {
+    rpm: number; ro: number; hits: number;
+    rf_mean: number | null; rf_std: number | null;
+    rf_drrel_mean: number | null; rf_psau_mean: number | null;
+    map_mbar_mean: number | null;
+    sim_ve: number | null; sim_valid: boolean;
+    delta: number | null;                       // rf_mean − sim_ve [pp, ECU unit]
+    evan_ist: number | null; evan_soll: number | null;
+    avan_ist: number | null; avan_soll: number | null;
+    evan_map: number | null; avan_map: number | null;
+    tz_mean: number | null; tz_expected: number | null;
+}
+
+export interface ValidationResponse {
+    schema_version: number;
+    log_id: string;
+    log_meta: TelemetryLogMeta;
+    run_mode: string;
+    run_id?: string;
+    run_unit?: string;
+    model_limits: ModelLimits;
+    gates: { total: number; kept: number; rejected: number };
+    conditions: {
+        iat_mean: number | null; coolant_mean: number | null;
+        ambient_pressure_mean: number | null;
+    };
+    cells: ValidationCell[];
+    summary: {
+        n_cells: number;
+        wot_delta_mean_ex_band: number | null;
+        wot_delta_mean_in_band: number | null;
+        box_mode_note: string;
+        vanos_tracking_mean_abs: number | null;
+        vanos_map_match_mean_abs: number | null;
+    };
+}
+
+export const compareValidation = async (
+    logId: string, mode: string = "full_map",
+): Promise<ValidationResponse> => {
+    const response = await fetch(`${API_BASE_URL}/validation/compare`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ log_id: logId, mode }),
+    });
+    if (!response.ok) {
+        const detail = await response.json().catch(() => null);
+        throw new Error(detail?.detail ?? `validation compare failed: ${response.statusText}`);
+    }
+    return response.json();
+};
+
 // Current backend provenance — the STALE-badge reference (Stage 74).
 export const fetchMeta = async (): Promise<MetaResponse | null> => {
     try {

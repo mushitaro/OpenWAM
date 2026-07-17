@@ -41,6 +41,12 @@ try:
 except Exception as e:           # pragma: no cover
     print(f"WARN: BinaryService unavailable: {e}")
     binary_service = None
+try:
+    from .simulator.validation_service import ValidationService
+    validation_service = ValidationService(data_dir=DATA_DIR)
+except Exception as e:           # pragma: no cover
+    print(f"WARN: ValidationService unavailable: {e}")
+    validation_service = None
 
 # --- App --------------------------------------------------------------------
 app = FastAPI(title="CSL Simulator API", version="m1")
@@ -354,6 +360,23 @@ async def telemetry_get(log_id: str):
         raise HTTPException(status_code=404, detail="log not found")
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+# --- Validation: measured telemetry vs simulation (Stage 76 P2) ---------------
+@app.post("/validation/compare")
+async def validation_compare(payload: dict):
+    if validation_service is None:
+        raise HTTPException(status_code=503, detail="validation service unavailable")
+    log_id = str(payload.get("log_id") or "")
+    if not log_id.replace("_", "").isdigit():
+        raise HTTPException(status_code=400, detail="invalid log id")
+    mode = payload.get("mode") or "full_map"
+    if mode not in ("wot_quick", "wot_standard", "full_map"):
+        raise HTTPException(status_code=400, detail="invalid mode")
+    try:
+        return validation_service.compare(log_id, mode=mode)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # --- Measurement parameter sheet (real-engine values: download / import) ----

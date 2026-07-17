@@ -67,7 +67,7 @@ const fmt = (v: number | undefined, nd = 1, unit = "") =>
  * Uses a CALLBACK ref so it also works for conditionally-rendered targets
  * (the chart box only mounts once connected).
  */
-function useElementSize(): [(el: HTMLDivElement | null) => void, { w: number; h: number }] {
+export function useElementSize(): [(el: HTMLDivElement | null) => void, { w: number; h: number }] {
     const [el, setEl] = useState<HTMLDivElement | null>(null);
     const [size, setSize] = useState({ w: 0, h: 0 });
     useEffect(() => {
