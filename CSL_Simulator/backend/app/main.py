@@ -299,6 +299,63 @@ async def binary_download():
     return FileResponse(UPLOADED_BIN, filename="patched_mss54.bin")
 
 
+# --- DS2 live-telemetry logs (Stage 76) --------------------------------------
+# The frontend's Live (DS2) tab records LiveSample arrays from the real DME
+# (Web Serial) or the mock link, and persists them here for the validation
+# pipeline (P2: binning + measured-vs-sim comparison). Plain JSON files under
+# app/data/telemetry/, one per recording, newest-first listing.
+TELEMETRY_DIR = os.path.join(DATA_DIR, "telemetry")
+
+
+@app.post("/telemetry/logs")
+async def telemetry_save(payload: dict):
+    samples = payload.get("samples")
+    if not isinstance(samples, list) or not samples:
+        raise HTTPException(status_code=400, detail="samples[] required")
+    import datetime as _dt
+    log_id = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    meta = dict(payload.get("meta") or {})
+    meta.setdefault("created_at", _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"))
+    meta["n_samples"] = len(samples)
+    record = {"log_id": log_id, "meta": meta, "samples": samples}
+    os.makedirs(TELEMETRY_DIR, exist_ok=True)
+    path = os.path.join(TELEMETRY_DIR, f"{log_id}.json")
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(record, f)
+    os.replace(tmp, path)
+    return {"log_id": log_id, "n_samples": len(samples)}
+
+
+@app.get("/telemetry/logs")
+async def telemetry_list():
+    if not os.path.isdir(TELEMETRY_DIR):
+        return {"logs": []}
+    out = []
+    for name in sorted(os.listdir(TELEMETRY_DIR), reverse=True):
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(TELEMETRY_DIR, name), encoding="utf-8") as f:
+                rec = json.load(f)
+            out.append({"log_id": rec.get("log_id", name[:-5]), "meta": rec.get("meta", {})})
+        except Exception:
+            continue
+    return {"logs": out}
+
+
+@app.get("/telemetry/logs/{log_id}")
+async def telemetry_get(log_id: str):
+    # log ids are timestamps we minted ourselves; reject anything path-like
+    if not log_id.replace("_", "").isdigit():
+        raise HTTPException(status_code=400, detail="invalid log id")
+    path = os.path.join(TELEMETRY_DIR, f"{log_id}.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="log not found")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
 # --- Measurement parameter sheet (real-engine values: download / import) ----
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 

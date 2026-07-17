@@ -11,6 +11,7 @@ import VETableComparison from "./VETableComparison";
 import BinaryPatchManager from "./BinaryPatchManager";
 import SimulationDebugPanel from "./SimulationDebugPanel";
 import InteractiveTopology, { SelectionType } from "./InteractiveTopology";
+import LiveTelemetry from "./LiveTelemetry";
 import { V14_OWNER, LEGACY_NEUTRAL, deepMerge } from "../app/presets";
 import VeOverlayChart from "./VeOverlayChart";
 import ValidityPanel from "./ValidityPanel";
@@ -48,7 +49,7 @@ function runToCalibration(run: RunResponse, baseMap: EcuVeMap | null): Calibrati
 
 const VehicleBuilder = () => {
     // --- STATE ---
-    const [mainTab, setMainTab] = useState<"builder" | "simulation">("builder");
+    const [mainTab, setMainTab] = useState<"builder" | "simulation" | "live">("builder");
 
     const [loading, setLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
@@ -839,6 +840,12 @@ const VehicleBuilder = () => {
                         >
                             Simulation
                         </button>
+                        <button
+                            onClick={() => setMainTab("live")}
+                            className={`px-4 py-1.5 text-xs font-medium rounded transition-colors ${mainTab === "live" ? "bg-neutral-800 text-neutral-100 shadow-sm" : "text-neutral-500 hover:text-neutral-300"}`}
+                        >
+                            Live (DS2)
+                        </button>
                     </div>
                 </div>
 
@@ -1149,6 +1156,13 @@ const VehicleBuilder = () => {
                             </div>
 
                         </div>
+                    </div>
+                )}
+
+                {/* --- LIVE (DS2) MODE (Stage 76) --- */}
+                {mainTab === "live" && (
+                    <div className="h-full p-6">
+                        <LiveTelemetry />
                     </div>
                 )}
             </div>

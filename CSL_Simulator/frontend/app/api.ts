@@ -472,6 +472,37 @@ export interface OptimizationResponse extends ProvenanceFields {
 
 const API_BASE_URL = "http://localhost:8000";
 
+// --- Stage 76: DS2 live-telemetry logs ---------------------------------------
+export interface TelemetryLogMeta {
+    created_at?: string;
+    n_samples?: number;
+    source?: "webserial" | "mock";
+    vin?: string;
+    software?: string;
+    blocks?: number[];
+    note?: string;
+}
+
+export interface TelemetryLogSummary { log_id: string; meta: TelemetryLogMeta; }
+
+export const saveTelemetryLog = async (
+    samples: unknown[], meta: TelemetryLogMeta,
+): Promise<{ log_id: string; n_samples: number }> => {
+    const response = await fetch(`${API_BASE_URL}/telemetry/logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ samples, meta }),
+    });
+    if (!response.ok) throw new Error(`telemetry save failed: ${response.statusText}`);
+    return response.json();
+};
+
+export const fetchTelemetryLogs = async (): Promise<TelemetryLogSummary[]> => {
+    const response = await fetch(`${API_BASE_URL}/telemetry/logs`);
+    if (!response.ok) throw new Error(`telemetry list failed: ${response.statusText}`);
+    return (await response.json()).logs as TelemetryLogSummary[];
+};
+
 // Current backend provenance — the STALE-badge reference (Stage 74).
 export const fetchMeta = async (): Promise<MetaResponse | null> => {
     try {
