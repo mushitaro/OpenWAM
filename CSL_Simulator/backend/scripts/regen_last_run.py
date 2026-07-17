@@ -22,6 +22,16 @@ import os
 import sys
 import time
 
+# The run's verdict strings contain an em-dash; on a Japanese Windows console
+# (cp932) printing one raises UnicodeEncodeError and kills the script AFTER the
+# multi-hour run already finished and persisted (it looks exactly like a crashed
+# run). Force UTF-8 on our own streams.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKEND = os.path.dirname(HERE)
 sys.path.insert(0, BACKEND)
