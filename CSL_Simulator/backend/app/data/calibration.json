@@ -23,24 +23,36 @@
     0.001
    ],
    [
+    0.05,
+    0.05
+   ],
+   [
+    0.1,
+    0.1
+   ],
+   [
     0.2,
-    0.06545
+    0.2
    ],
    [
     0.3,
-    0.17949
+    0.3
    ],
    [
     0.45,
-    0.36281
+    0.45
    ],
    [
     0.65,
-    0.83295
+    0.65
    ],
    [
     0.85,
-    0.93759
+    0.85
+   ],
+   [
+    0.95,
+    0.95
    ],
    [
     1.0,
@@ -48,11 +60,51 @@
    ]
   ],
   "fit_meta": {
-   "date": "2026-07-05",
-   "commit": "7c1dd21bddb0",
-   "exe_sig": "1435648:1783119758",
-   "csv": "fit_sigma_sweep.csv",
-   "residual": null
+   "date": "2026-07-18",
+   "commit": "stage77-mb-identity",
+   "basis": "physical identity sigma=RO/100 (aq_rel = relative opening area, measured on the owner's car; logs 20260718_092402/115027); WOT anchor 1.0->0.96 unchanged (RO>=95 decks byte-identical)",
+   "csv": "scripts/data/mb_sigma947.csv",
+   "residual": "valley 2100-2400 |err| 5.4->2.3pp; 2700-3100 overfill exposed (+8..+14pp, sigma-independent = the real Stage-1 target)"
+  },
+  "fitted_archive": {
+   "_comment": "Stage 49/50 fitted S-curve, superseded 2026-07-18 (Stage 77 M-B): falsified by real DS2 drive logs — RO=aq_rel IS the opening-area ratio (scale 100/32768, measured), so sigma(RO) is the physical IDENTITY, not a fit. The S-curve over-throttled RO 20-45 (artificial -9..-11pp underfill at 2200-2400) and partially masked the real 2700-3100 acoustic overfill (+8..+14pp).",
+   "points": [
+    [
+     0.0,
+     0.001
+    ],
+    [
+     0.2,
+     0.06545
+    ],
+    [
+     0.3,
+     0.17949
+    ],
+    [
+     0.45,
+     0.36281
+    ],
+    [
+     0.65,
+     0.83295
+    ],
+    [
+     0.85,
+     0.93759
+    ],
+    [
+     1.0,
+     0.96
+    ]
+   ],
+   "fit_meta": {
+    "date": "2026-07-05",
+    "commit": "7c1dd21bddb0",
+    "exe_sig": "1435648:1783119758",
+    "csv": "fit_sigma_sweep.csv",
+    "residual": null
+   }
   }
  },
  "icv": {

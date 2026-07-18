@@ -87,8 +87,11 @@ def _apply_set(cfg, dotted, value):
     setattr(obj, keys[-1], value)
 
 
-def build_config(job, cycles):
-    cfg = SimConfig()
+def build_config(job, cycles, preset=None):
+    # preset = parsed JSON of a frontend preset (e.g. v14_owner.json) so cells
+    # run on the SAME base config as the app (Stage 75: v14 = single source).
+    # None keeps the legacy SimConfig()-defaults base (pre-75 CSVs).
+    cfg = SimConfig(**preset) if preset else SimConfig()
     cfg.engine.rpm = float(job["rpm"])
     cfg.engine.throttle_position = float(job["load"]) / 100.0
     cfg.simulation.duration_cycles = cycles
@@ -131,7 +134,7 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         rpm, load = float(job["rpm"]), float(job["load"])
         is_wot = load >= M.WOT_TPS
         cycles = int(job.get("cycles", args.cycles))
-        cfg = build_config(job, cycles)
+        cfg = build_config(job, cycles, preset=getattr(args, "_preset_data", None))
 
         # mirror the app's calibration injection (priority: explicit job set >
         # calibration.json > SimConfig default) so fit steps compose like the app
@@ -319,11 +322,13 @@ class _RunOpts:
         self.timeout = timeout
 
 
-async def run_all(jobs, csv_path, cycles=30, conc=None, timeout=900):
+async def run_all(jobs, csv_path, cycles=30, conc=None, timeout=900,
+                  preset_data=None):
     """Programmatic entry (fit_partload.py): run jobs, append to csv, resume by
     job id. Returns ALL rows for these jobs read back from the csv."""
     os.environ["OPENWAM_FAST_OUTPUT"] = "1"   # deck-side (matches the app Run path)
     opts = _RunOpts(cycles=cycles, conc=conc, timeout=timeout)
+    opts._preset_data = preset_data           # read by build_config via run_job
     svc = SimulationService(data_dir=DATA_DIR, simulator_dir=SIM_DIR)
     cal = calib.load(DATA_DIR)
     done = done_ids(csv_path)
@@ -347,9 +352,14 @@ async def run_all(jobs, csv_path, cycles=30, conc=None, timeout=900):
 
 
 async def amain(args):
+    args._preset_data = None
+    if getattr(args, "preset", None):
+        with open(args.preset, encoding="utf-8") as f:
+            args._preset_data = json.load(f)
+        print(f"# base config preset: {os.path.basename(args.preset)}")
     jobs = parse_jobs(args)
     await run_all(jobs, args.csv, cycles=args.cycles, conc=args.conc,
-                  timeout=args.timeout)
+                  timeout=args.timeout, preset_data=args._preset_data)
 
 
 def main():
@@ -368,6 +378,9 @@ def main():
                     help="OPENWAM_MOUTH_RAD for ALL cells ('off' disables)")
     ap.add_argument("--again", type=float, default=None)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--preset", default=None,
+                    help="frontend preset JSON as the base config "
+                         "(e.g. ../frontend/presets/v14_owner.json)")
     ap.add_argument("--cycles", type=int, default=60)
     ap.add_argument("--conc", type=int, default=max(1, min(12, (os.cpu_count() or 8) - 1)))
     ap.add_argument("--timeout", type=int, default=900)

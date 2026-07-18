@@ -1,0 +1,1794 @@
+[
+{
+"rpm": 2400,
+"load": 45,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2400,
+"load": 45,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2700,
+"load": 45,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2700,
+"load": 45,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 3100,
+"load": 45,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 3100,
+"load": 45,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2400,
+"load": 65,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2400,
+"load": 65,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2700,
+"load": 65,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2700,
+"load": 65,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 3100,
+"load": 65,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 3100,
+"load": 65,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2200,
+"load": 30,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2200,
+"load": 30,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2200,
+"load": 45,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2200,
+"load": 45,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2200,
+"load": 65,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2200,
+"load": 65,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2400,
+"load": 30,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2400,
+"load": 30,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2700,
+"load": 30,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2700,
+"load": 30,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2900,
+"load": 30,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2900,
+"load": 30,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2900,
+"load": 45,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2900,
+"load": 45,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2900,
+"load": 65,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2900,
+"load": 65,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 3100,
+"load": 30,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 3100,
+"load": 30,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2100,
+"load": 45,
+"tag": "t1_fitted947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+}
+},
+{
+"rpm": 2100,
+"load": 45,
+"tag": "t2_ident947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2400,
+"load": 45,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2700,
+"load": 45,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 3100,
+"load": 45,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2400,
+"load": 65,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2700,
+"load": 65,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 3100,
+"load": 65,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2200,
+"load": 30,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2200,
+"load": 45,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2200,
+"load": 65,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2400,
+"load": 30,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2700,
+"load": 30,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2900,
+"load": 30,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2900,
+"load": 45,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2900,
+"load": 65,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 3100,
+"load": 30,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+},
+{
+"rpm": 2100,
+"load": 45,
+"tag": "t3_ident_icv947",
+"set": {
+"environment.ambient_pressure": 94700,
+"environment.ambient_temp": 298.15,
+"intake.eq_tube.icv_sigma": 0.05
+},
+"sigma_bp": [
+[
+0.0,
+0.001
+],
+[
+0.05,
+0.05
+],
+[
+0.1,
+0.1
+],
+[
+0.2,
+0.2
+],
+[
+0.3,
+0.3
+],
+[
+0.45,
+0.45
+],
+[
+0.65,
+0.65
+],
+[
+0.85,
+0.85
+],
+[
+0.95,
+0.95
+],
+[
+1.0,
+0.96
+]
+]
+}
+]
