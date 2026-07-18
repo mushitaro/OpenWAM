@@ -541,7 +541,14 @@ class WAMGenerator:
         # the pipe walls were cooled. Use the real ambient (KELVIN) as degC.
         amb_in_id = self.plenum_counter; self.plenum_counter += 1
         t_amb_c = c.environment.ambient_temp - 273.15
-        self._add_plenum(amb_in_id, "Ambient_Intake", 1000.0, t_amb_c, ptype=0) # Type 0 = Constant Volume
+        # Stage 77: init_p wires config ambient PRESSURE into the supply
+        # reservoir. It was silently pinned at _add_plenum's 1.01325 default, so
+        # ambient_pressure never reached the intake at all — exposed by the
+        # drive-day probe (944mbar run trapped the same mass as 1013mbar; the
+        # real car scales exactly with ambient density). At the default
+        # 101325 Pa this emits the identical "1.01325" bytes (golden-safe).
+        self._add_plenum(amb_in_id, "Ambient_Intake", 1000.0, t_amb_c, ptype=0,
+                         init_p=c.environment.ambient_pressure / 100000.0) # Type 0 = Constant Volume
         
         # 2. CSL Intake Pipe (Snorkel)
         # Spec: D=200mm, Length Tapered 500mm-200mm -> Avg 350mm
@@ -1202,7 +1209,13 @@ class WAMGenerator:
         
         # Create one Ambient Exhaust Plenum
         amb_ex_id = self.plenum_counter; self.plenum_counter += 1
-        self._add_plenum(amb_ex_id, "Ambient_Exhaust", 1000.0, 25, ptype=0) # degC outside air (was 300=573K)
+        # Stage 77: back-pressure sink follows config ambient (was pinned at
+        # the _add_plenum 1.01325 default; golden-safe at default ambient).
+        # Wall temp stays the literal 25 degC — wiring ambient_temp would emit
+        # 24.85 at the default (298 K) and break deck byte-identity for a
+        # negligible physical effect (backflow-only reservoir).
+        self._add_plenum(amb_ex_id, "Ambient_Exhaust", 1000.0, 25, ptype=0,
+                         init_p=c.environment.ambient_pressure / 100000.0) # degC outside air (was 300=573K)
         
         for i in range(c.engine.cylinders):
             cyl_idx = i + 1
@@ -1626,7 +1639,10 @@ class WAMGenerator:
 
         # Tailpipes
         amb_out_id = self.plenum_counter; self.plenum_counter += 1
-        self._add_plenum(amb_out_id, "Ambient_Exhaust", 1000.0, 25)  # degC outside air (was 300=573K)
+        # Stage 77: tailpipe sink follows config ambient too (see the other
+        # Ambient_Exhaust for why wall temp stays literal 25).
+        self._add_plenum(amb_out_id, "Ambient_Exhaust", 1000.0, 25,
+                         init_p=c.environment.ambient_pressure / 100000.0)  # degC outside air (was 300=573K)
         tail_len = c.exhaust.section3.tailpipe_length / 1000.0
         tail_dia = c.exhaust.section3.diameter / 1000.0
         
