@@ -798,7 +798,9 @@ class WAMGenerator:
             eff_cd0 = min(thr_cd0 * _again, _sig_ceil)
         _map_exp = float(_os.environ.get("OPENWAM_MAP_EXP", "0.35"))
         map_frac = max(0.30, min(1.0, eff_cd0 ** _map_exp))
-        intake_map_bar = 1.01325 * map_frac
+        # Stage 77: scale off config ambient, not standard atmosphere (same
+        # family as the Ambient_* reservoir fix; byte-identical at default).
+        intake_map_bar = (c.environment.ambient_pressure / 100000.0) * map_frac
         print(f"DEBUG: Throttle angle={thr_angle0:.1f} Cd={thr_cd0:.3f} effCd={eff_cd0:.3f} -> intake MAP={intake_map_bar:.3f} bar")
 
         # 4. Equalization Tube (等圧管 / Gleichdruckrohr)
