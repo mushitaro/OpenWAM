@@ -22,6 +22,29 @@ VE_BLOWUP = 300.0
 SLOPE_TOL = 0.3                               # |dVE/dcycle| convergence
 WOT_TPS = 85.0
 
+# ---- Stage 78 convergence protocol v2 ---------------------------------------
+# The legacy early-stop was SELF-CERTIFYING: the kill criterion (slope<0.3 at
+# cyc>=25) doubled as the convergence judgment, so cell values were truncation
+# samples of still-drifting trajectories (audit: the only run-to-completion
+# valley cell read +30.6 vs its truncated +14). v2: run a FIXED cycle count,
+# report the TAIL-10 MEAN (phase-averages oscillating trajectories) plus the
+# tail oscillation amplitude, and record WHY the run stopped. CSL_STOP_LEGACY=1
+# reproduces the old behavior for historical comparisons.
+STOP_CYCLES = int(os.environ.get("CSL_STOP_CYCLES", "40"))
+STOP_TAIL = 10
+
+
+def stop_legacy():
+    return bool(os.environ.get("CSL_STOP_LEGACY"))
+
+
+def cell_ve_v2(cyc_ve):
+    """(ve, osc_amp): tail-mean cell value + tail max-min amplitude."""
+    if not cyc_ve:
+        return 0.0, None
+    tail = cyc_ve[-STOP_TAIL:]
+    return sum(tail) / len(tail), (max(tail) - min(tail))
+
 _SEVERITY = {"green": 0, "yellow": 1, "red": 2}
 
 # ---- result provenance (Stage 74 app-reflection) -----------------------------

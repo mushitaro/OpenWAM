@@ -31,7 +31,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -66,7 +67,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -101,7 +103,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -136,7 +139,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -171,7 +175,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -206,7 +211,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -241,7 +247,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -276,7 +283,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -311,7 +319,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -346,7 +355,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -381,7 +391,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  },
  {
@@ -416,7 +427,8 @@
    "intake.head_return.enabled": "true",
    "intake.head_return.pipe_diameter": "15",
    "intake.head_return.pipe_length": "250",
-   "intake.head_return.volume": "2"
+   "intake.head_return.volume": "2",
+   "exhaust.main_dx_scale": 0.5
   }
  }
 ]

@@ -245,6 +245,8 @@ export interface ExhaustConfig {
     port_junction_vol?: number;   // cc; >0 small plenum, <=0 plenumless Type-12 (validated)
     exhaust_port_mesh?: number;   // m; exhaust-port pipe mesh (default 0.010)
     muffler_friction?: number;
+    // Stage 78: exhaust-main dx scale (0.5 = mesh-converged refinement; 1.0 legacy)
+    main_dx_scale?: number;
     section1_1: Section1Config; // Bank 1 (Cyl 1-3)
     section1_2: Section1Config; // Bank 2 (Cyl 4-6)
     section2: Section2Config;

@@ -1951,13 +1951,15 @@ class WAMGenerator:
         # (MAP) so a part-throttle run starts near its steady operating pressure
         # instead of atmospheric (which would over-fill the first cycle).
         #
-        # OPENWAM_EXH_DX_SCALE (research knob, Stage 78 mesh-convergence
-        # experiment): scales dx for the exhaust-main families only. Unset =
-        # byte-identical decks (golden/parity safe). dt is governed by the
-        # intake runner stubs, so 0.5 here costs ~+28% node-updates, dt same.
-        _dxs = os.environ.get("OPENWAM_EXH_DX_SCALE")
-        if _dxs and label.startswith(self._EXH_DX_FAMILIES):
-            dx_mesh = dx_mesh * float(_dxs)
+        # Exhaust-main dx scale (Stage 78, ADOPTED via config): env-first
+        # (OPENWAM_EXH_DX_SCALE) over exhaust.main_dx_scale (v14 preset: 0.5;
+        # models.py default 1.0 keeps legacy/golden decks byte-identical).
+        # dt is governed by the intake runner stubs, so 0.5 costs ~+20%/cycle.
+        if label.startswith(self._EXH_DX_FAMILIES):
+            _dxs = _ce("OPENWAM_EXH_DX_SCALE",
+                       getattr(self.config.exhaust, "main_dx_scale", 1.0), 1.0)
+            if _dxs and float(_dxs) != 1.0:
+                dx_mesh = dx_mesh * float(_dxs)
         self.pipes[pid] = {
             'label': label,
             'length': length, # restored key name 'length' (was 'len')

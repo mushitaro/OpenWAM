@@ -189,6 +189,11 @@ class SimulationService:
             h.update(deck_text.encode("utf-8", "replace"))
             h.update(self._sim_binary_sig().encode())
             h.update(json.dumps({k: env.get(k) for k in _RESULT_ENV}, sort_keys=True).encode())
+            # Stage 78: the stop protocol determines how many cycles a log
+            # holds — a legacy-truncated (cyc~25) log must not satisfy a v2
+            # request for a fixed-40-cycle run. Legacy keeps the legacy key.
+            if early_stop and not M.stop_legacy():
+                h.update(f"stopv2:{M.STOP_CYCLES}".encode())
             key = h.hexdigest()
             cpath = os.path.join(self._cache_dir, key + ".log")
             if os.path.exists(cpath):
@@ -201,6 +206,9 @@ class SimulationService:
         ok = 0
         proc = None
         timed_out = False
+        stop_reason = "natural"
+        nan_polls = 0
+        stop_v2 = not M.stop_legacy()
         logf = open(log_path, "wb")
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -216,13 +224,33 @@ class SimulationService:
                     # a timed-out run is NOT a converged result -- flag it so
                     # its partial log never poisons the deck cache below.
                     timed_out = True
+                    stop_reason = "timeout"
                     proc.kill(); await proc.wait(); break
-                if early_stop:
+                if early_stop and stop_v2:
+                    # Stage 78 protocol v2: FIXED cycle count (the legacy
+                    # slope-kill was self-certifying — kill criterion ==
+                    # convergence judgment), plus an early kill for PERSISTENT
+                    # NaN so a dead cell stops burning its full timeout.
+                    try:
+                        with open(log_path, "rb") as _lf:
+                            _lf.seek(max(0, os.path.getsize(log_path) - 8192))
+                            tail = _lf.read().decode("ascii", "replace")
+                    except OSError:
+                        tail = ""
+                    nan_polls = nan_polls + 1 if "nan" in tail.lower() else 0
+                    if nan_polls >= 3:
+                        stop_reason = "nan"
+                        proc.kill(); await proc.wait(); break
+                    if len(self._cycle_ve(log_path)) >= M.STOP_CYCLES:
+                        stop_reason = "fixed_cycles"
+                        proc.kill(); await proc.wait(); break
+                elif early_stop:
                     ve = self._cycle_ve(log_path)
                     if len(ve) >= max(min_cyc, 5):
                         if abs((ve[-1] - ve[-5]) / 4.0) < slope_thresh:
                             ok += 1
                             if ok >= patience:
+                                stop_reason = "early_slope"
                                 proc.kill(); await proc.wait(); break
                         else:
                             ok = 0
@@ -246,6 +274,13 @@ class SimulationService:
                 logf.close()
             except OSError:
                 pass
+        # stamp WHY the run stopped into the log itself, so the reason
+        # survives the deck cache (a cache hit replays the same stop).
+        try:
+            with open(log_path, "ab") as _lf:
+                _lf.write(f"\nCSL_STOP_REASON: {stop_reason}\n".encode("ascii"))
+        except OSError:
+            pass
         try:
             text = open(log_path, encoding="utf-8", errors="replace").read()
         except OSError:
@@ -451,8 +486,16 @@ class SimulationService:
                 ncyc = len(mtrap) // 6
                 cyc_ve = [sum(mtrap[c * 6:(c + 1) * 6]) / 6.0 * 1000.0 / m_ref_mg * 100.0
                           for c in range(ncyc)]
+                _sr = re.findall(r"CSL_STOP_REASON: (\w+)", output)
+                stop_reason = _sr[-1] if _sr else None
+                osc_amp = None
                 if cyc_ve:
-                    ve = cyc_ve[-1]
+                    if M.stop_legacy():
+                        ve = cyc_ve[-1]
+                    else:
+                        # Stage 78 v2: tail-mean phase-averages oscillating
+                        # trajectories instead of point-sampling them
+                        ve, osc_amp = M.cell_ve_v2(cyc_ve)
                     mass_g = sum(mtrap[(ncyc - 1) * 6:ncyc * 6]) / 6.0
                 else:
                     tm = re.findall(r"Trapped mass:\s+([0-9.]+)\s+\(g\)", output)
@@ -462,9 +505,15 @@ class SimulationService:
 
                 if ncyc >= 5:
                     slope = (cyc_ve[-1] - cyc_ve[-5]) / 4.0
-                    converged = abs(slope) < M.SLOPE_TOL
                 else:
-                    slope, converged = None, False
+                    slope = None
+                if M.stop_legacy():
+                    converged = ncyc >= 5 and slope is not None and abs(slope) < M.SLOPE_TOL
+                else:
+                    # v2: converged = the run genuinely reached the fixed cycle
+                    # budget (or its natural end), not "the slope looked flat
+                    # at the moment we killed it"
+                    converged = (ncyc >= M.STOP_CYCLES - 2 or stop_reason == "natural")
                 blew_up = bool(cyc_ve and max(cyc_ve[-3:]) > M.VE_BLOWUP) or ve > M.VE_BLOWUP
 
                 # --- cylinder-balance gate -------------------------------
@@ -498,6 +547,8 @@ class SimulationService:
                     "converged": bool(converged),
                     "slope": (None if slope is None else round(slope, 4)),
                     "cyc": ncyc,
+                    "stop_reason": stop_reason,
+                    "osc_amp": (None if osc_amp is None else round(osc_amp, 2)),
                     "cyl_ok": bool(cyl_ok),
                     "cyl_spread": (None if cyl_spread is None or (isinstance(cyl_spread, float)
                                    and math.isnan(cyl_spread)) else round(cyl_spread, 4)),

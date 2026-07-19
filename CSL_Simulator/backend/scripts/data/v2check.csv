@@ -1,0 +1,2 @@
+id,tag,rpm,load,in_spread,ex_spread,d_in_cam,d_ex_cam,ign,alpha,again,sigma_bp,sets,ve,stock,ratio,cyc,slope,converged,cyl_ok,spread,collapsed_n,nan_free,blew_up,valid,elapsed_s,stop_reason,osc_amp
+70bacb6be707,v2check,2700,45.0,80.0,93.0,0.0,0.0,24.0,,,,{},79.67,72.6,1.0974,40,0.066,1,1,0.1027,0,1,0,1,765.9,fixed_cycles,0.64

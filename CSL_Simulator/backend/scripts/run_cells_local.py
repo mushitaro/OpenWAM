@@ -117,7 +117,7 @@ CSV_COLS = ["id", "tag", "rpm", "load", "in_spread", "ex_spread", "d_in_cam",
             "d_ex_cam", "ign", "alpha", "again", "sigma_bp",
             "sets", "ve", "stock", "ratio", "cyc", "slope", "converged",
             "cyl_ok", "spread", "collapsed_n", "nan_free", "blew_up", "valid",
-            "elapsed_s"]
+            "elapsed_s", "stop_reason", "osc_amp"]
 
 
 def done_ids(path):
@@ -221,13 +221,19 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
         ncyc = len(mtrap) // 6
         cyc_ve = [sum(mtrap[c * 6:(c + 1) * 6]) / 6.0 * 1000.0 / m_ref * 100.0
                   for c in range(ncyc)]
-        ve = cyc_ve[-1] if cyc_ve else 0.0
-        mass_g = (sum(mtrap[(ncyc - 1) * 6:ncyc * 6]) / 6.0) if ncyc else 0.0
-        if ncyc >= 5:
-            slope = (cyc_ve[-1] - cyc_ve[-5]) / 4.0
-            converged = abs(slope) < M.SLOPE_TOL
+        _sr = re.findall(r"CSL_STOP_REASON: (\w+)", output)
+        stop_reason = _sr[-1] if _sr else ""
+        osc_amp = None
+        if M.stop_legacy():
+            ve = cyc_ve[-1] if cyc_ve else 0.0
         else:
-            slope, converged = None, False
+            ve, osc_amp = M.cell_ve_v2(cyc_ve)   # Stage 78 v2: tail-10 mean
+        mass_g = (sum(mtrap[(ncyc - 1) * 6:ncyc * 6]) / 6.0) if ncyc else 0.0
+        slope = (cyc_ve[-1] - cyc_ve[-5]) / 4.0 if ncyc >= 5 else None
+        if M.stop_legacy():
+            converged = ncyc >= 5 and slope is not None and abs(slope) < M.SLOPE_TOL
+        else:
+            converged = (ncyc >= M.STOP_CYCLES - 2 or stop_reason == "natural")
         blew_up = bool(cyc_ve and max(cyc_ve[-3:]) > M.VE_BLOWUP) or ve > M.VE_BLOWUP
         cb = OpenWAMOutputParser.cylinder_balance(output, tol=0.20, n_cyl=6)
         cyl_spread, ve_cyl = cb.get("spread"), cb.get("ve_cyl")
@@ -264,6 +270,8 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
             "collapsed_n": (collapsed_n if collapsed_n is not None else ""),
             "nan_free": int(nan_free), "blew_up": int(blew_up), "valid": int(valid),
             "elapsed_s": round(time.time() - t0, 1),
+            "stop_reason": stop_reason,
+            "osc_amp": (round(osc_amp, 2) if osc_amp is not None else ""),
         }
         async with writer_lock:
             new = not os.path.exists(csv_path)

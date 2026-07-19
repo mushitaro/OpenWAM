@@ -401,6 +401,13 @@ class ExhaustConfig(BaseModel):
     section2: Section2Config = Section2Config()   # Merged Section (or Dual)
     section3: Section3Config = Section3Config()
     muffler_friction: float = 0.05 # Smooth Adapter (was 0.1)
+    # Stage 78: dx scale for the exhaust-MAIN pipe families (collector -> tail).
+    # The legacy 50mm mains numerically damp the 197Hz (o3) waves to ~47%
+    # round-trip retention, which the mesh-convergence study showed is
+    # LOAD-BEARING (VE moves 4-11pp at dx/2; valley cells converged there).
+    # 1.0 = legacy coarse mesh (golden decks unchanged); the v14 owner preset
+    # sets 0.5. Env override: OPENWAM_EXH_DX_SCALE.
+    main_dx_scale: float = 1.0
     # Exhaust port-merge junction (2 ports + 1 header) topology selector, in cc:
     #   > 0  : small 0D plenum of this volume per cylinder.
     #   <= 0 : plenumless Type-12 Riemann junction (DEFAULT).
