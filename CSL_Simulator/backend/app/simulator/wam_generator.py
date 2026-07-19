@@ -293,15 +293,31 @@ class WAMGenerator:
         
         # 4. Combustion Type (1=MEP)
         self._add("1", "Combustion=MEP")
-        
+
         # 5. Fuel / Dosado
-        self._add("1.0", "Dosado")
-        
+        # ⚡Stage 78: Dosado is read by TWO C++ paths with DIFFERENT meaning:
+        #   - init clamp (TCilindro.cpp:2476): AFR-like, <5 -> MasaInicial/5 (cycle-1 only)
+        #   - CalculaFuelMEP (TCilindro.cpp:3147, fires each IVC): fuel = fresh_air * Dosado *
+        #     stoich  => here Dosado IS the EQUIVALENCE RATIO phi (=1/lambda), and fuel auto-
+        #     tracks the actual trapped air. Verified from converged solver logs: with "1.0"
+        #     the engine runs STOICH (phi=1, fuel/air=0.0686), NOT the "combustion catastrophe"
+        #     the audit inferred (that was a cycle-1/startup artifact; converged cells are clean).
+        # The real S54 runs RICH at WOT (lambda~0.85-0.90). phi = 1/lambda_wot on WOT cells.
+        # Default lambda_wot=1.0 -> Dosado "1.0" -> byte-identical (golden-safe).
+        _lam_wot = float(os.environ.get("OPENWAM_LAMBDA_WOT", "1.0"))
+        _is_wot_cell = float(c.engine.throttle_position) * 100.0 >= 85.0  # WOT_TPS
+        _phi = (1.0 / _lam_wot) if (_is_wot_cell and _lam_wot > 0) else 1.0
+        self._add(f"{_phi:.4f}".rstrip("0").rstrip(".") if _phi != 1.0 else "1.0", "Dosado (equiv ratio phi)")
+
         # 6. Efficiency & Fuel Props
         # Fuel lower heating value (J/kg). OPENWAM_FUEL_LHV=0 motors the engine
         # (combustion releases no heat) for clean breathing/throttle-metering tests.
+        # Combustion efficiency: 0.98 is a lean/stoich value; rich WOT loses energy to
+        # unburned CO/H2 -> eta(lambda) = 0.98 - 0.30*(1-lambda) for lambda<1 (Stage 78).
+        # Default (lambda_wot=1) -> 0.98 unchanged (byte-identical).
+        _eta = 0.98 if _phi <= 1.0 else round(0.98 - 0.30 * (1.0 - _lam_wot), 4)
         fuel_lhv = os.environ.get("OPENWAM_FUEL_LHV", "44000000")
-        self._add(f"0.98 {fuel_lhv} 750", "Eff LHV Rho")
+        self._add(f"{_eta:.4g} {fuel_lhv} 750", "Eff LHV Rho")
         
         # 7-8. Thermal Params - MUST be separate values for TBloqueMotor::LeeMotor
         # Line 222: FNumTuboRendVol (Ref Pipe for VE calculation)
