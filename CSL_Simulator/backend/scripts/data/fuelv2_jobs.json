@@ -1,0 +1,80 @@
+[
+ {
+  "rpm": 2400,
+  "load": 30,
+  "tag": "fuelv1"
+ },
+ {
+  "rpm": 2700,
+  "load": 45,
+  "tag": "fuelv1"
+ },
+ {
+  "rpm": 3100,
+  "load": 65,
+  "tag": "fuelv1"
+ },
+ {
+  "rpm": 2200,
+  "load": 100,
+  "tag": "fuelv1"
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "fuelv1"
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "fuelv1"
+ },
+ {
+  "rpm": 2400,
+  "load": 30,
+  "tag": "fuelv2",
+  "env": {
+   "OPENWAM_MEP_FUEL_V2": "1"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 45,
+  "tag": "fuelv2",
+  "env": {
+   "OPENWAM_MEP_FUEL_V2": "1"
+  }
+ },
+ {
+  "rpm": 3100,
+  "load": 65,
+  "tag": "fuelv2",
+  "env": {
+   "OPENWAM_MEP_FUEL_V2": "1"
+  }
+ },
+ {
+  "rpm": 2200,
+  "load": 100,
+  "tag": "fuelv2",
+  "env": {
+   "OPENWAM_MEP_FUEL_V2": "1"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "fuelv2",
+  "env": {
+   "OPENWAM_MEP_FUEL_V2": "1"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "fuelv2",
+  "env": {
+   "OPENWAM_MEP_FUEL_V2": "1"
+  }
+ }
+]

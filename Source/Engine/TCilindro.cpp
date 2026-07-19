@@ -2496,6 +2496,20 @@ void TCilindro::IniciaVariables() {
       }
     }
 
+    // OPENWAM_MEP_FUEL_V2 (CSL Stage 78): make the FIRST-cycle fuel consistent
+    // with CalculaFuelMEP (fuel = air * phi * stoich). The legacy MEP init
+    // above reads Dosado as an AFR and clamps <5 to MasaInicial/5 -- a
+    // ~2.9x-stoich charge that GUARANTEES first-cycle O2 saturation; the
+    // saturated species update then seeds the fresh-air ledger corruption
+    // (see TCilindro4T.cpp, same gate). Unset env = legacy, bit-identical.
+    if (FMotor->getCombustible() == nmMEP &&
+        getenv("OPENWAM_MEP_FUEL_V2") != NULL) {
+      double phi = FMotor->getDosadoInicial();
+      if (phi > 3.) // legacy AFR-style deck value; treat as stoichiometric
+        phi = 1.0;
+      FMasaFuel = FMotor->getMasaInicial() * phi * FDosadoEstequiometrico;
+    }
+
     FMfint = FMasaFuel; // kg/cc
     FMaint = FMasa;     // kg/cc
     FRegInt = FMotor->getRegimen();

@@ -109,6 +109,7 @@ def job_id(job):
            ("rpm", "load", "in_spread", "ex_spread", "d_in_cam", "d_ex_cam",
             "alpha", "again", "sigma_bp", "tag")}
     key["set"] = dict(sorted((job.get("set") or {}).items()))
+    key["env"] = dict(sorted((job.get("env") or {}).items()))
     return hashlib.sha1(json.dumps(key, sort_keys=True).encode()).hexdigest()[:12]
 
 
@@ -191,6 +192,10 @@ async def run_job(svc, cal, sem, job, args, writer_lock, csv_path):
             env.pop("OPENWAM_MOUTH_RAD_W", None)
         if job.get("again") is not None:
             env["OPENWAM_THR_AGAIN"] = str(job["again"])
+        # generic env overrides (e.g. OPENWAM_MEP_FUEL_V2) — keys must be in
+        # _RESULT_ENV or the deck-cache arms collide
+        for k, v in (job.get("env") or {}).items():
+            env[str(k)] = str(v)
 
         # Stage 73: CSL_MREF_ECU=1 -> ECU rf normalization (see metrics.m_ref_mg)
         m_ref = M.m_ref_mg(cfg.engine.geometry.bore, cfg.engine.geometry.stroke,

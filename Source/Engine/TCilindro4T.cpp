@@ -662,7 +662,33 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
         FFraccionMasicaEspecie[FMotor->getSpeciesNumber() - 1] = 1.;
 
       if (FMotor->getCombustible() == nmMEP) {
-        CalculaFuelMEP(FMasaEspecieCicloCerrado[2]);
+        // OPENWAM_MEP_FUEL_V2 (CSL Stage 78): bound the air-tracking fuel.
+        // The premixed-MEP species ledger drifts over cycles (fuel is debited
+        // from [1] but never credited; the saturated branch destroys O2 with
+        // a stale per-event mfquefin every step) and the inferred fresh-air
+        // mass [2] was observed to reach 0..9x the total cylinder mass, which
+        // CalculaFuelMEP converts into 0..400 mg fuel and feeds back. Fresh
+        // air can never exceed the total trapped mass nor be negative, so
+        // clamp the argument to [0, FMasa]. Unset env = legacy, bit-identical.
+        double airForFuel = FMasaEspecieCicloCerrado[2];
+        if (getenv("OPENWAM_MEP_FUEL_V2") != NULL) {
+          if (airForFuel > FMasa)
+            airForFuel = FMasa;
+          if (airForFuel < 0.)
+            airForFuel = 0.;
+        }
+        CalculaFuelMEP(airForFuel);
+        if (getenv("OPENWAM_MEP_FUEL_V2") != NULL) {
+          // credit the premixed charge fuel into the 'Combustible' ledger:
+          // heat release debits [1] by FMfquem every step but nothing ever
+          // credits it for MEP (FFuelInstant = 0 without injection data), so
+          // [1] runs negative without bound and the renormalised composition
+          // inflates/deflates the fresh-air fraction across cycles. FMasa is
+          // deliberately NOT changed (VE = trapped mass must keep its
+          // definition); the ~7% ledger-vs-mass mismatch is bounded, unlike
+          // the unbounded legacy drift.
+          FMasaEspecieCicloCerrado[1] += FMasaFuel;
+        }
       }
 
       std::cout << "INFO: End of Gas-exchange process in cylinder "
@@ -915,8 +941,19 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
 
             FSaturado = true;
 
+            // OPENWAM_MEP_FUEL_V2 (CSL Stage 78): conserve mass. Burned gas
+            // gains the air that actually EXISTED ([2], all consumed here) --
+            // the legacy line adds the REQUESTED FMairequem, which by the
+            // branch condition EXCEEDS [2], creating phantom mass in the
+            // species ledger at every saturation event. Compounded over
+            // cycles this drives the fresh-air ledger to unphysical states
+            // (observed 0%..320% of trapped mass), which CalculaFuelMEP then
+            // converts into garbage fuel. Unset env = legacy, bit-identical.
+            double airBurnedSat = getenv("OPENWAM_MEP_FUEL_V2") != NULL
+                                      ? FMasaEspecieCicloCerrado[2]
+                                      : FMairequem;
             FMasaEspecieCicloCerrado[0] =
-                FMasaEspecieCicloCerrado[0] + FMairequem + mfquefin -
+                FMasaEspecieCicloCerrado[0] + airBurnedSat + mfquefin -
                 FComposicionCicloCerrado[0] * FMasaBlowBy;
             // Gases Quemados
             FMasaEspecieCicloCerrado[1] =
@@ -1011,10 +1048,17 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
               // Moles de combustible quemado en el incremento temporal
               // calculado
             } else {
+              // OPENWAM_MEP_FUEL_V2 (CSL Stage 78): while saturated the heat
+              // release is ZERO (FCalor.Liberado = 0), so no fuel burns this
+              // step -- but the legacy line keeps consuming O2/species with
+              // the STALE first-event mfquefin EVERY step, destroying O2 with
+              // no heat and collapsing the fresh-air ledger over cycles
+              // (observed fuel 0-2 mg = motored cells at part load).
               FMolesCombQuemado =
-                  mfquefin / (FXComb * 12.01 + FYComb * 1.01 + FZComb * 16);
-              // Moles de combustible quemado en el incremento temporal
-              // calculado
+                  getenv("OPENWAM_MEP_FUEL_V2") != NULL
+                      ? 0.
+                      : mfquefin /
+                            (FXComb * 12.01 + FYComb * 1.01 + FZComb * 16);
             }
             FMasaO2Reactivos = FMolesCombQuemado *
                                (FYComb / 4 + FXComb - FZComb / 2) * __PM::O2;
@@ -1068,10 +1112,17 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
               // Moles de combustible quemado en el incremento temporal
               // calculado
             } else {
+              // OPENWAM_MEP_FUEL_V2 (CSL Stage 78): while saturated the heat
+              // release is ZERO (FCalor.Liberado = 0), so no fuel burns this
+              // step -- but the legacy line keeps consuming O2/species with
+              // the STALE first-event mfquefin EVERY step, destroying O2 with
+              // no heat and collapsing the fresh-air ledger over cycles
+              // (observed fuel 0-2 mg = motored cells at part load).
               FMolesCombQuemado =
-                  mfquefin / (FXComb * 12.01 + FYComb * 1.01 + FZComb * 16);
-              // Moles de combustible quemado en el incremento temporal
-              // calculado
+                  getenv("OPENWAM_MEP_FUEL_V2") != NULL
+                      ? 0.
+                      : mfquefin /
+                            (FXComb * 12.01 + FYComb * 1.01 + FZComb * 16);
             }
             FMasaO2Reactivos = FMolesCombQuemado *
                                (FYComb / 4 + FXComb - FZComb / 2) * __PM::O2;
