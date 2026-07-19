@@ -83,14 +83,14 @@ class CalibrationService:
             "correction_matrix": correction_matrix,
             "timestamp": pd.Timestamp.now().isoformat()
         }
-        with open(os.path.join(self.data_dir, "calibration_state.json"), "w") as f:
+        with open(os.path.join(self.data_dir, "calibration_state.json"), "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
             
     def load_calibration_state(self):
         try:
             path = os.path.join(self.data_dir, "calibration_state.json")
             if os.path.exists(path):
-                with open(path, "r") as f:
+                with open(path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except:
              return None
@@ -187,7 +187,7 @@ class CalibrationService:
         maps_file = os.path.join(self.app_dir, "data", "csl_ecu_maps.json")
         rpm_points = []
         try:
-            with open(maps_file, "r") as f:
+            with open(maps_file, "r", encoding="utf-8") as f:
                 maps = json.load(f)
                 # target VE table (kf_rf_soll) for RPM breakpoints
                 rpm_points = maps.get("kf_rf_soll", {}).get("x_axis", [])
@@ -428,7 +428,7 @@ class CalibrationService:
             
             if os.path.exists(json_outfile):
                 await log("INFO: Loading Aggregated Sweep Results...")
-                with open(json_outfile, "r") as f:
+                with open(json_outfile, "r", encoding="utf-8") as f:
                     results_data = json.load(f)
                 
                 # Convert to DataFrame

@@ -67,10 +67,20 @@ def load(data_dir):
         if hit is not None and hit[0] == mtime:
             return hit[1]
         try:
-            with open(path, "r") as f:
+            # encoding pinned: on Windows the default is cp932/cp1252, and a
+            # single non-ASCII byte in the file made this silently fall back
+            # to _default() — every knob (thr_sigma, icv, alpha...) reverted
+            # to in-code defaults while all gates stayed green (2026-07-19).
+            with open(path, "r", encoding="utf-8") as f:
                 cal = json.load(f)
-        except Exception:
+        except FileNotFoundError:
             cal = _default()
+        except Exception as e:
+            # a PRESENT-but-unreadable calibration is a data error, not a
+            # "run with defaults" request — fail loudly, never silently.
+            raise RuntimeError(
+                f"calibration.json exists but failed to load ({e}); refusing "
+                f"to silently run with default calibration") from e
         # Stage 69: v2 files carried the deleted cam-phase scaffold — warn
         # loudly and IGNORE those keys (the accessors no longer exist).
         if cal.get("schema_version", 0) < 3 and (

@@ -67,7 +67,7 @@
    "residual": "valley 2100-2400 |err| 5.4->2.3pp; 2700-3100 overfill exposed (+8..+14pp, sigma-independent = the real Stage-1 target)"
   },
   "fitted_archive": {
-   "_comment": "Stage 49/50 fitted S-curve, superseded 2026-07-18 (Stage 77 M-B): falsified by real DS2 drive logs — RO=aq_rel IS the opening-area ratio (scale 100/32768, measured), so sigma(RO) is the physical IDENTITY, not a fit. The S-curve over-throttled RO 20-45 (artificial -9..-11pp underfill at 2200-2400) and partially masked the real 2700-3100 acoustic overfill (+8..+14pp).",
+   "_comment": "Stage 49/50 fitted S-curve, superseded 2026-07-18 (Stage 77 M-B): falsified by real DS2 drive logs \u2014 RO=aq_rel IS the opening-area ratio (scale 100/32768, measured), so sigma(RO) is the physical IDENTITY, not a fit. The S-curve over-throttled RO 20-45 (artificial -9..-11pp underfill at 2200-2400) and partially masked the real 2700-3100 acoustic overfill (+8..+14pp).",
    "points": [
     [
      0.0,

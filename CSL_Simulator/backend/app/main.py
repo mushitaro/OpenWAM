@@ -91,7 +91,7 @@ async def get_meta():
 async def get_maps():
     """OEM ECU maps (VE / VANOS) used for axes + VANOS lookup."""
     try:
-        with open(os.path.join(DATA_DIR, "csl_ecu_maps.json"), "r") as f:
+        with open(os.path.join(DATA_DIR, "csl_ecu_maps.json"), "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"maps load error: {e}")
@@ -257,7 +257,7 @@ def _extract_bin_ve_map():
     data = binary_service.read_binary(UPLOADED_BIN)
     values = binary_service.read_table_generic(
         data, binary_service.ADDR_VE_MAP, 24, 20, binary_service.VE_FACTOR)
-    with open(os.path.join(DATA_DIR, "csl_ecu_maps.json"), "r") as f:
+    with open(os.path.join(DATA_DIR, "csl_ecu_maps.json"), "r", encoding="utf-8") as f:
         ax = json.load(f).get("kf_rf_soll", {})
     return {"x_axis": ax.get("x_axis", []), "y_axis": ax.get("y_axis", []), "values": values}
 

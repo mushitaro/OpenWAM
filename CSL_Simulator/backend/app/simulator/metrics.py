@@ -307,7 +307,7 @@ def load_stock_wot(data_dir):
     WOT data -- the calibration target."""
     path = os.path.join(data_dir, "stock_csl_ve.json")
     try:
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             rows = json.load(f)
     except Exception:
         return {}

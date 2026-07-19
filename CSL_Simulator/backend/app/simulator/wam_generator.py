@@ -184,7 +184,7 @@ class WAMGenerator:
         # is a legitimate calibration knob.
         cam_exp = float(os.environ.get("OPENWAM_CAM_EXP", "1.0"))
 
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(f"361\n") # 1 degree steps
             for ang in np.arange(-360, 361, 2.0):
                 current_lift = 0.0

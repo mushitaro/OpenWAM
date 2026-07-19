@@ -25,7 +25,7 @@ class MockDataGenerator:
         self.ecu_maps = None
         map_path = os.path.join(data_dir, "csl_ecu_maps.json")
         if os.path.exists(map_path):
-            with open(map_path, "r") as f:
+            with open(map_path, "r", encoding="utf-8") as f:
                 self.ecu_maps = json.load(f)
         else:
             print(f"Warning: ECU Maps not found at {map_path}")

@@ -301,7 +301,7 @@ class SimulationService:
         maps_file = os.path.join(self.data_dir, "csl_ecu_maps.json")
         maps, rpm_axis, load_axis = {}, [], []
         try:
-            with open(maps_file, "r") as f:
+            with open(maps_file, "r", encoding="utf-8") as f:
                 maps = json.load(f)
                 rpm_axis = maps.get("kf_rf_soll", {}).get("x_axis", [])
                 load_axis = maps.get("kf_rf_soll", {}).get("y_axis", [])
@@ -685,7 +685,7 @@ class SimulationService:
 
         maps = {}
         try:
-            with open(os.path.join(self.data_dir, "csl_ecu_maps.json")) as f:
+            with open(os.path.join(self.data_dir, "csl_ecu_maps.json"), encoding="utf-8") as f:
                 maps = json.load(f)
         except Exception:
             maps = {}

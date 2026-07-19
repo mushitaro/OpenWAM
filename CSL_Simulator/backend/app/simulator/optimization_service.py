@@ -56,7 +56,7 @@ class OptimizationService:
 
     # ------------------------------------------------------------------ maps
     def _load_maps(self):
-        with open(os.path.join(self.data_dir, "csl_ecu_maps.json"), "r") as f:
+        with open(os.path.join(self.data_dir, "csl_ecu_maps.json"), "r", encoding="utf-8") as f:
             return json.load(f)
 
     @staticmethod
