@@ -1936,6 +1936,13 @@ class WAMGenerator:
     def _add_h_pipe_junction(self, p1, p2, location_ratio):
         pass
 
+    # Exhaust-main pipe families whose dx the mesh-convergence knob scales
+    # (Stage 78). Headers/ports excluded on purpose: the verified damping
+    # deficit lives in the mains (collector -> resonator -> tail, 197Hz
+    # one-way retention ~68%, round-trip ~47% on the current mesh).
+    _EXH_DX_FAMILIES = ("Header", "Col_Out", "FrontCat", "Sec1_", "Sec",
+                        "Sec2_", "Muf_", "Resonator", "Tail")
+
     def _add_pipe(self, pid, label, length, d_start, d_end, wall_temp, left_node=0, right_node=0, friction=0.01, dx_mesh=0.05, init_p=None):
         # Format: PipeID Label Length D_Start D_End T_Wall LeftNode RightNode Friction
         # NEW: dx_mesh (Mesh Size in meters) is the 4th value in the internal storage dict
@@ -1943,6 +1950,14 @@ class WAMGenerator:
         # downstream of the throttle this is set to the estimated manifold vacuum
         # (MAP) so a part-throttle run starts near its steady operating pressure
         # instead of atmospheric (which would over-fill the first cycle).
+        #
+        # OPENWAM_EXH_DX_SCALE (research knob, Stage 78 mesh-convergence
+        # experiment): scales dx for the exhaust-main families only. Unset =
+        # byte-identical decks (golden/parity safe). dt is governed by the
+        # intake runner stubs, so 0.5 here costs ~+28% node-updates, dt same.
+        _dxs = os.environ.get("OPENWAM_EXH_DX_SCALE")
+        if _dxs and label.startswith(self._EXH_DX_FAMILIES):
+            dx_mesh = dx_mesh * float(_dxs)
         self.pipes[pid] = {
             'label': label,
             'length': length, # restored key name 'length' (was 'len')

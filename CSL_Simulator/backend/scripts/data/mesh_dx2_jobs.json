@@ -1,0 +1,32 @@
+[
+ {
+  "rpm": 2400,
+  "load": 30,
+  "tag": "mesh_dx2"
+ },
+ {
+  "rpm": 2700,
+  "load": 45,
+  "tag": "mesh_dx2"
+ },
+ {
+  "rpm": 3100,
+  "load": 65,
+  "tag": "mesh_dx2"
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "mesh_dx2"
+ },
+ {
+  "rpm": 3100,
+  "load": 100,
+  "tag": "mesh_dx2"
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "mesh_dx2"
+ }
+]
