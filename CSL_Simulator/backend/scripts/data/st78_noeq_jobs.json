@@ -1,0 +1,101 @@
+[
+ {
+  "rpm": 2200,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ },
+ {
+  "rpm": 2400,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ },
+ {
+  "rpm": 2900,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ },
+ {
+  "rpm": 3100,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ },
+ {
+  "rpm": 5300,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "noeq",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.enabled": false
+  }
+ }
+]
