@@ -1,0 +1,68 @@
+[
+ {
+  "rpm": 3300,
+  "load": 100,
+  "tag": "ramp_icv002",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.icv_sigma": 0.02
+  }
+ },
+ {
+  "rpm": 3500,
+  "load": 100,
+  "tag": "ramp_icv002",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.icv_sigma": 0.02
+  }
+ },
+ {
+  "rpm": 3700,
+  "load": 100,
+  "tag": "ramp_icv002",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.icv_sigma": 0.02
+  }
+ },
+ {
+  "rpm": 3300,
+  "load": 100,
+  "tag": "ramp_icv030",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.icv_sigma": 0.3
+  }
+ },
+ {
+  "rpm": 3500,
+  "load": 100,
+  "tag": "ramp_icv030",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.icv_sigma": 0.3
+  }
+ },
+ {
+  "rpm": 3700,
+  "load": 100,
+  "tag": "ramp_icv030",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.eq_tube.icv_sigma": 0.3
+  }
+ }
+]
