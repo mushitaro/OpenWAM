@@ -30,6 +30,10 @@ _RESULT_ENV = ["OPENWAM_HLLC", "OPENWAM_THR_CHOKE", "OPENWAM_THR_AGAIN",
                "OPENWAM_BOX_MODE", "OPENWAM_BOX_MODE_CC1", "OPENWAM_BOX_MODE_CC2",
                "OPENWAM_MEP_FUEL_V2"]
 
+# Per-cell wall-clock budget at 2700rpm; scaled by 2700/rpm in the map path
+# (CSL_FIT_TIMEOUT keeps the legacy override for long research sweeps).
+_BASE_TIMEOUT = float(os.environ.get("CSL_FIT_TIMEOUT", "1800"))
+
 
 class SimulationService:
     def __init__(self, data_dir, simulator_dir):
@@ -469,8 +473,16 @@ class SimulationService:
 
                 output = ""
                 try:
+                    # Stage 78: rpm-SCALED timeout. Solver steps per cycle scale
+                    # as 1/rpm (cycle duration / fixed dt), so a 600rpm cell needs
+                    # ~4.5x the wall time of a 2700rpm one for the same cycle
+                    # budget. The flat 1800s starved the whole 600-1800 block into
+                    # 'timeout' under the fixed-40-cycle protocol (they are the
+                    # cells the map was ALWAYS re-burning). Capped at 3x.
+                    _cell_to = _BASE_TIMEOUT * min(3.0, max(1.0, 2700.0 / max(rpm, 1.0)))
                     output = await self._run_solver(exe_path, wam_filename, self.simulator_dir,
-                                                    sim_env, log_path, content)
+                                                    sim_env, log_path, content,
+                                                    timeout=_cell_to)
                 finally:
                     # clean the deck, log, AND the solver's DAT outputs (the solver
                     # writes <sub>AVG.DAT / <sub>INS.DAT next to the deck).
