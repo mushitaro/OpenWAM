@@ -1,0 +1,783 @@
+{
+ "rpm": 2400,
+ "cycles_used": 8,
+ "stations": {
+  "CSL_Intake_Pipe": {
+   "orders_P": {
+    "1.5": 6.995279505588858e-07,
+    "3.0": 1.9817619184643515e-07,
+    "4.5": 1.2612960498138389e-07,
+    "6.0": 1.5851189832247858e-07,
+    "7.5": 1.4651990580351876e-07,
+    "dominant_order": 0.0625,
+    "dominant_amp": 1.4237912551715316e-05,
+    "peaks": [
+     {
+      "order": 0.062,
+      "hz": 2.5,
+      "amp_mbar": 0.01
+     },
+     {
+      "order": 0.125,
+      "hz": 5.0,
+      "amp_mbar": 0.01
+     },
+     {
+      "order": 0.188,
+      "hz": 7.5,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.25,
+      "hz": 10.0,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.312,
+      "hz": 12.5,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.375,
+      "hz": 15.0,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.438,
+      "hz": 17.5,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.625,
+      "hz": 25.0,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.812,
+      "hz": 32.5,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.688,
+      "hz": 27.5,
+      "amp_mbar": 0.0
+     },
+     {
+      "order": 0.875,
+      "hz": 35.0,
+      "amp_mbar": 0.0
+     }
+    ]
+   },
+   "mean_P": 1.0176123038194445,
+   "supply_metric_Vpos": null,
+   "supply_metric_Vneg": 1.2972712593040114e-07
+  },
+  "CSL_Panel_Filter": {
+   "orders_P": {
+    "1.5": 0.00010173259352087707,
+    "3.0": 0.0006986608328023921,
+    "4.5": 8.276436813489051e-06,
+    "6.0": 5.07147883138144e-05,
+    "7.5": 4.37944111551891e-06,
+    "dominant_order": 3.0,
+    "dominant_amp": 0.0006986608328023921,
+    "peaks": [
+     {
+      "order": 3.0,
+      "hz": 120.0,
+      "amp_mbar": 0.7
+     },
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 0.21
+     },
+     {
+      "order": 1.0,
+      "hz": 40.0,
+      "amp_mbar": 0.18
+     },
+     {
+      "order": 0.312,
+      "hz": 12.5,
+      "amp_mbar": 0.18
+     },
+     {
+      "order": 0.25,
+      "hz": 10.0,
+      "amp_mbar": 0.14
+     },
+     {
+      "order": 2.812,
+      "hz": 112.5,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 1.5,
+      "hz": 60.0,
+      "amp_mbar": 0.1
+     },
+     {
+      "order": 0.188,
+      "hz": 7.5,
+      "amp_mbar": 0.1
+     },
+     {
+      "order": 2.875,
+      "hz": 115.0,
+      "amp_mbar": 0.1
+     },
+     {
+      "order": 2.938,
+      "hz": 117.5,
+      "amp_mbar": 0.1
+     },
+     {
+      "order": 0.062,
+      "hz": 2.5,
+      "amp_mbar": 0.09
+     },
+     {
+      "order": 2.75,
+      "hz": 110.0,
+      "amp_mbar": 0.07
+     }
+    ]
+   },
+   "mean_P": 1.0143365295138889,
+   "supply_metric_Vpos": -9.612659929314482e-05,
+   "supply_metric_Vneg": null
+  },
+  "Bellmouth_1": {
+   "orders_P": {
+    "1.5": 0.000548899655512682,
+    "3.0": 0.0007469543495626868,
+    "4.5": 6.910033998554444e-05,
+    "6.0": 6.615951385300134e-05,
+    "7.5": 2.4070084896636594e-05,
+    "dominant_order": 1.0,
+    "dominant_amp": 0.0008966066574829969,
+    "peaks": [
+     {
+      "order": 1.0,
+      "hz": 40.0,
+      "amp_mbar": 0.9
+     },
+     {
+      "order": 3.0,
+      "hz": 120.0,
+      "amp_mbar": 0.75
+     },
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 0.71
+     },
+     {
+      "order": 1.5,
+      "hz": 60.0,
+      "amp_mbar": 0.55
+     },
+     {
+      "order": 0.312,
+      "hz": 12.5,
+      "amp_mbar": 0.21
+     },
+     {
+      "order": 2.0,
+      "hz": 80.0,
+      "amp_mbar": 0.18
+     },
+     {
+      "order": 0.25,
+      "hz": 10.0,
+      "amp_mbar": 0.16
+     },
+     {
+      "order": 2.812,
+      "hz": 112.5,
+      "amp_mbar": 0.13
+     },
+     {
+      "order": 0.188,
+      "hz": 7.5,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.875,
+      "hz": 115.0,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.938,
+      "hz": 117.5,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 0.062,
+      "hz": 2.5,
+      "amp_mbar": 0.09
+     }
+    ]
+   },
+   "mean_P": 1.0134307430555556,
+   "supply_metric_Vpos": -0.00035885410936886686,
+   "supply_metric_Vneg": null
+  },
+  "Runner_Lower_1": {
+   "orders_P": {
+    "1.5": 0.008126325724411148,
+    "3.0": 0.002024812697011669,
+    "4.5": 0.0023478058980496886,
+    "6.0": 0.00040181919612523366,
+    "7.5": 0.001313851772479016,
+    "dominant_order": 1.0,
+    "dominant_amp": 0.008979589172816039,
+    "peaks": [
+     {
+      "order": 1.0,
+      "hz": 40.0,
+      "amp_mbar": 8.98
+     },
+     {
+      "order": 1.5,
+      "hz": 60.0,
+      "amp_mbar": 8.13
+     },
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 6.3
+     },
+     {
+      "order": 2.0,
+      "hz": 80.0,
+      "amp_mbar": 3.57
+     },
+     {
+      "order": 4.5,
+      "hz": 180.0,
+      "amp_mbar": 2.35
+     },
+     {
+      "order": 3.5,
+      "hz": 140.0,
+      "amp_mbar": 2.17
+     },
+     {
+      "order": 5.0,
+      "hz": 200.0,
+      "amp_mbar": 2.12
+     },
+     {
+      "order": 3.0,
+      "hz": 120.0,
+      "amp_mbar": 2.02
+     },
+     {
+      "order": 7.5,
+      "hz": 300.0,
+      "amp_mbar": 1.31
+     },
+     {
+      "order": 9.0,
+      "hz": 360.0,
+      "amp_mbar": 1.15
+     },
+     {
+      "order": 4.0,
+      "hz": 160.0,
+      "amp_mbar": 1.07
+     },
+     {
+      "order": 7.0,
+      "hz": 280.0,
+      "amp_mbar": 0.79
+     }
+    ]
+   },
+   "mean_P": 1.011308040798611,
+   "supply_metric_Vpos": -0.011751258571058965,
+   "supply_metric_Vneg": 0.009914031610391172
+  },
+  "Bellmouth_2": {
+   "orders_P": {
+    "1.5": 0.0005753731274963429,
+    "3.0": 0.0007481452186855779,
+    "4.5": 6.86170055550252e-05,
+    "6.0": 6.622509911454541e-05,
+    "7.5": 2.5885408443022734e-05,
+    "dominant_order": 0.5,
+    "dominant_amp": 0.001149835604214991,
+    "peaks": [
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 1.15
+     },
+     {
+      "order": 3.0,
+      "hz": 120.0,
+      "amp_mbar": 0.75
+     },
+     {
+      "order": 1.0,
+      "hz": 40.0,
+      "amp_mbar": 0.67
+     },
+     {
+      "order": 1.5,
+      "hz": 60.0,
+      "amp_mbar": 0.58
+     },
+     {
+      "order": 2.0,
+      "hz": 80.0,
+      "amp_mbar": 0.27
+     },
+     {
+      "order": 0.312,
+      "hz": 12.5,
+      "amp_mbar": 0.18
+     },
+     {
+      "order": 0.25,
+      "hz": 10.0,
+      "amp_mbar": 0.15
+     },
+     {
+      "order": 2.812,
+      "hz": 112.5,
+      "amp_mbar": 0.13
+     },
+     {
+      "order": 0.188,
+      "hz": 7.5,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.875,
+      "hz": 115.0,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.938,
+      "hz": 117.5,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 0.062,
+      "hz": 2.5,
+      "amp_mbar": 0.1
+     }
+    ]
+   },
+   "mean_P": 1.0132918680555554,
+   "supply_metric_Vpos": -0.00038360041345120166,
+   "supply_metric_Vneg": null
+  },
+  "Bellmouth_3": {
+   "orders_P": {
+    "1.5": 0.00010816185191929219,
+    "3.0": 0.0007618580595133641,
+    "4.5": 1.0508617254034796e-05,
+    "6.0": 6.346053355830689e-05,
+    "7.5": 4.605231386878737e-06,
+    "dominant_order": 3.0,
+    "dominant_amp": 0.0007618580595133641,
+    "peaks": [
+     {
+      "order": 3.0,
+      "hz": 120.0,
+      "amp_mbar": 0.76
+     },
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 0.22
+     },
+     {
+      "order": 1.0,
+      "hz": 40.0,
+      "amp_mbar": 0.19
+     },
+     {
+      "order": 0.312,
+      "hz": 12.5,
+      "amp_mbar": 0.19
+     },
+     {
+      "order": 0.25,
+      "hz": 10.0,
+      "amp_mbar": 0.14
+     },
+     {
+      "order": 2.812,
+      "hz": 112.5,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.875,
+      "hz": 115.0,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 1.5,
+      "hz": 60.0,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 0.188,
+      "hz": 7.5,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 2.938,
+      "hz": 117.5,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 0.062,
+      "hz": 2.5,
+      "amp_mbar": 0.1
+     },
+     {
+      "order": 2.75,
+      "hz": 110.0,
+      "amp_mbar": 0.08
+     }
+    ]
+   },
+   "mean_P": 1.014342720486111,
+   "supply_metric_Vpos": null,
+   "supply_metric_Vneg": -8.304730578778674e-07
+  },
+  "Bellmouth_4": {
+   "orders_P": {
+    "1.5": 0.0006425066809297417,
+    "3.0": 0.0007630912224174804,
+    "4.5": 8.645768007612188e-05,
+    "6.0": 6.922382837233696e-05,
+    "7.5": 3.819193545189413e-05,
+    "dominant_order": 0.5,
+    "dominant_amp": 0.001356628165412178,
+    "peaks": [
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 1.36
+     },
+     {
+      "order": 1.0,
+      "hz": 40.0,
+      "amp_mbar": 0.93
+     },
+     {
+      "order": 3.0,
+      "hz": 120.0,
+      "amp_mbar": 0.76
+     },
+     {
+      "order": 1.5,
+      "hz": 60.0,
+      "amp_mbar": 0.64
+     },
+     {
+      "order": 2.0,
+      "hz": 80.0,
+      "amp_mbar": 0.36
+     },
+     {
+      "order": 0.312,
+      "hz": 12.5,
+      "amp_mbar": 0.21
+     },
+     {
+      "order": 0.25,
+      "hz": 10.0,
+      "amp_mbar": 0.17
+     },
+     {
+      "order": 2.812,
+      "hz": 112.5,
+      "amp_mbar": 0.13
+     },
+     {
+      "order": 0.188,
+      "hz": 7.5,
+      "amp_mbar": 0.13
+     },
+     {
+      "order": 2.875,
+      "hz": 115.0,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.938,
+      "hz": 117.5,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 0.062,
+      "hz": 2.5,
+      "amp_mbar": 0.11
+     }
+    ]
+   },
+   "mean_P": 1.0121632690972222,
+   "supply_metric_Vpos": -0.0003218625748007131,
+   "supply_metric_Vneg": null
+  },
+  "Bellmouth_5": {
+   "orders_P": {
+    "1.5": 0.00010816185191929219,
+    "3.0": 0.0007618580595133641,
+    "4.5": 1.0508617254034796e-05,
+    "6.0": 6.346053355830689e-05,
+    "7.5": 4.605231386878737e-06,
+    "dominant_order": 3.0,
+    "dominant_amp": 0.0007618580595133641,
+    "peaks": [
+     {
+      "order": 3.0,
+      "hz": 120.0,
+      "amp_mbar": 0.76
+     },
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 0.22
+     },
+     {
+      "order": 1.0,
+      "hz": 40.0,
+      "amp_mbar": 0.19
+     },
+     {
+      "order": 0.312,
+      "hz": 12.5,
+      "amp_mbar": 0.19
+     },
+     {
+      "order": 0.25,
+      "hz": 10.0,
+      "amp_mbar": 0.14
+     },
+     {
+      "order": 2.812,
+      "hz": 112.5,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.875,
+      "hz": 115.0,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 1.5,
+      "hz": 60.0,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 0.188,
+      "hz": 7.5,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 2.938,
+      "hz": 117.5,
+      "amp_mbar": 0.11
+     },
+     {
+      "order": 0.062,
+      "hz": 2.5,
+      "amp_mbar": 0.1
+     },
+     {
+      "order": 2.75,
+      "hz": 110.0,
+      "amp_mbar": 0.08
+     }
+    ]
+   },
+   "mean_P": 1.014342720486111,
+   "supply_metric_Vpos": null,
+   "supply_metric_Vneg": -1.9111912554548027e-05
+  },
+  "Bellmouth_6": {
+   "orders_P": {
+    "1.5": 0.0006253506249442895,
+    "3.0": 0.0007561270331054922,
+    "4.5": 8.932302113912766e-05,
+    "6.0": 6.832718643001978e-05,
+    "7.5": 3.7889432572115425e-05,
+    "dominant_order": 0.5,
+    "dominant_amp": 0.001420378970534832,
+    "peaks": [
+     {
+      "order": 0.5,
+      "hz": 20.0,
+      "amp_mbar": 1.42
+     },
+     {
+      "order": 1.0,
+      "hz": 40.0,
+      "amp_mbar": 1.19
+     },
+     {
+      "order": 3.0,
+      "hz": 120.0,
+      "amp_mbar": 0.76
+     },
+     {
+      "order": 1.5,
+      "hz": 60.0,
+      "amp_mbar": 0.63
+     },
+     {
+      "order": 2.0,
+      "hz": 80.0,
+      "amp_mbar": 0.28
+     },
+     {
+      "order": 0.312,
+      "hz": 12.5,
+      "amp_mbar": 0.17
+     },
+     {
+      "order": 0.25,
+      "hz": 10.0,
+      "amp_mbar": 0.13
+     },
+     {
+      "order": 2.5,
+      "hz": 100.0,
+      "amp_mbar": 0.13
+     },
+     {
+      "order": 2.812,
+      "hz": 112.5,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.875,
+      "hz": 115.0,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 2.938,
+      "hz": 117.5,
+      "amp_mbar": 0.12
+     },
+     {
+      "order": 0.188,
+      "hz": 7.5,
+      "amp_mbar": 0.11
+     }
+    ]
+   },
+   "mean_P": 1.0123969774305557,
+   "supply_metric_Vpos": -0.00038876961804978905,
+   "supply_metric_Vneg": null
+  }
+ },
+ "hz_per_order": 40.0,
+ "bank_differential": {
+  "1.5": 0.0007845243017660873,
+  "3.0": 1.7805039463550598e-05,
+  "4.5": 0.00010255143088321394,
+  "6.0": 8.003500473606152e-06,
+  "7.5": 4.188610070658662e-05,
+  "dominant_order": 1.5,
+  "dominant_amp": 0.0007845243017660873,
+  "peaks": [
+   {
+    "order": 1.5,
+    "hz": 60.0,
+    "amp_mbar": 0.78
+   },
+   {
+    "order": 1.0,
+    "hz": 40.0,
+    "amp_mbar": 0.52
+   },
+   {
+    "order": 0.5,
+    "hz": 20.0,
+    "amp_mbar": 0.35
+   },
+   {
+    "order": 2.0,
+    "hz": 80.0,
+    "amp_mbar": 0.17
+   },
+   {
+    "order": 4.5,
+    "hz": 180.0,
+    "amp_mbar": 0.1
+   },
+   {
+    "order": 7.5,
+    "hz": 300.0,
+    "amp_mbar": 0.04
+   },
+   {
+    "order": 5.0,
+    "hz": 200.0,
+    "amp_mbar": 0.04
+   },
+   {
+    "order": 4.0,
+    "hz": 160.0,
+    "amp_mbar": 0.03
+   },
+   {
+    "order": 1.438,
+    "hz": 57.5,
+    "amp_mbar": 0.03
+   },
+   {
+    "order": 1.375,
+    "hz": 55.0,
+    "amp_mbar": 0.03
+   },
+   {
+    "order": 1.312,
+    "hz": 52.5,
+    "amp_mbar": 0.03
+   },
+   {
+    "order": 2.5,
+    "hz": 100.0,
+    "amp_mbar": 0.03
+   }
+  ]
+ },
+ "bank_differential_rms": 0.0007302560195288758,
+ "box_mean_rms": 0.0007590066319560973,
+ "tag": "st79_v14",
+ "sets": {},
+ "env_result": {
+  "OPENWAM_HLLC": "1",
+  "OPENWAM_THR_CHOKE": "1",
+  "OPENWAM_THR_AGAIN": null,
+  "OPENWAM_MOUTH_RAD": "0.6",
+  "OPENWAM_MOUTH_RAD_W": "0.005",
+  "OPENWAM_VEDIAG": "1",
+  "OPENWAM_K_CEIL": null,
+  "OPENWAM_FAST_OUTPUT": null,
+  "OPENWAM_MOUTH_RAD_SKIP_CC": null,
+  "OPENWAM_MOUTH_RAD_T12_CC": null,
+  "OPENWAM_CAM_EXP": null,
+  "OPENWAM_BOX_MODE": null,
+  "OPENWAM_BOX_MODE_CC1": null,
+  "OPENWAM_BOX_MODE_CC2": null,
+  "OPENWAM_MEP_FUEL_V2": null
+ }
+}

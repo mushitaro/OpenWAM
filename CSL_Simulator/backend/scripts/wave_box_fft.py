@@ -84,8 +84,20 @@ def _apply_set(cfg, dotted, value):
     setattr(obj, keys[-1], value)
 
 
+PRESET_PATH = os.path.normpath(os.path.join(
+    HERE, "..", "frontend", "presets", "v14_owner.json"))
+_PRESET = {"use": True}      # Stage 79: census the v14 TWIN, not models.py defaults
+
+
 def build_config(rpm, sets, cycles):
-    cfg = SimConfig()
+    # Stage 79: this script predates the v14 preset and used SimConfig() =
+    # models.py defaults, i.e. it censused the LEGACY model. The measured twin
+    # is the preset; --legacy restores the old behaviour for comparisons.
+    if _PRESET["use"]:
+        with open(PRESET_PATH, encoding="utf-8") as f:
+            cfg = SimConfig(**json.load(f))
+    else:
+        cfg = SimConfig()
     cfg.engine.rpm = float(rpm)
     cfg.engine.throttle_position = 1.0     # WOT census
     cfg.simulation.duration_cycles = cycles
@@ -223,6 +235,15 @@ def analyze(df, labels, mon, rpm, n_cyc_use=8):
         kmax = int(np.argmax(amp[1:])) + 1
         out["dominant_order"] = kmax / (2.0 * C)
         out["dominant_amp"] = float(amp[kmax])
+        # Stage 79: the FULL top-N spectrum. A RESONANCE sits at a fixed Hz
+        # across rpm, whereas excitation content sits at fixed ORDER — the
+        # fixed-order sample list above cannot tell those apart. Bin k is
+        # order k/(2C); Hz = order * rpm/60.
+        top = np.argsort(amp[1:])[::-1][:12] + 1
+        out["peaks"] = [{"order": round(int(k) / (2.0 * C), 3),
+                         "hz": round(int(k) / (2.0 * C) * rpm / 60.0, 1),
+                         "amp_mbar": round(float(amp[int(k)]) * 1000.0, 2)}
+                        for k in top]
         return out
 
     res = {"rpm": rpm, "cycles_used": C, "stations": {}, "hz_per_order": rpm / 60.0}
@@ -325,7 +346,10 @@ def main():
     ap.add_argument("--set", action="append", default=[],
                     help="dotted SimConfig override (e.g. intake.plenum_box.model=cells)")
     ap.add_argument("--print-cc", action="store_true")
+    ap.add_argument("--legacy", action="store_true",
+                    help="census models.py defaults instead of the v14 preset")
     args = ap.parse_args()
+    _PRESET["use"] = not args.legacy
     sets = {}
     for s in args.set:
         k, _, v = s.partition("=")
