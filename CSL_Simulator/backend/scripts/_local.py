@@ -30,7 +30,13 @@ def _find_bin():
     if env:
         return env
     cands = []
-    for d in (os.path.join(_REPO, "build", "bin", "release"),
+    # build_ux FIRST: it is the tree the SimulationService resolves (and the one
+    # every VE sweep runs), so research scripts that use BIN — wave_box_fft in
+    # particular — were silently measuring the OLD build/ binary and could not
+    # be compared against sweep results. Stage 79: the FFT census ran on
+    # build/ (Jul 10) while the alpha VE ladder ran on build_ux (Jul 19).
+    for d in (os.path.join(_REPO, "build_ux", "bin", "release"),
+              os.path.join(_REPO, "build", "bin", "release"),
               os.path.join(_REPO, "bin", "release")):
         cands += [os.path.join(d, "OpenWAM.exe"), os.path.join(d, "OpenWAM")]
     for p in cands:
