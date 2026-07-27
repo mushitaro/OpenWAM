@@ -1,0 +1,254 @@
+[
+ {
+  "rpm": 2200,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 2400,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 2900,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 3100,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 5300,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "box_t12off",
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  }
+ },
+ {
+  "rpm": 2200,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ },
+ {
+  "rpm": 2400,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ },
+ {
+  "rpm": 2700,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ },
+ {
+  "rpm": 2900,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ },
+ {
+  "rpm": 3100,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ },
+ {
+  "rpm": 3900,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ },
+ {
+  "rpm": 4600,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ },
+ {
+  "rpm": 5300,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ },
+ {
+  "rpm": 6300,
+  "load": 100,
+  "tag": "box_a03",
+  "alpha": 0.3,
+  "set": {
+   "environment.ambient_pressure": 94700,
+   "environment.ambient_temp": 299.15,
+   "exhaust.main_dx_scale": 0.5,
+   "intake.plenum_box.model": "box1d",
+   "intake.plenum_box.end_cap_vol_l": 1.0
+  },
+  "env": {
+   "OPENWAM_MOUTH_RAD_T12_CC": "3,4,5,7,8,9"
+  }
+ }
+]
