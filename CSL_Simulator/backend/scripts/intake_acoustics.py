@@ -555,6 +555,41 @@ def census(wd, rpm, labels, geom, n_cyc_use=8, want_cycles=None):
         "snorkel_closure": (float(snork / mdot) if snork is not None and mdot else None),
     }
 
+    # ---- ⚡ CONSERVATION AUDIT (Stage 80's central measurement) ----
+    # A pipe's cycle-mean mass flow must be identical at both ends in a steady
+    # cycle -- its content is periodic, so nothing can accumulate. Measuring the
+    # violation per pipe, against that pipe's cells (L/dx) and area ratio, is
+    # what localises the defect. Measured at 2400: every Type-12 tee closes to
+    # 0.000000 and every straight pipe to <=0.3%, while CSL_Intake_Pipe (area
+    # ratio 3.69 over 8 cells) is out by 132% and EqRail_Tap (phi30->21 over 1.2
+    # cells) by 16%. Total leak 0.117 kg/s vs an engine fresh charge of 0.064.
+    cons = []
+    for lab, per in name.items():
+        if len(per) < 2:
+            continue
+        g = next((geom[pid] for pid in geom if labels.get(pid) == lab), None)
+        lo, hi = min(per), max(per)
+        m0, m1 = per[lo]["mean_F_kgs"], per[hi]["mean_F_kgs"]
+        if m0 is None or m1 is None:
+            continue
+        sc = max(abs(m0), abs(m1), 1e-12)
+        cons.append({
+            "pipe": lab, "mean_x0": m0, "mean_xL": m1,
+            "err_kgs": abs(m1 - m0), "err_rel": abs(m1 - m0) / sc,
+            "length_m": g["length"] if g else None,
+            "dx_m": g["dx_mesh"] if g else None,
+            "cells": (max(1.0, g["length"] / g["dx_mesh"]) if g and g["dx_mesh"] else None),
+            "area_ratio": ((g["d_end"] / g["d_start"]) ** 2 if g and g["d_start"] else None),
+        })
+    cons.sort(key=lambda c: -c["err_kgs"])
+    tot = sum(c["err_kgs"] for c in cons)
+    res["m1"]["conservation"] = {
+        "total_err_kgs": tot,
+        "total_err_vs_fresh": (float(tot / mdot) if mdot else None),
+        "worst": cons[:10],
+        "n_pipes": len(cons),
+    }
+
     # ---- the single most direct test of "where does the air go" ----
     # Plenum_Main has exactly four kinds of port: filter outlet (in), the six
     # trumpet mouths (out), the eq-rail ICV return, and the head return. In a
@@ -908,6 +943,69 @@ def envelope(tag, bin_hz_width=12.5, f_max=800.0):
             print(f"    {lo:5.0f}-{hi:5.0f} Hz  transfer={tr:.3f}  ({n} rpm)")
 
 
+def reanalyze_tag(tag, sets, n_cyc_use=8):
+    """Re-run census() over every retained _run_<tag>_<rpm> dir and OVERWRITE
+    <tag>_<rpm>.json.
+
+    Needed because a long census holds the module version it was launched with:
+    instrument fixes landed mid-flight produce JSONs in mixed schemas. The
+    INS.DAT is retained, so re-analysis is free and makes the whole set uniform.
+    """
+    import glob
+    dirs = sorted(glob.glob(os.path.join(OUT_DIR, f"_run_{tag}_*")))
+    for wd in dirs:
+        m = re.search(r"_(\d+)$", os.path.basename(wd))
+        if not m:
+            continue
+        rpm = float(m.group(1))
+        outp = os.path.join(OUT_DIR, f"{tag}_{int(rpm)}.json")
+        old = {}
+        if os.path.exists(outp):
+            try:
+                old = json.load(open(outp, encoding="utf-8"))
+            except ValueError:
+                old = {}
+        labels, geom, _ = discover_geometry(rpm, sets)
+        r = census(wd, rpm, labels, geom, n_cyc_use=n_cyc_use)
+        # carry the provenance the analysis pass cannot reconstruct
+        for k in ("tag", "sets", "cycles_requested", "binary", "binary_sig", "env_result"):
+            if k in old:
+                r[k] = old[k]
+        r.setdefault("tag", tag)
+        r["reanalysed"] = True
+        with open(outp, "w", encoding="utf-8") as f:
+            json.dump(r, f, indent=1)
+        print(f"  [re-analysed] {os.path.basename(outp)}")
+
+
+def summary(tag):
+    """One row per rpm: the Stage-80 verdict table."""
+    import glob
+    files = sorted(glob.glob(os.path.join(OUT_DIR, f"{tag}_*.json")),
+                   key=lambda p: json.load(open(p, encoding="utf-8")).get("rpm", 0))
+    print(f"# Stage 80 census summary -- tag={tag}")
+    print(f"  {'rpm':>5} {'cyc':>6} {'G8':>5} {'imbal':>7} {'dT/cyc':>7} {'T_mouth':>8} "
+          f"{'rev':>4} {'closure':>8} {'snork':>7} {'tapdiv':>7} {'f_q Hz':>7} {'vs197':>7}")
+    for fp in files:
+        r = json.load(open(fp, encoding="utf-8"))
+        if r.get("error"):
+            print(f"  {r.get('rpm', 0):>5.0f}  ERROR {r['error']}")
+            continue
+        g8 = r["gates"].get("G8_steady") or {}
+        m1, m2 = r["m1"], r["m2"]
+        td = [v for v in m1["tap_diversion"] if v is not None]
+        print(f"  {r['rpm']:>5.0f} {r['cycles_used']:>2}/{r['cycles_total']:<3} "
+              f"{'PASS' if g8.get('ok') else 'FAIL':>5} "
+              f"{_f(g8.get('in_out_imbalance')):>7} {_f(g8.get('T_slope_degC_per_cycle'), 2):>7} "
+              f"{_f(m2.get('T_mouth_degC'), 1):>8} {m1['mouth_reversal_count']:>2}/6 "
+              f"{_f(m1['closure']):>8} {_f(m1['snorkel_closure']):>7} "
+              f"{_f(_safe_mean(td)):>7} {_f(m2.get('f_quarter_hz_mean'), 1):>7} "
+              f"{_f((m2.get('f_quarter_dev_vs_car') or 0) * 100, 1):>6}%")
+    print("\n  gates: G8 PASS = |in/out imbalance|<0.12 and |dT/dcyc|<2 degC")
+    print("  closure = sum(mouth flows) / engine fresh charge  (1.0 = the trumpets ARE the intake)")
+    print("  snork   = snorkel net / engine fresh charge       (1.0 = the airbox breathes atmosphere)")
+
+
 def print_mouth_cc(sets):
     """SKIP_CC numbers for the six trumpet mouths, read from the generator.
 
@@ -978,6 +1076,16 @@ def report(r):
           f"{_f((ea['residual_fraction'] or 0)*100, 1)}% -- NOT the closure denominator)")
     print(f"   CLOSURE mouth : {_f(m1['closure'], 3)}   snorkel {_f(m1['snorkel_closure'], 3)}"
           f"   (gate 0.95-1.05)")
+    cv = m1.get("conservation")
+    if cv:
+        print(f"\n  -- ⚡ mass conservation per pipe (cycle-mean must match at both ends) --")
+        print(f"   TOTAL leak  : {_f(cv['total_err_kgs'], 5)} kg/s = "
+              f"{_f(cv['total_err_vs_fresh'], 2)}x the engine's fresh charge")
+        print(f"   {'pipe':<18}{'cells':>6}{'A_L/A_0':>9}{'mean x0':>10}{'mean xL':>10}{'err':>9}{'%':>7}")
+        for c in cv["worst"][:6]:
+            print(f"   {c['pipe']:<18}{_f(c['cells'], 1):>6}{_f(c['area_ratio'], 2):>9}"
+                  f"{c['mean_x0']:>10.5f}{c['mean_xL']:>10.5f}{c['err_kgs']:>9.5f}"
+                  f"{c['err_rel']*100:>7.1f}")
     pb = m1.get("plenum_balance")
     if pb:
         sh = "  ".join(f"{k}={_f(v, 3)}" for k, v in pb["share_of_inflow"].items())
@@ -1045,6 +1153,11 @@ def main():
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--envelope", action="store_true",
                     help="pool <tag>_*.json onto a Hz axis (the resonance test)")
+    ap.add_argument("--summary", action="store_true",
+                    help="one-row-per-rpm verdict table over <tag>_*.json")
+    ap.add_argument("--reanalyze-tag", action="store_true",
+                    help="re-run census over every retained _run_<tag>_<rpm> dir "
+                         "and overwrite <tag>_<rpm>.json (uniform schema)")
     args = ap.parse_args()
 
     sets = {}
@@ -1059,6 +1172,13 @@ def main():
         sys.exit(self_test())
     if args.envelope:
         envelope(args.tag)
+        return
+    if args.reanalyze_tag:
+        reanalyze_tag(args.tag, sets, args.n_cyc_use)
+        summary(args.tag)
+        return
+    if args.summary:
+        summary(args.tag)
         return
     if args.print_mouth_cc:
         print_mouth_cc(sets)

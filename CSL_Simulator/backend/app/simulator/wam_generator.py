@@ -1951,6 +1951,12 @@ class WAMGenerator:
     _EXH_DX_FAMILIES = ("Header", "Col_Out", "FrontCat", "Sec1_", "Sec",
                         "Sec2_", "Muf_", "Resonator", "Tail")
 
+    # Stage 80 diagnostic: intake families scaled by OPENWAM_INTAKE_DX_SCALE.
+    _INT_DX_FAMILIES = ("CSL_Intake_Pipe", "CSL_Panel_Filter", "Bellmouth_",
+                        "Runner_Upper_", "Runner_Lower_", "Port_In_",
+                        "EqRail_", "EqTube_", "Head_Return", "PlenumConn_",
+                        "PlenumBox_")
+
     def _add_pipe(self, pid, label, length, d_start, d_end, wall_temp, left_node=0, right_node=0, friction=0.01, dx_mesh=0.05, init_p=None):
         # Format: PipeID Label Length D_Start D_End T_Wall LeftNode RightNode Friction
         # NEW: dx_mesh (Mesh Size in meters) is the 4th value in the internal storage dict
@@ -1968,6 +1974,19 @@ class WAMGenerator:
                        getattr(self.config.exhaust, "main_dx_scale", 1.0), 1.0)
             if _dxs and float(_dxs) != 1.0:
                 dx_mesh = dx_mesh * float(_dxs)
+        # Stage 80: intake dx scale, ENV-ONLY (no config field, no default
+        # change -> golden/parity decks are byte-identical; golden also scrubs
+        # OPENWAM_* before generating). Exists to separate DISCRETISATION ERROR
+        # from a coding bug in the intake mass balance: the cycle-mean mass flow
+        # fails to close on exactly the strongly tapered, coarsely meshed pipes
+        # (CSL_Intake_Pipe 3.69 area ratio over 8 cells -> 132% error;
+        # EqRail_Tap phi30->21 over 1.2 cells -> 16%), while straight pipes and
+        # every Type-12 tee close to <=0.3% / exactly. If the error is
+        # discretisation it must fall with dx; if it survives, it is a bug.
+        elif label.startswith(self._INT_DX_FAMILIES):
+            _idxs = _ce("OPENWAM_INTAKE_DX_SCALE", None, 1.0)
+            if _idxs and float(_idxs) != 1.0:
+                dx_mesh = dx_mesh * float(_idxs)
         self.pipes[pid] = {
             'label': label,
             'length': length, # restored key name 'length' (was 'len')
