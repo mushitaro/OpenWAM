@@ -31,10 +31,14 @@ sys.path.insert(0, HERE)
 from app.simulator.output_parser import OpenWAMOutputParser  # noqa: E402
 
 # extended station set: the parasite is suspected in the eq/runner network
+# Stage 80: Port_In added -- the tract that must ring at ~197 Hz is
+# mouth -> bellmouth -> throttle -> runner upper -> tap tee -> runner lower ->
+# port split -> port -> valve, and the port is 105 of its 345 mm. (Existing
+# Jul-13 JSONs were taken on models.py defaults and are already incomparable.)
 W.MON_RE = re.compile(
     r"^(Bellmouth_\d+|Runner_Upper_\d+|Runner_Lower_\d+|EqTube_Stub_\d+"
     r"|EqRail_Tap_\d+|EqRail_Return|Head_Return|CSL_Intake_Pipe"
-    r"|CSL_Panel_Filter)")
+    r"|CSL_Panel_Filter|Port_In_\d+_\d+)")
 
 if os.environ.get("OPENWAM_EXE"):
     W.BIN = os.environ["OPENWAM_EXE"]

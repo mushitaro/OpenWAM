@@ -1838,15 +1838,23 @@ class WAMGenerator:
             _mon_items = [(pid, self.pipes[pid]) for pid in sorted(self.pipes)
                           if _mon is None or pid in _mon]
             self.wam_lines.append(f"{len(_mon_items)} 0")  # monitored pipes, WAMer=0
+            # Stage 80: the requested INS variables are overridable per instance
+            # so a diagnostic can ask the solver for its OWN Riemann
+            # characteristics (TipoVar 6 = PresionDerecha, 7 = PresionIzquierda;
+            # 14 = Gamma) as ground truth for an offline p+/p- reconstruction
+            # (Source/1DPipes/TTubo.cpp:3292-3299). Default None -> "0 1 2 3",
+            # byte-identical to the legacy deck.
+            _vars = getattr(self, "_monitor_vars", None) or "0 1 2 3"
+            _nv = len(_vars.split())
             for pid, pipe_data in _mon_items:
                 pipe_length = pipe_data.get('length', 0.5)  # Default 0.5m if not stored
                 # 2 measurement points per pipe: inlet (0.0) and outlet (length)
                 self.wam_lines.append(f"{pid} 2")
                 # Point 1: Inlet (distance = 0.0)
-                # Request 4 variables: Pressure(0), Velocity(1), Temp(2), MassFlow(3)
-                self.wam_lines.append(f"0.0 4 0 1 2 3")
+                # Variables: 0=Pressure, 1=Velocity, 2=Temp, 3=MassFlow
+                self.wam_lines.append(f"0.0 {_nv} {_vars}")
                 # Point 2: Outlet (distance = pipe_length)
-                self.wam_lines.append(f"{pipe_length:.4f} 4 0 1 2 3")
+                self.wam_lines.append(f"{pipe_length:.4f} {_nv} {_vars}")
 
         # --- END PIPE INSTANTANEOUS RESULTS ---
         
