@@ -576,6 +576,23 @@ class WAMGenerator:
         
         # Pipe End -> Filter Start: Type 6 Direct Pipe-to-Pipe Connection
         c_pipe_to_filter = self._create_pipe_to_pipe_connection()
+        # Stage 82: junction TYPE only, ENV-ONLY, default unchanged (golden and
+        # parity stay byte-identical). The C++ mass audit localised the intake's
+        # mass creation to the multi-pipe junctions -- pipe interiors, the
+        # boundary-node overwrite and every real plenum all conserve to <=0.02%
+        # -- and this ONE Type-6 makes +0.0374 kg/s, 58% of the engine's fresh
+        # charge, at rel 100% (both pipes draw OUT of it, which a conserving
+        # junction cannot do). Swapping it for a Type-12 branch changes the
+        # junction and NOTHING else: same two pipes, same geometry, same volume,
+        # same mesh. So it is the single-variable test for "is this the Type-6
+        # implementation, or the junction's position next to the ambient
+        # reservoir?". Same idiom the duct_split path already uses below.
+        _djt = (os.environ.get("OPENWAM_INTAKE_DUCT_JUNCTION") or "t6").strip().lower()
+        if _djt == "t12":
+            self.connections[c_pipe_to_filter] = (12, [])
+        elif _djt != "t6":
+            raise ValueError(
+                f"OPENWAM_INTAKE_DUCT_JUNCTION='{_djt}' is not one of t6 / t12")
         
         # Intake Pipe: Low friction (smooth carbon). Geometry from config
         # (intake.inlet): measured car = 400mm, inlet phi190, opening into the

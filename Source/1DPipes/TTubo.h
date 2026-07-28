@@ -725,6 +725,7 @@ public:
   double FAuditDMRight = 0.0;  //!< accumulated U[0] added by the node-(FNin-1) overwrite
   double FAuditFluxL = 0.0;    //!< time-integrated gflux[0] at interface 0
   double FAuditFluxR = 0.0;    //!< time-integrated gflux[0] at interface FNin-2
+  double FAuditFluxM = 0.0;    //!< time-integrated gflux[0] at a MIDDLE interface
   double FAuditNextT = 0.0;    //!< next report time [s]
   double FAuditDT = 0.05;      //!< report interval [s] (OPENWAM_MASS_AUDIT_DT)
   void MassAuditReport();

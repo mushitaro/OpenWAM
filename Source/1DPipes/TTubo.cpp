@@ -2918,14 +2918,15 @@ void TTubo::MassAuditReport() {
   }
   m *= FXref;
   printf("MASSAUDIT pipe=%d t=%.6f nin=%d M=%.9e dM_L=%.9e dM_R=%.9e "
-         "FL=%.9e FR=%.9e\n",
+         "FL=%.9e FR=%.9e FM=%.9e\n",
          FNumeroTubo, FTime1, FNin, m, FAuditDMLeft, FAuditDMRight,
-         FAuditFluxL, FAuditFluxR);
+         FAuditFluxL, FAuditFluxR, FAuditFluxM);
   fflush(stdout);
   FAuditDMLeft = 0.0;
   FAuditDMRight = 0.0;
   FAuditFluxL = 0.0;
   FAuditFluxR = 0.0;
+  FAuditFluxM = 0.0;
 }
 
 // ---------------------------------------------------------------------------
@@ -6483,6 +6484,13 @@ void TTubo::TVD_Limitador() {
     if (FAuditOn) {
       FAuditFluxL += FTVD.gflux[0][0] * FDeltaTime;
       FAuditFluxR += FTVD.gflux[0][FNin - 2] * FDeltaTime;
+      // Stage 82: a MIDDLE interface too. The dense INS profile shows the
+      // duct's interior nodes all sitting at ~-0.0004 kg/s while the END
+      // interface fluxes read -0.0203. If a mid-pipe interface -- with two
+      // smooth, nearly equal neighbours -- also reads -0.02, then the flux
+      // computation disagrees with its own inputs and the MOC boundary is
+      // not the defect at all.
+      FAuditFluxM += FTVD.gflux[0][(FNin - 1) / 2] * FDeltaTime;
     }
 
     for (int i = 1; i < FNin - 1; ++i) {
