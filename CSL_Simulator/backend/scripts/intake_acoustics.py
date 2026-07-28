@@ -418,6 +418,21 @@ def census(wd, rpm, labels, geom, n_cyc_use=8, want_cycles=None):
     bad = gate_label_mapping(stations, labels, geom)
     ang = df.iloc[:, ang_j].to_numpy(dtype=float)
     segs = cycle_segments(ang, n_cyc_use)
+    # ⚡ G9 -- NaN / plausibility. A diverged run still produces an INS file, and
+    # nanmean happily averages what is left, so without this gate the
+    # instrument reports confident numbers from a destroyed solution. Learned
+    # the hard way: the dx/2 and dx/4 intake-refinement runs NaN'd out of pipe
+    # 33 (Bellmouth_6) and were reported as "G8 PASS, fresh charge 11.8 kg/s"
+    # -- 184x physical -- before this existed.
+    nan_cols = []
+    if segs:
+        sl_all = np.concatenate([np.arange(s, e) for s, e in segs])
+        for pid, dists in stations.items():
+            for dist, cmap in dists.items():
+                for var, j in cmap.items():
+                    col = df.iloc[sl_all, j].to_numpy(dtype=float)
+                    if not np.all(np.isfinite(col)):
+                        nan_cols.append(f"pipe{pid}@{dist}:{var}")
     all_segs = cycle_segments(ang, 10 ** 6)
     if len(segs) < 3:
         return {"rpm": rpm, "error": f"only {len(segs)} complete cycles"}
@@ -425,7 +440,9 @@ def census(wd, rpm, labels, geom, n_cyc_use=8, want_cycles=None):
     res = {
         "rpm": rpm, "run_dir": os.path.basename(wd),
         "cycles_total": len(all_segs), "cycles_used": len(segs),
-        "gates": {"G0_label_mapping": {"ok": not bad, "mismatches": bad}},
+        "gates": {"G0_label_mapping": {"ok": not bad, "mismatches": bad},
+                  "G9_finite": {"ok": not nan_cols, "n_nan_columns": len(nan_cols),
+                                "examples": nan_cols[:8]}},
         "stations": {}, "m1": {}, "m2": {}, "m4": {}, "m5": {},
     }
 
@@ -1053,6 +1070,12 @@ def report(r):
               f"{g2['worst_rel_at_gamma_1.4']:.2e} at gamma=1.4, "
               f"{g2['worst_rel_at_implied_gamma']:.2e} at implied gamma "
               f"{g2['gamma_implied_range'][0]:.4f}-{g2['gamma_implied_range'][1]:.4f}")
+    g9 = g.get("G9_finite") or {}
+    print(f"  G9 finite        : {'PASS' if g9.get('ok') else '*** FAIL ***'}"
+          + ("" if g9.get("ok") else
+             f"  {g9.get('n_nan_columns')} NaN columns e.g. {g9.get('examples')}"))
+    if not g9.get("ok", True):
+        print("     -> the run DIVERGED. Every number below is meaningless.")
     g8 = g.get("G8_steady") or {}
     print(f"  G8 STEADY        : {'PASS' if g8.get('ok') else '*** FAIL ***'}  "
           f"in/out imbalance {_f(g8.get('in_out_imbalance'))}, "

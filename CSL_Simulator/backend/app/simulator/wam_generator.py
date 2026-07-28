@@ -1984,8 +1984,15 @@ class WAMGenerator:
         # every Type-12 tee close to <=0.3% / exactly. If the error is
         # discretisation it must fall with dx; if it survives, it is a bug.
         elif label.startswith(self._INT_DX_FAMILIES):
+            # OPENWAM_INTAKE_DX_ONLY (optional, comma-separated label prefixes)
+            # narrows the scaling to specific pipes. Needed because refining the
+            # WHOLE intake NaNs the solver out of Bellmouth_6 at dx/2, so the
+            # dominant offender (CSL_Intake_Pipe) can only be tested alone.
+            _only = os.environ.get("OPENWAM_INTAKE_DX_ONLY")
+            _apply = (not _only) or label.startswith(
+                tuple(s.strip() for s in _only.split(",") if s.strip()))
             _idxs = _ce("OPENWAM_INTAKE_DX_SCALE", None, 1.0)
-            if _idxs and float(_idxs) != 1.0:
+            if _apply and _idxs and float(_idxs) != 1.0:
                 dx_mesh = dx_mesh * float(_idxs)
         self.pipes[pid] = {
             'label': label,
