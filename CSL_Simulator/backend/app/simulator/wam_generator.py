@@ -1932,15 +1932,34 @@ class WAMGenerator:
             # byte-identical to the legacy deck.
             _vars = getattr(self, "_monitor_vars", None) or "0 1 2 3"
             _nv = len(_vars.split())
+            # Stage 81: AXIAL densification for named pipes. _monitor_dense is
+            # (label_prefix, n_points); those pipes get n evenly spaced stations
+            # instead of just the two ends, every other pipe is untouched.
+            # Needed because the 2-point audit can only say "this pipe creates
+            # mass", not WHERE: the Stage-81 falsification (straight constant-
+            # area pipes leaking 103-133%) leaves "boundary node vs interior
+            # scheme" undecided, and the two differ by whether the mass appears
+            # inside the first cell or spread along the pipe. Default None ->
+            # 2 points, byte-identical.
+            _dense = getattr(self, "_monitor_dense", None)
             for pid, pipe_data in _mon_items:
                 pipe_length = pipe_data.get('length', 0.5)  # Default 0.5m if not stored
-                # 2 measurement points per pipe: inlet (0.0) and outlet (length)
-                self.wam_lines.append(f"{pid} 2")
-                # Point 1: Inlet (distance = 0.0)
-                # Variables: 0=Pressure, 1=Velocity, 2=Temp, 3=MassFlow
-                self.wam_lines.append(f"0.0 {_nv} {_vars}")
-                # Point 2: Outlet (distance = pipe_length)
-                self.wam_lines.append(f"{pipe_length:.4f} {_nv} {_vars}")
+                _npts = 2
+                if _dense and str(pipe_data.get('label', '')).startswith(_dense[0]):
+                    _npts = max(2, int(_dense[1]))
+                if _npts == 2:
+                    # 2 measurement points per pipe: inlet (0.0) and outlet (length)
+                    self.wam_lines.append(f"{pid} 2")
+                    # Point 1: Inlet (distance = 0.0)
+                    # Variables: 0=Pressure, 1=Velocity, 2=Temp, 3=MassFlow
+                    self.wam_lines.append(f"0.0 {_nv} {_vars}")
+                    # Point 2: Outlet (distance = pipe_length)
+                    self.wam_lines.append(f"{pipe_length:.4f} {_nv} {_vars}")
+                else:
+                    self.wam_lines.append(f"{pid} {_npts}")
+                    for _j in range(_npts):
+                        _x = pipe_length * _j / (_npts - 1)
+                        self.wam_lines.append(f"{_x:.4f} {_nv} {_vars}")
 
         # --- END PIPE INSTANTANEOUS RESULTS ---
         

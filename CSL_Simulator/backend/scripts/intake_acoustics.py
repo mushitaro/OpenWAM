@@ -114,7 +114,7 @@ BAND = (190.0, 210.0)
 # ---------------------------------------------------------------------------
 # deck generation / geometry
 # ---------------------------------------------------------------------------
-def gen_deck(cfg, cal, wd, cycles, monitor_vars=None):
+def gen_deck(cfg, cal, wd, cycles, monitor_vars=None, dense=None):
     """Discovery pass -> monitor pids -> real deck with 1-deg INS monitoring.
 
     A local copy of wave_box_fft.gen_deck rather than an import: that one reads
@@ -145,6 +145,8 @@ def gen_deck(cfg, cal, wd, cycles, monitor_vars=None):
     gen._monitor_pipe_ids = set(mon)
     if monitor_vars:
         gen._monitor_vars = monitor_vars           # Stage 80: e.g. "0 1 2 3 6 7"
+    if dense:
+        gen._monitor_dense = dense                 # Stage 81: (label_prefix, n_points)
     with contextlib.redirect_stdout(io.StringIO()):
         deck = gen.generate(ignition_timing=ign)
     with open(os.path.join(wd, "cell.wam"), "w", encoding="utf-8") as f:
@@ -198,9 +200,22 @@ _VARMAP = {"P": "P", "V": "V", "T": "T", "F": "F",
 
 
 def parse_stations(df):
-    """{pid: {distance: {var: column_index}}} from the INS header."""
+    """{pid: {distance: {var: column_index}}} from the INS header.
+
+    ⚡ OpenWAM header bug (Stage 81): the per-station distance string is
+    ACCUMULATED across the stations of a pipe instead of being reset, so a pipe
+    monitored at 0/0.05/0.1/0.15 emits
+
+        ..._at_0_m  ..._at_00.05_m  ..._at_00.050.1_m  ..._at_00.050.10.15_m
+
+    i.e. label_k == label_{k-1} + str(distance_k) exactly. With the legacy TWO
+    stations this is harmless -- "0" and "0"+"0.4" = "00.4", and float("00.4")
+    is 0.4 -- which is why every 2-point census in Stage 80/81 was correct. It
+    only becomes ambiguous from the third station on. Decoding by stripping the
+    previous label is exact, so we do that rather than float() the raw text.
+    """
     cols = [str(c) for c in df.columns]
-    st = {}
+    st, prev = {}, {}
     for j, c in enumerate(cols):
         m = _RE_COL.match(c)
         if not m:
@@ -208,7 +223,17 @@ def parse_stations(df):
         var = _VARMAP.get(m.group(1))
         if var is None:
             continue
-        st.setdefault(int(m.group(2)), {}).setdefault(float(m.group(3)), {})[var] = j
+        pid, raw = int(m.group(2)), m.group(3)
+        key = (pid, var)
+        pl = prev.get(key)
+        frag = raw[len(pl):] if (pl is not None and raw.startswith(pl) and len(raw) > len(pl)) else raw
+        prev[key] = raw
+        try:
+            dist = float(frag)
+        except ValueError:
+            raise ValueError(f"cannot decode station distance from {c!r} "
+                             f"(fragment {frag!r} after previous {pl!r})")
+        st.setdefault(pid, {}).setdefault(dist, {})[var] = j
     ang_j = next((j for j, c in enumerate(cols) if c.startswith("Angle")), 1)
     return st, ang_j
 
@@ -607,6 +632,35 @@ def census(wd, rpm, labels, geom, n_cyc_use=8, want_cycles=None):
         })
     cons.sort(key=lambda c: -c["err_kgs"])
     tot = sum(c["err_kgs"] for c in cons)
+    # Stage 81: axial profile for any pipe carrying >2 stations (--dense).
+    # This is the measurement that decides boundary-node vs interior-scheme:
+    # the conservative update runs i=1..FNin-2 and BOTH end nodes are
+    # overwritten by the MOC boundary solve, so if the mass appears between
+    # x=0 and the first interior station it is the boundary; if it accrues
+    # evenly along x it is the interior scheme.
+    prof = {}
+    for lab, per in name.items():
+        if len(per) <= 2:
+            continue
+        g = next((geom[pid] for pid in geom if labels.get(pid) == lab), None)
+        xs = sorted(per)
+        pts = [{"x_m": x, "mean_F_kgs": per[x]["mean_F_kgs"],
+                "mean_T_degC": per[x].get("mean_T_degC"),
+                "mean_P_bar": per[x].get("mean_P_bar")} for x in xs]
+        steps = [(pts[i + 1]["x_m"], (pts[i + 1]["mean_F_kgs"] - pts[i]["mean_F_kgs"]))
+                 for i in range(len(pts) - 1)
+                 if pts[i]["mean_F_kgs"] is not None and pts[i + 1]["mean_F_kgs"] is not None]
+        tot_step = sum(abs(d) for _, d in steps) or 1e-12
+        prof[lab] = {
+            "length_m": g["length"] if g else None,
+            "dx_m": g["dx_mesh"] if g else None,
+            "cells": (max(1.0, g["length"] / g["dx_mesh"]) if g and g["dx_mesh"] else None),
+            "points": pts,
+            "d_mdot_per_interval": [{"x_to_m": x, "d_kgs": d, "share": abs(d) / tot_step}
+                                    for x, d in steps],
+            "first_interval_share": (abs(steps[0][1]) / tot_step) if steps else None,
+        }
+    res["m1"]["axial_profile"] = prof
     res["m1"]["conservation"] = {
         "total_err_kgs": tot,
         "total_err_vs_fresh": (float(tot / mdot) if mdot else None),
@@ -812,7 +866,8 @@ def _safe_mean(x):
 # ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
-def run_cell(rpm, sets, cycles, tag, timeout, monitor_vars=None, n_cyc_use=8):
+def run_cell(rpm, sets, cycles, tag, timeout, monitor_vars=None, n_cyc_use=8,
+             dense=None):
     os.makedirs(OUT_DIR, exist_ok=True)
     outp = os.path.join(OUT_DIR, f"{tag}_{int(rpm)}.json")
     if os.path.exists(outp):
@@ -822,7 +877,7 @@ def run_cell(rpm, sets, cycles, tag, timeout, monitor_vars=None, n_cyc_use=8):
     cfg = W.build_config(rpm, sets, cycles)
     W.coordinate_vanos(cfg, cal, rpm)
     wd = os.path.join(OUT_DIR, f"_run_{tag}_{int(rpm)}")
-    labels, geom, mon = gen_deck(cfg, cal, wd, cycles, monitor_vars)
+    labels, geom, mon = gen_deck(cfg, cal, wd, cycles, monitor_vars, dense)
 
     svc = SimulationService(data_dir=DATA_DIR, simulator_dir=SIM_DIR)
     env = svc._build_sim_env(cal, is_wot=True, fast=False, load=100.0)
@@ -1112,6 +1167,25 @@ def report(r):
         print(f"   TOTAL leak  : {_f(cv['total_err_kgs'], 5)} kg/s = "
               f"{_f(cv['total_err_vs_fresh'], 2)}x the engine's fresh charge")
         print(f"   {'pipe':<18}{'cells':>6}{'A_L/A_0':>9}{'mean x0':>10}{'mean xL':>10}{'err':>9}{'%':>7}")
+        _pf = m1.get("axial_profile") or {}
+        for _lab, _p in _pf.items():
+            print(f"\n  -- ⚡ axial profile: {_lab} "
+                  f"(L={_p['length_m']*1000:.1f}mm, {_p['cells']:.0f} cells, "
+                  f"{len(_p['points'])} stations) --")
+            print(f"   {'x [mm]':>9}{'mean F':>11}{'dF from prev':>14}{'share':>8}"
+                  f"{'T [C]':>8}")
+            _prev = None
+            _steps = {round(s["x_to_m"], 6): s for s in _p["d_mdot_per_interval"]}
+            for _pt in _p["points"]:
+                _s = _steps.get(round(_pt["x_m"], 6))
+                print(f"   {_pt['x_m']*1000:>9.1f}{_pt['mean_F_kgs']:>11.5f}"
+                      + (f"{_s['d_kgs']:>+14.5f}{_s['share']*100:>7.1f}%" if _s else f"{'':>22}")
+                      + (f"{_pt['mean_T_degC']:>8.1f}" if _pt.get("mean_T_degC") is not None else ""))
+            if _p["first_interval_share"] is not None:
+                print(f"   -> first interval carries {_p['first_interval_share']*100:.1f}% of the "
+                      f"total |dF|. BOUNDARY NODE if >>1/{len(_p['points'])-1} share, "
+                      f"INTERIOR SCHEME if evenly spread.")
+        print()
         for c in cv["worst"][:6]:
             print(f"   {c['pipe']:<18}{_f(c['cells'], 1):>6}{_f(c['area_ratio'], 2):>9}"
                   f"{c['mean_x0']:>10.5f}{c['mean_xL']:>10.5f}{c['err_kgs']:>9.5f}"
@@ -1178,6 +1252,9 @@ def main():
     ap.add_argument("--monitor-vars", default=None,
                     help='INS TipoVars, e.g. "0 1 2 3 6 7" to add the solver\'s '
                          'own p+/p- (G2 gate). Default "0 1 2 3".')
+    ap.add_argument("--dense", default=None,
+                    help="LABEL_PREFIX:N -- give those pipes N axial stations "
+                         "instead of 2 (Stage 81: boundary node vs interior scheme)")
     ap.add_argument("--analyze", default=None, help="analyse an existing run dir")
     ap.add_argument("--print-mouth-cc", action="store_true")
     ap.add_argument("--self-test", action="store_true")
@@ -1232,11 +1309,18 @@ def main():
         print(f"\n  -> {outp}")
         return
 
+    _dense = None
+    if args.dense:
+        _pfx, _, _n = args.dense.rpartition(":")
+        if not _pfx or not _n.isdigit():
+            raise SystemExit("--dense wants LABEL_PREFIX:N, e.g. Duct_Core:9")
+        _dense = (_pfx, int(_n))
+
     rpms = ([float(x) for x in args.rpms.split(",") if x.strip()]
             if args.rpms else ([args.rpm] if args.rpm else [3900.0]))
     for rpm in rpms:
         r = run_cell(rpm, sets, args.cycles, args.tag, args.timeout,
-                     args.monitor_vars, args.n_cyc_use)
+                     args.monitor_vars, args.n_cyc_use, _dense)
         report(r)
 
 
