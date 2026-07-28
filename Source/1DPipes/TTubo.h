@@ -726,6 +726,16 @@ public:
   double FAuditFluxL = 0.0;    //!< time-integrated gflux[0] at interface 0
   double FAuditFluxR = 0.0;    //!< time-integrated gflux[0] at interface FNin-2
   double FAuditFluxM = 0.0;    //!< time-integrated gflux[0] at a MIDDLE interface
+  // Stage 82 characteristic trace: which term of Calculo_Caracteristica moves
+  // the boundary node away from the interior flux. [0]=left end, [1]=right end.
+  // Sums are over calls, so the report divides by FCharN to get a mean.
+  double FCharBase[2] = {0.0, 0.0};  //!< a - signo*G3*u, before any correction
+  double FCharCal[2] = {0.0, 0.0};   //!< heat-transfer correction dacal
+  double FCharEnt[2] = {0.0, 0.0};   //!< entropy correction daen
+  double FCharArea[2] = {0.0, 0.0};  //!< area-change correction daar
+  double FCharFric[2] = {0.0, 0.0};  //!< friction correction dafric
+  double FCharDist[2] = {0.0, 0.0};  //!< characteristic-foot position in [0,1]
+  double FCharN[2] = {0.0, 0.0};     //!< call count
   double FAuditNextT = 0.0;    //!< next report time [s]
   double FAuditDT = 0.05;      //!< report interval [s] (OPENWAM_MASS_AUDIT_DT)
   void MassAuditReport();

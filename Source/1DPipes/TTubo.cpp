@@ -2921,6 +2921,17 @@ void TTubo::MassAuditReport() {
          "FL=%.9e FR=%.9e FM=%.9e\n",
          FNumeroTubo, FTime1, FNin, m, FAuditDMLeft, FAuditDMRight,
          FAuditFluxL, FAuditFluxR, FAuditFluxM);
+  for (int e = 0; e < 2; ++e) {
+    if (FCharN[e] <= 0.0) continue;
+    const double n = FCharN[e];
+    printf("CHARTRACE pipe=%d end=%d n=%.0f base=%.6e cal=%.6e ent=%.6e "
+           "area=%.6e fric=%.6e dist=%.6f\n",
+           FNumeroTubo, e, n, FCharBase[e] / n, FCharCal[e] / n,
+           FCharEnt[e] / n, FCharArea[e] / n, FCharFric[e] / n,
+           FCharDist[e] / n);
+    FCharBase[e] = FCharCal[e] = FCharEnt[e] = 0.0;
+    FCharArea[e] = FCharFric[e] = FCharDist[e] = FCharN[e] = 0.0;
+  }
   fflush(stdout);
   FAuditDMLeft = 0.0;
   FAuditDMRight = 0.0;
@@ -5722,6 +5733,18 @@ void TTubo::Calculo_Caracteristica(double &caracteristica, double &velocidadp,
     asonidop = sqrt(gammap * gamma1p * (w2 / w0 - pow2(velocidadp) / 2));
     caracteristica = asonidop - signo * gamma3p * velocidadp;
 
+    // Stage 82: split the four corrections so the report can say WHICH one
+    // moves the boundary node off the interior flux. Only the two end nodes
+    // matter -- interior calls are the MOC's own business.
+    const bool _ct = FAuditOn && (ind == 0 || ind == FNin - 1);
+    const int _ce = (ind == 0) ? 0 : 1;
+    double _dCal = 0.0, _dEnt = 0.0, _dAar = 0.0, _dFric = 0.0;
+    if (_ct) {
+      FCharBase[_ce] += caracteristica;
+      FCharDist[_ce] += dist;
+      FCharN[_ce] += 1.0;
+    }
+
     // Las siguientes expresiones se pueden encontrar en la Tesis de Corberan
     // Pagina 22
     /* variacion debida a la transmision del calor */
@@ -5738,6 +5761,7 @@ void TTubo::Calculo_Caracteristica(double &caracteristica, double &velocidadp,
           gamma3p * gamma1p * DeltaTiempo * q * FCoefAjusTC / asonidop;
 
       caracteristica += dacal;
+      _dCal = dacal;
     }
     /* variacion debida a la variacion entropia */
     /* ---------------------------------------- */
@@ -5748,6 +5772,7 @@ void TTubo::Calculo_Caracteristica(double &caracteristica, double &velocidadp,
     double increentropia = entropia * __cons::ARef - entropiap;
     double daen = asonidop * increentropia / entropiap;
     caracteristica += daen;
+    _dEnt = daen;
 
     /* variacion debida al cambio de seccion */
     /* ------------------------------------- */
@@ -5763,6 +5788,7 @@ void TTubo::Calculo_Caracteristica(double &caracteristica, double &velocidadp,
                (diamep * FXref);
       }
       caracteristica += daar;
+      _dAar = daar;
     }
 
     /* variacion debida al termino de friccion */
@@ -5780,6 +5806,14 @@ void TTubo::Calculo_Caracteristica(double &caracteristica, double &velocidadp,
           FCoefAjusFric * pow3(velocidadp) * DeltaTiempo / (diamep * velabs);
 
       caracteristica += dafric;
+      _dFric = dafric;
+    }
+
+    if (_ct) {
+      FCharCal[_ce] += _dCal;
+      FCharEnt[_ce] += _dEnt;
+      FCharArea[_ce] += _dAar;
+      FCharFric[_ce] += _dFric;
     }
 
 #ifdef usetry
