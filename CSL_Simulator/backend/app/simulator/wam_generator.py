@@ -595,8 +595,94 @@ class WAMGenerator:
         duct_d_out = (math.sqrt(4.0 * (inl.exit_width / 1000.0)
                                 * (inl.exit_height / 1000.0) / math.pi)
                       if _has_slot else duct_d_in)
-        self._add_pipe(intake_pipe_id, "CSL_Intake_Pipe", duct_len, duct_d_in, duct_d_out, 27,
-                       cid_amb, c_pipe_to_filter, friction=0.05, dx_mesh=0.05)
+        # Stage 81: intake duct REPRESENTATION, ENV-ONLY. Default "taper" emits
+        # the identical bytes, so golden/parity are untouched (golden also
+        # scrubs OPENWAM_* before generating). Geometry is NOT changed by any
+        # variant -- the measured 400mm / phi190 / 550x190 stay exactly as the
+        # owner measured them; only how the 1-D solver is asked to carry them.
+        #
+        #  taper -- the cone as ONE linearly tapered pipe (current model).
+        #    Stage 80 measured this pipe violating cycle-mean mass conservation
+        #    by 113-173% (total intake leak = 1.7-2.3x the engine's fresh
+        #    charge), NOT falling under refinement (132 -> 128% at dx/2) and
+        #    NaN-ing at dx/4. Physically it is a 12.3 deg half-angle diffuser
+        #    (24.2 deg in the width plane if the 190 height is kept through the
+        #    round-to-slot transition), i.e. deep in stall, but modelled as
+        #    ATTACHED flow: recovery efficiency 100% where a stalled diffuser
+        #    achieves ~40-50%.
+        #  jet -- the separated-jet representation. The core keeps the INLET
+        #    area for the full measured length (a stalled diffuser's flow does
+        #    not follow the wall), the expansion is ONE area step solved exactly
+        #    by Type-6 (stExpansion = momentum balance + entropy generation),
+        #    and a constant-area tail restores the cone's volume so the acoustic
+        #    compliance is unchanged. Cp of a sudden expansion at AR 3.686 is
+        #    2/AR - 2/AR^2 = 0.395 against the ideal 1 - 1/AR^2 = 0.926, i.e.
+        #    42.7% effectiveness -- the middle of the measured 40-50% band for a
+        #    fully stalled diffuser. ZERO free parameters, nothing fitted.
+        #  stair -- N constant-area segments joined by Type-6, each segment's
+        #    area set so that slice of the cone's volume is exact. Geometry,
+        #    total volume and the area schedule are IDENTICAL to taper; only the
+        #    distributed dA/dx becomes discrete steps. DIAGNOSTIC ONLY (N is not
+        #    a physical choice): separates numerics from geometry.
+        #  core -- the core pipe alone, no volume compensation. DIAGNOSTIC ONLY
+        #    (physically wrong: discards 13.6 L of real duct volume); isolates
+        #    what the compliance alone is worth.
+        _duct_model = (os.environ.get("OPENWAM_INTAKE_DUCT_MODEL")
+                       or "taper").strip().lower()
+        _tapered = duct_d_out > duct_d_in * 1.000001
+        if _duct_model == "taper" or not _tapered:
+            self._add_pipe(intake_pipe_id, "CSL_Intake_Pipe", duct_len, duct_d_in, duct_d_out, 27,
+                           cid_amb, c_pipe_to_filter, friction=0.05, dx_mesh=0.05)
+        elif _duct_model in ("jet", "core"):
+            # Volume of the measured cone minus the constant-area core, carried
+            # by a constant-area tail at the exit diameter:
+            #   L2 = (L/3) * (d2^2 + d1*d2 - 2*d1^2) / d2^2
+            # (exact: V_cone = (pi/12) L (d1^2 + d1 d2 + d2^2)).
+            _tail_len = (duct_len / 3.0) * (
+                duct_d_out ** 2 + duct_d_in * duct_d_out - 2.0 * duct_d_in ** 2
+            ) / (duct_d_out ** 2)
+            _core_end = (c_pipe_to_filter if _duct_model == "core"
+                         else self._create_pipe_to_pipe_connection())
+            self._add_pipe(intake_pipe_id, "Duct_Core", duct_len,
+                           duct_d_in, duct_d_in, 27,
+                           cid_amb, _core_end, friction=0.05, dx_mesh=0.05)
+            if _duct_model == "jet":
+                _tail_id = self.pipe_counter; self.pipe_counter += 1
+                self._add_pipe(_tail_id, "Duct_Exit", _tail_len,
+                               duct_d_out, duct_d_out, 27,
+                               _core_end, c_pipe_to_filter,
+                               friction=0.05, dx_mesh=0.05)
+            print(f"DEBUG: intake duct model '{_duct_model}': core "
+                  f"phi{duct_d_in*1000:.0f}x{duct_len*1000:.0f}mm"
+                  + (f" + step + exit phi{duct_d_out*1000:.0f}"
+                     f"x{_tail_len*1000:.1f}mm" if _duct_model == "jet" else ""))
+        elif _duct_model.startswith("stair"):
+            # "stair" or "stairN" (default N=4). Segment k spans [x_k, x_k+1];
+            # its constant area is the slice's mean, so the volume is exact:
+            #   d_eq = sqrt((da^2 + da*db + db^2) / 3)
+            _n = 4
+            if len(_duct_model) > 5 and _duct_model[5:].isdigit():
+                _n = max(2, int(_duct_model[5:]))
+            _seg_len = duct_len / _n
+            _left = cid_amb
+            for _k in range(_n):
+                _da = duct_d_in + (duct_d_out - duct_d_in) * (_k / _n)
+                _db = duct_d_in + (duct_d_out - duct_d_in) * ((_k + 1) / _n)
+                _deq = math.sqrt((_da ** 2 + _da * _db + _db ** 2) / 3.0)
+                _right = (c_pipe_to_filter if _k == _n - 1
+                          else self._create_pipe_to_pipe_connection())
+                _pid = intake_pipe_id if _k == 0 else self.pipe_counter
+                if _k > 0:
+                    self.pipe_counter += 1
+                self._add_pipe(_pid, f"Duct_Seg_{_k+1}", _seg_len, _deq, _deq, 27,
+                               _left, _right, friction=0.05, dx_mesh=0.05)
+                _left = _right
+            print(f"DEBUG: intake duct model 'stair' N={_n} "
+                  f"(volume-exact constant-area segments)")
+        else:
+            raise ValueError(
+                f"OPENWAM_INTAKE_DUCT_MODEL='{_duct_model}' is not one of "
+                "taper / jet / stair[N] / core")
 
         # 3. Panel Filter (Between Pipe and Plenum) + the airbox itself.
         # Stage 64: intake.plenum_box.model selects the airbox representation.
@@ -1952,7 +2038,7 @@ class WAMGenerator:
                         "Sec2_", "Muf_", "Resonator", "Tail")
 
     # Stage 80 diagnostic: intake families scaled by OPENWAM_INTAKE_DX_SCALE.
-    _INT_DX_FAMILIES = ("CSL_Intake_Pipe", "CSL_Panel_Filter", "Bellmouth_",
+    _INT_DX_FAMILIES = ("CSL_Intake_Pipe", "Duct_", "CSL_Panel_Filter", "Bellmouth_",
                         "Runner_Upper_", "Runner_Lower_", "Port_In_",
                         "EqRail_", "EqTube_", "Head_Return", "PlenumConn_",
                         "PlenumBox_")

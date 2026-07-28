@@ -92,7 +92,7 @@ OUT_DIR = os.path.join(HERE, "calib_data", "stage80_acoustics")
 MON_RE = re.compile(
     r"^(Bellmouth_\d+|Runner_Upper_\d+|Runner_Lower_\d+|Port_In_\d+_1"
     r"|EqRail_Tap_\d+|EqRail_Seg_\w+|EqRail_Return|EqTube_Stub_\d+"
-    r"|Head_Return|CSL_Intake_Pipe|CSL_Panel_Filter"
+    r"|Head_Return|CSL_Intake_Pipe|Duct_Core|Duct_Exit|Duct_Seg_\d+|CSL_Panel_Filter"
     r"|PlenumConn_\d+|PlenumBox_\w+)$")
 
 # The runner tract, in acoustic order from the plenum mouth to the valve.
@@ -539,7 +539,14 @@ def census(wd, rpm, labels, geom, n_cyc_use=8, want_cycles=None):
     mouths_far = [mean_F(f"Bellmouth_{i}", 1) for i in range(1, 7)]
     lowers = [mean_F(f"Runner_Lower_{i}", 0) for i in range(1, 7)]
     taps = [mean_F(f"EqRail_Tap_{i}", 0) for i in range(1, 7)]
-    snork = mean_F("CSL_Intake_Pipe", 0)
+    # Stage 81: the snorkel station is the AMBIENT end of whichever duct
+    # representation is fitted (taper -> CSL_Intake_Pipe, jet/core -> Duct_Core,
+    # stair -> Duct_Seg_1). All three are the pipe whose x=0 sits on the
+    # Type-11 to Ambient_Intake, which is what "does the airbox breathe
+    # atmosphere?" actually asks.
+    snork = next((v for v in (mean_F("CSL_Intake_Pipe", 0),
+                              mean_F("Duct_Core", 0),
+                              mean_F("Duct_Seg_1", 0)) if v is not None), None)
     rail_ret = mean_F("EqRail_Return", 1)      # far end = the ICV -> plenum tee
     head_ret = mean_F("Head_Return", 0)
     air = engine_air(df, segs, os.path.join(wd, "run.log"), rpm)
