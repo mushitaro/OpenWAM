@@ -2706,6 +2706,18 @@ void TTubo::ActualizaValoresNuevos(
   try {
 #endif
 
+    // Stage 81 mass audit: read the env once per pipe, then snapshot the
+    // pre-overwrite boundary masses so the overwrite delta can be measured.
+    if (!FAuditInit) {
+      FAuditInit = true;
+      FAuditOn = (getenv("OPENWAM_MASS_AUDIT") != NULL);
+      if (const char *ed = getenv("OPENWAM_MASS_AUDIT_DT"))
+        FAuditDT = atof(ed) > 0.0 ? atof(ed) : 0.05;
+      FAuditNextT = FTime1 + FAuditDT;
+    }
+    const double auditOld0 = FAuditOn ? FU1[0][0] : 0.0;
+    const double auditOldN = FAuditOn ? FU1[0][FNin - 1] : 0.0;
+
     double a = 0., v = 0., p = 0.;
     double LandaIzq = 0., BetaIzq = 0., EntropiaIzq = 0.;
     double LandaDer = 0., BetaDer = 0., EntropiaDer = 0.;
@@ -2831,6 +2843,19 @@ void TTubo::ActualizaValoresNuevos(
       Transforma1Area(v, a, p, FU1, FArea[FNin - 1], FGamma[FNin - 1],
                       FGamma1[FNin - 1], YDer, FNin - 1);
 
+    // Stage 81: the two overwrites are now done. Whatever U[0] they changed
+    // at the end nodes is mass the conservative update did not put there.
+    // Weight by the boundary node's half control volume so it is directly
+    // comparable to the flux integrals accumulated in TVD_Limitador.
+    if (FAuditOn) {
+      FAuditDMLeft += (FU1[0][0] - auditOld0) * 0.5 * FXref;
+      FAuditDMRight += (FU1[0][FNin - 1] - auditOldN) * 0.5 * FXref;
+      if (FTime1 >= FAuditNextT) {
+        MassAuditReport();
+        FAuditNextT = FTime1 + FAuditDT;
+      }
+    }
+
     if (FMod.FormulacionLeyes == nmSinArea) {
       for (int i = 0; i < FNin; i++) {
         Transforma2(FVelocidad0[i], FAsonido0[i], FPresion0[i], FU1, FGamma[i],
@@ -2875,6 +2900,34 @@ void TTubo::ActualizaValoresNuevos(
   }
 #endif
 }
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+
+void TTubo::MassAuditReport() {
+  // Stage 81. Trapezoidal pipe mass in the solver's own units, plus the two
+  // boundary-overwrite sources and the two end-interface flux integrals.
+  // In a periodic state dM_pipe over a report window is ~0, so
+  //     (FL - FR) + dM_L + dM_R ~ 0
+  // and dM_L + dM_R is the mass the boundary treatment fabricated. Compare a
+  // suspect pipe against a healthy one in the same run -- no unit conversion
+  // is needed for that comparison.
+  double m = 0.0;
+  for (int i = 0; i < FNin; ++i) {
+    const double w = (i == 0 || i == FNin - 1) ? 0.5 : 1.0;
+    m += FU1[0][i] * w;
+  }
+  m *= FXref;
+  printf("MASSAUDIT pipe=%d t=%.6f nin=%d M=%.9e dM_L=%.9e dM_R=%.9e "
+         "FL=%.9e FR=%.9e\n",
+         FNumeroTubo, FTime1, FNin, m, FAuditDMLeft, FAuditDMRight,
+         FAuditFluxL, FAuditFluxR);
+  fflush(stdout);
+  FAuditDMLeft = 0.0;
+  FAuditDMRight = 0.0;
+  FAuditFluxL = 0.0;
+  FAuditFluxR = 0.0;
+}
+
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
@@ -6424,6 +6477,14 @@ void TTubo::TVD_Limitador() {
                 (FTVD.W[k][i + 1] - FTVD.W[k][i]);
       }
     }
+    // Stage 81 mass audit: the mass flux that actually crossed the two END
+    // interfaces this step. Paired with the boundary-overwrite deltas from
+    // ActualizaValoresNuevos this closes the pipe's mass books exactly.
+    if (FAuditOn) {
+      FAuditFluxL += FTVD.gflux[0][0] * FDeltaTime;
+      FAuditFluxR += FTVD.gflux[0][FNin - 2] * FDeltaTime;
+    }
+
     for (int i = 1; i < FNin - 1; ++i) {
       for (int k = 0; k < FNumEcuaciones; k++) {
         FU1[k][i] =

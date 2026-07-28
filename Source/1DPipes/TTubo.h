@@ -707,6 +707,29 @@ public:
   int getNodoDPFEntrada() { return FNodoDPFEntrada; };
   int getNodoDPFSalida() { return FNodoDPFSalida; };
 
+  // ---------------------------------------------------------------------
+  // Stage 81 mass audit (env OPENWAM_MASS_AUDIT, read-only, off by default).
+  //
+  // The interior is updated conservatively over i=1..FNin-2 by flux
+  // differencing, but ActualizaValoresNuevos then OVERWRITES nodes 0 and
+  // FNin-1 with the MOC boundary solution, discarding whatever the flux
+  // balance had put there. Nothing forces the two to agree, so the overwrite
+  // is a mass source/sink. This audit measures that source directly, per
+  // pipe: how much U[0] the overwrite adds, against the numerical flux that
+  // actually crossed the two end interfaces. All quantities stay in the
+  // solver's own adimensional units so the ratio is meaningful without any
+  // reference-scale bookkeeping; a healthy pipe is the internal control.
+  bool FAuditOn = false;
+  bool FAuditInit = false;
+  double FAuditDMLeft = 0.0;   //!< accumulated U[0] added by the node-0 overwrite
+  double FAuditDMRight = 0.0;  //!< accumulated U[0] added by the node-(FNin-1) overwrite
+  double FAuditFluxL = 0.0;    //!< time-integrated gflux[0] at interface 0
+  double FAuditFluxR = 0.0;    //!< time-integrated gflux[0] at interface FNin-2
+  double FAuditNextT = 0.0;    //!< next report time [s]
+  double FAuditDT = 0.05;      //!< report interval [s] (OPENWAM_MASS_AUDIT_DT)
+  void MassAuditReport();
+  // ---------------------------------------------------------------------
+
   double FTime0; //!< Time at current time step
 
   /**
