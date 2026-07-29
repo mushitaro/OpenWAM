@@ -2234,7 +2234,16 @@ class WAMGenerator:
             # Line 6: Mesh & Thermal Model (dx, Implicit)
             self.wam_lines_pipes.append(f"{dx:.5f} 2") 
             # Line 7: Method (TVD=2, Courant=0.8)
-            self.wam_lines_pipes.append(f"2 0.8") 
+            # Stage 82: Courant number, ENV-ONLY, default 0.8 = byte-identical.
+            # dt = FCourant * FXref / VTotalMax (TTubo.cpp:1932) and the global
+            # step is the minimum over all pipes, so LOWERING the Courant number
+            # lowers every pipe's `dist` (the characteristic-foot CFL) WITHOUT
+            # touching any mesh. That is the opposite-direction test of the dist
+            # mechanism: for a normal scheme a smaller dt should help, but if
+            # dist is what drives the boundary mass error, a smaller dt must
+            # make it WORSE.
+            _cou = os.environ.get("OPENWAM_COURANT")
+            self.wam_lines_pipes.append(f"2 {float(_cou):.3f}" if _cou else "2 0.8") 
             # Line 8: Start Diameter
             self.wam_lines_pipes.append(f"{p['d_start']}")
             # Line 9: Length & End Diameter
