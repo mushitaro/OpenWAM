@@ -184,8 +184,18 @@ def main():
     rows = parse_audit(log)
     assert rows, f"no MASSAUDIT lines in {log} (was OPENWAM_MASS_AUDIT set?)"
     labels, geom, conn_type = topology(a.rpm, sets, cycles)
-    missing = sorted(set(rows) - set(labels))
-    assert not missing, f"audit pipes absent from rebuilt topology: {missing[:6]}"
+    # The rebuilt topology MUST be the deck that produced this log. Subset is not
+    # enough: running loop-open audit data against a loop-closed rebuild (e.g.
+    # --run-dir without --tag, so `sets` defaults to {}) leaves 80 audit pipes
+    # inside a 93-pipe topology, passes a subset check, and silently renumbers
+    # every cid. Require exact equality.
+    if set(rows) != set(labels):
+        raise SystemExit(
+            f"TOPOLOGY MISMATCH: log has {len(rows)} pipes, rebuild has "
+            f"{len(labels)}. The rebuild does not match this run -- pass --tag "
+            f"(and the same OPENWAM_* env) so `sets` is applied. "
+            f"only-in-log={sorted(set(rows) - set(labels))[:5]} "
+            f"only-in-rebuild={sorted(set(labels) - set(rows))[:5]}")
 
     dt, win = window(rows, a.tail)
     print(f"\n=== junction audit: {a.tag or wd}  rpm={a.rpm:.0f} ===")
@@ -206,22 +216,31 @@ def main():
         return out
 
     def inflow(pid, side):
-        """Mass the junction DELIVERED into this pipe end, kg over the window.
+        """Interior mass the junction delivered through this pipe's end interface.
 
-        EXACT bookkeeping, no periodicity assumption. The end node is a half
-        control volume fed by the junction and drained through the end interface:
+        FLUX FAMILY ONLY. Do NOT add dM_L/dM_R here (I did, and it was wrong).
+        The MASSAUDIT record contains two families of numbers that are NOT
+        commensurable:
 
-            left  end:  J_L - dFL = dM_L   ->   J_L = dFL + dM_L
-            right end:  dFR + J_R = dM_R   ->   J_R = dM_R - dFR
+          * M, dM_L, dM_R -- genuine kg. Verified against geometry: implied
+            densities are 0.72-0.77 kg/m^3 for the intake pipes (1 bar, ~516 K
+            gives 0.684) and 0.54 for a header carrying hotter gas.
+          * dFL, dFR, dFM -- the gflux integrals, self-consistent among
+            themselves (along the series chain Bellmouth_1 = Runner_Upper_1 =
+            Runner_Lower_1 = 2x Port_In, all ~9.3e-5) but ~98x smaller than kg.
 
-        dFL/dFR are the time-integrated TVD interface fluxes and dM_L/dM_R the
-        end-node changes imposed by the MOC overwrite, both from MASSAUDIT. So
-        J is what the junction actually handed over, and a storage-free junction
-        must have sum(J) = 0 exactly -- valid even while the run is still
-        cooling, which the flux-only form is not.
+        Evidence the two families differ: dM / [(dFL-dFR)+dM_L+dM_R] holds for
+        0 of 80 pipes, scattered -11788..+847 (median -28). A physical third mass
+        source would spare some pipes; this spares none, so it is the scale, not
+        the flow. Mixing the families therefore produces nonsense -- it made the
+        intake budget miss by 35x and flip sign.
+
+        Consequence: only ratios WITHIN the flux family are reportable (`rel`,
+        and x_eng normalised by the flux-derived port total). The per-pipe book
+        residual is not computable until the C++ accumulators are reconciled.
         """
         w = win[pid]
-        return (w["dFL"] + w["dM_L"]) if side == "L" else (w["dM_R"] - w["dFR"])
+        return w["dFL"] if side == "L" else -w["dFR"]
 
     # ---- per-junction closure
     res = []
@@ -295,21 +314,10 @@ def main():
               f"{r['imb_kgs'] / denom:>+8.4f}  {','.join(r['members'])}")
 
     # ---- per-pipe book closure: dM ~= (dFL - dFR) + dM_L + dM_R
-    # A nonzero residual means mass entered the pipe through NEITHER an interface
-    # flux NOR a boundary overwrite -- i.e. the positivity fallback / Transforma2Area
-    # floor caps (TTubo.cpp:1606/1652/1689, :6450-6485). BUT a pipe that is still
-    # filling or cooling has a legitimately nonzero dM, so this column is only
-    # interpretable once G8 (steady) passes.
-    print(f"\n  per-pipe book residual  dM - [(dFL-dFR) + dM_L + dM_R]  "
-          f"(worst {a.top}; x_eng = fraction of the engine's air):")
-    pr = []
-    for pid, w in win.items():
-        r = w["dM"] - ((w["dFL"] - w["dFR"]) + w["dM_L"] + w["dM_R"])
-        sc = max(abs(w["dFL"]), abs(w["dFR"]), 1e-30)
-        pr.append((abs(r) / sc, r / dt, pid))
-    for rel, rate, pid in sorted(pr, reverse=True)[:a.top]:
-        print(f"    {labels[pid]:<22} nin={win[pid]['nin']:>3}  "
-              f"rel={rel * 100:>8.2f}%  x_eng={rate / denom:>+9.4f}")
+    # The per-pipe book residual that used to print here is REMOVED: it compared
+    # dM (kg) against the gflux integrals (~kg/98), so it measured the scale
+    # mismatch between the two MASSAUDIT families, not a physical mass source.
+    # Reinstate only after the C++ accumulators are reconciled to one unit.
 
     if a.json_out:
         with open(a.json_out, "w", encoding="utf-8") as f:
