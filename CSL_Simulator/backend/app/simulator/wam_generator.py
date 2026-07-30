@@ -854,23 +854,55 @@ class WAMGenerator:
                   f"duct_cell={duct_cell_idx+1} cc_map={self._box_cc_map}")
         else:
             # --- legacy single 0D Plenum_Main (byte-identical path) ---
-            filter_id = self.pipe_counter; self.pipe_counter += 1
-
-            # Start: Use same Type 6 connection as Pipe End
-            cid_filter_start = c_pipe_to_filter
+            # Stage 86 diagnostic (OPENWAM_INTAKE_NO_FILTER=1): drop the panel
+            # filter PIPE and hang the duct straight on Plenum_Main, folding the
+            # filter's volume into the plenum so the intake's total compliance is
+            # unchanged. This deletes cid 1 -- the Type-6 union that the flux
+            # audit measures fabricating at rel 100% while every other
+            # storage-free junction sits <=3% -- WITHOUT touching any measured
+            # dimension. Both of that junction's mesh suspects were falsified
+            # (refining the filter nin 3->11 and refining the duct 5x to match
+            # FXref each left it in place and made induction worse), so this
+            # tests whether the junction is the mechanism at all.
+            #
+            # Physically defensible rather than a bodge: the filter is already an
+            # INERT element here. Its `friction=0.8` is 0.8 mm of absolute
+            # roughness (Colebrook takes rug/(3700*dia), TTubo.cpp:2548), which
+            # over a 20 mm length at phi365 gives dp ~ 0. So the pipe contributes
+            # only 2.09 L of volume -- preserved here -- plus a 2-cell numerical
+            # pathology. A panel filter is a resistance, not a duct.
+            _no_filter = bool(os.environ.get("OPENWAM_INTAKE_NO_FILTER"))
 
             # Plenum
             plenum_id = self.plenum_counter; self.plenum_counter += 1
+            _pl_vol = c.intake.plenum_vol / 1000.0
+            if _no_filter:
+                _pl_vol += math.pi / 4.0 * filt_dia ** 2 * filt_len
             # degC: airbox sits in the engine bay, ~40 C (was 313 = read as 313 C = 586 K)
-            self._add_plenum(plenum_id, "Plenum_Main", c.intake.plenum_vol/1000.0, 40)
+            self._add_plenum(plenum_id, "Plenum_Main", _pl_vol, 40)
             self.ids['plenum_intake'] = plenum_id
 
-            cid_plenum_in = self.connection_counter
-            self._add_con_plenum_pipe_v2(plenum_id, filter_id, 1) # Filter End -> Plenum
+            if _no_filter:
+                # Re-type the duct's existing right-end CC in place: it was
+                # reserved as a pipe-to-pipe union, and becomes the plenum
+                # connection. Keeps connection ids contiguous and consumes no
+                # pipe id, so nothing downstream renumbers.
+                self.connections[c_pipe_to_filter] = (11, [f"0 {plenum_id}", "25"])
+                print(f"DEBUG: OPENWAM_INTAKE_NO_FILTER=1 -> filter pipe removed, "
+                      f"duct -> Type-11 -> Plenum_Main, plenum vol "
+                      f"{_pl_vol*1000:.2f} L (filter volume folded in)")
+            else:
+                filter_id = self.pipe_counter; self.pipe_counter += 1
 
-            # Panel Filter: thin, wide, high friction (filter media; 0.5-1.0 typical in 1D)
-            self._add_pipe(filter_id, "CSL_Panel_Filter", filt_len, filt_dia, filt_dia, 27,
-                           cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
+                # Start: Use same Type 6 connection as Pipe End
+                cid_filter_start = c_pipe_to_filter
+
+                cid_plenum_in = self.connection_counter
+                self._add_con_plenum_pipe_v2(plenum_id, filter_id, 1) # Filter End -> Plenum
+
+                # Panel Filter: thin, wide, high friction (filter media; 0.5-1.0 typical in 1D)
+                self._add_pipe(filter_id, "CSL_Panel_Filter", filt_len, filt_dia, filt_dia, 27,
+                               cid_filter_start, cid_plenum_in, friction=0.8, dx_mesh=0.01)
             self._box_cells = [plenum_id]
 
         # CSL flap resonance pipe (Stage 67 mod probe): a second ambient->plenum
