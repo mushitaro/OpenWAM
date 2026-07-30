@@ -69,6 +69,12 @@ AUD_RE = re.compile(
 
 # junctions with no storage of their own -> must close exactly
 CLOSED_TYPES = {6, 9, 10, 12}
+
+# gflux's unit constant is not pinned from source. Calibrated empirically against
+# the INS cycle-mean flow on straight, well-resolved pipes, and confirmed to 1% by
+# the loop-open run where the port fluxes match the census Mtrap air. Used ONLY for
+# the sanity print below -- never for a reported result, which is always a ratio.
+AUDIT_U_PER_KGS = 98.0
 TYPE_NAME = {0: "open", 1: "open", 2: "open", 3: "closed(BROKEN)", 4: "anechoic",
              5: "pulse", 6: "union", 7: "cyl-valve", 8: "cyl-valve",
              9: "dp-linear", 10: "dp-quad", 11: "plenum", 12: "branch"}
@@ -157,6 +163,7 @@ def main():
     ap.add_argument("--json-out", default=None)
     a = ap.parse_args()
 
+    census_mdot = None
     if a.run_dir:
         wd = a.run_dir
         sets, cycles = {}, 40
@@ -171,6 +178,7 @@ def main():
         wd = os.path.join(OUT_DIR, j["run_dir"])
         sets, cycles = j.get("sets") or {}, j.get("cycles_requested", 40)
         a.rpm = j.get("rpm", a.rpm)
+        census_mdot = (j.get("m1") or {}).get("engine_mdot_kgs")
 
     log = os.path.join(wd, "run.log")
     rows = parse_audit(log)
@@ -249,8 +257,22 @@ def main():
     exh = sum(r["imb_kgs"] for r in term
               if r["type"] in (7, 8) and any(m.startswith("Port_Ex")
                                              for m in r["members"]))
+    # PORT-DELIVERY CHECK. `eng` is what the port pipes actually hand the
+    # cylinders. The census's Mtrap-derived engine_mdot is what the cylinders
+    # actually trap, measured independently. If the two disagree, the engine is
+    # NOT being fed through the port pipes -- which is Stage 86's finding 1, not
+    # an instrument fault. It also means x_eng is normalised by a non-physical
+    # denominator, so `rel` (per-junction, scale-free) is the column to trust.
     print(f"  engine air (intake-valve terminals) = {eng:.6f} audit-u/s"
           f"   [normaliser = 1.000 x]")
+    if census_mdot:
+        frac = eng * AUDIT_U_PER_KGS / census_mdot
+        print(f"  vs census Mtrap engine_mdot {census_mdot:.4f} kg/s -> ports "
+              f"deliver {frac * 100:+.1f}% of it")
+        if not (0.9 <= frac <= 1.1):
+            print(f"  *** THE PORT PIPES ARE NOT FEEDING THE ENGINE "
+                  f"({frac * 100:+.1f}%). x_eng below is normalised by a "
+                  f"non-physical denominator -- read `rel` only. ***")
     print(f"  exhaust out (exhaust-valve terminals) = {exh:.6f} "
           f"= {exh / eng if eng else 0:+.3f} x   (physical ~1.08 with fuel)")
 
