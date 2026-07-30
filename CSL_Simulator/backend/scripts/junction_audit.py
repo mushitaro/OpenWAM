@@ -108,11 +108,22 @@ def topology(rpm, sets, cycles):
 
 
 def parse_audit(path):
-    """run.log -> {pipe: [(t, M, dM_L, dM_R, FL, FR, FM), ...]} (cumulative)."""
+    """run.log -> {pipe: [(t, M, dM_L, dM_R, FL, FR, FM), ...]} (cumulative).
+
+    Raises on NaN. The solver prints `-nan(ind)`, which AUD_RE does not match, so
+    a diverged pipe would silently vanish from `rows` and the audit would happily
+    analyse the survivors -- s86_nofopen had Port_Ex_6_1/2 NaN from cycle 2 while
+    77 of 79 pipes still looked healthy. A NaN anywhere invalidates the run.
+    """
     rows = {}
+    nan_hits = []
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             if not line.startswith("MASSAUDIT"):
+                continue
+            if "nan" in line or "inf" in line:
+                if len(nan_hits) < 4:
+                    nan_hits.append(line.strip()[:110])
                 continue
             m = AUD_RE.match(line)
             if not m:
@@ -120,6 +131,19 @@ def parse_audit(path):
             pid = int(m.group(1))
             rows.setdefault(pid, []).append(tuple(float(m.group(i))
                                                  for i in range(2, 10)))
+    if nan_hits:
+        raise SystemExit("NaN/inf in the MASSAUDIT trace -- this run DIVERGED and "
+                         "none of its numbers are physical:\n  "
+                         + "\n  ".join(nan_hits))
+    # A pipe that stops reporting is the same failure wearing a different hat.
+    if rows:
+        counts = {p: len(v) for p, v in rows.items()}
+        hi = max(counts.values())
+        short = sorted(p for p, c in counts.items() if c < hi - 1)
+        if short:
+            raise SystemExit(
+                f"pipes stopped reporting (have <{hi - 1} of {hi} records): "
+                f"{short[:8]} -- the run degraded partway through")
     return rows
 
 
