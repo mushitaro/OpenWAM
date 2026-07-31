@@ -1,0 +1,1406 @@
+{
+ "tag": "s87_eqplen",
+ "rpm": 2400.0,
+ "dt": 0.500054,
+ "engine_air": -0.00015718558275706237,
+ "sum_abs_imb_kgs": 0.00011890159984721052,
+ "net_imb_kgs": 9.611206989695e-07,
+ "junctions": [
+  {
+   "cid": 0,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Duct_Core:L"
+   ],
+   "imb_kg": 9.406942299999962e-05,
+   "imb_kgs": 0.00018811852919884577,
+   "thru_kg": 9.406942299999962e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 1,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Duct_Exit:R"
+   ],
+   "imb_kg": -6.415124900000001e-05,
+   "imb_kgs": -0.00012828864282657474,
+   "thru_kg": 6.415124900000001e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 2,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Duct_Core:R",
+    "Duct_Exit:L"
+   ],
+   "imb_kg": 7.108880000000414e-07,
+   "imb_kgs": 1.4216224647738872e-06,
+   "thru_kg": 0.00014161791999999992,
+   "rel": 0.005019760211137416
+  },
+  {
+   "cid": 3,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Bellmouth_1:L"
+   ],
+   "imb_kg": -8.119764200000001e-05,
+   "imb_kgs": -0.00016237774720330206,
+   "thru_kg": 8.119764200000001e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 4,
+   "type": 10,
+   "type_name": "dp-quad",
+   "n_pipes": 2,
+   "members": [
+    "Bellmouth_1:R",
+    "Runner_Upper_1:L"
+   ],
+   "imb_kg": -4.932797999999657e-07,
+   "imb_kgs": -9.864530630691199e-07,
+   "thru_kg": 0.00016689931280000007,
+   "rel": 0.0029555532118402195
+  },
+  {
+   "cid": 5,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Upper_1:R",
+    "EqTube_Stub_1:L",
+    "Runner_Lower_1:L"
+   ],
+   "imb_kg": -6.910365799998907e-07,
+   "imb_kgs": -1.3819239122172618e-06,
+   "thru_kg": 0.00016826798138000007,
+   "rel": 0.004106762167897651
+  },
+  {
+   "cid": 6,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "EqTube_Stub_1:R"
+   ],
+   "imb_kg": 7.240423537e-05,
+   "imb_kgs": 0.00014479283311402368,
+   "thru_kg": 7.240423537e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 7,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Lower_1:R",
+    "Port_In_1_1:L",
+    "Port_In_1_2:L"
+   ],
+   "imb_kg": -7.192643999998777e-07,
+   "imb_kgs": -1.4383734556665434e-06,
+   "thru_kg": 2.6229139599999972e-05,
+   "rel": 0.027422340609292363
+  },
+  {
+   "cid": 8,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_1_1:R"
+   ],
+   "imb_kg": 6.16953099999998e-06,
+   "imb_kgs": 1.2337729525211237e-05,
+   "thru_kg": 6.16953099999998e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 9,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_1_2:R"
+   ],
+   "imb_kg": 6.16953099999998e-06,
+   "imb_kgs": 1.2337729525211237e-05,
+   "thru_kg": 6.16953099999998e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 10,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Bellmouth_2:L"
+   ],
+   "imb_kg": -3.6748368000000123e-06,
+   "imb_kgs": -7.34887992096856e-06,
+   "thru_kg": 3.6748368000000123e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 11,
+   "type": 10,
+   "type_name": "dp-quad",
+   "n_pipes": 2,
+   "members": [
+    "Bellmouth_2:R",
+    "Runner_Upper_2:L"
+   ],
+   "imb_kg": -2.2863680000000455e-07,
+   "imb_kgs": -4.5722421978427243e-07,
+   "thru_kg": 1.067695060000002e-05,
+   "rel": 0.021414054308727826
+  },
+  {
+   "cid": 12,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Upper_2:R",
+    "EqTube_Stub_2:L",
+    "Runner_Lower_2:L"
+   ],
+   "imb_kg": 6.476829999990555e-09,
+   "imb_kgs": 1.2952261155776285e-08,
+   "thru_kg": 1.716056702999993e-05,
+   "rel": 0.00037742517416049394
+  },
+  {
+   "cid": 13,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "EqTube_Stub_2:R"
+   ],
+   "imb_kg": -3.014261480000001e-06,
+   "imb_kgs": -6.027871949829421e-06,
+   "thru_kg": 3.014261480000001e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 14,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Lower_2:R",
+    "Port_In_2_1:L",
+    "Port_In_2_2:L"
+   ],
+   "imb_kg": -6.295059999997504e-08,
+   "imb_kgs": -1.258876041387031e-07,
+   "thru_kg": 1.757381619999995e-05,
+   "rel": 0.003582067735519802
+  },
+  {
+   "cid": 15,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_2_1:R"
+   ],
+   "imb_kg": 4.757519399999988e-06,
+   "imb_kgs": 9.514011286781003e-06,
+   "thru_kg": 4.757519399999988e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 16,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_2_2:R"
+   ],
+   "imb_kg": 4.757519399999988e-06,
+   "imb_kgs": 9.514011286781003e-06,
+   "thru_kg": 4.757519399999988e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 17,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Bellmouth_3:L"
+   ],
+   "imb_kg": -9.865290699999948e-06,
+   "imb_kgs": -1.9728450727321346e-05,
+   "thru_kg": 9.865290699999948e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 18,
+   "type": 10,
+   "type_name": "dp-quad",
+   "n_pipes": 2,
+   "members": [
+    "Bellmouth_3:R",
+    "Runner_Upper_3:L"
+   ],
+   "imb_kg": -1.321908999999278e-07,
+   "imb_kgs": -2.643532498488719e-07,
+   "thru_kg": 2.188038569999988e-05,
+   "rel": 0.006041525127225181
+  },
+  {
+   "cid": 19,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Upper_3:R",
+    "EqTube_Stub_3:L",
+    "Runner_Lower_3:L"
+   ],
+   "imb_kg": -1.4321170000003414e-07,
+   "imb_kgs": -2.8639246961335e-07,
+   "thru_kg": 2.2278350099999995e-05,
+   "rel": 0.006428290217058497
+  },
+  {
+   "cid": 20,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "EqTube_Stub_3:R"
+   ],
+   "imb_kg": 7.750530999999883e-07,
+   "imb_kgs": 1.5499388066088629e-06,
+   "thru_kg": 7.750530999999883e-07,
+   "rel": 1.0
+  },
+  {
+   "cid": 21,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Lower_3:R",
+    "Port_In_3_1:L",
+    "Port_In_3_2:L"
+   ],
+   "imb_kg": -3.351786999999636e-07,
+   "imb_kgs": -6.702850092189315e-07,
+   "thru_kg": 2.2385947699999948e-05,
+   "rel": 0.014972727734906858
+  },
+  {
+   "cid": 22,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_3_1:R"
+   ],
+   "imb_kg": 6.1109101000000085e-06,
+   "imb_kgs": 1.2220500385958334e-05,
+   "thru_kg": 6.1109101000000085e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 23,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_3_2:R"
+   ],
+   "imb_kg": 6.1109101000000085e-06,
+   "imb_kgs": 1.2220500385958334e-05,
+   "thru_kg": 6.1109101000000085e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 24,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Bellmouth_4:L"
+   ],
+   "imb_kg": 1.19975279e-05,
+   "imb_kgs": 2.3992464613821706e-05,
+   "thru_kg": 1.19975279e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 25,
+   "type": 10,
+   "type_name": "dp-quad",
+   "n_pipes": 2,
+   "members": [
+    "Bellmouth_4:R",
+    "Runner_Upper_4:L"
+   ],
+   "imb_kg": -3.359419999994506e-08,
+   "imb_kgs": -6.7181144436291e-08,
+   "thru_kg": 2.2646617999999997e-05,
+   "rel": 0.001483409134200306
+  },
+  {
+   "cid": 26,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Upper_4:R",
+    "EqTube_Stub_4:L",
+    "Runner_Lower_4:L"
+   ],
+   "imb_kg": 4.209209999999242e-07,
+   "imb_kgs": 8.417510908820332e-07,
+   "thru_kg": 5.242885700000005e-05,
+   "rel": 0.008028422210309177
+  },
+  {
+   "cid": 27,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "EqTube_Stub_4:R"
+   ],
+   "imb_kg": -2.6344372299999996e-05,
+   "imb_kgs": -5.268305483007835e-05,
+   "thru_kg": 2.6344372299999996e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 28,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Lower_4:R",
+    "Port_In_4_1:L",
+    "Port_In_4_2:L"
+   ],
+   "imb_kg": 2.0073619999994713e-07,
+   "imb_kgs": 4.014290456629627e-07,
+   "thru_kg": 2.9282649000000058e-05,
+   "rel": 0.00685512434342763
+  },
+  {
+   "cid": 29,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_4_1:R"
+   ],
+   "imb_kg": 7.346134300000029e-06,
+   "imb_kgs": 1.4690682006343373e-05,
+   "thru_kg": 7.346134300000029e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 30,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_4_2:R"
+   ],
+   "imb_kg": 7.346134300000029e-06,
+   "imb_kgs": 1.4690682006343373e-05,
+   "thru_kg": 7.346134300000029e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 31,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Bellmouth_5:L"
+   ],
+   "imb_kg": -6.667473700000038e-06,
+   "imb_kgs": -1.3333507381202907e-05,
+   "thru_kg": 6.667473700000038e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 32,
+   "type": 10,
+   "type_name": "dp-quad",
+   "n_pipes": 2,
+   "members": [
+    "Bellmouth_5:R",
+    "Runner_Upper_5:L"
+   ],
+   "imb_kg": 3.3654610000005084e-07,
+   "imb_kgs": 6.730195138926013e-07,
+   "thru_kg": 1.522416089999991e-05,
+   "rel": 0.022106052491868557
+  },
+  {
+   "cid": 33,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Upper_5:R",
+    "EqTube_Stub_5:L",
+    "Runner_Lower_5:L"
+   ],
+   "imb_kg": 1.0744500000001503e-07,
+   "imb_kgs": 2.1486679438623634e-07,
+   "thru_kg": 3.3078982999999946e-05,
+   "rel": 0.0032481349260349147
+  },
+  {
+   "cid": 34,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "EqTube_Stub_5:R"
+   ],
+   "imb_kg": -9.143722400000012e-06,
+   "imb_kgs": -1.8285469969243347e-05,
+   "thru_kg": 9.143722400000012e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 35,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Lower_5:R",
+    "Port_In_5_1:L",
+    "Port_In_5_2:L"
+   ],
+   "imb_kg": 8.753649999998503e-08,
+   "imb_kgs": 1.7505409415780102e-07,
+   "thru_kg": 3.316367450000002e-05,
+   "rel": 0.00263952958529927
+  },
+  {
+   "cid": 36,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_5_1:R"
+   ],
+   "imb_kg": 8.275321900000007e-06,
+   "imb_kgs": 1.6548856523495475e-05,
+   "thru_kg": 8.275321900000007e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 37,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_5_2:R"
+   ],
+   "imb_kg": 8.275321900000007e-06,
+   "imb_kgs": 1.6548856523495475e-05,
+   "thru_kg": 8.275321900000007e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 38,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Bellmouth_6:L"
+   ],
+   "imb_kg": 1.9225551899999978e-05,
+   "imb_kgs": 3.84469515292348e-05,
+   "thru_kg": 1.9225551899999978e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 39,
+   "type": 10,
+   "type_name": "dp-quad",
+   "n_pipes": 2,
+   "members": [
+    "Bellmouth_6:R",
+    "Runner_Upper_6:L"
+   ],
+   "imb_kg": 7.479999999926955e-10,
+   "imb_kgs": 1.4958384494328523e-09,
+   "thru_kg": 3.608571180000001e-05,
+   "rel": 2.0728425814028015e-05
+  },
+  {
+   "cid": 40,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Upper_6:R",
+    "EqTube_Stub_6:L",
+    "Runner_Lower_6:L"
+   ],
+   "imb_kg": 8.162748000000027e-07,
+   "imb_kgs": 1.6323733036832077e-06,
+   "thru_kg": 6.0836844999999996e-05,
+   "rel": 0.013417441354823754
+  },
+  {
+   "cid": 41,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "EqTube_Stub_6:R"
+   ],
+   "imb_kg": -3.06626535e-05,
+   "imb_kgs": -6.131868458206515e-05,
+   "thru_kg": 3.06626535e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 42,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Runner_Lower_6:R",
+    "Port_In_6_1:L",
+    "Port_In_6_2:L"
+   ],
+   "imb_kg": -1.5969999999938117e-08,
+   "imb_kgs": -3.1936550852384176e-08,
+   "thru_kg": 2.486841439999993e-05,
+   "rel": 0.0006421800659690696
+  },
+  {
+   "cid": 43,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_6_1:R"
+   ],
+   "imb_kg": 6.641223000000023e-06,
+   "imb_kgs": 1.3281011650741766e-05,
+   "thru_kg": 6.641223000000023e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 44,
+   "type": 7,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_In_6_2:R"
+   ],
+   "imb_kg": 6.641223000000023e-06,
+   "imb_kgs": 1.3281011650741766e-05,
+   "thru_kg": 6.641223000000023e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 45,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Head_Return:L"
+   ],
+   "imb_kg": -1.2366597194e-05,
+   "imb_kgs": -2.4730523491462922e-05,
+   "thru_kg": 1.2366597194e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 46,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Head_Return:R"
+   ],
+   "imb_kg": 1.2198683789e-05,
+   "imb_kgs": 2.4394732946841743e-05,
+   "thru_kg": 1.2198683789e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 47,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 4,
+   "members": [
+    "Header_1:R",
+    "Header_2:R",
+    "Header_3:R",
+    "Col_Out_L:L"
+   ],
+   "imb_kg": -2.2601731999999375e-06,
+   "imb_kgs": -4.519858255308302e-06,
+   "thru_kg": 6.876714880000006e-05,
+   "rel": 0.03286704828454274
+  },
+  {
+   "cid": 48,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 4,
+   "members": [
+    "Header_4:R",
+    "Header_5:R",
+    "Header_6:R",
+    "Col_Out_R:L"
+   ],
+   "imb_kg": -1.3624450000000428e-06,
+   "imb_kgs": -2.7245957436597705e-06,
+   "thru_kg": 8.122110700000014e-05,
+   "rel": 0.01677451896832729
+  },
+  {
+   "cid": 49,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Port_Ex_1_1:R",
+    "Port_Ex_1_2:R",
+    "Header_1:L"
+   ],
+   "imb_kg": -2.0460843999999152e-06,
+   "imb_kgs": -4.091726893495333e-06,
+   "thru_kg": 2.018332919999995e-05,
+   "rel": 0.10137497038892476
+  },
+  {
+   "cid": 50,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_1_1:L"
+   ],
+   "imb_kg": -4.583807699999989e-06,
+   "imb_kgs": -9.166625404456296e-06,
+   "thru_kg": 4.583807699999989e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 51,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_1_2:L"
+   ],
+   "imb_kg": -4.583807699999989e-06,
+   "imb_kgs": -9.166625404456296e-06,
+   "thru_kg": 4.583807699999989e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 52,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Port_Ex_2_1:R",
+    "Port_Ex_2_2:R",
+    "Header_2:L"
+   ],
+   "imb_kg": -2.173054000000063e-06,
+   "imb_kgs": -4.345638671023656e-06,
+   "thru_kg": 2.0140356800000007e-05,
+   "rel": 0.10789550659797956
+  },
+  {
+   "cid": 53,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_2_1:L"
+   ],
+   "imb_kg": -4.2619110000000245e-06,
+   "imb_kgs": -8.522901526635173e-06,
+   "thru_kg": 4.2619110000000245e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 54,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_2_2:L"
+   ],
+   "imb_kg": -4.2619110000000245e-06,
+   "imb_kgs": -8.522901526635173e-06,
+   "thru_kg": 4.2619110000000245e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 55,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Port_Ex_3_1:R",
+    "Port_Ex_3_2:R",
+    "Header_3:L"
+   ],
+   "imb_kg": -1.8389699000000408e-06,
+   "imb_kgs": -3.6775426253965388e-06,
+   "thru_kg": 1.8742629099999936e-05,
+   "rel": 0.09811696588500742
+  },
+  {
+   "cid": 56,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_3_1:L"
+   ],
+   "imb_kg": -4.030509499999997e-06,
+   "imb_kgs": -8.060148503961567e-06,
+   "thru_kg": 4.030509499999997e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 57,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_3_2:L"
+   ],
+   "imb_kg": -4.030509499999997e-06,
+   "imb_kgs": -8.060148503961567e-06,
+   "thru_kg": 4.030509499999997e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 58,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Port_Ex_4_1:R",
+    "Port_Ex_4_2:R",
+    "Header_4:L"
+   ],
+   "imb_kg": -2.117949700000004e-06,
+   "imb_kgs": -4.235441972267004e-06,
+   "thru_kg": 2.132097329999997e-05,
+   "rel": 0.09933644539576471
+  },
+  {
+   "cid": 59,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_4_1:L"
+   ],
+   "imb_kg": -4.741524900000039e-06,
+   "imb_kgs": -9.482025741220026e-06,
+   "thru_kg": 4.741524900000039e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 60,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_4_2:L"
+   ],
+   "imb_kg": -4.741524900000039e-06,
+   "imb_kgs": -9.482025741220026e-06,
+   "thru_kg": 4.741524900000039e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 61,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Port_Ex_5_1:R",
+    "Port_Ex_5_2:R",
+    "Header_5:L"
+   ],
+   "imb_kg": -2.0960163999999984e-06,
+   "imb_kgs": -4.191580109348187e-06,
+   "thru_kg": 2.859225560000007e-05,
+   "rel": 0.07330713705567159
+  },
+  {
+   "cid": 62,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_5_1:L"
+   ],
+   "imb_kg": -6.288537199999997e-06,
+   "imb_kgs": -1.2575716222647948e-05,
+   "thru_kg": 6.288537199999997e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 63,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_5_2:L"
+   ],
+   "imb_kg": -6.288537199999997e-06,
+   "imb_kgs": -1.2575716222647948e-05,
+   "thru_kg": 6.288537199999997e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 64,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 3,
+   "members": [
+    "Port_Ex_6_1:R",
+    "Port_Ex_6_2:R",
+    "Header_6:L"
+   ],
+   "imb_kg": -2.1796829000000515e-06,
+   "imb_kgs": -4.358895039335855e-06,
+   "thru_kg": 2.0314004499999883e-05,
+   "rel": 0.10729951841844203
+  },
+  {
+   "cid": 65,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_6_1:L"
+   ],
+   "imb_kg": -4.7216594e-06,
+   "imb_kgs": -9.442299031704577e-06,
+   "thru_kg": 4.7216594e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 66,
+   "type": 8,
+   "type_name": "cyl-valve",
+   "n_pipes": 1,
+   "members": [
+    "Port_Ex_6_2:L"
+   ],
+   "imb_kg": -4.7216594e-06,
+   "imb_kgs": -9.442299031704577e-06,
+   "thru_kg": 4.7216594e-06,
+   "rel": 1.0
+  },
+  {
+   "cid": 67,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Col_Out_L:R",
+    "Sec1_1_L:L"
+   ],
+   "imb_kg": -2.6305999999837182e-08,
+   "imb_kgs": -5.26063185172745e-08,
+   "thru_kg": 7.166617199999992e-05,
+   "rel": 0.0003670629987023335
+  },
+  {
+   "cid": 68,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Col_Out_R:R",
+    "Sec1_1_R:L"
+   ],
+   "imb_kg": -8.554800000012443e-08,
+   "imb_kgs": -1.7107752362769706e-07,
+   "thru_kg": 8.320469999999994e-05,
+   "rel": 0.001028163072520236
+  },
+  {
+   "cid": 69,
+   "type": 12,
+   "type_name": "branch",
+   "n_pipes": 4,
+   "members": [
+    "Sec1_1_L:R",
+    "Sec1_1_R:R",
+    "Sec1_Mid_L:L",
+    "Sec1_Mid_R:L"
+   ],
+   "imb_kg": 4.329800000024524e-08,
+   "imb_kgs": 8.658664864243709e-08,
+   "thru_kg": 0.00028183212400000024,
+   "rel": 0.000153630464071034
+  },
+  {
+   "cid": 70,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec1_Mid_L:R",
+    "Sec1_CatTaper_L:L"
+   ],
+   "imb_kg": 1.4728351000000209e-05,
+   "imb_kgs": 2.9453521019730287e-05,
+   "thru_kg": 0.00013724578500000015,
+   "rel": 0.10731368544396604
+  },
+  {
+   "cid": 71,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec1_Mid_R:R",
+    "Sec1_CatTaper_R:L"
+   ],
+   "imb_kg": 1.2226501999999893e-05,
+   "imb_kgs": 2.4450363360756822e-05,
+   "thru_kg": 0.000269931144,
+   "rel": 0.0452948919447394
+  },
+  {
+   "cid": 72,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec1_CatTaper_L:R",
+    "FrontCat_L:L"
+   ],
+   "imb_kg": -6.644495000000285e-06,
+   "imb_kgs": -1.3287554944066611e-05,
+   "thru_kg": 0.00014443453299999975,
+   "rel": 0.046003506654466744
+  },
+  {
+   "cid": 73,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec1_CatTaper_R:R",
+    "FrontCat_R:L"
+   ],
+   "imb_kg": -2.896989000000013e-06,
+   "imb_kgs": -5.7933523179496874e-06,
+   "thru_kg": 0.000261289993,
+   "rel": 0.011087255836851023
+  },
+  {
+   "cid": 74,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "FrontCat_L:R",
+    "Sec1_2_L:L"
+   ],
+   "imb_kg": -4.297009999999421e-07,
+   "imb_kgs": -8.593091946068667e-07,
+   "thru_kg": 0.00013676479300000002,
+   "rel": 0.003141897783590708
+  },
+  {
+   "cid": 75,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "FrontCat_R:R",
+    "Sec1_2_R:L"
+   ],
+   "imb_kg": -1.2465999999974886e-07,
+   "imb_kgs": -2.4929307634725224e-07,
+   "thru_kg": 0.00026403876399999984,
+   "rel": 0.0004721276456200535
+  },
+  {
+   "cid": 76,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec1_2_L:R",
+    "Sec2_1_L:L"
+   ],
+   "imb_kg": -6.168499999941596e-08,
+   "imb_kgs": -1.2335667747766433e-07,
+   "thru_kg": 0.00013575366100000014,
+   "rel": 0.0004543892190090984
+  },
+  {
+   "cid": 77,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec1_2_R:R",
+    "Sec2_1_R:L"
+   ],
+   "imb_kg": -5.064999999710579e-09,
+   "imb_kgs": -1.0128906077564781e-08,
+   "thru_kg": 0.00026437709100000017,
+   "rel": 1.9158240907154e-05
+  },
+  {
+   "cid": 78,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Sec2_1_L:R"
+   ],
+   "imb_kg": -6.779901800000026e-05,
+   "imb_kgs": -0.0001355833929935572,
+   "thru_kg": 6.779901800000026e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 79,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Sec2_1_R:R"
+   ],
+   "imb_kg": 0.00013221767499999992,
+   "imb_kgs": 0.0002644067940662407,
+   "thru_kg": 0.00013221767499999992,
+   "rel": 1.0
+  },
+  {
+   "cid": 80,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Sec2_H_L:L"
+   ],
+   "imb_kg": -4.7121488000000013e-05,
+   "imb_kgs": -9.42327988577234e-05,
+   "thru_kg": 4.7121488000000013e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 81,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Sec2_H_R:L"
+   ],
+   "imb_kg": -1.692574500000016e-05,
+   "imb_kgs": -3.384783443388146e-05,
+   "thru_kg": 1.692574500000016e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 82,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Sec2_H_Cross:L"
+   ],
+   "imb_kg": 0.0001145019735589,
+   "imb_kgs": 0.00022897921736232487,
+   "thru_kg": 0.0001145019735589,
+   "rel": 1.0
+  },
+  {
+   "cid": 83,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Sec2_H_Cross:R"
+   ],
+   "imb_kg": -0.00011471984475322,
+   "imb_kgs": -0.00022941491269586883,
+   "thru_kg": 0.00011471984475322,
+   "rel": 1.0
+  },
+  {
+   "cid": 84,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec2_H_L:R",
+    "Sec2_2_L:L"
+   ],
+   "imb_kg": -1.4387999999754264e-08,
+   "imb_kgs": -2.87728925271156e-08,
+   "thru_kg": 9.442865599999968e-05,
+   "rel": 0.00015236900120398105
+  },
+  {
+   "cid": 85,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec2_H_R:R",
+    "Sec2_2_R:L"
+   ],
+   "imb_kg": -9.968999999630801e-09,
+   "imb_kgs": -1.99358469277934e-08,
+   "thru_kg": 3.413994899999998e-05,
+   "rel": 0.0002920039511374433
+  },
+  {
+   "cid": 86,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec2_3_L:R",
+    "Muf_Adapter_L:L"
+   ],
+   "imb_kg": -5.086599999971214e-08,
+   "imb_kgs": -1.0172101412989826e-07,
+   "thru_kg": 9.8652072e-05,
+   "rel": 0.0005156100522623806
+  },
+  {
+   "cid": 87,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec2_3_R:R",
+    "Muf_Adapter_R:L"
+   ],
+   "imb_kg": 1.2843899999982755e-07,
+   "imb_kgs": 2.568502601715566e-07,
+   "thru_kg": 3.696924899999985e-05,
+   "rel": 0.0034742117698909184
+  },
+  {
+   "cid": 88,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec2_2_L:R",
+    "Resonator_L:L"
+   ],
+   "imb_kg": -1.4029999999970455e-07,
+   "imb_kgs": -2.805696984719741e-07,
+   "thru_kg": 9.644370999999964e-05,
+   "rel": 0.0014547345804065924
+  },
+  {
+   "cid": 89,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Sec2_2_R:R",
+    "Resonator_R:L"
+   ],
+   "imb_kg": -6.864299999980242e-08,
+   "imb_kgs": -1.3727117471273585e-07,
+   "thru_kg": 3.5958851000000066e-05,
+   "rel": 0.0019089319622532515
+  },
+  {
+   "cid": 90,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Resonator_L:R",
+    "Sec2_3_L:L"
+   ],
+   "imb_kg": 6.158299999982353e-08,
+   "imb_kgs": 1.231526995081002e-07,
+   "thru_kg": 9.770482500000028e-05,
+   "rel": 0.0006302964055237124
+  },
+  {
+   "cid": 91,
+   "type": 6,
+   "type_name": "union",
+   "n_pipes": 2,
+   "members": [
+    "Resonator_R:R",
+    "Sec2_3_R:L"
+   ],
+   "imb_kg": 9.317099999980524e-08,
+   "imb_kgs": 1.863218772368689e-07,
+   "thru_kg": 3.715948499999995e-05,
+   "rel": 0.0025073275369614347
+  },
+  {
+   "cid": 92,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Muf_Pass1:L"
+   ],
+   "imb_kg": -5.2757451e-05,
+   "imb_kgs": -0.0001055035076211769,
+   "thru_kg": 5.2757451e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 93,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Muf_Pass1:R"
+   ],
+   "imb_kg": 5.661208300000026e-05,
+   "imb_kgs": 0.00011321193911057657,
+   "thru_kg": 5.661208300000026e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 94,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Muf_Pass2:L"
+   ],
+   "imb_kg": -4.5307672999999986e-05,
+   "imb_kgs": -9.060556059945523e-05,
+   "thru_kg": 4.5307672999999986e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 95,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Muf_Pass2:R"
+   ],
+   "imb_kg": 5.1436088999999834e-05,
+   "imb_kgs": 0.00010286106900454718,
+   "thru_kg": 5.1436088999999834e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 96,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Muf_Adapter_L:R"
+   ],
+   "imb_kg": 4.9482543e-05,
+   "imb_kgs": 9.89543989249161e-05,
+   "thru_kg": 4.9482543e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 97,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Muf_Adapter_R:R"
+   ],
+   "imb_kg": 1.8157480999999795e-05,
+   "imb_kgs": 3.631104040763556e-05,
+   "thru_kg": 1.8157480999999795e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 98,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Tail_1:L"
+   ],
+   "imb_kg": -6.2512822e-05,
+   "imb_kgs": -0.00012501214268858962,
+   "thru_kg": 6.2512822e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 99,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Tail_1:R"
+   ],
+   "imb_kg": 6.291880300000018e-05,
+   "imb_kgs": 0.0001258240170061637,
+   "thru_kg": 6.291880300000018e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 100,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Tail_2:L"
+   ],
+   "imb_kg": -6.2512822e-05,
+   "imb_kgs": -0.00012501214268858962,
+   "thru_kg": 6.2512822e-05,
+   "rel": 1.0
+  },
+  {
+   "cid": 101,
+   "type": 11,
+   "type_name": "plenum",
+   "n_pipes": 1,
+   "members": [
+    "Tail_2:R"
+   ],
+   "imb_kg": 6.291880300000018e-05,
+   "imb_kgs": 0.0001258240170061637,
+   "thru_kg": 6.291880300000018e-05,
+   "rel": 1.0
+  }
+ ]
+}
