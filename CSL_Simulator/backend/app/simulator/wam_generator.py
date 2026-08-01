@@ -89,7 +89,23 @@ class WAMGenerator:
         # Actually, if n_species=11, we MUST provide 11 fractions.
         self.species_names = ["O2", "N2", "CO2", "H2O", "CO", "H2", "HC", "NO", "PM", "Soot"]
         # FIXED: Removed 11th value (0.0). NoEGR mode reads (SpeciesNumber - 1) = 10 values.
+        # ⚡ Stage 89: the species ORDER assumed above is wrong. The solver's
+        # canonical complete-species table (TOpenWAM.cpp:722-765) is
+        #   0=O2 1=CO2 2=H2O 3=CO 4=H2 5=NO 6=OH 7=O 8=N2 9=Fuel
+        # and the property routine confirms it (Globales.h:1785):
+        #   CalculoCompletoRMezcla(YO2, YCO2, YH2O, YFuel, ...) with N2 taken as
+        #   the REMAINDER 1 - YO2 - YCO2 - YH2O - YFuel - 0.012(Ar).
+        # So "0.233 0.767 ..." puts nitrogen's 0.767 into the CO2 slot, giving
+        #   R = 204.4 J/kgK instead of air's 287.1 (-28.8%), a = -15.6%, and a
+        #   NEGATIVE implied N2 remainder (-0.012). Density p/(RT) is then 41%
+        #   high at the same p,T -- first order for trapped mass and hence VE.
+        # Moving 0.767 to index 8 returns R = 287.12 J/kgK, i.e. exactly air.
+        # ENV-GATED so the default deck stays byte-identical until the owner
+        # decides: promoting it re-pins golden and stage74_v14_jobs.json, and it
+        # will move VE, temperatures and every acoustic frequency at once.
         self.air_comp = "0.233 0.767 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0"
+        if os.environ.get("OPENWAM_SPECIES_FIX"):
+            self.air_comp = "0.233 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.767 0.0"
         self.air_comp_flag = 1
         self.there_is_egr = 0
         self.egr = self.there_is_egr
