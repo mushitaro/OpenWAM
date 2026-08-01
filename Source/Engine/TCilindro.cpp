@@ -2247,6 +2247,17 @@ void TCilindro::IniciaVariables() {
             FMotor->GetComposicionAtmosfera(0); // Aire fresco
         FComposicionCicloCerrado[0] = 1 - FComposicionCicloCerrado[2];
         // Gases Quemados
+      } else if (FMotor->getSpeciesNumber() == 11 &&
+                 getenv("OPENWAM_SPECIES11_FIX")) {
+        // Stage 89, same defect as TCilindro4T: SpeciesNumber 11 (= 10 stored
+        // species) matches no branch, so the initial closed-cycle composition
+        // is never set. Fuel is index 9 in this build's canonical table.
+        FComposicionCicloCerrado[1] = FFraccionMasicaEspecie[9]; // Combustible
+        FComposicionCicloCerrado[2] =
+            FFraccionMasicaEspecie[0] /
+            FMotor->GetComposicionAtmosfera(0); // Aire fresco
+        FComposicionCicloCerrado[0] = 1 - FComposicionCicloCerrado[1] -
+                                      FComposicionCicloCerrado[2];
       } else if (FMotor->getSpeciesNumber() == 10) {
         FComposicionCicloCerrado[1] = FFraccionMasicaEspecie[7];
         // Combustible

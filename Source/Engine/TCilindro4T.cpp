@@ -622,6 +622,32 @@ void TCilindro4T::ActualizaPropiedades(double TiempoActual) {
           FComposicionCicloCerrado[0] =
               1 - FComposicionCicloCerrado[2]; // Gases Quemados
 
+        } else if (FMotor->getSpeciesNumber() == 11 &&
+                   getenv("OPENWAM_SPECIES11_FIX")) {
+          // Stage 89: this build's canonical complete-species table
+          // (TOpenWAM.cpp:722-765) has TEN stored entries
+          //   0=O2 1=CO2 2=H2O 3=CO 4=H2 5=NO 6=OH 7=O 8=N2 9=Fuel
+          // i.e. SpeciesNumber - IntEGR = 10, so SpeciesNumber = 11. But the
+          // branches here only cover 9 and 10, so with 11 NONE fires and
+          // FComposicionCicloCerrado is never re-seeded at the start of the
+          // closed cycle. It is then only ever updated by
+          // "= FMasaEspecieCicloCerrado[j] / FMasa" (:890, :990), which
+          // combustion drives down as it consumes O2 with nothing replenishing
+          // the fresh-air pool from the incoming charge. That is exactly the
+          // observed monotone decay: fresh% 33 -> 54 -> 8 -> -60 -> -140 ->
+          // -232, with Mair going negative. Reproduced on BOTH binaries and in
+          // every configuration, so it is not the mass-audit instrumentation.
+          //
+          // Fuel sits at index 9 in this table, NOT index 7 as the ==10 branch
+          // assumes (index 7 is atomic O here).
+          for (int i = 0; i < FMotor->getSpeciesNumber() - FIntEGR; i++) {
+            FFraccionComienzoCicloCerrado[i] = FFraccionMasicaEspecie[i];
+          }
+          FComposicionCicloCerrado[1] = FFraccionMasicaEspecie[9]; // Fuel
+          FComposicionCicloCerrado[2] =
+              FFraccionMasicaEspecie[0] / FMotor->GetComposicionAtmosfera(0);
+          FComposicionCicloCerrado[0] = 1 - FComposicionCicloCerrado[1] -
+                                        FComposicionCicloCerrado[2];
         } else if (FMotor->getSpeciesNumber() == 10) {
           for (int i = 0; i < FMotor->getSpeciesNumber() - FIntEGR; i++) {
             FFraccionComienzoCicloCerrado[i] = FFraccionMasicaEspecie[i];
