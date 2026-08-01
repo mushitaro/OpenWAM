@@ -101,6 +101,59 @@ TRACT = ["Bellmouth_{i}", "Runner_Upper_{i}", "Runner_Lower_{i}", "Port_In_{i}_1
 
 GAMMA = 1.4
 R_AIR = 287.05
+
+# ---------------------------------------------------------------------------
+# ⚡ Stage 93: the sound speed MUST come from the composition the run actually
+# used, not from hardcoded air. The deck's species vector feeds the solver's
+# property routine (Globales.h:1785)
+#   R = R_O2*Y0 + R_CO2*Y1 + R_H2O*Y2 + R_Fuel*Yf
+#       + R_N2*(1 - Y0 - Y1 - Y2 - Yf - 0.012) + R_Ar*0.012
+# with the canonical index order 0=O2 1=CO2 2=H2O ... 8=N2 9=Fuel
+# (TOpenWAM.cpp:722-765). The production deck writes "0.233 0.767 0 ..." which
+# puts nitrogen in the CO2 slot and yields R = 204 J/kgK, so every f_quarter
+# reported before this fix was inflated by sqrt(287/204) = 1.185 -- that is what
+# made Stage 79 read 275-291 Hz when the solver was actually at 232-245 Hz.
+# ---------------------------------------------------------------------------
+_R_SP = {"O2": 259.825, "CO2": 188.9, "H2O": 461.5, "N2": 296.8, "Ar": 208.13}
+# cp at ~300 K, J/kgK. Only used for gamma; the dominant term is R.
+_R_RUN, _G_RUN = R_AIR, GAMMA   # per-run values, set by census()
+_CP_SP = {"O2": 918.0, "CO2": 844.0, "H2O": 1864.0, "N2": 1040.0, "Ar": 520.3}
+
+
+def mixture_R_gamma(comp):
+    """(R, gamma) for a deck species vector, in the solver's index order."""
+    y0, y1, y2 = (float(comp[i]) if i < len(comp) else 0.0 for i in (0, 1, 2))
+    yar = 0.012
+    yn2 = 1.0 - y0 - y1 - y2 - yar
+    R = (_R_SP["O2"] * y0 + _R_SP["CO2"] * y1 + _R_SP["H2O"] * y2
+         + _R_SP["N2"] * yn2 + _R_SP["Ar"] * yar)
+    cp = (_CP_SP["O2"] * y0 + _CP_SP["CO2"] * y1 + _CP_SP["H2O"] * y2
+          + _CP_SP["N2"] * yn2 + _CP_SP["Ar"] * yar)
+    return R, cp / (cp - R)
+
+
+def deck_R_gamma(wd):
+    """Read <wd>/cell.wam and return (R, gamma, comp) for its species vector.
+
+    The composition is the first line of >=9 floats that sums to 1.0 -- OpenWAM
+    itself refuses to start otherwise (TOpenWAM.cpp:841 throws when the total
+    mass fraction is off by more than 1e-4), so that test is unambiguous.
+    """
+    p = os.path.join(wd, "cell.wam")
+    if not os.path.exists(p):
+        return R_AIR, GAMMA, None
+    for line in open(p, encoding="utf-8", errors="replace"):
+        tok = line.split()
+        if len(tok) < 9:
+            continue
+        try:
+            v = [float(t) for t in tok]
+        except ValueError:
+            continue
+        if abs(sum(v) - 1.0) < 1e-4:
+            R, g = mixture_R_gamma(v)
+            return R, g, v
+    return R_AIR, GAMMA, None
 G1 = GAMMA - 1.0
 G4 = 2.0 * GAMMA / (GAMMA - 1.0)
 G5 = (GAMMA - 1.0) / (2.0 * GAMMA)
@@ -341,7 +394,7 @@ def implied_gamma(P_bar, V, T_degC, PD, lo=1.28, hi=1.44, n=321):
 
 def _pchar(P_bar, V, T_degC, G):
     g1, g4, g5 = G - 1.0, 2.0 * G / (G - 1.0), (G - 1.0) / (2.0 * G)
-    a = np.sqrt(G * R_AIR * (np.asarray(T_degC, dtype=float) + 273.15))
+    a = np.sqrt(G * _R_RUN * (np.asarray(T_degC, dtype=float) + 273.15))
     Pg = np.power(np.asarray(P_bar, dtype=float), g5)
     e = g1 * np.asarray(V, dtype=float) / (2.0 * a)
     p_der = np.power(np.clip((Pg * (1.0 + e) + 1.0) / 2.0, 1e-12, None), g4)
@@ -362,7 +415,7 @@ def characteristics(P_bar, V, T_degC):
     a validity gate. The real gate is G2: compare against the solver's own
     TipoVar 6/7 output (Source/1DPipes/TTubo.cpp:3292-3299).
     """
-    a = np.sqrt(GAMMA * R_AIR * (np.asarray(T_degC, dtype=float) + 273.15))
+    a = np.sqrt(GAMMA * _R_RUN * (np.asarray(T_degC, dtype=float) + 273.15))
     Pg = np.power(np.asarray(P_bar, dtype=float), G5)
     e = G1 * np.asarray(V, dtype=float) / (2.0 * a)
     p_der = np.power(np.clip((Pg * (1.0 + e) + 1.0) / 2.0, 1e-12, None), G4)
@@ -438,6 +491,10 @@ def census(wd, rpm, labels, geom, n_cyc_use=8, want_cycles=None):
     ins = os.path.join(wd, "cellINS.DAT")
     if not os.path.exists(ins):
         return {"rpm": rpm, "error": "no INS.DAT (run did not reach natural end)"}
+    # Stage 93: pin the gas properties to THIS deck's species vector before any
+    # sound speed is computed, so f_quarter reflects the run instead of air.
+    global _R_RUN, _G_RUN
+    _R_RUN, _G_RUN, _comp = deck_R_gamma(wd)
     df = OpenWAMOutputParser.parse_ins_dat(ins)
     stations, ang_j = parse_stations(df)
     bad = gate_label_mapping(stations, labels, geom)
@@ -498,7 +555,7 @@ def census(wd, rpm, labels, geom, n_cyc_use=8, want_cycles=None):
                 "cols": {k: int(v) for k, v in cmap.items()},
             }
             if T is not None:
-                d["a_ms"] = float(np.sqrt(GAMMA * R_AIR * (d["mean_T_degC"] + 273.15)))
+                d["a_ms"] = float(np.sqrt(_G_RUN * _R_RUN * (d["mean_T_degC"] + 273.15)))
             if V is not None and T is not None:
                 Xp, Xm, pd_, pi_, a, resid = characteristics(P, V, T)
                 resid_max = max(resid_max, resid)
@@ -724,6 +781,8 @@ def census(wd, rpm, labels, geom, n_cyc_use=8, want_cycles=None):
                          "parts": parts}
     fq = [t["f_quarter_hz"] for t in tracts.values()]
     res["m2"] = {
+        "gas": {"R_JkgK": _R_RUN, "gamma": _G_RUN, "composition": _comp,
+                "note": "from this deck's species vector, NOT hardcoded air"},
         "tracts": tracts,
         "tracts_incomplete": incomplete,
         "f_quarter_hz_mean": float(np.mean(fq)) if fq else None,
