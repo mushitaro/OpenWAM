@@ -367,6 +367,45 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
                                         (fabs(sonido_ant_ad) + 0.01) >
                                     1e-4);
 
+    // ---------------------------------------------------------------------
+    // Stage 102 (OPENWAM_T12_CONS=1, default off = byte-identical behavior):
+    // enforce TRUE mass conservation at the branch. The iteration above
+    // closes  sum(A_i * u_i / AA_i^2) = 0  -- a linearised continuity that is
+    // exact only when rho_i ~ 1/AA_i^2 (i.e. gamma = 2). The real
+    // (non-dimensional) density is rho_i ~ (a/AA_i)^(2/G1)  (exponent 5 at
+    // gamma = 1.4), so whenever the branch entropies differ -- exactly the
+    // hot-backflow condition of the intake eq-rail -- the solved state has
+    // sum(rho_i u_i A_i) != 0 and the junction fabricates or destroys mass.
+    // Measured on the engine deck (Stage 101b): 0.0144 kg/s total, top sites
+    // all eq-rail T12s, starving the ports of the duct's entire inflow.
+    // Correction: subtract the common velocity shift du = err / sum(rho_j A_j)
+    // from every branch, which zeroes sum(rho u A) exactly while preserving
+    // the solved sound speed and entropies (first order in du).
+    {
+      static int consGate = -1;
+      if (consGate < 0)
+        consGate = (getenv("OPENWAM_T12_CONS") != NULL) ? 1 : 0;
+      if (consGate) {
+        double err = 0.0, wsum = 0.0;
+        double rhoA[26];
+        const double ex = 2.0 / FGamma1;
+        for (int i = 0; i < FNumeroTubosCC && i < 26; i++) {
+          double AA = FEntropia[i];
+          if (!(AA > 1e-12) || !std::isfinite(AA)) AA = 1.0;
+          double rho = pow(sonido_supuesta_ad / AA, ex);
+          if (!std::isfinite(rho) || rho <= 0.0) rho = 1.0;
+          rhoA[i] = rho * FSeccionTubo[i];
+          err += rhoA[i] * FVelocity[i];
+          wsum += rhoA[i];
+        }
+        if (std::isfinite(err) && wsum > 1e-12) {
+          const double du = err / wsum;
+          for (int i = 0; i < FNumeroTubosCC && i < 26; i++)
+            FVelocity[i] -= du;
+        }
+      }
+    }
+
     if (TuboCalculado != 10000) {
       corr_entropia =
           FTuboExtremo[TuboCalculado].Entropia / FEntropia[TuboCalculado];
