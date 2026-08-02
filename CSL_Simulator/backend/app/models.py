@@ -235,12 +235,16 @@ class HeadConfig(BaseModel):
     # conversion is the intake plenum (and its 50φ×700mm flap-pipe is REMOVED, so
     # the modelled short-snorkel intake matches the real hardware). Cam offsets use
     # the CSL stock DME VANOS schedule.
-    intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0)
-    # Stage 101: exhaust max_lift corrected 11.2 -> 11.8 mm. The owner cannot
-    # measure the valve directly but EVERY S54 document quotes 11.8 mm for BOTH
-    # cams; 11.2 had no recorded provenance. Input correction, owner-approved
-    # (2026-08-02); golden hashes re-recorded for this deliberate change.
-    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0, diameter=30.5)
+    intake_valve: ValveConfig = ValveConfig(max_lift=11.3, duration=260.0)  # Stage 109: official graph 11.3
+    # Stage 109: BOTH lifts corrected to 11.3 mm from the official BMW double-
+    # VANOS valve-timing graph (S50B32 lift diagram, T005-1052; the owner shared
+    # it 2026-08-03 and directs that the curve and lift carry over to S54 -- the
+    # table in the same document lists S54B32 260/260 with spreads 70-130 /
+    # -83..-128, matching our VANOS mapping exactly). Supersedes the interim
+    # 11.8 guess of Stage 101. The graph also pins the PROFILE: cos^1.6
+    # reproduces both the graph's ~5-6 mm overlap-TDC lifts and the Cat Cams
+    # S54-family duration@1mm of ~222 deg (OPENWAM_LIFT_EXP=1.6).
+    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.3, duration=260.0, diameter=30.5)
     intake_port: PortConfig = PortConfig(diameter=52.0, length=105.0) # S54 CSL Spec
     exhaust_port: PortConfig = PortConfig(diameter=48.0, length=90.0)  # S54 CSL Spec
     port_friction: float = 0.05 # F1-Spec Port Job (was 0.3-0.5)

@@ -1,17 +1,17 @@
 {
-  "recorded_at_commit": "efea94c565146cd12e2350948b5a11e1af0a8c53",
+  "recorded_at_commit": "e6bfcd3f1e7d9274f7d3d3fc320cbde0f22e4d9e",
   "hashes": {
-    "wot_fast": "a424f2988dcc0aa70ce0edf6daf34f0604c0c434b072ea26f32922ac5ed5edea",
-    "wot_full": "7fd30872fdcd363493d211474e6bc056fa34d496222d6ce234f425e0299b76da",
-    "pl20_fast": "2fd404541e8fdec9604d2d73a2f373227632b51a2b637f5043b365f0c4058882",
-    "pl20_full": "ebad99d480c6f6a376ee3b2d3f4b3958b53ad249608130d5015c45270a599d9f",
-    "chain_fast": "9b852f4fa2fbc6c87748c4796159d89c46ae9a00e3e3b7fab06e7bdf03cdbe3d",
-    "chain_full": "4ea4ea3c969af27920010cfbde7a5096aff6e65da1f2c1ff6708fddbfd65cebe",
-    "pure_wot_fast": "9b0a86affb7c5d4fd1648db7d69e83dfcc62dbcf0f541f6327488a4909a1a98f",
-    "pure_wot_full": "9a19bf6bf7389939f35f1450249554b105e440814d83cce233d4b25a932a36b0",
-    "pure_pl20_fast": "ba27b8055f78ac2d27303fbfe344ae86fa29464efc30234c842945c32da94a58",
-    "pure_pl20_full": "965a92bd8c32d86e99ab90293897e90896f9b9ba684eabf886233442f73433dd",
-    "pure_delta_fast": "88561a7899773858c25378e610300b29283d67378d285e7c02d9dccbf01a4c05",
-    "pure_delta_full": "af252541a869b08ffb08ec73c969a6b99c0ffdca6e26c88a38e2eee7c747a55d"
+    "wot_fast": "d6b42bf52ae2c8b355b5c5bed5ac21da3e89c26d36045a81ad1eac3a13a31203",
+    "wot_full": "cbb2a0660e54019677a4054082eea6d076928ef96854d8d0c4c8a6b2830f31ba",
+    "pl20_fast": "dd674c72988a44185e39a7a7e229000d56c76dc88d170e09fdb4f374cf1a7b9b",
+    "pl20_full": "852926a5a83dccbd0df3dd577da9ba5eab8778d1953337d0d6cc4cd7c18933a9",
+    "chain_fast": "59db2f7e3082e8cba72aea3228c5898f85e8ad75703a9338b6f9ef6c7200e5bc",
+    "chain_full": "1fa4c3b192cec7882eb34aae87816f6b055068b47dd748fd7e0cf2f943caff5b",
+    "pure_wot_fast": "b942a24e570e00b288d82d8a35672ecd92bafc2719372b6278ff4fb7eba964a4",
+    "pure_wot_full": "94e3f177e2191558be4139783eb2468fa3826d1e60c1e9f0e84532ff0078cdc0",
+    "pure_pl20_fast": "563a2c068b3e51dfc46609e0f8aba4f7c413a7ea17f0010fa3225280d62eb7f7",
+    "pure_pl20_full": "3e40d515f09328699a2926eb28214599accd23511d55bdd2a096fdfcb61a849b",
+    "pure_delta_fast": "69ac1724090a29e925deacff5714cb379a047cc21e0ccba963056c1cf2398aa9",
+    "pure_delta_full": "b1686d2c23ee6270ab83649a4d9477d2e8a5fea547db8311fe7e2616c848b0cc"
   }
 }
