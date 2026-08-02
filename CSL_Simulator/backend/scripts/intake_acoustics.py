@@ -93,7 +93,11 @@ MON_RE = re.compile(
     r"^(Bellmouth_\d+|Runner_Upper_\d+|Runner_Lower_\d+|Port_In_\d+_1"
     r"|EqRail_Tap_\d+|EqRail_Seg_\w+|EqRail_Return|EqTube_Stub_\d+"
     r"|Head_Return|CSL_Intake_Pipe|Duct_Core|Duct_Exit|Duct_Seg_\d+|CSL_Panel_Filter"
-    r"|PlenumConn_\d+|PlenumBox_\w+)$")
+    r"|PlenumConn_\d+|PlenumBox_\w+"
+    # Stage 106 (IA_MON_EXTRA): opt-in extra labels, e.g. the exhaust side for
+    # the scavenging question. Unset -> unchanged monitor set.
+    + (("|" + os.environ["IA_MON_EXTRA"]) if os.environ.get("IA_MON_EXTRA") else "")
+    + r")$")
 
 # The runner tract, in acoustic order from the plenum mouth to the valve.
 # Used for the travel-time / quarter-wave estimate (M2).
