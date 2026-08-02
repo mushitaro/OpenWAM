@@ -236,7 +236,11 @@ class HeadConfig(BaseModel):
     # the modelled short-snorkel intake matches the real hardware). Cam offsets use
     # the CSL stock DME VANOS schedule.
     intake_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0)
-    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.2, duration=260.0, diameter=30.5)
+    # Stage 101: exhaust max_lift corrected 11.2 -> 11.8 mm. The owner cannot
+    # measure the valve directly but EVERY S54 document quotes 11.8 mm for BOTH
+    # cams; 11.2 had no recorded provenance. Input correction, owner-approved
+    # (2026-08-02); golden hashes re-recorded for this deliberate change.
+    exhaust_valve: ValveConfig = ValveConfig(max_lift=11.8, duration=260.0, diameter=30.5)
     intake_port: PortConfig = PortConfig(diameter=52.0, length=105.0) # S54 CSL Spec
     exhaust_port: PortConfig = PortConfig(diameter=48.0, length=90.0)  # S54 CSL Spec
     port_friction: float = 0.05 # F1-Spec Port Job (was 0.3-0.5)

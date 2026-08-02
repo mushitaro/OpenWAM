@@ -2507,10 +2507,24 @@ class WAMGenerator:
             progress = i / (num_lev - 1)
             ang = (progress - 0.5) * duration
             
-            # Harmonic Cosine Profile
+            # Harmonic Cosine Profile.
+            # Stage 101 (OPENWAM_LIFT_EXP, default 1.0 = byte-identical): the
+            # half-cosine is far FATTER than any real cam flank -- at the
+            # measured VANOS MOPs it holds the intake 7.6 mm and the exhaust
+            # 5.4 mm open SIMULTANEOUSLY at gas-exchange TDC (a real S54 sits
+            # near 1.5-2.5 mm there). That ~+-60 deg blow-through window is what
+            # lets the network settle into the BACKWARD-breathing attractor
+            # (tailpipes ingest ambient, duct exhales -- Stage 100/101), which
+            # in turn produces the 95 degC intake, fresh% -> 1%, the dead
+            # ambient-temperature response and the flat VE curve. cos^p thins
+            # the flanks while keeping the nose and the exact MOP/duration;
+            # p=3 puts TDC lifts near 3.2/1.6 mm. DIAGNOSTIC, not a fit: p is
+            # a shape parameter to be replaced by the documented S54 lift curve
+            # if the owner can source it.
             if abs(ang) <= half_dur:
                 rad = (ang / half_dur) * (math.pi / 2.0)
-                l = max_lift_m * math.cos(rad)
+                _lift_exp = float(_os.environ.get("OPENWAM_LIFT_EXP", "1.0"))
+                l = max_lift_m * (math.cos(rad) ** _lift_exp)
                 if l < 0: l = 0.0
             else:
                 l = 0.0

@@ -137,7 +137,7 @@
       },
       "exhaust_valve": {
         "lift_profile": "Stock",
-        "max_lift": 11.2,
+        "max_lift": 11.8,
         "duration": 260,
         "diameter": 30.5,
         "open_angle_base": 130,

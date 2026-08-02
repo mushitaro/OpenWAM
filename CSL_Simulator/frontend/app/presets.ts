@@ -78,7 +78,7 @@ export const LEGACY_NEUTRAL: SimConfig = {
             intake_port: { length: 105, diameter: 52, wall_temp: 400 },
             exhaust_port: { length: 90, diameter: 48, wall_temp: 800 },
             intake_valve: { lift_profile: "Stock", max_lift: 11.8, duration: 260, diameter: 35, open_angle_base: 350, flow_coeff_map: "S54_In" },
-            exhaust_valve: { lift_profile: "Stock", max_lift: 11.2, duration: 260, diameter: 30.5, open_angle_base: 130, flow_coeff_map: "S54_Ex" },
+            exhaust_valve: { lift_profile: "Stock", max_lift: 11.8, duration: 260, diameter: 30.5, open_angle_base: 130, flow_coeff_map: "S54_Ex" },
         },
     },
     exhaust: {
