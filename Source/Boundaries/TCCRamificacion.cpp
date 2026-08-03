@@ -383,8 +383,13 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
     // the solved sound speed and entropies (first order in du).
     {
       static int consGate = -1;
-      if (consGate < 0)
+      if (consGate < 0) {
         consGate = (getenv("OPENWAM_T12_CONS") != NULL) ? 1 : 0;
+        // One-shot proof the gate was evaluated: Stage 103's rail test showed
+        // zero effect and it was never verified whether this code even ran.
+        printf("T12_CONS gate: %s\n", consGate ? "ACTIVE" : "off");
+        fflush(stdout);
+      }
       if (consGate) {
         double err = 0.0, wsum = 0.0;
         double rhoA[26];

@@ -5584,10 +5584,22 @@ void TTubo::Calculo_Entropia(double &entropia, double &velocidadp, int ind,
     double gamma3p = __Gamma::G3(gammap);
     double gamma5p = __Gamma::G5(gammap);
     velocidadp = w1 / w0;
-    rhop = w0 / __geom::Circle_area(diamep);
+    // Stage 112 (OPENWAM_BC_AREAFIX=1, default off): w0..w2 are interpolated
+    // AREA-WEIGHTED conserved quantities, so the consistent area is the
+    // interpolated AREA, not Circle_area(interpolated D). For a tapered pipe
+    // interp(A) != Circle_area(interp D) (A ~ D^2), which biases rho/pressure
+    // and hence entropy at the characteristic origin -- the Stage-81 N2
+    // mechanism: zero for straight pipes, largest for strong tapers (the
+    // PlenumBox adapters and the intake duct). Audit: the box1d T6 adapter
+    // joints fabricate 0.019/0.016/0.012 kg/s (Stage 111).
+    static const bool _bcAreaFix = (getenv("OPENWAM_BC_AREAFIX") != NULL);
+    double _areap = __geom::Circle_area(diamep);
+    if (_bcAreaFix && dist < 1. && dist > 0)
+      _areap = Interpola(FArea[ind], FArea[ind1], 1., dist);
+    rhop = w0 / _areap;
     double asonidop = sqrt(gammap * gamma1p * (w2 / w0 - pow2(velocidadp) / 2));
     double presionp = __units::PaToBar((w2 - pow2(w1) / 2. / w0) * gamma1p /
-                                       __geom::Circle_area(diamep));
+                                       _areap);
     double entropiap = asonidop / pow(presionp, gamma5p);
     entropia = entropiap;
 
@@ -5766,8 +5778,13 @@ void TTubo::Calculo_Caracteristica(double &caracteristica, double &velocidadp,
     /* variacion debida a la variacion entropia */
     /* ---------------------------------------- */
 
+    // Stage 112: same area-consistency fix as Interpola_Caracteristica.
+    static const bool _bcAreaFix2 = (getenv("OPENWAM_BC_AREAFIX") != NULL);
+    double _areap2 = __geom::Circle_area(diamep);
+    if (_bcAreaFix2 && dist < 1. && dist > 0)
+      _areap2 = Interpola(FArea[ind], FArea[ind + signo], 1., dist);
     double presionp = __units::PaToBar((w2 - pow2(w1) / 2. / w0) * gamma1p /
-                                       __geom::Circle_area(diamep));
+                                       _areap2);
     double entropiap = asonidop / pow(presionp, gamma5p);
     double increentropia = entropia * __cons::ARef - entropiap;
     double daen = asonidop * increentropia / entropiap;
