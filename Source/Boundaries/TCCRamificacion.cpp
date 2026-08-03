@@ -323,8 +323,25 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
       /* Determinacion de la velocidad del sonido en la ramificacion. */
       suma1 = 0.;
       suma2 = 0.;
+      // Stage 116 (OPENWAM_T12_CONS=2): gamma-consistent MASS closure. The
+      // legacy exponent 2 makes the a-solve close sum(A*u/AA^2)=0, which is
+      // mass conservation only if rho ~ 1/AA^2 (gamma = 2). The real
+      // non-dimensional density is rho ~ (a/AA)^(2/G1) (exponent 5 at 1.4);
+      // since the common a^(2/G1) factors out of every term, the EXACT
+      // sum(rho*u*A)=0 closure is the same closed form with exponent 2/G1.
+      // This is where the T12 fabrication actually arises (the du
+      // post-correction of Stage 102 fired but moved nothing).
+      static int consExp = -1;
+      if (consExp < 0) {
+        const char *ec = getenv("OPENWAM_T12_CONS");
+        consExp = (ec && ec[0] == '2') ? 2 : 0;
+        if (consExp)
+          printf("T12_CONS v2: gamma-consistent closure exponent 2/G1\n");
+      }
+      const double _entExp = consExp ? (2.0 / FGamma1) : 2.0;
       for (int i = 0; i < FNumeroTubosCC; i++) {
-        double ent2 = pow2(FEntropia[i]);
+        double ent2 = consExp ? pow(FEntropia[i], _entExp)
+                              : pow2(FEntropia[i]);
         if (ent2 < 1e-12 || std::isnan(ent2))
           ent2 = 1.0;
         suma1 = suma1 + (*FCC[i]) * FSeccionTubo[i] / ent2;
