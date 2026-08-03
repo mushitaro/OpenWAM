@@ -1,0 +1,28 @@
+{
+ "rpm": 2400.0,
+ "error": "no INS.DAT (run did not reach natural end)",
+ "tag": "s86_open80",
+ "sets": {
+  "intake.eq_tube.enabled": "false"
+ },
+ "cycles_requested": 80,
+ "binary": "C:/Users/kazuh/OpenWAM/build_audit/bin/release/OpenWAM.exe",
+ "binary_sig": "1443328:1785269582",
+ "env_result": {
+  "OPENWAM_HLLC": "1",
+  "OPENWAM_THR_CHOKE": "1",
+  "OPENWAM_THR_AGAIN": null,
+  "OPENWAM_MOUTH_RAD": "0.6",
+  "OPENWAM_MOUTH_RAD_W": "0.005",
+  "OPENWAM_VEDIAG": "1",
+  "OPENWAM_K_CEIL": null,
+  "OPENWAM_FAST_OUTPUT": null,
+  "OPENWAM_MOUTH_RAD_SKIP_CC": null,
+  "OPENWAM_MOUTH_RAD_T12_CC": null,
+  "OPENWAM_CAM_EXP": null,
+  "OPENWAM_BOX_MODE": null,
+  "OPENWAM_BOX_MODE_CC1": null,
+  "OPENWAM_BOX_MODE_CC2": null,
+  "OPENWAM_MEP_FUEL_V2": null
+ }
+}
