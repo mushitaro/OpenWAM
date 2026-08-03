@@ -5143,3 +5143,8 @@ env ゲートで `Interpola(FArea[ind], FArea[ind1])` に置換。直管では�
 (= 既存の解は非整合性の上でバランスしていた)。
 変数分離: `s113_af3900` = **健全 plenum スタック + AREAFIX のみ**(bellmouth/port のテーパーに効く)。
 健全スタックまで壊れるなら (a) パッチのバグ。健全なままなら box1d 固有の相互作用。
+
+### Stage 113 判定: AREAFIX 単独は健全(パッチは正しい)
+plenum スタック + AREAFIX @3900: clean、**VE 107.5(+0.7)、fresh 87.3(+5.1 改善)**、G8/G9 緑。
+⇒ パッチのバグ説は棄却。s112 の悪化は T12_CONS との相互作用か box1d 固有。
+切り分け: `s114_bxaf*` = box1d + AREAFIX のみ(T12_CONS 抜き)。
