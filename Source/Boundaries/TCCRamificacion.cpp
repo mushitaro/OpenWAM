@@ -331,16 +331,19 @@ void TCCRamificacion::CalculaCondicionContorno(double Time) {
       // sum(rho*u*A)=0 closure is the same closed form with exponent 2/G1.
       // This is where the T12 fabrication actually arises (the du
       // post-correction of Stage 102 fired but moved nothing).
-      static int consExp = -1;
-      if (consExp < 0) {
-        const char *ec = getenv("OPENWAM_T12_CONS");
-        consExp = (ec && ec[0] == '2') ? 2 : 0;
-        if (consExp)
-          printf("T12_CONS v2: gamma-consistent closure exponent 2/G1\n");
+      // Stage 117: the exponent is decided EMPIRICALLY (candidate derivations
+      // give 0, 2 or 2/G1=5, and 5 destabilised the exhaust collectors).
+      // OPENWAM_T12_EXP=<float> overrides; unset = legacy 2, byte-identical.
+      static double consExpVal = -1.0;
+      if (consExpVal < 0.0) {
+        const char *ec = getenv("OPENWAM_T12_EXP");
+        consExpVal = ec ? atof(ec) : 2.0;
+        if (ec)
+          printf("T12 closure exponent override: %.3f\n", consExpVal);
       }
-      const double _entExp = consExp ? (2.0 / FGamma1) : 2.0;
+      const bool consExp = (consExpVal != 2.0);
       for (int i = 0; i < FNumeroTubosCC; i++) {
-        double ent2 = consExp ? pow(FEntropia[i], _entExp)
+        double ent2 = consExp ? pow(FEntropia[i], consExpVal)
                               : pow2(FEntropia[i]);
         if (ent2 < 1e-12 || std::isnan(ent2))
           ent2 = 1.0;
