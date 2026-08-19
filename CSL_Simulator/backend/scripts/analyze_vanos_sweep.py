@@ -38,7 +38,8 @@ ALIASES = {
     "avan1_soll": ["avan1_soll", "avansoll", "avan_soll"],
     "la1": ["la_f_regler1", "la1", "stft1", "lambda1"],
     "la2": ["la_f_regler2", "la2", "stft2", "lambda2"],
-    "pedal": ["pedal"],
+    "pedal": ["pedal", "pwg"],
+    "wdk1": ["wdk1", "throttle", "wdk"],
     "cmd_intake": ["cmd_intake", "cmd_in"],
     "cmd_exhaust": ["cmd_exhaust", "cmd_ex"],
     "tz1": ["tz1"], "tabg": ["tabg"],
@@ -47,6 +48,12 @@ RPM_BIN = 300
 ANALYSIS_MIN_RPM = 2700
 IST_SOLL_TOL = 2.0     # deg, both banks
 PEDAL_MIN = 99
+WDK_MIN = 90.0         # % throttle, fallback WOT gate when pedal is absent
+# Block 3 is polled sparsely (1-in-8) in the recommended logger profile, so most
+# rows carry no pedal/wdk1 at all. Forward-fill them per recording before gating:
+# without this, an off-throttle deceleration sample has pedal=None, the WOT gate
+# is skipped, and it is counted as valid WOT data -- silently poisoning the mean.
+FILL_MAX_MS = 4000.0   # how long a block-3 reading stays representative
 
 
 def _canon(headers: List[str]) -> Dict[str, str]:
@@ -85,7 +92,34 @@ def load_samples(path: str) -> List[dict]:
             s["_cmd_in_raw"] = (ci or "").strip()
             s["_cmd_ex_raw"] = (ce or "").strip()
             rows.append(s)
+    _fill_throttle(rows)
     return rows
+
+
+def _fill_throttle(rows: List[dict]) -> None:
+    """Forward-fill pedal/wdk1 across sparse block-3 rows (see FILL_MAX_MS).
+
+    Marks each row's throttle as stale (`_thr_stale`) when the last block-3
+    reading is older than FILL_MAX_MS, so gating can reject rather than assume."""
+    last: Dict[str, Optional[float]] = {"pedal": None, "wdk1": None}
+    last_t: Optional[float] = None
+    for s in rows:
+        t = s.get("t_ms")
+        fresh = s.get("pedal") is not None or s.get("wdk1") is not None
+        if fresh:
+            for k in ("pedal", "wdk1"):
+                if s.get(k) is not None:
+                    last[k] = s[k]
+            last_t = t
+            s["_thr_stale"] = False
+            continue
+        age = None if (t is None or last_t is None) else abs(t - last_t)
+        stale = last_t is None or (age is not None and age > FILL_MAX_MS)
+        s["_thr_stale"] = stale
+        if not stale:
+            for k in ("pedal", "wdk1"):
+                if s.get(k) is None and last[k] is not None:
+                    s[k] = last[k]
 
 
 def _is_baseline(s: dict) -> bool:
@@ -102,7 +136,18 @@ def _la(s: dict) -> Optional[float]:
 def _valid(s: dict) -> bool:
     if s.get("rpm") is None or s["rpm"] < ANALYSIS_MIN_RPM:
         return False
-    if s.get("pedal") is not None and s["pedal"] < PEDAL_MIN:
+    # WOT gate: require positive evidence. pedal preferred, wdk1 as fallback;
+    # if neither is known (or the filled value is stale) the sample is rejected.
+    if s.get("_thr_stale"):
+        return False
+    ped, wdk = s.get("pedal"), s.get("wdk1")
+    if ped is not None:
+        if ped < PEDAL_MIN:
+            return False
+    elif wdk is not None:
+        if wdk < WDK_MIN:
+            return False
+    else:
         return False
     for ist, soll in (("evan1_ist", "evan1_soll"), ("avan1_ist", "avan1_soll")):
         vi, vs = s.get(ist), s.get(soll)
