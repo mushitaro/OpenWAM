@@ -1167,12 +1167,16 @@ const VehicleBuilder = () => {
                     </div>
                 )}
 
-                {/* --- LIVE (DS2) MODE (Stage 76) --- */}
-                {mainTab === "live" && (
-                    <div className="h-full p-6">
-                        <LiveTelemetry />
-                    </div>
-                )}
+                {/* --- LIVE (DS2) MODE (Stage 76) ---
+                    Mounted ALWAYS, hidden when another tab is active, rather than
+                    mounted conditionally. Unmounting tears down the DS2 link (its
+                    cleanup calls disconnect) and drops the in-memory recording —
+                    so on the road, one stray tap on Builder mid-sweep would cost
+                    the drive. Hiding costs a laid-out subtree; unmounting costs
+                    the data. */}
+                <div className={mainTab === "live" ? "h-full p-6" : "hidden"}>
+                    <LiveTelemetry />
+                </div>
             </div>
         </div>
     );

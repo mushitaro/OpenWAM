@@ -11,6 +11,7 @@ import { WebSerialTransport } from "../lib/dme-link/webSerialTransport";
 import { WebSerialDmeLink } from "../lib/dme-link/webSerialDmeLink";
 import { MockDmeLink } from "../lib/dme-link/mockDmeLink";
 import { saveTelemetryLog } from "../app/api";
+import VanosSweepPanel from "./VanosSweepPanel";
 
 /**
  * Stage 76 — Live DS2 telemetry: connect to the real MSS54 DME over a K-line
@@ -41,7 +42,10 @@ const CSV_COLUMNS: { header: string; get: (s: LiveSample) => number | string }[]
     { header: "avan1_soll", get: s => s.avanSoll ?? "" },
     { header: "Lambdaintegrator 1", get: s => s.stft1 ?? "" },
     { header: "Lambdaintegrator 2", get: s => s.stft2 ?? "" },
+    { header: "Luftmasse", get: s => s.ml ?? "" },
     { header: "Kuehlmitteltemperatur", get: s => s.coolant ?? "" },
+    { header: "Oeltemperatur", get: s => s.oil ?? "" },
+    { header: "Abgastemperatur", get: s => s.exhaustTemp ?? "" },
     { header: "Ansauglufttemperatur", get: s => s.iat ?? "" },
     { header: "Umgebungsdruck", get: s => s.ambientPressure ?? "" },
     { header: "Pedalwert", get: s => s.pedal ?? "" },
@@ -53,6 +57,16 @@ const CSV_COLUMNS: { header: string; get: (s: LiveSample) => number | string }[]
     { header: "Zuendwinkel 5", get: s => s.tz?.[4] ?? "" },
     { header: "Zuendwinkel 6", get: s => s.tz?.[5] ?? "" },
     { header: "Geschwindigkeit", get: s => s.speed ?? "" },
+    { header: "Umgebungstemperatur", get: s => s.ambientTemp ?? "" },
+    { header: "Batteriespannung", get: s => s.battV ?? "" },
+    { header: "Drosselklappe Sollwert", get: s => s.throttleTarget ?? "" },
+    { header: "dr_rel", get: s => s.drRel ?? "" },
+    { header: "Fuellungsregler", get: s => s.frRegler ?? "" },
+    { header: "Ansaugklappe", get: s => s.flapPos ?? "" },
+    // The sweep's setting label. Without these a saved log cannot be analysed
+    // on its own -- every sample would look like baseline.
+    { header: "cmd_intake", get: s => s.cmdIntake ?? "base" },
+    { header: "cmd_exhaust", get: s => s.cmdExhaust ?? "base" },
 ];
 
 function toCsv(samples: LiveSample[]): string {
@@ -108,8 +122,17 @@ const LiveTelemetry: React.FC = () => {
     const [savedPath, setSavedPath] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
 
+    const [subView, setSubView] = useState<"telemetry" | "sweep">("telemetry");
+
     const [chartBoxRef, chartBox] = useElementSize();
     const linkRef = useRef<DmeTelemetryLink | null>(null);
+    /** Latest sample as a ref: the sweep's ramp/arrival loop polls it without
+     *  re-rendering, the way the poll loop already treats the hot path. */
+    const latestRef = useRef<LiveSample | null>(null);
+    /** Commanded cam state, read by the poll loop to stamp each sample. Held as
+     *  a ref by the sweep hook so a command mid-pull lands on the very next
+     *  sample rather than a render later. */
+    const sweepCmdRef = useRef<{ intake: number | null; exhaust: number | null }>({ intake: null, exhaust: null });
     const pollingRef = useRef(false);
     const blocksRef = useRef<LiveBlockSelection[]>(blocks);
     const recordingRef = useRef(false);
@@ -162,6 +185,13 @@ const LiveTelemetry: React.FC = () => {
             try {
                 const sample = await link.pollSample(blocksRef.current);
                 consecutiveErrors = 0;
+                // Stamp the sweep's commanded angles onto the sample itself, so
+                // the recording is analysable on its own — a saved log whose
+                // rows cannot say which setting they were taken under is just a
+                // drive log.
+                sample.cmdIntake = sweepCmdRef.current.intake;
+                sample.cmdExhaust = sweepCmdRef.current.exhaust;
+                latestRef.current = sample;
                 setLatest(sample);
 
                 const now = performance.now();
@@ -306,6 +336,33 @@ const LiveTelemetry: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-4 h-full overflow-auto p-1">
+            {/* sub-view. The link, the recording and the sweep all live in THIS
+                component, so switching views never tears down a running session
+                — only what is painted changes. */}
+            <div className="flex gap-1 bg-slate-900 p-1 rounded-md border border-slate-800 self-start">
+                {([["telemetry", "テレメトリ"], ["sweep", "VANOS 掃引"]] as const).map(([id, label]) => (
+                    <button key={id} onClick={() => setSubView(id)}
+                        className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${
+                            subView === id ? "bg-slate-800 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}>
+                        {label}
+                    </button>
+                ))}
+                {recording && (
+                    <span className="self-center ml-2 mr-1 flex items-center gap-1.5 text-[10px] text-red-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        記録中 {recCount.toLocaleString()}
+                    </span>
+                )}
+            </div>
+
+            {subView === "sweep" && (
+                <VanosSweepPanel
+                    linkRef={linkRef} latestRef={latestRef} latest={latest}
+                    connected={state === "connected"} recording={recording}
+                    recorded={recordedRef.current} cmdRef={sweepCmdRef} />
+            )}
+
+            <div className={subView === "telemetry" ? "flex flex-col gap-4" : "hidden"}>
             {/* connection bar */}
             <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex gap-1 bg-slate-900 p-1 rounded-md border border-slate-800">
@@ -468,6 +525,7 @@ const LiveTelemetry: React.FC = () => {
                     ハードウェアなしで試す場合は「モック」を選択 — 合成走行サイクルで全機能を確認できます。
                 </div>
             )}
+            </div>
         </div>
     );
 };

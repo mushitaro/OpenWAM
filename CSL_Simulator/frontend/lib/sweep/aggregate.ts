@@ -175,12 +175,17 @@ export function aggregateSweep(
 export function nextActions(agg: SweepAggregate, opts: Partial<SweepDefaults> = {}): string[] {
     const o = withDefaults(opts);
     const out: string[] = [];
+    // A missing baseline is one instruction, not one per rpm bin: repeating it
+    // for every bin buries the things that actually differ between them, and on
+    // a phone it fills the panel with a single fact said eight times.
+    const noAnchor = agg.bins.filter(b => !b.ready && b.anchor === null).map(b => b.rpm);
+    if (noAnchor.length) {
+        out.push(noAnchor.length >= 3
+            ? `基準（VANOS指令なし）のプルがまだありません。まず「基準」を選んで1本引いてください`
+            : `${noAnchor.join(' / ')} rpm: 基準（VANOS指令なし）のプルがまだありません`);
+    }
     for (const b of agg.bins) {
-        if (b.ready) continue;
-        if (b.anchor === null) {
-            out.push(`${b.rpm} rpm: 基準（VANOS指令なし）のプルがまだありません`);
-            continue;
-        }
+        if (b.ready || b.anchor === null) continue;
         const thin = b.points.filter(p => !p.satisfied);
         if (thin.length) {
             const worst = thin.sort((a, b2) => a.n - b2.n)[0];

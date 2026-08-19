@@ -23,6 +23,8 @@ export interface LiveSample {
     ml?: number;               // total air mass kg/h (model-derived on the MAF-less CSL)
     iat?: number;              // tan, intake air temp degC
     coolant?: number;          // tmot degC
+    oil?: number;              // toel degC (VANOS readiness precondition)
+    exhaustTemp?: number;      // tabg degC, 16 degC/LSB (the sweep's only thermal guard)
     ambientTemp?: number;      // tumg degC (CAN)
     ambientPressure?: number;  // pumg mbar
     ro?: number;               // aq_rel, relative opening cross-section % (THE map load axis)
@@ -52,6 +54,12 @@ export interface LiveSample {
     rfDrrel?: number;          // relative filling from Alpha-N (0-1)
     drRel?: number;            // relative throttle %
     flapPos?: number;          // gks CSL snorkel flap position (raw counts)
+
+    // --- sweep bookkeeping (not from the DME) ---
+    /** Cam angle this sample was recorded under; null = no override (baseline).
+     *  Stamped by the poll loop so a saved log is analysable on its own. */
+    cmdIntake?: number | null;
+    cmdExhaust?: number | null;
 }
 
 /** Block selections this app knows how to decode. */

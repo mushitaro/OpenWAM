@@ -115,6 +115,10 @@ export class MockDmeLink implements DmeTelemetryLink {
             sample.ml = Math.round(rf * rpm * 0.0011 * 4) / 4;
             sample.iat = 32 + this.noise(1);
             sample.coolant = 92 + this.noise(1);
+            sample.oil = 88 + this.noise(1);
+            // EGT climbs with load; 16 degC/LSB on the wire, so quantise it the
+            // way the real channel does or the UI's guard looks smoother than it is.
+            sample.exhaustTemp = Math.round((ro >= 95 ? 780 + rpm / 30 : 420 + ro * 3) / 16) * 16;
             sample.ambientTemp = 25;
             sample.ambientPressure = 995 + this.noise(2);
             sample.ro = Math.round(ro * 100) / 100;

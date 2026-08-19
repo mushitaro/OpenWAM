@@ -102,4 +102,18 @@ if (rs.map !== null) { failures++; console.log('  FAIL short-payload guard: map 
 else console.log('  ok   short-payload guard (map=null on truncated block)');
 
 if (failures > 0) { console.log(`${failures} FAILURE(S)`); process.exit(1); }
+// Stage 121: oil and EGT were not decoded at all, though the protocol calls EGT
+// the only thermal guard left on this car (rf_korr is zeroed in the owner tune).
+{
+    const b3 = new Uint8Array(35);
+    b3[12] = 130;          // toel raw -> 130 - 48 = 82 degC
+    b3[14] = 50;           // tabg raw (int7) -> 50 * 16 = 800 degC
+    const d = decodeBlock3(b3);
+    expectClose('toel = 82 degC', d.oil, 82);
+    expectClose('tabg = 800 degC', d.exhaustTemp, 800);
+    const neg = new Uint8Array(35);
+    neg[14] = 0xF6;        // -10 -> -160 degC: proves the sign extension
+    expectClose('tabg is signed', decodeBlock3(neg).exhaustTemp, -160);
+}
+
 console.log('all decoder checks passed');

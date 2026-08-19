@@ -15,8 +15,9 @@ import { LiveSample } from './types';
 
 /** Stamped into every recording's meta. Bump whenever a field's offset/format/
  *  scale changes, so a log can never be read with the wrong decode silently.
- *  v1 -> v2: aq_rel (RO) scale 100/215 (catalog, wrong) -> 100/32768. */
-export const DECODER_VERSION = 2;
+ *  v1 -> v2: aq_rel (RO) scale 100/215 (catalog, wrong) -> 100/32768.
+ *  v2 -> v3: block 3 gains toel (oil) and tabg (EGT); block 35 unchanged. */
+export const DECODER_VERSION = 3;
 
 export type FieldFormat = 'int7' | 'uint8' | 'uint10' | 'int15' | 'uint16';
 
@@ -67,6 +68,14 @@ export const BLOCK3 = {
         rf: F('rf', 8, 'uint16', 0.1),                        // % relative filling
         iat: F('tan', 10, 'uint8', 1.0, -48),                 // degC
         coolant: F('tmot', 11, 'uint8', 1.0, -48),
+        // Oil temperature: the DME's own VANOS readiness needs it above 40 degC,
+        // so a sweep that cannot read it cannot check its own precondition.
+        oil: F('toel', 12, 'uint8', 1.0, -48),
+        // Exhaust gas temperature. Coarse (16 degC/LSB, signed byte) but it is
+        // the ONLY protection left on this car: rf_korr, the DME's EGT-driven
+        // enrichment, is zeroed in the owner's tune. Without it on screen the
+        // sweep is running high load with no thermal guard at all.
+        exhaustTemp: F('tabg', 14, 'int7', 16.0),
         ambientTemp: F('tumg', 15, 'uint8', 1.0, -48),
         battV: F('ub', 16, 'uint8', 0.1),
         ambientPressure: F('pumg', 19, 'uint8', 3.0, 500),    // mbar
@@ -158,6 +167,8 @@ export function mergeSample(
         sample.ml = num(b3.ml);
         sample.iat = num(b3.iat);
         sample.coolant = num(b3.coolant);
+        sample.oil = num(b3.oil);
+        sample.exhaustTemp = num(b3.exhaustTemp);
         sample.ambientTemp = num(b3.ambientTemp);
         sample.ambientPressure = num(b3.ambientPressure);
         sample.ro = num(b3.ro);
