@@ -54,6 +54,10 @@ WDK_MIN = 90.0         # % throttle, fallback WOT gate when pedal is absent
 # without this, an off-throttle deceleration sample has pedal=None, the WOT gate
 # is skipped, and it is counted as valid WOT data -- silently poisoning the mean.
 FILL_MAX_MS = 4000.0   # how long a block-3 reading stays representative
+# Written by `npx tsx lib/sweep/sweep.test.ts` in the frontend.
+_DEFAULT_FIXTURE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "frontend", "lib", "sweep", "__fixtures__", "vertex_cases.json")
 
 
 def _canon(headers: List[str]) -> Dict[str, str]:
@@ -340,6 +344,51 @@ def _selftest() -> None:
     os.remove(tmp)
 
 
+def _run_fixture(path: str) -> int:
+    """Cross-implementation check: reproduce the TS engine's vertex cases.
+
+    The live coverage board is TypeScript (frontend/lib/sweep) and the verdict is
+    this file. They cannot share code, so they share a fixture — without it the
+    board drifts from the verdict and starts telling the driver a cell is done
+    when the analysis will refuse it. The fixture is written by
+    `npx tsx lib/sweep/sweep.test.ts`.
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        fx = json.load(f)
+    default_tol = float(fx.get("tolerance_deg", 0.05))
+    failures = 0
+    print(f"cross-implementation fixture: {os.path.basename(path)}")
+    for case in fx["cases"]:
+        xs = [float(p["x"]) for p in case["points"]]
+        ys = [float(p["y"]) for p in case["points"]]
+        want = case["expect"]
+        vx = _parabola_vertex(xs, ys)
+        got_ok = bool(vx and vx.get("concave") and vx.get("vertex") is not None)
+        # The TS side additionally refuses a vertex outside the swept range;
+        # mirror that here so both implementations answer the same question.
+        if got_ok:
+            lo, hi = min(xs), max(xs)
+            slack = float(fx.get("gates", {}).get("vertexRangeSlackDeg", 0.5))
+            if not (lo - slack <= vx["vertex"] <= hi + slack):
+                got_ok = False
+        if want["ok"] != got_ok:
+            failures += 1
+            print(f"  FAIL {case['name']}: expected ok={want['ok']}, got ok={got_ok}")
+            continue
+        if want["ok"]:
+            tol = float(case.get("tolerance_deg", default_tol))
+            got = vx["vertex"]
+            if abs(got - float(want["vertex"])) > tol:
+                failures += 1
+                print(f"  FAIL {case['name']}: vertex {got:.4f}, want {want['vertex']} (tol {tol})")
+            else:
+                print(f"  ok   {case['name']}: vertex {got:.4f}")
+        else:
+            print(f"  ok   {case['name']}: refused as expected ({want.get('reason', '')})")
+    print("fixture PASS" if failures == 0 else f"fixture FAILED ({failures})")
+    return 0 if failures == 0 else 1
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Stage 121 live VANOS sweep analyzer")
     ap.add_argument("csv", nargs="?", help="wide datalog CSV (see protocol section 8)")
@@ -348,8 +397,12 @@ def main() -> None:
     ap.add_argument("--compare", default=None,
                     help="stage120 cam_sensitivity.json to overlay dVE/d(cam)")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--fixture", nargs="?", const=_DEFAULT_FIXTURE, default=None,
+                    help="verify against the TS engine's shared vertex fixture")
     args = ap.parse_args()
 
+    if args.fixture:
+        raise SystemExit(_run_fixture(args.fixture))
     if args.selftest:
         _selftest()
         return

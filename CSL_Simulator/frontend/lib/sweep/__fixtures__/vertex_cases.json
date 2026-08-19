@@ -1,0 +1,153 @@
+{
+  "_comment": "Shared TS/Python fixture. Both implementations must reproduce these vertices within tol. TS: lib/sweep/sweep.test.ts. Python: backend/scripts/analyze_vanos_sweep.py --fixture.",
+  "tolerance_deg": 0.05,
+  "cases": [
+    {
+      "name": "exact-parabola-vertex-12",
+      "tolerance_deg": 0.01,
+      "points": [
+        {
+          "x": 0,
+          "y": 0.0011999999999999962
+        },
+        {
+          "x": 5,
+          "y": 0.0202
+        },
+        {
+          "x": 10,
+          "y": 0.0292
+        },
+        {
+          "x": 12,
+          "y": 0.03
+        },
+        {
+          "x": 15,
+          "y": 0.0282
+        },
+        {
+          "x": 20,
+          "y": 0.0172
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "vertex": 12
+      }
+    },
+    {
+      "name": "asymmetric-vertex-7.5",
+      "tolerance_deg": 0.05,
+      "points": [
+        {
+          "x": 0,
+          "y": -0.0025000000000000022
+        },
+        {
+          "x": 5,
+          "y": 0.0175
+        },
+        {
+          "x": 10,
+          "y": 0.0175
+        },
+        {
+          "x": 15,
+          "y": -0.0025000000000000022
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "vertex": 7.5
+      }
+    },
+    {
+      "name": "refuse-not-concave",
+      "points": [
+        {
+          "x": 0,
+          "y": 0.0098
+        },
+        {
+          "x": 5,
+          "y": 0.0008
+        },
+        {
+          "x": 10,
+          "y": 0.0018000000000000002
+        },
+        {
+          "x": 15,
+          "y": 0.0128
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "reason": "not-concave"
+      }
+    },
+    {
+      "name": "refuse-outside-range",
+      "points": [
+        {
+          "x": 0,
+          "y": -0.27
+        },
+        {
+          "x": 5,
+          "y": -0.195
+        },
+        {
+          "x": 10,
+          "y": -0.13
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "reason": "vertex-outside-range"
+      }
+    },
+    {
+      "name": "refuse-too-few",
+      "points": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 5,
+          "y": 0.01
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "reason": "too-few-points"
+      }
+    }
+  ],
+  "gates": {
+    "arrivalTolDeg": 2,
+    "arrivalTolDegOtherBank": 3,
+    "pedalMinPct": 99,
+    "wdkMinPct": 90,
+    "throttleFillMaxMs": 4000,
+    "settleSec": 0.6,
+    "maxRpmDriftPctPerSettle": 45,
+    "maxThrottleDriftPct": 8,
+    "minCoolantC": 75,
+    "minOilC": 40,
+    "lambdaClampLow": 0.8,
+    "lambdaClampHigh": 1.25,
+    "analysisMinRpm": 2700,
+    "rpmBinWidth": 300,
+    "minSamplesPerCell": 6,
+    "minVisitsPerCell": 2,
+    "visitGapMs": 3000,
+    "vertexRangeSlackDeg": 0.5,
+    "rampStepDeg": 2,
+    "rampIntervalMs": 150,
+    "arrivalTimeoutMs": 6000,
+    "keepAliveMs": 2000
+  }
+}
