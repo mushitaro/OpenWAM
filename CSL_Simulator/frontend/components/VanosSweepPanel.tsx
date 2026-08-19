@@ -135,7 +135,7 @@ const VanosSweepPanel: React.FC<{
                     <span className="text-[9px] uppercase tracking-widest text-slate-500">掃引するカム</span>
                     {(["intake", "exhaust"] as const).map(a => (
                         <button key={a} onClick={() => sweep.setAxis(a)} disabled={sweep.busy}
-                            className={`px-3 py-1 rounded text-[11px] border transition-colors disabled:opacity-40 ${
+                            className={`min-h-[40px] px-4 rounded text-[11px] border transition-colors disabled:opacity-40 ${
                                 sweep.axis === a
                                     ? "border-blue-500 bg-blue-500/15 text-blue-400"
                                     : "border-slate-700 text-slate-400 hover:border-slate-600"}`}>
@@ -149,14 +149,14 @@ const VanosSweepPanel: React.FC<{
 
                 <div className="flex flex-wrap items-center gap-2">
                     <button onClick={() => void sweep.goTo(null)} disabled={!sweep.supported || sweep.busy}
-                        className="px-3 py-1.5 rounded text-[11px] font-semibold border border-slate-700 text-slate-300
+                        className="min-h-[44px] px-4 rounded text-[11px] font-semibold border border-slate-700 text-slate-300
                                    hover:border-slate-600 disabled:opacity-40">
                         基準（指令なし）
                     </button>
                     {angles.map(a => (
                         <button key={a} onClick={() => void sweep.goTo(a)} disabled={!sweep.supported || sweep.busy}
-                            className={`px-3 py-1.5 rounded text-[11px] font-mono font-semibold border transition-colors
-                                        disabled:opacity-40 ${
+                            className={`min-h-[44px] min-w-[52px] px-3 rounded text-[11px] font-mono font-semibold border
+                                        transition-colors disabled:opacity-40 ${
                                 (sweep.axis === "intake" ? sweep.commandRef.current.intake : sweep.commandRef.current.exhaust) === a
                                     ? "border-blue-500 bg-blue-500/15 text-blue-400"
                                     : "border-slate-700 text-slate-300 hover:border-slate-600"}`}>
@@ -164,7 +164,7 @@ const VanosSweepPanel: React.FC<{
                         </button>
                     ))}
                     <button onClick={() => void sweep.abort()} disabled={!sweep.supported}
-                        className="ml-auto px-3 py-1.5 rounded text-[11px] font-semibold border border-red-500
+                        className="ml-auto min-h-[44px] px-4 rounded text-[11px] font-semibold border border-red-500
                                    text-red-400 hover:bg-red-500/10 disabled:opacity-40 flex items-center gap-1.5">
                         <Square className="w-3 h-3" /> 中止（マップ制御へ戻す）
                     </button>
@@ -199,12 +199,12 @@ const VanosSweepPanel: React.FC<{
                     </span>
                     <button onClick={() => void doUpload()}
                         disabled={uploading || !recorded.length || !canUpload(settings)}
-                        className="ml-auto px-3 py-1.5 rounded text-[11px] font-semibold border border-blue-500
+                        className="ml-auto min-h-[44px] px-4 rounded text-[11px] font-semibold border border-blue-500
                                    text-blue-400 hover:bg-blue-500/10 disabled:opacity-40">
                         {uploading ? "送信中…" : "アップロード"}
                     </button>
                     <button onClick={() => setShowSettings(v => !v)}
-                        className="px-2 py-1.5 rounded text-[11px] border border-slate-700 text-slate-400
+                        className="min-h-[44px] px-3 rounded text-[11px] border border-slate-700 text-slate-400
                                    hover:border-slate-600 flex items-center gap-1">
                         <KeyRound className="w-3 h-3" /> 設定
                     </button>

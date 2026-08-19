@@ -1,0 +1,17 @@
+{
+  // CSL SIM ///M — the simulator + live VANOS sweep tool.
+  //
+  // DELIBERATELY SEPARATE from the MSS54HP tuner (owner directive): its own
+  // Pages project, and it shares no Cloudflare resource with it. The sweep data
+  // it uploads goes to the vanos-sweep-collector Worker, which likewise has its
+  // own D1 and its own token.
+  //
+  // First-time setup:
+  //   npx wrangler pages project create csl-sim-m --production-branch master
+  // Deploy:
+  //   npm run deploy
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "csl-sim-m",
+  "compatibility_date": "2026-08-01",
+  "pages_build_output_dir": "out"
+}
