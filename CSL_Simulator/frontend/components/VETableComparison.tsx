@@ -172,7 +172,7 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
         <div className="flex flex-col h-full overflow-hidden gap-3">
             <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-neutral-100">{title}</h2>
+                    <h2 className="text-base font-semibold text-slate-100">{title}</h2>
 
                     {/* Reference Uploader */}
                     <div className="flex items-center gap-2">
@@ -196,26 +196,26 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
                         {/* Buttons */}
                         <button
                             onClick={() => binInputRef.current?.click()}
-                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-transparent hover:bg-neutral-800 text-neutral-300 rounded border border-neutral-700 transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-transparent hover:bg-slate-800 text-slate-300 rounded border border-slate-700 transition-colors"
                             title="Upload Stock CSL Binary (mss54.bin)"
                         >
                             <Upload size={12} /> Upload BIN
                         </button>
 
-                        <div className="w-px h-4 bg-neutral-800 mx-1"></div>
+                        <div className="w-px h-4 bg-slate-800 mx-1"></div>
 
                         {referenceData ? (
-                            <div className="flex items-center gap-2 bg-neutral-800 px-2 py-1 rounded border border-neutral-700">
+                            <div className="flex items-center gap-2 bg-slate-800 px-2 py-1 rounded border border-slate-700">
                                 <FileJson size={14} className="text-amber-400" />
-                                <span className="text-xs text-neutral-300 max-w-[100px] truncate">{referenceName}</span>
-                                <button onClick={() => { setReferenceData(null); setReferenceName(null); if (viewMode === 'reference' || viewMode === 'diff_ref') setViewMode('sim'); }} className="text-neutral-500 hover:text-neutral-200">
+                                <span className="text-xs text-slate-300 max-w-[100px] truncate">{referenceName}</span>
+                                <button onClick={() => { setReferenceData(null); setReferenceName(null); if (viewMode === 'reference' || viewMode === 'diff_ref') setViewMode('sim'); }} className="text-slate-500 hover:text-slate-200">
                                     <X size={14} />
                                 </button>
                             </div>
                         ) : (
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-transparent hover:bg-neutral-800 text-neutral-400 rounded border border-neutral-800 transition-colors"
+                                className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-transparent hover:bg-slate-800 text-slate-400 rounded border border-slate-800 transition-colors"
                             >
                                 <Upload size={12} /> Load Ref
                             </button>
@@ -224,33 +224,33 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
                 </div>
 
                 {hasData && (
-                    <div className="flex flex-wrap gap-1 bg-neutral-900 rounded-md p-1 border border-neutral-800 w-fit">
-                        <button onClick={() => setViewMode('target')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'target' ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-500 hover:text-neutral-300'}`}>Base</button>
-                        <button onClick={() => setViewMode('sim')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'sim' ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-500 hover:text-neutral-300'}`}>Current</button>
-                        <button onClick={() => setViewMode('diff_target')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'diff_target' ? 'bg-neutral-800 text-neutral-100' : 'text-neutral-500 hover:text-neutral-300'}`}>Diff (Base)</button>
+                    <div className="flex flex-wrap gap-1 bg-slate-900 rounded-md p-1 border border-slate-800 w-fit">
+                        <button onClick={() => setViewMode('target')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'target' ? 'bg-slate-800 text-slate-100' : 'text-slate-500 hover:text-slate-300'}`}>Base</button>
+                        <button onClick={() => setViewMode('sim')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'sim' ? 'bg-slate-800 text-slate-100' : 'text-slate-500 hover:text-slate-300'}`}>Current</button>
+                        <button onClick={() => setViewMode('diff_target')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'diff_target' ? 'bg-slate-800 text-slate-100' : 'text-slate-500 hover:text-slate-300'}`}>Diff (Base)</button>
                         {referenceData && (
                             <>
-                                <div className="w-px bg-neutral-800 mx-1"></div>
-                                <button onClick={() => setViewMode('reference')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'reference' ? 'bg-neutral-800 text-amber-400' : 'text-neutral-500 hover:text-neutral-300'}`}>Ref</button>
-                                <button onClick={() => setViewMode('diff_ref')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'diff_ref' ? 'bg-neutral-800 text-amber-400' : 'text-neutral-500 hover:text-neutral-300'}`}>Diff (Ref)</button>
+                                <div className="w-px bg-slate-800 mx-1"></div>
+                                <button onClick={() => setViewMode('reference')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'reference' ? 'bg-slate-800 text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}>Ref</button>
+                                <button onClick={() => setViewMode('diff_ref')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'diff_ref' ? 'bg-slate-800 text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}>Diff (Ref)</button>
                             </>
                         )}
-                        <div className="w-px bg-neutral-800 mx-1"></div>
-                        <button onClick={() => setViewMode('correction')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'correction' ? 'bg-neutral-800 text-emerald-400' : 'text-neutral-500 hover:text-neutral-300'}`}>Correction</button>
+                        <div className="w-px bg-slate-800 mx-1"></div>
+                        <button onClick={() => setViewMode('correction')} className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${viewMode === 'correction' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}>Correction</button>
                     </div>
                 )}
             </div>
 
-            <div className="flex-1 overflow-auto border border-neutral-800 rounded-lg bg-neutral-950/50">
+            <div className="flex-1 overflow-auto border border-slate-800 rounded-lg bg-slate-950/50">
                 {hasData ? (
                     <table className="w-full text-xs text-center border-collapse table-fixed">
                         <thead>
                             <tr>
-                                <th className="sticky top-0 left-0 z-20 bg-neutral-950 p-2 border-b border-neutral-800 font-mono text-neutral-500 w-16">
+                                <th className="sticky top-0 left-0 z-20 bg-slate-950 p-2 border-b border-slate-800 font-mono text-slate-500 w-16">
                                     Load \ RPM
                                 </th>
                                 {axisRpm.map((x) => (
-                                    <th key={x} className="sticky top-0 z-10 bg-neutral-950 p-2 border-b border-neutral-800 text-neutral-400 font-mono font-medium">
+                                    <th key={x} className="sticky top-0 z-10 bg-slate-950 p-2 border-b border-slate-800 text-slate-400 font-mono font-medium">
                                         {x}
                                     </th>
                                 ))}
@@ -259,25 +259,25 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
                         <tbody>
                             {axisLoad.map((load, r) => (
                                 <tr key={r}>
-                                    <th className="sticky left-0 z-10 bg-neutral-950 p-2 text-neutral-400 font-mono font-medium">
+                                    <th className="sticky left-0 z-10 bg-slate-950 p-2 text-slate-400 font-mono font-medium">
                                         {load}%
                                     </th>
                                     {dataToShow[r] ? dataToShow[r].map((val, c) => (
                                         <td
                                             key={c}
-                                            className="p-1.5 text-neutral-200 font-mono cursor-default transition-colors hover:bg-white/[0.06]"
+                                            className="p-1.5 text-slate-200 font-mono cursor-default transition-colors hover:bg-white/[0.06]"
                                             style={{ backgroundColor: colorScale(val) }}
                                             title={`Load: ${load}%, RPM: ${axisRpm[c]}, Value: ${val.toFixed(3)}`}
                                         >
                                             {valueFormatter(val)}
                                         </td>
-                                    )) : <td colSpan={axisRpm.length} className="text-neutral-600">-</td>}
+                                    )) : <td colSpan={axisRpm.length} className="text-slate-600">-</td>}
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 ) : (
-                    <div className="h-full flex items-center justify-center text-neutral-600 italic flex-col gap-2">
+                    <div className="h-full flex items-center justify-center text-slate-600 italic flex-col gap-2">
                         <span>No simulation data available.</span>
                         <span className="text-xs">Upload a CSL Binary above, then run "Flow Simulation" to see comparison.</span>
                     </div>
@@ -285,7 +285,7 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
             </div>
 
             {hasData && viewMode.includes('diff') && (
-                <div className="mt-2 text-xs flex justify-end gap-4 font-mono text-neutral-400">
+                <div className="mt-2 text-xs flex justify-end gap-4 font-mono text-slate-400">
                     <span className="flex items-center gap-1"><div className="w-3 h-3 bg-red-500 opacity-80"></div> Improved (Higher)</span>
                     <span className="flex items-center gap-1"><div className="w-3 h-3 bg-blue-500 opacity-80"></div> Reduced (Lower)</span>
                 </div>
@@ -295,14 +295,14 @@ const VETableComparison: React.FC<VETableComparisonProps> = ({ calibrationResult
                 (uploaded BIN, else this repo's reference) at part-load. Provisional
                 until part-load itself is calibrated. */}
             {hasData && viewMode === 'target' && (
-                <div className="mt-2 text-[11px] text-neutral-500 font-mono leading-tight">
+                <div className="mt-2 text-[11px] text-slate-500 font-mono leading-tight">
                     Base = WOT: this engine&apos;s MEASURED stock VE (wideband). Part-load: the ECU
                     base VE map (KF_RF_SOLL) — from the uploaded BIN if one is loaded, else this
                     repo&apos;s reference map. Provisional until part-load is calibrated.
                 </div>
             )}
             {hasData && (viewMode === 'diff_target' || viewMode === 'correction') && (
-                <div className="mt-2 text-[11px] text-neutral-500 font-mono leading-tight">
+                <div className="mt-2 text-[11px] text-slate-500 font-mono leading-tight">
                     Part-load deltas/corrections compare sim against the ECU base map, not a
                     calibrated target — read them as provisional until part-load calibration lands.
                 </div>

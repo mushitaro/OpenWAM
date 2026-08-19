@@ -34,14 +34,14 @@ const ProvenanceStrip: React.FC<{
         ? "旧世代の結果です(旧単位: 現行 %rf より一律 ×1.0573 低い / 旧 WOT 点火)。再実行してください。"
         : "この結果は現行と異なるソルバーバイナリで計算されています。再実行を推奨します。";
     return (
-        <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono text-neutral-500 border border-neutral-800 rounded px-2 py-1 bg-neutral-950/60">
+        <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono text-slate-500 border border-slate-800 rounded px-2 py-1 bg-slate-950/60">
             {stale && (
                 <span className="px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-bold tracking-wider"
                     title={staleReason}>
                     STALE(旧世代)
                 </span>
             )}
-            {loadedFromDisk && <span className="text-neutral-600">(saved run)</span>}
+            {loadedFromDisk && <span className="text-slate-600">(saved run)</span>}
             {info.run_id && <span title="run id">{String(info.run_id).slice(0, 12)}</span>}
             {info.sim_binary_sig && (
                 <span title="solver binary signature"

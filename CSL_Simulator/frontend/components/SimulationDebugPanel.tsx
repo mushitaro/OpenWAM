@@ -144,11 +144,11 @@ const SimulationDebugPanel = ({ config }: { config: SimConfig }) => {
 
                 <div className="flex gap-2">
                     {status === "running" ? (
-                        <button onClick={stopSimulation} className="flex items-center gap-2 px-4 py-1.5 bg-red-900/50 text-red-200 border border-red-700 rounded text-xs font-bold hover:bg-red-900">
+                        <button onClick={stopSimulation} className="flex items-center gap-2 px-4 py-1.5 bg-red-900/50 text-red-200 border border-red-600 rounded text-xs font-bold hover:bg-red-900">
                             <XCircle size={14} /> Stop
                         </button>
                     ) : (
-                        <button onClick={runSimulation} className="flex items-center gap-2 px-4 py-1.5 bg-green-700 text-white rounded text-xs font-bold hover:bg-green-600 shadow-lg shadow-green-900/20">
+                        <button onClick={runSimulation} className="flex items-center gap-2 px-4 py-1.5 bg-green-500 text-white rounded text-xs font-bold hover:bg-green-600 shadow-lg shadow-green-600/20">
                             <Play size={14} /> Run Live Sim
                         </button>
                     )}
@@ -163,7 +163,7 @@ const SimulationDebugPanel = ({ config }: { config: SimConfig }) => {
                         {windowedLogs.map((log, i) => (
                             <div key={i} className={`whitespace-pre-wrap break-all ${log.includes("ERROR") || log.includes("EXCEPTION") ? "text-red-400" :
                                 log.includes("INFO") ? "text-blue-400" :
-                                    log.includes("WARNING") ? "text-yellow-400" :
+                                    log.includes("WARNING") ? "text-amber-400" :
                                         "text-slate-300"
                                 }`}>
                                 {log}

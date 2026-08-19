@@ -300,7 +300,7 @@ const LiveTelemetry: React.FC = () => {
         ],
         ign: [
             { key: "tzAvg", name: "点火平均 °KW", color: "#f59e0b" },
-            { key: "speed", name: "車速 km/h", color: "#525252" },
+            { key: "speed", name: "車速 km/h", color: "#4C4C58" },
         ],
     };
 
@@ -308,22 +308,22 @@ const LiveTelemetry: React.FC = () => {
         <div className="flex flex-col gap-4 h-full overflow-auto p-1">
             {/* connection bar */}
             <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex gap-1 bg-neutral-900 p-1 rounded-md border border-neutral-800">
+                <div className="flex gap-1 bg-slate-900 p-1 rounded-md border border-slate-800">
                     {(["webserial", "mock"] as const).map(m => (
                         <button key={m} disabled={state !== "disconnected"} onClick={() => setMode(m)}
-                            className={`px-2.5 py-1 rounded text-[11px] font-medium ${mode === m ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"} disabled:opacity-60`}>
+                            className={`px-2.5 py-1 rounded text-[11px] font-medium ${mode === m ? "bg-slate-800 text-slate-100" : "text-slate-500 hover:text-slate-300"} disabled:opacity-60`}>
                             {m === "webserial" ? "実車 (K-Line)" : "モック"}
                         </button>
                     ))}
                 </div>
                 {state !== "connected" ? (
                     <button onClick={connect} disabled={state === "connecting" || (mode === "webserial" && !webSerialOk)}
-                        className="px-3 py-1.5 rounded text-[12px] font-semibold bg-neutral-100 text-black hover:bg-white disabled:opacity-50 flex items-center gap-1.5">
+                        className="px-3 py-1.5 rounded text-[12px] font-semibold bg-slate-100 text-black hover:bg-white disabled:opacity-50 flex items-center gap-1.5">
                         <Plug size={13} /> {state === "connecting" ? "接続中..." : "接続"}
                     </button>
                 ) : (
                     <button onClick={disconnect}
-                        className="px-3 py-1.5 rounded text-[12px] font-semibold border border-neutral-700 text-neutral-300 hover:bg-neutral-800 flex items-center gap-1.5">
+                        className="px-3 py-1.5 rounded text-[12px] font-semibold border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1.5">
                         <PlugZap size={13} /> 切断
                     </button>
                 )}
@@ -331,7 +331,7 @@ const LiveTelemetry: React.FC = () => {
                     <span className="text-[11px] text-amber-400">Web Serial 非対応の環境です(Chrome/Edge デスクトップが必要)— モックを使用してください</span>
                 )}
                 {identity && (
-                    <span className="text-[10px] font-mono text-neutral-500">
+                    <span className="text-[10px] font-mono text-slate-500">
                         VIN {identity.vin} · SW {identity.softwareVersion}
                     </span>
                 )}
@@ -341,11 +341,11 @@ const LiveTelemetry: React.FC = () => {
                     </span>
                 )}
                 <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-[10px] text-neutral-500">ブロック:</span>
+                    <span className="text-[10px] text-slate-500">ブロック:</span>
                     {([3, 19, 35] as LiveBlockSelection[]).map(b => (
-                        <label key={b} className="flex items-center gap-1 text-[11px] text-neutral-400">
+                        <label key={b} className="flex items-center gap-1 text-[11px] text-slate-400">
                             <input type="checkbox" checked={blocks.includes(b)} disabled={b === 3}
-                                onChange={() => toggleBlock(b)} className="rounded border-neutral-700 bg-neutral-900" />
+                                onChange={() => toggleBlock(b)} className="rounded border-slate-700 bg-slate-900" />
                             {b === 3 ? "3 基本" : b === 19 ? "19 点火/λ" : "35 VANOS"}
                         </label>
                     ))}
@@ -372,9 +372,9 @@ const LiveTelemetry: React.FC = () => {
                         ["大気圧", fmt(latest.ambientPressure, 0, " mbar")],
                         ["ペダル/スロットル", `${fmt(latest.pedal, 0)}/${fmt(latest.throttle, 0)} %`],
                     ].map(([label, value]) => (
-                        <div key={label as string} className="bg-neutral-900/60 border border-neutral-800 rounded px-2 py-1.5">
-                            <div className="text-[9px] uppercase tracking-wider text-neutral-600">{label}</div>
-                            <div className="text-[13px] font-mono text-neutral-200">{value}</div>
+                        <div key={label as string} className="bg-slate-900/60 border border-slate-800 rounded px-2 py-1.5">
+                            <div className="text-[9px] uppercase tracking-wider text-slate-600">{label}</div>
+                            <div className="text-[13px] font-mono text-slate-200">{value}</div>
                         </div>
                     ))}
                 </div>
@@ -382,26 +382,26 @@ const LiveTelemetry: React.FC = () => {
 
             {/* strip chart */}
             {state === "connected" && (
-                <div className="flex-1 min-h-[260px] flex flex-col border border-neutral-800 rounded-lg bg-neutral-950/60 p-3">
+                <div className="flex-1 min-h-[260px] flex flex-col border border-slate-800 rounded-lg bg-slate-950/60 p-3">
                     <div className="flex items-center justify-between mb-2">
-                        <div className="flex gap-1 bg-neutral-900 p-0.5 rounded border border-neutral-800">
+                        <div className="flex gap-1 bg-slate-900 p-0.5 rounded border border-slate-800">
                             {(Object.keys(groupLines) as ChartGroup[]).map(g => (
                                 <button key={g} onClick={() => setChartGroup(g)}
-                                    className={`px-2 py-0.5 rounded text-[10px] ${chartGroup === g ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"}`}>
+                                    className={`px-2 py-0.5 rounded text-[10px] ${chartGroup === g ? "bg-slate-800 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}>
                                     {g === "rpm" ? "RPM" : g === "load" ? "負荷/充填" : g === "vanos" ? "VANOS" : "点火/車速"}
                                 </button>
                             ))}
                         </div>
-                        <span className="text-[10px] font-mono text-neutral-600">直近 {CHART_WINDOW_S}s</span>
+                        <span className="text-[10px] font-mono text-slate-600">直近 {CHART_WINDOW_S}s</span>
                     </div>
                     <div ref={chartBoxRef} className="flex-1 min-h-[200px]">
                         {chartBox.w > 40 && chartBox.h > 40 && (
                             <LineChart data={chartData} width={chartBox.w} height={chartBox.h}
                                 margin={{ top: 4, right: 12, bottom: 0, left: -8 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
-                                <XAxis dataKey="t" stroke="#a3a3a3" tick={{ fontSize: 10 }} unit="s" />
-                                <YAxis stroke="#a3a3a3" tick={{ fontSize: 10 }} domain={["auto", "auto"]} />
-                                <Tooltip contentStyle={{ background: "#171717", border: "1px solid #262626", borderRadius: 8, fontSize: 11 }} labelStyle={{ color: "#e5e5e5" }} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#17171C" />
+                                <XAxis dataKey="t" stroke="#9A9AA8" tick={{ fontSize: 10 }} unit="s" />
+                                <YAxis stroke="#9A9AA8" tick={{ fontSize: 10 }} domain={["auto", "auto"]} />
+                                <Tooltip contentStyle={{ background: "#0A0A0D", border: "1px solid #17171C", borderRadius: 8, fontSize: 11 }} labelStyle={{ color: "#DFDFE6" }} />
                                 <Legend wrapperStyle={{ fontSize: 10 }} />
                                 {groupLines[chartGroup].map(l => (
                                     <Line key={l.key} type="monotone" dataKey={l.key} name={l.name} stroke={l.color}
@@ -423,22 +423,22 @@ const LiveTelemetry: React.FC = () => {
                         </button>
                     ) : (
                         <button onClick={stopRecording}
-                            className="px-3 py-1.5 rounded text-[12px] font-semibold border border-red-700 text-red-400 hover:bg-red-950 flex items-center gap-1.5 animate-pulse">
+                            className="px-3 py-1.5 rounded text-[12px] font-semibold border border-red-600 text-red-400 hover:bg-red-900 flex items-center gap-1.5 animate-pulse">
                             <Square size={11} fill="currentColor" /> 停止して保存 ({recCount})
                         </button>
                     )}
                     {saveError && recordedRef.current.length > 0 && (
                         <button onClick={() => void saveLog(true)}
-                            className="px-3 py-1.5 rounded text-[12px] font-semibold border border-amber-700 text-amber-400 hover:bg-amber-950/40 flex items-center gap-1.5">
+                            className="px-3 py-1.5 rounded text-[12px] font-semibold border border-amber-700 text-amber-400 hover:bg-amber-900/40 flex items-center gap-1.5">
                             <HardDriveDownload size={12} /> 再保存
                         </button>
                     )}
                     <button onClick={downloadCsv} disabled={!recordedRef.current.length && !windowRef.current.length}
                         title="予備: バックエンドに保存できないときの退避用 (MLV 互換 CSV)"
-                        className="px-3 py-1.5 rounded text-[12px] border border-neutral-800 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300 disabled:opacity-40 flex items-center gap-1.5">
+                        className="px-3 py-1.5 rounded text-[12px] border border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300 disabled:opacity-40 flex items-center gap-1.5">
                         <Download size={12} /> CSV 退避 (予備)
                     </button>
-                    <span className="text-[10px] text-neutral-600 leading-tight max-w-md">
+                    <span className="text-[10px] text-slate-600 leading-tight max-w-md">
                         WOT プル計測の推奨: 同一ギア・水温 80-100°C 窓・往復 N 回。停止すると
                         リポジトリ内 (backend/app/data/telemetry/) に保存され、記録中も
                         {Math.round(CHECKPOINT_MS / 1000)} 秒ごとに自動保存されます。
@@ -454,8 +454,8 @@ const LiveTelemetry: React.FC = () => {
                     <span className={saveError ? "text-red-400" : "text-emerald-500"}>
                         {saveError ? "未保存" : recording ? "自動保存中" : "保存済"}
                     </span>
-                    <span className="text-neutral-400">{savedPath}</span>
-                    {recording && <span className="text-neutral-600">({recCount} サンプル · {Math.round(CHECKPOINT_MS / 1000)}s ごと)</span>}
+                    <span className="text-slate-400">{savedPath}</span>
+                    {recording && <span className="text-slate-600">({recCount} サンプル · {Math.round(CHECKPOINT_MS / 1000)}s ごと)</span>}
                     {!recording && logIdRef.current?.startsWith("mock_") && (
                         <span className="text-amber-500/80">mock_ 接頭辞 = 合成データ(実測ではありません)</span>
                     )}
@@ -463,7 +463,7 @@ const LiveTelemetry: React.FC = () => {
             )}
 
             {state === "disconnected" && (
-                <div className="flex-1 flex items-center justify-center text-neutral-600 text-xs text-center px-8">
+                <div className="flex-1 flex items-center justify-center text-slate-600 text-xs text-center px-8">
                     K-Line アダプタを接続し「接続」を押してください(Chrome/Edge、実ブラウザのみ)。<br />
                     ハードウェアなしで試す場合は「モック」を選択 — 合成走行サイクルで全機能を確認できます。
                 </div>

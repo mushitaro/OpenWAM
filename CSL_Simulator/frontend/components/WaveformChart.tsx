@@ -15,13 +15,13 @@ import type { SimConfig, RunResponse, WaveformResponse, WaveformTrace } from "..
 const Plot = dynamic(() => import("react-plotly.js"), {
     ssr: false,
     loading: () => (
-        <div className="h-full w-full flex items-center justify-center text-neutral-600 text-xs font-mono">
+        <div className="h-full w-full flex items-center justify-center text-slate-600 text-xs font-mono">
             loading 3D…
         </div>
     ),
 });
 
-const AXIS = { color: "#a3a3a3", gridcolor: "#262626", zerolinecolor: "#404040" };
+const AXIS = { color: "#9A9AA8", gridcolor: "#17171C", zerolinecolor: "#2A2A33" };
 const COLORS = ["#38bdf8", "#f59e0b", "#34d399", "#f43f5e", "#a78bfa", "#fbbf24",
     "#22d3ee", "#fb7185", "#4ade80", "#c084fc", "#60a5fa", "#f97316"];
 
@@ -135,10 +135,10 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
             disabled={disabled}
             className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
                 disabled
-                    ? "border-neutral-800 text-neutral-700 cursor-not-allowed"
+                    ? "border-slate-800 text-slate-700 cursor-not-allowed"
                     : on
-                      ? "border-sky-500/60 bg-sky-500/15 text-sky-300"
-                      : "border-neutral-700 text-neutral-500 hover:text-neutral-300"
+                      ? "border-blue-500/60 bg-blue-500/15 text-blue-300"
+                      : "border-slate-700 text-slate-500 hover:text-slate-300"
             }`}
         >
             {label}
@@ -148,7 +148,7 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between mb-2 flex-shrink-0 flex-wrap gap-2">
-                <div className="text-sm font-semibold text-neutral-200 flex items-center gap-2">
+                <div className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                     <Activity size={14} /> Crank-Angle Waveform
                     {runData.model_limits && rpm >= runData.model_limits.wot_deficit_band.rpm_min
                         && rpm <= runData.model_limits.wot_deficit_band.rpm_max && (
@@ -159,11 +159,11 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <label className="text-[11px] text-neutral-400">rpm</label>
+                    <label className="text-[11px] text-slate-400">rpm</label>
                     <select
                         value={rpm}
                         onChange={(e) => setRpm(Number(e.target.value))}
-                        className="bg-neutral-900 border border-neutral-700 rounded text-[11px] text-neutral-200 px-1.5 py-1"
+                        className="bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-200 px-1.5 py-1"
                     >
                         {rpmAxis.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
@@ -171,7 +171,7 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
                         <select
                             value={load}
                             onChange={(e) => setLoad(Number(e.target.value))}
-                            className="bg-neutral-900 border border-neutral-700 rounded text-[11px] text-neutral-200 px-1.5 py-1"
+                            className="bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-200 px-1.5 py-1"
                         >
                             {loadAxis.map((l) => <option key={l} value={l}>{l}% TPS</option>)}
                         </select>
@@ -179,7 +179,7 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
                     <button
                         onClick={run}
                         disabled={loading}
-                        className="px-2.5 py-1 rounded text-[11px] font-semibold bg-neutral-100 text-black hover:bg-white disabled:opacity-50 flex items-center gap-1"
+                        className="px-2.5 py-1 rounded text-[11px] font-semibold bg-slate-100 text-black hover:bg-white disabled:opacity-50 flex items-center gap-1"
                     >
                         <Play size={11} fill="black" /> {data ? "Re-run" : "Run waveform"}
                     </button>
@@ -187,7 +187,7 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
             </div>
 
             {!data && !loading && (
-                <div className="flex-1 flex items-center justify-center text-center text-neutral-500 text-xs px-6">
+                <div className="flex-1 flex items-center justify-center text-center text-slate-500 text-xs px-6">
                     Pick an operating point and run a single full-monitoring sim to inspect
                     in-cylinder pressure &amp; in-pipe pressure / velocity vs crank angle.
                     <br />First run for a cell is a real sim (~2–3 min); repeats are cached &amp; instant.
@@ -195,12 +195,12 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
             )}
 
             {loading && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-neutral-400 text-xs font-mono">
-                    <div className="w-6 h-6 border-2 border-neutral-700 border-t-neutral-100 rounded-full animate-spin" />
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-xs font-mono">
+                    <div className="w-6 h-6 border-2 border-slate-700 border-t-neutral-100 rounded-full animate-spin" />
                     Running full-monitoring sim at {rpm} rpm… {elapsed}s elapsed (typically ~2–3 min, omp1)
                     <button
                         onClick={() => { void cancelRuns().catch(() => { /* surfaced via the failed fetch */ }); }}
-                        className="mt-1 px-3 py-1 rounded text-[11px] border border-red-900/60 text-red-400 hover:bg-red-950/40"
+                        className="mt-1 px-3 py-1 rounded text-[11px] border border-red-900/60 text-red-400 hover:bg-red-900/40"
                         title="Stop the waveform sim (no INS.DAT is produced for a killed run)"
                     >
                         Cancel
@@ -216,22 +216,22 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
                 <>
                     <div className="flex flex-col gap-1.5 mb-2 flex-shrink-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider text-neutral-500 w-14">Metric</span>
-                            <div className="flex gap-1 bg-neutral-900 p-0.5 rounded border border-neutral-800">
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 w-14">Metric</span>
+                            <div className="flex gap-1 bg-slate-900 p-0.5 rounded border border-slate-800">
                                 {(["pressure", "velocity"] as Metric[]).map((m) => (
                                     <button key={m} onClick={() => setMetric(m)}
                                         className={`px-2 py-0.5 rounded text-[10px] capitalize ${
-                                            metric === m ? "bg-neutral-800 text-neutral-100" : "text-neutral-500 hover:text-neutral-300"}`}>
+                                            metric === m ? "bg-slate-800 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}>
                                         {m}
                                     </button>
                                 ))}
                             </div>
-                            <span className="text-[10px] font-mono text-neutral-600">
+                            <span className="text-[10px] font-mono text-slate-600">
                                 {data.cached ? "cached · " : ""}{data.n_cycles} cyc · {data.crank_deg.length} pts
                             </span>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-wider text-neutral-500 w-14">In-cyl</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 w-14">In-cyl</span>
                             {data.cylinders.map((c) =>
                                 chip("c" + c.id, c.label, selected.has("c" + c.id), metric === "velocity"))}
                         </div>
@@ -249,7 +249,7 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
                             if (!pipes.length) return null;
                             return (
                                 <div key={label} className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-[10px] uppercase tracking-wider text-neutral-500 w-14">{label}</span>
+                                    <span className="text-[10px] uppercase tracking-wider text-slate-500 w-14">{label}</span>
                                     {pipes.map((p) => chip("p" + p.id, p.label, selected.has("p" + p.id)))}
                                 </div>
                             );
@@ -257,7 +257,7 @@ const VeWaveformChart: React.FC<{ config: SimConfig; runData: RunResponse }> = (
                     </div>
                     <div className="flex-1 min-h-[260px]">
                         {traces.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-neutral-600 text-xs">
+                            <div className="h-full flex items-center justify-center text-slate-600 text-xs">
                                 Select one or more channels above.
                             </div>
                         ) : (

@@ -47,23 +47,23 @@ const VeOverlayChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
     return (
         <div className="flex flex-col gap-2 h-full">
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-neutral-200">
+                <h3 className="text-sm font-semibold text-slate-200">
                     VE — Sim vs Stock (WOT, {runData.axes.load[wotRow]}%)
                 </h3>
-                <span className="text-[10px] font-mono text-neutral-500">
+                <span className="text-[10px] font-mono text-slate-500">
                     peak: sim {runData.rows[wotRow]?.peak_rpm_sim ?? "-"} / stock {peakStock ?? "-"}
                 </span>
             </div>
             <div className="flex-1 min-h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: -8 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
-                        <XAxis dataKey="rpm" stroke="#a3a3a3" tick={{ fontSize: 11 }}
+                        <CartesianGrid strokeDasharray="3 3" stroke="#17171C" />
+                        <XAxis dataKey="rpm" stroke="#9A9AA8" tick={{ fontSize: 11 }}
                                tickFormatter={(v) => `${Math.round(v / 100) / 10}k`} />
-                        <YAxis stroke="#a3a3a3" tick={{ fontSize: 11 }} domain={["auto", "auto"]}
-                               label={{ value: "VE %rf (ECU basis)", angle: -90, position: "insideLeft", fill: "#a3a3a3", fontSize: 11 }} />
-                        <Tooltip contentStyle={{ background: "#171717", border: "1px solid #262626", borderRadius: 8, fontSize: 12 }}
-                                 labelStyle={{ color: "#e5e5e5" }} formatter={(v: any) => (v == null ? "-" : Number(v).toFixed(1) + " %")} />
+                        <YAxis stroke="#9A9AA8" tick={{ fontSize: 11 }} domain={["auto", "auto"]}
+                               label={{ value: "VE %rf (ECU basis)", angle: -90, position: "insideLeft", fill: "#9A9AA8", fontSize: 11 }} />
+                        <Tooltip contentStyle={{ background: "#0A0A0D", border: "1px solid #17171C", borderRadius: 8, fontSize: 12 }}
+                                 labelStyle={{ color: "#DFDFE6" }} formatter={(v: any) => (v == null ? "-" : Number(v).toFixed(1) + " %")} />
                         <Legend wrapperStyle={{ fontSize: 12 }} />
                         {band && (
                             <ReferenceArea x1={band.rpm_min} x2={band.rpm_max}

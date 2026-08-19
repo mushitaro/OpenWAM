@@ -67,7 +67,7 @@ const BinaryPatchManager: React.FC<BinaryPatchManagerProps> = ({ optimizationRes
 
     return (
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
-            <div className="flex items-center gap-2 mb-6 text-purple-400">
+            <div className="flex items-center gap-2 mb-6 text-indigo-400">
                 <FileCode size={24} />
                 <h2 className="text-xl font-bold">Binary Patcher</h2>
             </div>
@@ -146,7 +146,7 @@ const BinaryPatchManager: React.FC<BinaryPatchManagerProps> = ({ optimizationRes
             </div>
 
             {message && (
-                <div className={`mt-6 p-4 rounded-lg flex items-center gap-3 ${message.type === "success" ? "bg-emerald-900/30 text-emerald-400 border border-emerald-800" : "bg-red-900/30 text-red-400 border border-red-800"}`}>
+                <div className={`mt-6 p-4 rounded-lg flex items-center gap-3 ${message.type === "success" ? "bg-emerald-900/30 text-emerald-400 border border-emerald-600" : "bg-red-900/30 text-red-400 border border-red-600"}`}>
                     {message.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
                     {message.text}
                 </div>

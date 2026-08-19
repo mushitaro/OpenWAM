@@ -33,8 +33,8 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
     };
 
     // Minimalist Colors (Neutral/Zinc Palette)
-    const strokeDefault = "#525252"; // neutral-600
-    const strokeSelected = "#d4d4d4"; // neutral-300 (High contrast)
+    const strokeDefault = "#4C4C58"; // neutral-600
+    const strokeSelected = "#C6C6CF"; // neutral-300 (High contrast)
     const fillSelected = "rgba(255, 255, 255, 0.1)";
 
     const getStroke = (selected: boolean) => selected ? strokeSelected : strokeDefault;
@@ -54,7 +54,7 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                 onClick={() => onSelect({ type: "intake_duct" })}
                 className="cursor-pointer hover:opacity-80 transition-all"
             />
-            <text x="65" y="17" textAnchor="middle" className="text-[10px] fill-neutral-600 font-mono tracking-widest pointer-events-none">DUCT</text>
+            <text x="65" y="17" textAnchor="middle" className="text-[10px] fill-slate-600 font-mono tracking-widest pointer-events-none">DUCT</text>
 
             {/* 2. Plenum */}
             <rect
@@ -65,7 +65,7 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                 onClick={() => onSelect({ type: "plenum" })}
                 className="cursor-pointer hover:opacity-80 transition-all"
             />
-            <text x="65" y="346" textAnchor="middle" className="text-[10px] fill-neutral-600 font-mono tracking-widest pointer-events-none">PLENUM</text>
+            <text x="65" y="346" textAnchor="middle" className="text-[10px] fill-slate-600 font-mono tracking-widest pointer-events-none">PLENUM</text>
 
             {/* 3. Runners (x6) */}
             {CYL_Y.map((y, i) => (
@@ -78,11 +78,11 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                         className="cursor-pointer hover:opacity-80 transition-all"
                     />
                     {simulationStatus === "running" && (
-                        <line x1="92" y1={y} x2="156" y2={y} stroke="#737373" strokeWidth="2" strokeDasharray="2,2" className={`pointer-events-none ${flowAnim}`} />
+                        <line x1="92" y1={y} x2="156" y2={y} stroke="#70707E" strokeWidth="2" strokeDasharray="2,2" className={`pointer-events-none ${flowAnim}`} />
                     )}
                 </g>
             ))}
-            <text x="112" y="375" textAnchor="middle" className="text-[10px] fill-neutral-600 font-mono tracking-widest pointer-events-none">RUNNER</text>
+            <text x="112" y="375" textAnchor="middle" className="text-[10px] fill-slate-600 font-mono tracking-widest pointer-events-none">RUNNER</text>
 
             {/* 4. Equalization Tube: vertical balance tube crossing all runners (separate node) */}
             <g
@@ -94,7 +94,7 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                     <circle key={i} cx="120" cy={y} r="3.5" fill={getStroke(isSelected(s => s.type === "eq_tube"))} />
                 ))}
             </g>
-            <text x="124" y="32" textAnchor="middle" className="text-[9px] fill-neutral-600 font-mono tracking-wide pointer-events-none">EQ TUBE</text>
+            <text x="124" y="32" textAnchor="middle" className="text-[9px] fill-slate-600 font-mono tracking-wide pointer-events-none">EQ TUBE</text>
 
             {/* 5. ITB butterflies at the runner outlet (separate node) */}
             <g
@@ -103,16 +103,16 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
             >
                 {CYL_Y.map((y, i) => (
                     <g key={i}>
-                        <circle cx="166" cy={y} r="9" fill="#171717" stroke={getStroke(isSelected(s => s.type === "itb"))} strokeWidth="2" />
+                        <circle cx="166" cy={y} r="9" fill="#0A0A0D" stroke={getStroke(isSelected(s => s.type === "itb"))} strokeWidth="2" />
                         <line x1="159" y1={y} x2="173" y2={y} stroke={getStroke(isSelected(s => s.type === "itb"))} strokeWidth="1.5" />
                     </g>
                 ))}
             </g>
-            <text x="166" y="346" textAnchor="middle" className="text-[10px] fill-neutral-600 font-mono tracking-widest pointer-events-none">ITB ×6</text>
+            <text x="166" y="346" textAnchor="middle" className="text-[10px] fill-slate-600 font-mono tracking-widest pointer-events-none">ITB ×6</text>
 
             {/* Intake ports into head (non-interactive) */}
             {CYL_Y.map((y, i) => (
-                <line key={i} x1="175" y1={y} x2="212" y2={y} stroke="#525252" strokeWidth="4" className="pointer-events-none" />
+                <line key={i} x1="175" y1={y} x2="212" y2={y} stroke="#4C4C58" strokeWidth="4" className="pointer-events-none" />
             ))}
 
             {/* 6. Head-return hose (Stage 70-71: cam cover -> plenum crankcase
@@ -130,13 +130,13 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                     opacity={config.intake.head_return?.enabled ? 1 : 0.55}
                 />
             </g>
-            <text x="162" y="10" textAnchor="middle" className="text-[9px] fill-neutral-600 font-mono tracking-wide pointer-events-none">HEAD RET.</text>
+            <text x="162" y="10" textAnchor="middle" className="text-[9px] fill-slate-600 font-mono tracking-wide pointer-events-none">HEAD RET.</text>
         </g>
     );
 
     const EngineBlock = () => (
         <g>
-            <rect x="212" y="30" width="96" height="300" rx="6" fill="#141414" stroke="#333333" strokeWidth="1.5" className="pointer-events-none" />
+            <rect x="212" y="30" width="96" height="300" rx="6" fill="#141414" stroke="#17171C" strokeWidth="1.5" className="pointer-events-none" />
             {CYL_Y.map((y, i) => {
                 const selected = isSelected(s => s.type === "cylinder" && s.index === i);
                 return (
@@ -145,20 +145,20 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                         className="cursor-pointer hover:opacity-80 transition-all">
                         {/* Cylinder Wall */}
                         <rect x="216" y={y - 21} width="88" height="42" rx="4"
-                            fill={selected ? "#2e2e2e" : "#171717"}
+                            fill={selected ? "#2e2e2e" : "#0A0A0D"}
                             stroke={getStroke(selected)} strokeWidth="2" />
                         {/* Bore ring */}
                         <circle cx="260" cy={y} r="14" fill="none" stroke={getStroke(selected)} strokeWidth="1.5" />
                         {/* Valves (Intake/Exhaust dots) */}
-                        <circle cx="234" cy={y - 8} r="3" fill="#404040" />
-                        <circle cx="234" cy={y + 8} r="3" fill="#404040" />
-                        <circle cx="286" cy={y - 8} r="3" fill="#404040" />
-                        <circle cx="286" cy={y + 8} r="3" fill="#404040" />
+                        <circle cx="234" cy={y - 8} r="3" fill="#2A2A33" />
+                        <circle cx="234" cy={y + 8} r="3" fill="#2A2A33" />
+                        <circle cx="286" cy={y - 8} r="3" fill="#2A2A33" />
+                        <circle cx="286" cy={y + 8} r="3" fill="#2A2A33" />
                         <text x="260" y={y + 5} textAnchor="middle" fill={getStroke(selected)} className="text-[11px] font-mono pointer-events-none">{i + 1}</text>
                     </g>
                 );
             })}
-            <text x="260" y="375" textAnchor="middle" className="text-[10px] fill-neutral-600 font-mono tracking-widest pointer-events-none">S54 ENGINE</text>
+            <text x="260" y="375" textAnchor="middle" className="text-[10px] fill-slate-600 font-mono tracking-widest pointer-events-none">S54 ENGINE</text>
         </g>
     );
 
@@ -223,10 +223,10 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
 
                 {/* 2. Collectors (merge cones) */}
                 <g onClick={() => onSelect({ type: "collector" })} className="cursor-pointer hover:opacity-80 transition-all">
-                    <path d={`M ${collectorX},93 L 406,99 L 406,111 L ${collectorX},117 Z`} fill="#333333" stroke={getStroke(isSelected(s => s.type === "collector"))} strokeWidth="2" />
-                    <path d={`M ${collectorX},243 L 406,249 L 406,261 L ${collectorX},267 Z`} fill="#333333" stroke={getStroke(isSelected(s => s.type === "collector"))} strokeWidth="2" />
+                    <path d={`M ${collectorX},93 L 406,99 L 406,111 L ${collectorX},117 Z`} fill="#17171C" stroke={getStroke(isSelected(s => s.type === "collector"))} strokeWidth="2" />
+                    <path d={`M ${collectorX},243 L 406,249 L 406,261 L ${collectorX},267 Z`} fill="#17171C" stroke={getStroke(isSelected(s => s.type === "collector"))} strokeWidth="2" />
                 </g>
-                <text x="397" y="84" textAnchor="middle" className="text-[9px] fill-neutral-500 font-mono tracking-wide pointer-events-none">COL.</text>
+                <text x="397" y="84" textAnchor="middle" className="text-[9px] fill-slate-500 font-mono tracking-wide pointer-events-none">COL.</text>
 
                 {/* 3. Section 1 + Catalyst (per bank) */}
                 <path d={drawS1Path(BANK_Y[0], s1_1)} fill="none" stroke={getStroke(isSelected(s => s.type === "section1" && s.index === 0))} strokeWidth="6" strokeLinecap="round"
@@ -241,7 +241,7 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                         <rect x={catalystX} y={BANK_Y[1] - 7} width="24" height="14" rx="2" fill="#d97706" opacity="0.85" className="pointer-events-none" />
                     </>
                 )}
-                <text x="446" y="346" textAnchor="middle" className="text-[10px] fill-neutral-600 font-mono tracking-widest pointer-events-none">SEC 1 · CAT</text>
+                <text x="446" y="346" textAnchor="middle" className="text-[10px] fill-slate-600 font-mono tracking-widest pointer-events-none">SEC 1 · CAT</text>
 
                 {/* 4. Section 2: layout-reactive (Independent / H-Pipe / Single) + resonators */}
                 <g onClick={() => onSelect({ type: "section2" })} className="cursor-pointer hover:opacity-80 transition-all">
@@ -249,23 +249,23 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                         <>
                             <path d={`M ${s1EndX},${BANK_Y[0]} L 556,180 L ${s2EndX},180`} fill="none" stroke={getStroke(isSelected(s => s.type === "section2"))} strokeWidth="6" strokeLinecap="round" />
                             <path d={`M ${s1EndX},${BANK_Y[1]} L 556,180`} fill="none" stroke={getStroke(isSelected(s => s.type === "section2"))} strokeWidth="6" strokeLinecap="round" />
-                            {res && <rect x="510" y="172" width="40" height="16" rx="2" fill="#262626" />}
+                            {res && <rect x="510" y="172" width="40" height="16" rx="2" fill="#17171C" />}
                         </>
                     ) : (
                         <>
                             <line x1={s1EndX} y1={BANK_Y[0]} x2={s2EndX} y2={BANK_Y[0]} stroke={getStroke(isSelected(s => s.type === "section2"))} strokeWidth="6" strokeLinecap="round" />
                             <line x1={s1EndX} y1={BANK_Y[1]} x2={s2EndX} y2={BANK_Y[1]} stroke={getStroke(isSelected(s => s.type === "section2"))} strokeWidth="6" strokeLinecap="round" />
-                            {isH && <line x1={bridgeX} y1={BANK_Y[0]} x2={bridgeX} y2={BANK_Y[1]} stroke="#525252" strokeWidth="4" />}
+                            {isH && <line x1={bridgeX} y1={BANK_Y[0]} x2={bridgeX} y2={BANK_Y[1]} stroke="#4C4C58" strokeWidth="4" />}
                             {res && (
                                 <>
-                                    <rect x={resX - 15} y={BANK_Y[0] - 8} width="30" height="16" rx="2" fill="#262626" stroke={getStroke(isSelected(s => s.type === "section2"))} strokeWidth="1" />
-                                    <rect x={resX - 15} y={BANK_Y[1] - 8} width="30" height="16" rx="2" fill="#262626" stroke={getStroke(isSelected(s => s.type === "section2"))} strokeWidth="1" />
+                                    <rect x={resX - 15} y={BANK_Y[0] - 8} width="30" height="16" rx="2" fill="#17171C" stroke={getStroke(isSelected(s => s.type === "section2"))} strokeWidth="1" />
+                                    <rect x={resX - 15} y={BANK_Y[1] - 8} width="30" height="16" rx="2" fill="#17171C" stroke={getStroke(isSelected(s => s.type === "section2"))} strokeWidth="1" />
                                 </>
                             )}
                         </>
                     )}
                 </g>
-                <text x="541" y="375" textAnchor="middle" className="text-[9px] fill-neutral-600 font-mono tracking-wide pointer-events-none">
+                <text x="541" y="375" textAnchor="middle" className="text-[9px] fill-slate-600 font-mono tracking-wide pointer-events-none">
                     SEC 2 · {s2.layout.toUpperCase()}
                 </text>
 
@@ -278,31 +278,31 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                         180/360-deg pass pipes, drawn when internal_model=chambers */}
                     {config.exhaust.section3.internal_model === "chambers" && (
                         <g className="pointer-events-none" opacity="0.7">
-                            <line x1={s2EndX + 48} y1="94" x2={s2EndX + 48} y2="266" stroke="#404040" strokeWidth="2" strokeDasharray="3,3" />
-                            <path d={`M ${s2EndX + 8},130 L ${s2EndX + 66},130 C ${s2EndX + 74},130 ${s2EndX + 74},150 ${s2EndX + 66},150 L ${s2EndX + 14},150`} fill="none" stroke="#525252" strokeWidth="3" />
-                            <path d={`M ${s2EndX + 8},205 L ${s2EndX + 66},205 C ${s2EndX + 74},205 ${s2EndX + 74},225 ${s2EndX + 66},225 L ${s2EndX + 10},225 C ${s2EndX + 2},225 ${s2EndX + 2},243 ${s2EndX + 10},243 L ${s2EndX + 66},243`} fill="none" stroke="#525252" strokeWidth="3" />
+                            <line x1={s2EndX + 48} y1="94" x2={s2EndX + 48} y2="266" stroke="#2A2A33" strokeWidth="2" strokeDasharray="3,3" />
+                            <path d={`M ${s2EndX + 8},130 L ${s2EndX + 66},130 C ${s2EndX + 74},130 ${s2EndX + 74},150 ${s2EndX + 66},150 L ${s2EndX + 14},150`} fill="none" stroke="#4C4C58" strokeWidth="3" />
+                            <path d={`M ${s2EndX + 8},205 L ${s2EndX + 66},205 C ${s2EndX + 74},205 ${s2EndX + 74},225 ${s2EndX + 66},225 L ${s2EndX + 10},225 C ${s2EndX + 2},225 ${s2EndX + 2},243 ${s2EndX + 10},243 L ${s2EndX + 66},243`} fill="none" stroke="#4C4C58" strokeWidth="3" />
                         </g>
                     )}
                     {/* Tips (Quad) */}
-                    <line x1="676" y1="99" x2="698" y2="99" stroke="#737373" strokeWidth="5" strokeLinecap="round" />
-                    <line x1="676" y1="111" x2="698" y2="111" stroke="#737373" strokeWidth="5" strokeLinecap="round" />
-                    <line x1="676" y1="249" x2="698" y2="249" stroke="#737373" strokeWidth="5" strokeLinecap="round" />
-                    <line x1="676" y1="261" x2="698" y2="261" stroke="#737373" strokeWidth="5" strokeLinecap="round" />
+                    <line x1="676" y1="99" x2="698" y2="99" stroke="#70707E" strokeWidth="5" strokeLinecap="round" />
+                    <line x1="676" y1="111" x2="698" y2="111" stroke="#70707E" strokeWidth="5" strokeLinecap="round" />
+                    <line x1="676" y1="249" x2="698" y2="249" stroke="#70707E" strokeWidth="5" strokeLinecap="round" />
+                    <line x1="676" y1="261" x2="698" y2="261" stroke="#70707E" strokeWidth="5" strokeLinecap="round" />
 
                     {/* Exhaust Smoke Animation */}
                     {simulationStatus === "running" && (
                         <g transform="translate(700, 180)">
-                            <circle r="3" fill="#d4d4d4" className="animate-ping" opacity="0.5" />
+                            <circle r="3" fill="#C6C6CF" className="animate-ping" opacity="0.5" />
                         </g>
                     )}
                 </g>
-                <text x="636" y="350" textAnchor="middle" className="text-[10px] fill-neutral-600 font-mono tracking-widest pointer-events-none">MUFFLER</text>
+                <text x="636" y="350" textAnchor="middle" className="text-[10px] fill-slate-600 font-mono tracking-widest pointer-events-none">MUFFLER</text>
             </g>
         );
     };
 
     return (
-        <div className="w-full h-full flex items-center justify-center p-12 bg-neutral-950/60 rounded-lg border border-neutral-800 overflow-hidden relative group">
+        <div className="w-full h-full flex items-center justify-center p-12 bg-slate-950/60 rounded-lg border border-slate-800 overflow-hidden relative group">
 
             <svg
                 viewBox="0 0 760 380"

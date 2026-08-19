@@ -101,13 +101,13 @@ const ValidationView: React.FC = () => {
         <div className="h-full overflow-auto p-4 flex flex-col gap-5 animate-in fade-in duration-500">
             {/* Controls */}
             <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                     <FlaskConical size={14} /> 実測 vs シミュ検証
                 </span>
                 <select
                     value={logId}
                     onChange={e => setLogId(e.target.value)}
-                    className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
+                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"
                 >
                     {logs.length === 0 && <option value="">(記録ログなし — Live タブで記録)</option>}
                     {logs.map(l => (
@@ -119,13 +119,13 @@ const ValidationView: React.FC = () => {
                     ))}
                 </select>
                 <button onClick={refreshLogs} title="ログ一覧を更新"
-                        className="p-1.5 rounded text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800">
+                        className="p-1.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800">
                     <RefreshCw size={13} />
                 </button>
                 <select
                     value={mode}
                     onChange={e => setMode(e.target.value)}
-                    className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
+                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"
                 >
                     <option value="full_map">vs full_map</option>
                     <option value="wot_standard">vs wot_standard</option>
@@ -134,7 +134,7 @@ const ValidationView: React.FC = () => {
                 <button
                     onClick={run}
                     disabled={busy || !logId}
-                    className="px-3 py-1 rounded text-xs font-medium bg-neutral-100 text-black disabled:opacity-40"
+                    className="px-3 py-1 rounded text-xs font-medium bg-slate-100 text-black disabled:opacity-40"
                 >
                     {busy ? "比較中..." : "比較実行"}
                 </button>
@@ -142,7 +142,7 @@ const ValidationView: React.FC = () => {
             </div>
 
             {!rep && !error && (
-                <div className="text-neutral-600 text-sm">
+                <div className="text-slate-600 text-sm">
                     Live (DS2) タブで記録したログを選び、シミュ結果 (last_run) と比較します。
                     実測 rf とシミュ VE は同じ ECU 単位 (m_ref 606.06mg) なので Δ はそのまま pp です。
                 </div>
@@ -158,38 +158,38 @@ const ValidationView: React.FC = () => {
                             ["WOT Δ (3900-5300)", fmt(rep.summary.wot_delta_mean_in_band, 1, " pp"), "≈ 箱モード寄与の実測値 (正が期待値)"],
                             ["VANOS 追従 |ist−soll|", fmt(rep.summary.vanos_tracking_mean_abs, 2, "°"), `map照合 ${fmt(rep.summary.vanos_map_match_mean_abs, 2, "°")}`],
                         ].map(([label, value, note]) => (
-                            <div key={label as string} className="border border-neutral-800 rounded-lg p-3 bg-neutral-900/40">
-                                <div className="text-[10px] uppercase tracking-wider text-neutral-500">{label}</div>
-                                <div className="text-lg font-mono text-neutral-100">{value}</div>
-                                <div className="text-[10px] text-neutral-500">{note}</div>
+                            <div key={label as string} className="border border-slate-800 rounded-lg p-3 bg-slate-900/40">
+                                <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+                                <div className="text-lg font-mono text-slate-100">{value}</div>
+                                <div className="text-[10px] text-slate-500">{note}</div>
                             </div>
                         ))}
                     </div>
-                    <div className="text-[11px] text-neutral-500">
+                    <div className="text-[11px] text-slate-500">
                         条件: IAT {fmt(rep.conditions.iat_mean, 1, "°C")} / 水温 {fmt(rep.conditions.coolant_mean, 1, "°C")} /
                         大気圧 {fmt(rep.conditions.ambient_pressure_mean, 0, " mbar")} · 比較対象 run: {rep.run_id ?? "?"} ({rep.run_mode}, {rep.run_unit})
                     </div>
 
                     {/* WOT overlay */}
                     {wotData.length > 0 && (
-                        <div className="border border-neutral-800 rounded-lg bg-neutral-900/40 p-3">
-                            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">
+                        <div className="border border-slate-800 rounded-lg bg-slate-900/40 p-3">
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                                 WOT: 実測 rf vs シミュ VE
                             </div>
-                            <div className="text-[10px] text-neutral-500 mb-2">
+                            <div className="text-[10px] text-slate-500 mb-2">
                                 {band ? `${band.rpm_min}-${band.rpm_max} の網掛け帯 = 1Dモデル限界 (3D箱モード非搭載)。この帯の 実測−シミュ 差 ≈ 箱モード寄与の実測値。` : ""}
                             </div>
                             <div ref={chartRef} className="h-72 w-full">
                                 {chartBox.w > 0 && chartBox.h > 0 && (
                                     <ComposedChart width={chartBox.w} height={chartBox.h} data={wotData}
                                                    margin={{ top: 6, right: 18, bottom: 4, left: 0 }}>
-                                        <CartesianGrid stroke="#262626" strokeDasharray="3 3" />
+                                        <CartesianGrid stroke="#17171C" strokeDasharray="3 3" />
                                         <XAxis dataKey="rpm" type="number" domain={["dataMin", "dataMax"]}
-                                               stroke="#525252" tick={{ fontSize: 10 }} />
-                                        <YAxis stroke="#525252" tick={{ fontSize: 10 }}
+                                               stroke="#4C4C58" tick={{ fontSize: 10 }} />
+                                        <YAxis stroke="#4C4C58" tick={{ fontSize: 10 }}
                                                domain={["auto", "auto"]}
-                                               label={{ value: "rf / VE [%]", angle: -90, position: "insideLeft", fill: "#737373", fontSize: 10 }} />
-                                        <Tooltip contentStyle={{ background: "#171717", border: "1px solid #404040", fontSize: 11 }} />
+                                               label={{ value: "rf / VE [%]", angle: -90, position: "insideLeft", fill: "#70707E", fontSize: 10 }} />
+                                        <Tooltip contentStyle={{ background: "#0A0A0D", border: "1px solid #2A2A33", fontSize: 11 }} />
                                         <Legend wrapperStyle={{ fontSize: 11 }} />
                                         {band && (
                                             <ReferenceArea x1={band.rpm_min} x2={band.rpm_max}
@@ -208,23 +208,23 @@ const ValidationView: React.FC = () => {
 
                     {/* Delta matrix */}
                     {matrix && matrix.ros.length > 0 && (
-                        <div className="border border-neutral-800 rounded-lg bg-neutral-900/40 p-3 overflow-x-auto">
-                            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                        <div className="border border-slate-800 rounded-lg bg-slate-900/40 p-3 overflow-x-auto">
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
                                 Δ マトリクス (実測 rf − シミュ VE) [pp] — 赤=実測が上 / 青=実測が下
                             </div>
                             <table className="text-[10px] font-mono border-collapse">
                                 <thead>
                                     <tr>
-                                        <th className="px-1.5 py-0.5 text-neutral-500 text-right">RO% \ rpm</th>
+                                        <th className="px-1.5 py-0.5 text-slate-500 text-right">RO% \ rpm</th>
                                         {matrix.rpms.map(r => (
-                                            <th key={r} className="px-1.5 py-0.5 text-neutral-500 text-right">{r}</th>
+                                            <th key={r} className="px-1.5 py-0.5 text-slate-500 text-right">{r}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {matrix.ros.map(ro => (
                                         <tr key={ro}>
-                                            <td className="px-1.5 py-0.5 text-neutral-500 text-right">{ro}</td>
+                                            <td className="px-1.5 py-0.5 text-slate-500 text-right">{ro}</td>
                                             {matrix.rpms.map(rpm => {
                                                 const c = matrix.idx.get(`${ro}|${rpm}`);
                                                 const inBand = !!band && ro >= band.load_min
@@ -233,7 +233,7 @@ const ValidationView: React.FC = () => {
                                                     <td key={rpm}
                                                         title={c ? `hits ${c.hits} · rf ${fmt(c.rf_mean)} vs sim ${fmt(c.sim_ve)}${c.sim_valid ? "" : " (sim invalid)"}` : ""}
                                                         style={{ background: deltaColor(c?.delta ?? null) }}
-                                                        className={`px-1.5 py-0.5 text-right ${inBand ? "outline outline-1 outline-amber-500/40" : ""} ${c && !c.sim_valid ? "text-neutral-600 line-through" : "text-neutral-200"}`}>
+                                                        className={`px-1.5 py-0.5 text-right ${inBand ? "outline outline-1 outline-amber-500/40" : ""} ${c && !c.sim_valid ? "text-slate-600 line-through" : "text-slate-200"}`}>
                                                         {c?.delta != null ? c.delta.toFixed(1) : ""}
                                                     </td>
                                                 );
@@ -242,7 +242,7 @@ const ValidationView: React.FC = () => {
                                     ))}
                                 </tbody>
                             </table>
-                            <div className="text-[10px] text-neutral-500 mt-1.5">
+                            <div className="text-[10px] text-slate-500 mt-1.5">
                                 琥珀枠 = モデル限界帯 (箱モード欠落 → 正の Δ が正常)。打消線 = シミュ側セルが invalid。
                             </div>
                         </div>
@@ -250,36 +250,36 @@ const ValidationView: React.FC = () => {
 
                     {/* VANOS consistency */}
                     {vanosCells.length > 0 && (
-                        <div className="border border-neutral-800 rounded-lg bg-neutral-900/40 p-3 overflow-x-auto">
-                            <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                        <div className="border border-slate-800 rounded-lg bg-slate-900/40 p-3 overflow-x-auto">
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
                                 VANOS 整合 (吸気 evan / 排気 avan) [°KW]
                             </div>
                             <table className="text-[10px] font-mono border-collapse w-full max-w-3xl">
                                 <thead>
-                                    <tr className="text-neutral-500">
+                                    <tr className="text-slate-500">
                                         {["rpm", "RO%", "evan ist", "evan soll", "evan map", "avan ist", "avan soll", "avan map", "tz実測", "tz期待"].map(h => (
-                                            <th key={h} className="px-2 py-0.5 text-right border-b border-neutral-800">{h}</th>
+                                            <th key={h} className="px-2 py-0.5 text-right border-b border-slate-800">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {vanosCells.map(c => (
-                                        <tr key={`${c.ro}|${c.rpm}`} className="text-neutral-300">
+                                        <tr key={`${c.ro}|${c.rpm}`} className="text-slate-300">
                                             <td className="px-2 py-0.5 text-right">{c.rpm}</td>
                                             <td className="px-2 py-0.5 text-right">{c.ro}</td>
                                             <td className="px-2 py-0.5 text-right">{fmt(c.evan_ist)}</td>
                                             <td className="px-2 py-0.5 text-right">{fmt(c.evan_soll)}</td>
-                                            <td className="px-2 py-0.5 text-right text-neutral-500">{fmt(c.evan_map)}</td>
+                                            <td className="px-2 py-0.5 text-right text-slate-500">{fmt(c.evan_map)}</td>
                                             <td className="px-2 py-0.5 text-right">{fmt(c.avan_ist)}</td>
                                             <td className="px-2 py-0.5 text-right">{fmt(c.avan_soll)}</td>
-                                            <td className="px-2 py-0.5 text-right text-neutral-500">{fmt(c.avan_map)}</td>
+                                            <td className="px-2 py-0.5 text-right text-slate-500">{fmt(c.avan_map)}</td>
                                             <td className="px-2 py-0.5 text-right">{fmt(c.tz_mean)}</td>
-                                            <td className="px-2 py-0.5 text-right text-neutral-500">{fmt(c.tz_expected)}</td>
+                                            <td className="px-2 py-0.5 text-right text-slate-500">{fmt(c.tz_expected)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
-                            <div className="text-[10px] text-neutral-500 mt-1.5">
+                            <div className="text-[10px] text-slate-500 mt-1.5">
                                 soll vs map の恒常オフセット = DME 文書で未確認だった°KW⇄カム角変換規約の実測値。tz期待 = シミュが使う KF_TZ_VL / 二段引き。
                             </div>
                         </div>
