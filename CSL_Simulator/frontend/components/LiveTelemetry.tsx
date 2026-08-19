@@ -286,20 +286,20 @@ const LiveTelemetry: React.FC = () => {
     }));
 
     const groupLines: Record<ChartGroup, { key: string; name: string; color: string; dash?: string }[]> = {
-        rpm: [{ key: "rpm", name: "RPM", color: "#38bdf8" }],
+        rpm: [{ key: "rpm", name: "RPM", color: "#26AEE4" }],
         load: [
-            { key: "rf", name: "rf %", color: "#34d399" },
-            { key: "ro", name: "RO %", color: "#f59e0b" },
-            { key: "map", name: "MAP/10 mbar", color: "#a78bfa" },
+            { key: "rf", name: "rf %", color: "#B6E4F5" },
+            { key: "ro", name: "RO %", color: "#B9A6EE" },
+            { key: "map", name: "MAP/10 mbar", color: "#9B84E8" },
         ],
         vanos: [
-            { key: "evanIst", name: "EVAN ist", color: "#38bdf8" },
-            { key: "evanSoll", name: "EVAN soll", color: "#38bdf8", dash: "4 3" },
-            { key: "avanIst", name: "AVAN ist", color: "#f43f5e" },
-            { key: "avanSoll", name: "AVAN soll", color: "#f43f5e", dash: "4 3" },
+            { key: "evanIst", name: "EVAN ist", color: "#26AEE4" },
+            { key: "evanSoll", name: "EVAN soll", color: "#26AEE4", dash: "4 3" },
+            { key: "avanIst", name: "AVAN ist", color: "#F64A50" },
+            { key: "avanSoll", name: "AVAN soll", color: "#F64A50", dash: "4 3" },
         ],
         ign: [
-            { key: "tzAvg", name: "点火平均 °KW", color: "#f59e0b" },
+            { key: "tzAvg", name: "点火平均 °KW", color: "#B9A6EE" },
             { key: "speed", name: "車速 km/h", color: "#4C4C58" },
         ],
     };

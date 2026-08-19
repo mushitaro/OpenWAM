@@ -139,18 +139,18 @@ const TuningResults: React.FC<{ data: OptimizationResponse }> = ({ data }) => {
                             {data.model_limits && (
                                 <ReferenceArea x1={data.model_limits.wot_deficit_band.rpm_min}
                                     x2={data.model_limits.wot_deficit_band.rpm_max}
-                                    fill="#f59e0b" fillOpacity={0.07} stroke="#f59e0b" strokeOpacity={0.25}
-                                    label={{ value: "model limit", fill: "#b45309", fontSize: 9, position: "insideTop" }} />
+                                    fill="#B9A6EE" fillOpacity={0.07} stroke="#B9A6EE" strokeOpacity={0.25}
+                                    label={{ value: "model limit", fill: "#B9A6EE", fontSize: 9, position: "insideTop" }} />
                             )}
                             {(data.model_limits?.bistable_cells ?? []).map((b) => (
-                                <ReferenceLine key={b.rpm} x={b.rpm} stroke="#a16207" strokeDasharray="2 3" />
+                                <ReferenceLine key={b.rpm} x={b.rpm} stroke="#7E63DB" strokeDasharray="2 3" />
                             ))}
                             <Line type="monotone" dataKey="measured" name="Stock (measured)"
-                                stroke="#f43f5e" strokeDasharray="4 3" dot={false} connectNulls />
+                                stroke="#F64A50" strokeDasharray="4 3" dot={false} connectNulls />
                             <Line type="monotone" dataKey="baseline" name="Sim baseline"
-                                stroke="#38bdf8" dot={{ r: 2 }} connectNulls />
+                                stroke="#26AEE4" dot={{ r: 2 }} connectNulls />
                             <Line type="monotone" dataKey="optimized" name="Sim optimized"
-                                stroke="#34d399" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+                                stroke="#B6E4F5" strokeWidth={2} dot={{ r: 2 }} connectNulls />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>

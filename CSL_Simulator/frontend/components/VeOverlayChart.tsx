@@ -67,20 +67,20 @@ const VeOverlayChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
                         <Legend wrapperStyle={{ fontSize: 12 }} />
                         {band && (
                             <ReferenceArea x1={band.rpm_min} x2={band.rpm_max}
-                                           fill="#f59e0b" fillOpacity={0.07} stroke="#f59e0b" strokeOpacity={0.25}
-                                           label={{ value: "model limit (3D box mode)", fill: "#b45309", fontSize: 9, position: "insideTop" }} />
+                                           fill="#B9A6EE" fillOpacity={0.07} stroke="#B9A6EE" strokeOpacity={0.25}
+                                           label={{ value: "model limit (3D box mode)", fill: "#B9A6EE", fontSize: 9, position: "insideTop" }} />
                         )}
                         {bistable.map((b) => (
-                            <ReferenceLine key={b.rpm} x={b.rpm} stroke="#a16207" strokeDasharray="2 3"
-                                           label={{ value: `bistable ±${b.amplitude_pp}pp`, fill: "#a16207", fontSize: 9, position: "insideBottomRight" }} />
+                            <ReferenceLine key={b.rpm} x={b.rpm} stroke="#7E63DB" strokeDasharray="2 3"
+                                           label={{ value: `bistable ±${b.amplitude_pp}pp`, fill: "#7E63DB", fontSize: 9, position: "insideBottomRight" }} />
                         ))}
                         {peakStock != null && (
-                            <ReferenceLine x={peakStock} stroke="#f59e0b" strokeDasharray="4 4"
-                                           label={{ value: "stock peak", fill: "#f59e0b", fontSize: 10, position: "top" }} />
+                            <ReferenceLine x={peakStock} stroke="#B9A6EE" strokeDasharray="4 4"
+                                           label={{ value: "stock peak", fill: "#B9A6EE", fontSize: 10, position: "top" }} />
                         )}
-                        <Line type="monotone" dataKey="sim" name="Sim" stroke="#38bdf8" strokeWidth={2}
+                        <Line type="monotone" dataKey="sim" name="Sim" stroke="#26AEE4" strokeWidth={2}
                               dot={{ r: 2 }} connectNulls />
-                        <Line type="monotone" dataKey="stock" name="Stock (measured)" stroke="#f43f5e"
+                        <Line type="monotone" dataKey="stock" name="Stock (measured)" stroke="#F64A50"
                               strokeWidth={2} strokeDasharray="5 4" dot={{ r: 2 }} connectNulls />
                     </LineChart>
                 </ResponsiveContainer>

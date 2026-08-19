@@ -22,8 +22,10 @@ const Plot = dynamic(() => import("react-plotly.js"), {
 });
 
 const AXIS = { color: "#9A9AA8", gridcolor: "#17171C", zerolinecolor: "#2A2A33" };
-const COLORS = ["#38bdf8", "#f59e0b", "#34d399", "#f43f5e", "#a78bfa", "#fbbf24",
-    "#22d3ee", "#fb7185", "#4ade80", "#c084fc", "#60a5fa", "#f97316"];
+// ///M tricolour only, lightness-spaced so adjacent traces stay separable without
+// a fourth hue (see lib/chartTheme.ts -> SERIES_CYCLE).
+const COLORS = ["#26AEE4", "#B9A6EE", "#B6E4F5", "#F64A50", "#9B84E8", "#6CCBEF",
+    "#8FD8F2", "#F87A7F", "#CBBCF2", "#7E63DB", "#0A9BDB", "#D0121A"];
 
 type Metric = "pressure" | "velocity";
 

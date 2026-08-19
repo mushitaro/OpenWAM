@@ -193,12 +193,12 @@ const ValidationView: React.FC = () => {
                                         <Legend wrapperStyle={{ fontSize: 11 }} />
                                         {band && (
                                             <ReferenceArea x1={band.rpm_min} x2={band.rpm_max}
-                                                           fill="#f59e0b" fillOpacity={0.08}
-                                                           stroke="#f59e0b" strokeOpacity={0.25} strokeDasharray="4 4" />
+                                                           fill="#B9A6EE" fillOpacity={0.08}
+                                                           stroke="#B9A6EE" strokeOpacity={0.25} strokeDasharray="4 4" />
                                         )}
-                                        <Line dataKey="sim" name="シミュ VE" stroke="#34d399" strokeWidth={2} dot={{ r: 2 }} connectNulls />
-                                        <Scatter dataKey="measured" name="実測 rf (ビン平均)" fill="#f87171" />
-                                        <Line dataKey="psau" name="rf_psau (MAP系)" stroke="#818cf8" strokeWidth={1}
+                                        <Line dataKey="sim" name="シミュ VE" stroke="#B6E4F5" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+                                        <Scatter dataKey="measured" name="実測 rf (ビン平均)" fill="#F87A7F" />
+                                        <Line dataKey="psau" name="rf_psau (MAP系)" stroke="#CBBCF2" strokeWidth={1}
                                               strokeDasharray="5 3" dot={false} connectNulls />
                                     </ComposedChart>
                                 )}

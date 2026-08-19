@@ -136,7 +136,7 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
 
     const EngineBlock = () => (
         <g>
-            <rect x="212" y="30" width="96" height="300" rx="6" fill="#141414" stroke="#17171C" strokeWidth="1.5" className="pointer-events-none" />
+            <rect x="212" y="30" width="96" height="300" rx="6" fill="#0A0A0D" stroke="#17171C" strokeWidth="1.5" className="pointer-events-none" />
             {CYL_Y.map((y, i) => {
                 const selected = isSelected(s => s.type === "cylinder" && s.index === i);
                 return (
@@ -145,7 +145,7 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                         className="cursor-pointer hover:opacity-80 transition-all">
                         {/* Cylinder Wall */}
                         <rect x="216" y={y - 21} width="88" height="42" rx="4"
-                            fill={selected ? "#2e2e2e" : "#0A0A0D"}
+                            fill={selected ? "#2A2A33" : "#0A0A0D"}
                             stroke={getStroke(selected)} strokeWidth="2" />
                         {/* Bore ring */}
                         <circle cx="260" cy={y} r="14" fill="none" stroke={getStroke(selected)} strokeWidth="1.5" />
@@ -237,8 +237,8 @@ const InteractiveTopology: React.FC<InteractiveTopologyProps> = ({ config, activ
                     className="cursor-pointer hover:opacity-80 transition-all" />
                 {config.exhaust.catalyst.installed && (
                     <>
-                        <rect x={catalystX} y={BANK_Y[0] - 7} width="24" height="14" rx="2" fill="#d97706" opacity="0.85" className="pointer-events-none" />
-                        <rect x={catalystX} y={BANK_Y[1] - 7} width="24" height="14" rx="2" fill="#d97706" opacity="0.85" className="pointer-events-none" />
+                        <rect x={catalystX} y={BANK_Y[0] - 7} width="24" height="14" rx="2" fill="#7E63DB" opacity="0.85" className="pointer-events-none" />
+                        <rect x={catalystX} y={BANK_Y[1] - 7} width="24" height="14" rx="2" fill="#7E63DB" opacity="0.85" className="pointer-events-none" />
                     </>
                 )}
                 <text x="446" y="346" textAnchor="middle" className="text-[10px] fill-slate-600 font-mono tracking-widest pointer-events-none">SEC 1 · CAT</text>

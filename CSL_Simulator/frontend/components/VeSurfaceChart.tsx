@@ -85,7 +85,7 @@ const VeSurfaceChart: React.FC<{ runData: RunResponse }> = ({ runData }) => {
         }
         // single load row -> a 3D ridge line (markers+line) instead of a flat surface
         const row = z[0] ?? [];
-        const colour = mode === "delta" ? "#f59e0b" : "#38bdf8";
+        const colour = mode === "delta" ? "#B9A6EE" : "#26AEE4";
         const trace = {
             type: "scatter3d",
             mode: "lines+markers",
