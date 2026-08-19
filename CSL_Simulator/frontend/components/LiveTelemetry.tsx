@@ -7,7 +7,7 @@ import {
 import { Plug, PlugZap, Circle, Square, Download, Radio, HardDriveDownload } from "lucide-react";
 import { DmeTelemetryLink, DmeIdentity, LiveSample, LiveBlockSelection } from "../lib/dme-link/types";
 import { DECODER_VERSION } from "../lib/dme-link/liveValueBlocks";
-import { WebSerialTransport } from "../lib/dme-link/webSerialTransport";
+import { kLineAvailable, kLineTransportName } from "../lib/dme-link/webSerialDmeLink";
 import { WebSerialDmeLink } from "../lib/dme-link/webSerialDmeLink";
 import { MockDmeLink } from "../lib/dme-link/mockDmeLink";
 import { saveTelemetryLog } from "../app/api";
@@ -108,8 +108,11 @@ export function useElementSize(): [(el: HTMLDivElement | null) => void, { w: num
 }
 
 const LiveTelemetry: React.FC = () => {
-    const webSerialOk = WebSerialTransport.isSupported();
-    const [mode, setMode] = useState<"webserial" | "mock">(webSerialOk ? "webserial" : "mock");
+    // Android Chrome has no Web Serial but does have WebUSB, so the question is
+    // "can we reach the DME at all", not "is Web Serial here".
+    const linkOk = kLineAvailable();
+    const transportName = kLineTransportName();
+    const [mode, setMode] = useState<"webserial" | "mock">(linkOk ? "webserial" : "mock");
     const [state, setState] = useState<"disconnected" | "connecting" | "connected">("disconnected");
     const [identity, setIdentity] = useState<DmeIdentity | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -473,7 +476,7 @@ const LiveTelemetry: React.FC = () => {
                     ))}
                 </div>
                 {state !== "connected" ? (
-                    <button onClick={connect} disabled={state === "connecting" || (mode === "webserial" && !webSerialOk)}
+                    <button onClick={connect} disabled={state === "connecting" || (mode === "webserial" && !linkOk)}
                         className="px-3 py-1.5 rounded text-[12px] font-semibold bg-slate-100 text-black hover:bg-white disabled:opacity-50 flex items-center gap-1.5">
                         <Plug size={13} /> {state === "connecting" ? "接続中..." : "接続"}
                     </button>
@@ -483,8 +486,16 @@ const LiveTelemetry: React.FC = () => {
                         <PlugZap size={13} /> 切断
                     </button>
                 )}
-                {!webSerialOk && mode === "webserial" && (
-                    <span className="text-[11px] text-amber-400">Web Serial 非対応の環境です(Chrome/Edge デスクトップが必要)— モックを使用してください</span>
+                {!linkOk && mode === "webserial" && (
+                    <span className="text-[11px] text-amber-400">
+                        この端末では実車に接続できません。PC は Chrome/Edge、Android は Chrome と FTDI ケーブルが必要です。
+                        まずは「モック」で操作を確認できます。
+                    </span>
+                )}
+                {linkOk && mode === "webserial" && state === "disconnected" && (
+                    <span className="text-[10px] text-slate-500">
+                        接続方式: {transportName === "webusb" ? "WebUSB (Android・FTDI)" : "Web Serial (PC)"}
+                    </span>
                 )}
                 {identity && (
                     <span className="text-[10px] font-mono text-slate-500">

@@ -19,7 +19,11 @@ export class WebSerialTransport {
     private pumpError: Error | null = null;
 
     static isSupported(): boolean {
-        return typeof navigator !== 'undefined' && 'serial' in navigator;
+        // `'serial' in navigator` is true even when the property is defined and
+        // undefined — which a browser with the feature disabled, or a polyfill
+        // shim, really does produce. Claiming support there means offering a
+        // connect button that can only fail. Test the value, not the key.
+        return typeof navigator !== 'undefined' && navigator.serial !== undefined;
     }
 
     async open(): Promise<void> {

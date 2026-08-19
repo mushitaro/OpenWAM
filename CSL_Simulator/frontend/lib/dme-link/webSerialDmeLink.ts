@@ -1,5 +1,43 @@
 import { DmeTelemetryLink, DmeIdentity, LiveSample, LiveBlockSelection, DmeLinkError } from './types';
 import { WebSerialTransport } from './webSerialTransport';
+import { WebUsbFtdiTransport } from './webUsbFtdiTransport';
+
+/** The two byte transports share exactly this surface; the DS2 layer needs no
+ *  more and must not learn which one it has. */
+interface KLineTransport {
+    open(): Promise<void>;
+    close(): Promise<void>;
+    write(bytes: Uint8Array): Promise<void>;
+    purge(): void;
+    readExact(length: number, timeoutMs: number): Promise<Uint8Array>;
+}
+
+/**
+ * Web Serial where it exists, FTDI-over-WebUSB otherwise.
+ *
+ * Android Chrome has WebUSB but NOT Web Serial, so without this the tool cannot
+ * run on the phone that has to be in the car. Desktop Chrome has both; Web
+ * Serial is preferred there because it needs no vendor-specific handling.
+ */
+export function createKLineTransport(): KLineTransport {
+    if (WebSerialTransport.isSupported()) return new WebSerialTransport();
+    if (WebUsbFtdiTransport.isSupported()) return new WebUsbFtdiTransport();
+    throw new DmeLinkError(
+        'この端末では K-Line 接続が使えません。'
+        + 'PC は Chrome/Edge、Android は Chrome（FTDI ケーブル）が必要です。');
+}
+
+/** True when SOME transport can reach the DME here. */
+export function kLineAvailable(): boolean {
+    return WebSerialTransport.isSupported() || WebUsbFtdiTransport.isSupported();
+}
+
+/** Which one would be used — shown in the UI so a failure can be diagnosed. */
+export function kLineTransportName(): 'webserial' | 'webusb' | 'none' {
+    if (WebSerialTransport.isSupported()) return 'webserial';
+    if (WebUsbFtdiTransport.isSupported()) return 'webusb';
+    return 'none';
+}
 import {
     Ds2Frame, Ds2Control, Ds2ReadLayout, DS2_DEFAULT_ADDRESS,
     buildDs2Frame, parseDs2Frame, frameToBytes, isPositiveResponse,
@@ -34,7 +72,7 @@ function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
  * ~6-7 samples/s with 2 blocks, ~4-5 with 3 blocks.
  */
 export class WebSerialDmeLink implements DmeTelemetryLink {
-    private transport = new WebSerialTransport();
+    private transport: KLineTransport = createKLineTransport();
     private connected = false;
     private startTime = 0;
 
