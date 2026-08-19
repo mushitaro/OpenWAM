@@ -30,7 +30,9 @@ SIM = os.path.dirname(HERE)                                              # CSL_S
 OUT_DIR = os.path.join(HERE, "calib_data", "stage121_vanos_sweep")
 S120_JSON = os.path.join(HERE, "calib_data", "stage120_cam_sens", "cam_sensitivity.json")
 DEV_VARS = os.path.join(SIM, "vanos-collector", ".dev.vars")
-DEFAULT_URL = "http://127.0.0.1:8787"
+TOKEN_FILE = os.path.join(SIM, "vanos-collector", ".upload-token.local")
+# The deployed collector Worker (separate from the tuner deployment).
+DEFAULT_URL = "https://vanos-sweep-collector.kazuhiro-mushi.workers.dev"
 
 
 def resolve_token(cli: str | None) -> str:
@@ -39,19 +41,27 @@ def resolve_token(cli: str | None) -> str:
     envv = os.environ.get("VANOS_COLLECTOR_TOKEN")
     if envv:
         return envv
+    if os.path.isfile(TOKEN_FILE):
+        with open(TOKEN_FILE, "r", encoding="utf-8") as f:
+            tok = f.read().strip()
+            if tok:
+                return tok
     if os.path.isfile(DEV_VARS):
         with open(DEV_VARS, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line.startswith("UPLOAD_TOKEN="):
                     return line.split("=", 1)[1].strip()
-    sys.exit("No token: pass --token, set VANOS_COLLECTOR_TOKEN, or put UPLOAD_TOKEN= in "
-             + DEV_VARS)
+    sys.exit("No token: pass --token, set VANOS_COLLECTOR_TOKEN, or put the token in "
+             + TOKEN_FILE)
 
 
 def req(url: str, token: str, path: str) -> bytes:
+    # An explicit UA matters: urllib's default ("Python-urllib/3.x") is rejected
+    # with 403 by Cloudflare's bot protection before the request reaches the Worker.
     r = urllib.request.Request(url.rstrip("/") + path,
-                               headers={"Authorization": "Bearer " + token})
+                               headers={"Authorization": "Bearer " + token,
+                                        "User-Agent": "vanos-sweep-fetch/1.0"})
     try:
         with urllib.request.urlopen(r, timeout=60) as resp:
             return resp.read()

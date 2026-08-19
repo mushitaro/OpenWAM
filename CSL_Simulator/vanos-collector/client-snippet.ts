@@ -15,7 +15,7 @@
  */
 
 export interface SweepUploadSettings {
-  collectorUrl: string; // e.g. "https://vanos-sweep-collector.<subdomain>.workers.dev"
+  collectorUrl: string; // deployed: "https://vanos-sweep-collector.kazuhiro-mushi.workers.dev"
   token: string;        // the collector's UPLOAD_TOKEN (NOT the tuner sync token)
 }
 

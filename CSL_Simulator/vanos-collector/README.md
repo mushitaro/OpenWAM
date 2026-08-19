@@ -3,7 +3,13 @@
 Stage-121 ライブ VANOS 掃引ログの収集器。**Tuner (`mss54hp-tuner-preview` / `RUNS_DB`) とは
 完全に別のデプロイ・別の D1**（オーナー指示 2026-08-20）。Worker + D1 のみの純 API。
 
-## デプロイ（初回、オーナー実行）
+## デプロイ済み
+
+**本番 URL**: `https://vanos-sweep-collector.kazuhiro-mushi.workers.dev`
+D1: `vanos-sweeps` (APAC, `5ca9df07-a704-475b-98f1-fe9fadd6f056`) / トークンは `.upload-token.local`（gitignored）。
+再デプロイは `npm run deploy` のみ。
+
+<details><summary>初回セットアップ手順（実行済み・記録用）</summary>
 
 ```bash
 cd CSL_Simulator/vanos-collector
@@ -11,8 +17,9 @@ npm install
 npx wrangler d1 create vanos-sweeps      # 出力の database_id を wrangler.jsonc に貼る
 npm run db:migrate:remote
 npx wrangler secret put UPLOAD_TOKEN     # 新規トークン（Tuner のとは別物）
-npm run deploy                           # -> https://vanos-sweep-collector.<subdomain>.workers.dev
+npm run deploy
 ```
+</details>
 
 ## API（全経路 `Authorization: Bearer <UPLOAD_TOKEN>`、fail-closed）
 
