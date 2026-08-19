@@ -5283,3 +5283,42 @@ per-cyl-per-cycle で整合)。
 
 **成果物**: `scripts/ecu_rg_model.py`(移植＋overlay、`--verify/--selftest/--overlay`)、
 `calib_data/stage119_rg_model/overlay_egt850.json`。
+
+---
+
+## Stage 120 — シムのカム→空気感度: cam は低権限、谷は cam で回復できない（シム予測）
+
+**作業**: 健全ベースラインスタック(`build_audit`, omp1, SPECIES_FIX/SPECIES11_FIX/DUCT=jet/
+NO_FILTER/LIFT_EXP=1.6/BC_AREAFIX/T12_EXP=0/MASS_AUDIT, eq_tube=plenum, 車 ambient)で、
+谷/峰(2900/3100/3900 WOT)の純正カム周辺を一因子掃引。正準ハーネス `run_cells_local.run_all`
+を `scripts/stage120_cam_sens.py` から駆動(`OPENWAM_EXE`=build_audit, `OPENWAM_NO_CACHE=1`)。
+22 セル → **16 valid / 6 NaN**、40 サイクル収束。
+
+**結果(有効セルのみ、VE は ECU-rf 正規化%)**:
+
+| rpm | 純正VE | dVE/d(吸気live) | dVE/d(排気live) |
+|---|---|---|---|
+| 3100(谷) | 103.1 | **−0.135** | +0.01(平坦) |
+| 3900(峰) | 104.4 | −0.068 | −0.04 |
+| 2900 | (在80特異点) | −0.29 | 未測(全セル在80) |
+
+- **シム WOT VE は全 16 セルで 96.6–104.7、レンジ 8.1pp**。実車の谷→峰 ~56pp に対し**ほぼ平坦 ~103**。
+  ⇒ **シムは谷(rf68@3100)も峰(rf124@3900)も再現せず、cam を振ってもほとんど動かない。** これは
+  「1D は箱モードを運べない→平坦」(St.90/115)の、健全スタック×cam 掃引での再確認。
+- **cam 権限は小さく、吸気進角はむしろ VE を下げる**。純正(吸気フル遅角 in70)が既に VE 最大付近。
+  保存可能全域(~0-45°)を使っても高々 ~10 VE%。
+
+**⚠ 訂正**: 早期に「吸気進角で NaN＝Stage-88b の高オーバーラップ破綻」と述べたが誤り。NaN は
+**`intake_cam_spread=80` という単一値だけの孤立特異点**(in75 も in85 も、より進角した in90/95/100 も
+安定)。デッキ生成上の縮退で、物理的な高オーバーラップ不安定ではない。感度スロープは有効点から算出し
+在80 は除外。単独再現時の `FRMezcla=460/γ1.333/ENERGIA=nan` はこの特異点の症状であって一般則ではない。
+
+**S121 への事前登録予測(合わせに行かない)**:
+- シムは cam に**低権限**(|dVE/dcam| ≤ 0.3 VE%/deg、吸気進角は負)を割り当てる ⇒ **cam 掃引では
+  ~56pp の谷は回復できない**と予測。
+- 判別: 実車 λ 掃引が**大きな**権限を示せば「シムが cam→空気結合を過小評価＝谷は回復可能ヘッドルーム」、
+  **小さければ**「谷は本質的(箱モード)、cam では動かない」。**符号**(吸気進角で空気が増える vs 減る)も
+  直接の sim↔car 判別項目 — シムは「減る」、純正フル遅角が最適、と予測。
+
+**成果物**: `scripts/stage120_cam_sens.py`、`calib_data/stage120_cam_sens/cam_sweep.csv`(22セル)、
+`cam_sensitivity.json`。

@@ -1,0 +1,108 @@
+{
+  "2900": {
+    "stock_in": 80,
+    "stock_ex": 93,
+    "baseline_ve": null,
+    "intake": [
+      {
+        "live": 15,
+        "ve": 100.99
+      },
+      {
+        "live": 20,
+        "ve": 99.76
+      },
+      {
+        "live": 25,
+        "ve": 98.41
+      },
+      {
+        "live": 30,
+        "ve": 96.6
+      }
+    ],
+    "exhaust": [],
+    "dVE_dintake_live": -0.2904,
+    "dVE_dexhaust_live": null
+  },
+  "3100": {
+    "stock_in": 70,
+    "stock_ex": 87,
+    "baseline_ve": 103.1,
+    "intake": [
+      {
+        "live": 0,
+        "ve": 103.1
+      },
+      {
+        "live": 5,
+        "ve": 102.76
+      },
+      {
+        "live": 15,
+        "ve": 101.43
+      },
+      {
+        "live": 20,
+        "ve": 100.4
+      }
+    ],
+    "exhaust": [
+      {
+        "live": 45,
+        "ve": 103.12
+      },
+      {
+        "live": 41,
+        "ve": 103.1
+      },
+      {
+        "live": 37,
+        "ve": 103.02
+      }
+    ],
+    "dVE_dintake_live": -0.1346,
+    "dVE_dexhaust_live": 0.0125
+  },
+  "3900": {
+    "stock_in": 70,
+    "stock_ex": 87,
+    "baseline_ve": 104.43,
+    "intake": [
+      {
+        "live": 0,
+        "ve": 104.43
+      },
+      {
+        "live": 5,
+        "ve": 104.65
+      },
+      {
+        "live": 15,
+        "ve": 103.93
+      },
+      {
+        "live": 20,
+        "ve": 103.09
+      }
+    ],
+    "exhaust": [
+      {
+        "live": 45,
+        "ve": 103.83
+      },
+      {
+        "live": 41,
+        "ve": 104.43
+      },
+      {
+        "live": 37,
+        "ve": 104.17
+      }
+    ],
+    "dVE_dintake_live": -0.068,
+    "dVE_dexhaust_live": -0.0425
+  },
+  "_note": "in_spread=80 is an isolated numerical singularity (in75 & in85 both stable); excluded. Slopes from valid cells.",
+  "_sim_ve_range_pp": 8.1
+}
