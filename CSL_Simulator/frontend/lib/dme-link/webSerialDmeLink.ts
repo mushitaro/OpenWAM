@@ -5,6 +5,7 @@ import {
     buildDs2Frame, parseDs2Frame, frameToBytes, isPositiveResponse,
     buildSeedRequestPayload, buildKeyPayload, isAlreadyUnlockedResponse, isSeedResponse, calculateLoginKey,
     buildReadMemoryPayload,
+    buildVanosTargetPayload, describeVanosAck, VanosAck, VanosPinValue,
 } from './ds2';
 import {
     parseSystemAddressTable, findPointer, parseAifEntries, latestPopulatedAifEntry,
@@ -36,6 +37,34 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
     private transport = new WebSerialTransport();
     private connected = false;
     private startTime = 0;
+
+    /* --- CommandGate: one frame in flight on this transport ----------------
+     * Without it, the only thing keeping two operations from interleaving
+     * frames is UI state — which holds exactly until something that is NOT a
+     * user action sends a request. The keep-alive timer and the sweep's cam
+     * ramp are both that something.
+     *
+     * This gate QUEUES rather than throws, which is a deliberate departure from
+     * the tuner's (whose callers are all user actions, so refusing is the right
+     * answer there). Here the busiest caller is the free-running poll loop, and
+     * that loop disconnects after 5 consecutive errors: if a gate collision
+     * surfaced as an error, one cam ramp (8 commands, ~150ms apart) would
+     * manufacture enough of them to drop the link and lose the run. A poll
+     * delayed by one frame is harmless; a poll reported as a failure is not.
+     * The keep-alive is the one caller that skips instead of waiting — a
+     * tester-present frame is only worth sending when the line is idle. */
+    private gateTail: Promise<unknown> = Promise.resolve();
+    private gateHeld = false;
+
+    private withGate<T>(fn: () => Promise<T>): Promise<T> {
+        const run = this.gateTail.then(async () => {
+            this.gateHeld = true;
+            try { return await fn(); } finally { this.gateHeld = false; }
+        });
+        // The queue must survive a rejected turn, or one failure wedges the link.
+        this.gateTail = run.catch(() => undefined);
+        return run;
+    }
 
     async connect(): Promise<DmeIdentity> {
         await this.transport.open();
@@ -155,6 +184,10 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
     }
 
     async pollSample(blocks: LiveBlockSelection[]): Promise<LiveSample> {
+        return this.withGate(() => this.pollSampleInner(blocks));
+    }
+
+    private async pollSampleInner(blocks: LiveBlockSelection[]): Promise<LiveSample> {
         this.assertConnected();
         if (this.startTime === 0) this.startTime = performance.now();
 
@@ -174,5 +207,59 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
             throw new DmeLinkError('All polled DS2 blocks failed — check the connection');
         }
         return mergeSample((performance.now() - this.startTime) / 1000, b3, b19, b35);
+    }
+
+    /**
+     * Command one VANOS bank to an absolute cam angle (signed whole degKW, the
+     * live convention — not the map's +70 / 128−x encoding).
+     *
+     * Returns the DME's own verdict rather than throwing on refusal: every
+     * non-zero ack is SEMANTIC (the DME understood the frame and declined it),
+     * so the caller must change something before asking again — re-sending is
+     * guaranteed to be declined identically. Transport faults still throw,
+     * because those are the ones worth retrying.
+     *
+     * NOTE the override bypasses K_EVAN1_SOLL_MIN/MAX and KL_EVAN_SOLL_BEGR.
+     * The caller owns the rpm/load window and the ramp; see lib/sweep.
+     */
+    async setVanosTarget(pin: VanosPinValue, angleDegKw: number): Promise<VanosAck> {
+        return this.withGate(async () => {
+            this.assertConnected();
+            const frame = await this.exchange(
+                Ds2Control.SET_IO_STATUS, buildVanosTargetPayload(pin, angleDegKw));
+            if (!isPositiveResponse(frame)) {
+                throw new DmeLinkError(
+                    `DME rejected the VANOS command (status 0x${frame.controlOrStatus.toString(16)})`);
+            }
+            // payload[0] echoes the pin; payload[1] is the I/O feedback code.
+            if (frame.payload.length < 2) {
+                throw new DmeLinkError('VANOS response carried no feedback byte');
+            }
+            return describeVanosAck(frame.payload[1]);
+        });
+    }
+
+    /**
+     * Tester-present. Holds the diagnostic session open, which is what keeps a
+     * commanded VANOS target from reverting to map control.
+     *
+     * Best effort by contract: it runs on a timer with nothing to catch it, so
+     * it never throws, and it SKIPS when the line is busy rather than queueing
+     * behind a poll — a heartbeat that arrives late is worth nothing. Nothing
+     * branches on the result; the next real operation reports the link's state.
+     *
+     * Stopping this is the documented abort: the DME reverts to its own map on
+     * the next background cycle.
+     */
+    async keepAlive(): Promise<boolean> {
+        if (!this.connected || this.gateHeld) return false;
+        try {
+            return await this.withGate(async () => {
+                const frame = await this.exchange(Ds2Control.KEEP_ALIVE, new Uint8Array(0));
+                return isPositiveResponse(frame);
+            });
+        } catch {
+            return false;
+        }
     }
 }
