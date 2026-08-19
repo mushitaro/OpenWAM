@@ -61,7 +61,7 @@ export function useVanosSweep(
     /** The recorder's command ref. Passing it in (rather than owning one here)
      *  guarantees the angle a sample is stamped with is the angle that was
      *  actually commanded — two refs would drift by one command. */
-    externalCmdRef?: React.MutableRefObject<{ intake: number | null; exhaust: number | null }>,
+    externalCmdRef?: React.MutableRefObject<{ intake: number | null; exhaust: number | null; transient?: boolean }>,
 ): UseVanosSweep {
     const [phase, setPhase] = useState<SweepPhase>("off");
     const [axis, setAxis] = useState<SweepAxis>("intake");
@@ -72,10 +72,11 @@ export function useVanosSweep(
     const ownCmdRef = useRef<SweepCommandState>({ axis: "intake", intake: null, exhaust: null });
     const commandRef = ownCmdRef;
     /** Mirror every command into the recorder's ref in the same tick. */
-    const publish = useCallback(() => {
+    const publish = useCallback((transient = false) => {
         if (externalCmdRef) {
             externalCmdRef.current.intake = commandRef.current.intake;
             externalCmdRef.current.exhaust = commandRef.current.exhaust;
+            externalCmdRef.current.transient = transient;
         }
     }, [externalCmdRef, commandRef]);
     const keepAliveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -174,11 +175,12 @@ export function useVanosSweep(
                     return;
                 }
                 commandRef.current[key] = s;
-                publish();
+                publish(true);   // mid-ramp: not a setting anyone chose
                 await new Promise(r => setTimeout(r, SWEEP_DEFAULTS.rampIntervalMs));
             }
 
             setPhase("waiting");
+            publish(true);
             setMessage(`${target}° への到達を待っています…`);
             const deadline = Date.now() + SWEEP_DEFAULTS.arrivalTimeoutMs;
             while (Date.now() < deadline) {
@@ -186,7 +188,7 @@ export function useVanosSweep(
                 const s = latestRef.current;
                 if (s && hasArrived(axis, s)) {
                     commandRef.current[key] = target;
-                    publish();
+                    publish(false);   // arrived: this IS the setting
                     setPhase("holding");
                     setMessage(`${target}° に到達。全開プルを開始してください。`);
                     return;

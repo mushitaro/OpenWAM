@@ -131,6 +131,32 @@ console.log('\nAdmission gates, each with its own reason');
     check('engine cold', reason({ coolant: 40 }) === 'engine-cold');
 }
 
+console.log('\nMid-ramp samples never become settings');
+{
+    const s: SweepSample[] = [];
+    let t = 0;
+    // ramp toward 10 deg, then hold there: only the held angle is a setting
+    for (const a of [22, 20, 18, 16, 14, 12, 10]) {
+        s.push({ tMs: t, rpm: 3100, pedal: 100, throttle: 99, coolant: 92, oil: 80,
+            stft1: 1.02, stft2: 1.02, evanIst: a, evanSoll: a, avanIst: 41, avanSoll: 41,
+            cmdIntake: a, cmdExhaust: null, cmdTransient: true });
+        t += 330;
+    }
+    for (let i = 0; i < 8; i++) {
+        s.push({ tMs: t, rpm: 3100, pedal: 100, throttle: 99, coolant: 92, oil: 80,
+            stft1: 1.03, stft2: 1.03, evanIst: 10, evanSoll: 10, avanIst: 41, avanSoll: 41,
+            cmdIntake: 10, cmdExhaust: null, cmdTransient: false });
+        t += 330;
+    }
+    const agg = aggregateSweep(s, 'intake');
+    const angles = agg.bins.flatMap(b => b.points.map(p => p.angle)).sort((a, b) => a - b);
+    check('only the held angle becomes a setting',
+        JSON.stringify(angles) === JSON.stringify([10]), `got [${angles}]`);
+    check('the ramp is reported by name',
+        agg.rejects.some(r => r.reason === 'cam-ramping'),
+        agg.rejects.map(r => r.reason).join(','));
+}
+
 console.log('\nEnd-to-end aggregate on a synthetic sweep');
 let fixture: Record<string, unknown> = {};
 {

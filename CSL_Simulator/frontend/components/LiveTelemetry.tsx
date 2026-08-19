@@ -137,7 +137,8 @@ const LiveTelemetry: React.FC = () => {
     /** Commanded cam state, read by the poll loop to stamp each sample. Held as
      *  a ref by the sweep hook so a command mid-pull lands on the very next
      *  sample rather than a render later. */
-    const sweepCmdRef = useRef<{ intake: number | null; exhaust: number | null }>({ intake: null, exhaust: null });
+    const sweepCmdRef = useRef<{ intake: number | null; exhaust: number | null; transient?: boolean }>(
+        { intake: null, exhaust: null, transient: false });
     const pollingRef = useRef(false);
     const blocksRef = useRef<LiveBlockSelection[]>(blocks);
     const recordingRef = useRef(false);
@@ -206,6 +207,7 @@ const LiveTelemetry: React.FC = () => {
                 // drive log.
                 sample.cmdIntake = sweepCmdRef.current.intake;
                 sample.cmdExhaust = sweepCmdRef.current.exhaust;
+                sample.cmdTransient = sweepCmdRef.current.transient === true;
                 latestRef.current = sample;
                 setLatest(sample);
 

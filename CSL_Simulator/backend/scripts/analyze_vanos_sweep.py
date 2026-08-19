@@ -41,6 +41,7 @@ ALIASES = {
     "pedal": ["pedal", "pwg"],
     "wdk1": ["wdk1", "throttle", "wdk"],
     "cmd_intake": ["cmd_intake", "cmd_in"],
+    "cmd_transient": ["cmd_transient"],
     "cmd_exhaust": ["cmd_exhaust", "cmd_ex"],
     "tz1": ["tz1"], "tabg": ["tabg"],
 }
@@ -138,6 +139,10 @@ def _la(s: dict) -> Optional[float]:
 
 
 def _valid(s: dict) -> bool:
+    # Mid-ramp rows sit at an intermediate cam angle nobody selected; the live
+    # board drops them for the same reason (frontend lib/sweep/admit.ts).
+    if s.get("cmd_transient"):
+        return False
     if s.get("rpm") is None or s["rpm"] < ANALYSIS_MIN_RPM:
         return False
     # WOT gate: require positive evidence. pedal preferred, wdk1 as fallback;

@@ -60,6 +60,12 @@ export interface LiveSample {
      *  Stamped by the poll loop so a saved log is analysable on its own. */
     cmdIntake?: number | null;
     cmdExhaust?: number | null;
+    /** True while a cam is being ramped to a new target. Those samples sit at
+     *  whatever intermediate angle the ramp had reached, which is NOT a setting
+     *  anyone chose to measure — counting them would put ghost columns on the
+     *  coverage board and ask the driver for more pulls at angles they never
+     *  selected. */
+    cmdTransient?: boolean;
 }
 
 /** Block selections this app knows how to decode. */

@@ -34,6 +34,7 @@ function toSweepSamples(rows: LiveSample[]): SweepSample[] {
         pedal: s.pedal, throttle: s.throttle,
         coolant: s.coolant, oil: s.oil,
         cmdIntake: s.cmdIntake ?? null, cmdExhaust: s.cmdExhaust ?? null,
+        cmdTransient: s.cmdTransient === true,
     }));
     fillThrottle(out);
     return out;
@@ -56,7 +57,7 @@ const VanosSweepPanel: React.FC<{
     connected: boolean;
     recording: boolean;
     recorded: LiveSample[];
-    cmdRef: React.MutableRefObject<{ intake: number | null; exhaust: number | null }>;
+    cmdRef: React.MutableRefObject<{ intake: number | null; exhaust: number | null; transient?: boolean }>;
 }> = ({ linkRef, latestRef, latest, connected, recording, recorded, cmdRef }) => {
     const sweep = useVanosSweep(linkRef, connected, latestRef, cmdRef);
     const [showAll, setShowAll] = useState(false);

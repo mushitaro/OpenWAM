@@ -93,6 +93,8 @@ export interface SweepWireSample {
     tabg?: number; pedal?: number; wdk1?: number;
     coolant?: number; toel?: number; ro?: number;
     cmd_intake?: number | 'base'; cmd_exhaust?: number | 'base';
+    /** 1 while the cam was mid-ramp; the analyser drops those rows. */
+    cmd_transient?: 0 | 1;
 }
 
 const numOrUndef = (v: number | null | undefined): number | undefined =>
@@ -115,6 +117,7 @@ export function toWireSamples(samples: readonly LiveSample[]): SweepWireSample[]
             coolant: numOrUndef(s.coolant), toel: numOrUndef(s.oil), ro: numOrUndef(s.ro),
             cmd_intake: s.cmdIntake ?? 'base',
             cmd_exhaust: s.cmdExhaust ?? 'base',
+            cmd_transient: s.cmdTransient ? 1 : 0,
         };
     });
 }

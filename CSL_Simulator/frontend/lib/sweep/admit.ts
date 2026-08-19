@@ -36,6 +36,8 @@ export interface SweepSample {
     cmdExhaust?: number | null;
     /** True when the throttle reading was forward-filled from a stale block 3. */
     throttleStale?: boolean;
+    /** True while the cam was mid-ramp toward a new target. */
+    cmdTransient?: boolean;
 }
 
 export type RejectReason =
@@ -44,6 +46,7 @@ export type RejectReason =
     | 'throttle-unknown'
     | 'throttle-stale'
     | 'not-wot'
+    | 'cam-ramping'
     | 'cam-not-arrived'
     | 'other-cam-moving'
     | 'no-lambda'
@@ -59,6 +62,7 @@ export const REJECT_TEXT: Record<RejectReason, string> = {
     'throttle-unknown': 'スロットル開度が不明です。ブロック3を4秒に1回以上ポーリングしてください',
     'throttle-stale': 'スロットル値が古すぎます。ブロック3のポーリング間隔を詰めてください',
     'not-wot': '全開ではありません。アクセルを踏み切ってください',
+    'cam-ramping': 'カムを指令角へ移動中でした（この間のデータは使いません）',
     'cam-not-arrived': 'カムが指令角に到達していません。到達を待ってから計測されます',
     'other-cam-moving': '反対バンクのカムが動いています。片側ずつ振ってください',
     'no-lambda': 'λ積分器が読めていません（ブロック19の応答なし）',
@@ -117,6 +121,9 @@ export function admitSample(
     const o = withDefaults(opts);
     const s = samples[i];
 
+    // Mid-ramp samples sit at an intermediate angle nobody selected. Rejecting
+    // them here keeps ghost settings off the coverage board entirely.
+    if (s.cmdTransient) return { ok: false, reason: 'cam-ramping' };
     if (typeof s.rpm !== 'number' || !Number.isFinite(s.rpm) || s.rpm <= 0) {
         return { ok: false, reason: 'no-rpm' };
     }
