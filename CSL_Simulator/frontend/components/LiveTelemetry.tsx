@@ -12,6 +12,7 @@ import { WebSerialDmeLink } from "../lib/dme-link/webSerialDmeLink";
 import { MockDmeLink } from "../lib/dme-link/mockDmeLink";
 import { saveTelemetryLog } from "../app/api";
 import VanosSweepPanel from "./VanosSweepPanel";
+import { appendChunk, beginRun, discardRun, endRun, findRecoverableRun, loadRunSamples, RunRecord } from "../lib/sweep/recordingStore";
 
 /**
  * Stage 76 — Live DS2 telemetry: connect to the real MSS54 DME over a K-line
@@ -23,6 +24,7 @@ const CHART_WINDOW_S = 60;
 // A drive log costs the owner an actual drive, so the recording is checkpointed
 // into the repo while it runs: a dropped K-line, a closed tab or a dead backend
 // can then cost at most this much data instead of the whole session.
+const PERSIST_MS = 5000;   // durable chunk flush
 const CHECKPOINT_MS = 20_000;
 type ChartGroup = "rpm" | "load" | "vanos" | "ign";
 
@@ -141,6 +143,15 @@ const LiveTelemetry: React.FC = () => {
     const stampsRef = useRef<number[]>([]);       // wall-clock stamps for the rate
     const logIdRef = useRef<string | null>(null); // set by the first checkpoint
     const savingRef = useRef(false);
+    /** Durable copy of the recording. Chunks are appended as samples arrive, so
+     *  a browser kill mid-drive costs at most PERSIST_MS of data instead of the
+     *  whole run. */
+    const runIdRef = useRef<string | null>(null);
+    const pendingRef = useRef<LiveSample[]>([]);
+    const seqRef = useRef(0);
+    const persistBusyRef = useRef(false);
+    const persistTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const [recoverable, setRecoverable] = useState<RunRecord | null>(null);
     const checkpointRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [, forceRender] = useState(0);
 
@@ -148,6 +159,7 @@ const LiveTelemetry: React.FC = () => {
     useEffect(() => () => {
         pollingRef.current = false;
         if (checkpointRef.current) clearInterval(checkpointRef.current);
+        if (persistTimerRef.current) clearInterval(persistTimerRef.current);
         linkRef.current?.disconnect();
     }, []);
 
@@ -205,6 +217,7 @@ const LiveTelemetry: React.FC = () => {
                 }
                 if (recordingRef.current) {
                     recordedRef.current.push(sample);
+                    pendingRef.current.push(sample);
                     setRecCount(recordedRef.current.length);
                 }
                 forceRender(n => n + 1);
@@ -256,6 +269,58 @@ const LiveTelemetry: React.FC = () => {
     const saveLogRef = useRef(saveLog);
     useEffect(() => { saveLogRef.current = saveLog; });
 
+    /** Flush queued samples to IndexedDB. Never throws into the poll loop, and
+     *  never stacks: a slow write must not queue a second one behind it. */
+    const persist = async (force: boolean) => {
+        const runId = runIdRef.current;
+        if (!runId || persistBusyRef.current) return;
+        if (!force && pendingRef.current.length === 0) return;
+        const batch = pendingRef.current;
+        if (!batch.length) return;
+        pendingRef.current = [];
+        const seq = seqRef.current++;
+        persistBusyRef.current = true;
+        try {
+            await appendChunk(runId, seq, batch);
+        } catch {
+            // Put the batch back at the FRONT and give the seq back, so capture
+            // order survives a failed write rather than silently reordering.
+            pendingRef.current = batch.concat(pendingRef.current);
+            seqRef.current = seq;
+        } finally {
+            persistBusyRef.current = false;
+        }
+    };
+    const persistRef = useRef(persist);
+    useEffect(() => { persistRef.current = persist; });
+
+    // Offer a recovery once, on mount: a run with samples and no upload is one
+    // the driver never got to keep.
+    useEffect(() => {
+        void (async () => {
+            const r = await findRecoverableRun();
+            if (r) setRecoverable(r);
+        })();
+    }, []);
+
+    const recoverRun = async () => {
+        if (!recoverable) return;
+        const samples = await loadRunSamples(recoverable.runId);
+        if (!samples.length) { setRecoverable(null); return; }
+        recordedRef.current = samples;
+        runIdRef.current = recoverable.runId;
+        seqRef.current = Math.ceil(samples.length / 50) + 1;
+        setRecCount(samples.length);
+        setNotice(`前回の記録 ${samples.length.toLocaleString()} サンプルを復元しました。`
+            + "保存またはアップロードしてください。");
+        setRecoverable(null);
+    };
+
+    const dropRecoverable = async () => {
+        if (recoverable) await discardRun(recoverable.runId);
+        setRecoverable(null);
+    };
+
     const startRecording = () => {
         recordedRef.current = [];
         logIdRef.current = null;
@@ -270,12 +335,25 @@ const LiveTelemetry: React.FC = () => {
         setLastSaved(null);
         if (checkpointRef.current) clearInterval(checkpointRef.current);
         checkpointRef.current = setInterval(() => { void saveLogRef.current(false); }, CHECKPOINT_MS);
+        // Durable store: begin un-awaited so the first samples never wait on
+        // IndexedDB. They queue regardless — persist() no-ops until the id lands.
+        pendingRef.current = [];
+        seqRef.current = 0;
+        runIdRef.current = null;
+        void beginRun({ mock: mode === "mock" }).then(id => { runIdRef.current = id; });
+        if (persistTimerRef.current) clearInterval(persistTimerRef.current);
+        persistTimerRef.current = setInterval(() => { void persistRef.current(false); }, PERSIST_MS);
     };
 
     const stopRecording = async () => {
         recordingRef.current = false;
         setRecording(false);
         if (checkpointRef.current) { clearInterval(checkpointRef.current); checkpointRef.current = null; }
+        if (persistTimerRef.current) { clearInterval(persistTimerRef.current); persistTimerRef.current = null; }
+        // Authoritative flush BEFORE anything can fail: the durable copy must be
+        // complete even if the backend save below does not happen.
+        await persist(true);
+        if (runIdRef.current) await endRun(runIdRef.current);
         if (!recordedRef.current.length) { setNotice("記録サンプルがありません。"); return; }
         await saveLog(true);
     };
@@ -354,6 +432,27 @@ const LiveTelemetry: React.FC = () => {
                     </span>
                 )}
             </div>
+
+            {/* Recovery offer. A run with samples and no upload is one the driver
+                never got to keep — say so before anything else. */}
+            {recoverable && (
+                <div className="flex items-center gap-3 rounded border border-amber-700 bg-amber-900/20 px-3 py-2">
+                    <span className="text-[11px] text-amber-400 flex-1">
+                        前回の記録が {recoverable.sampleCount.toLocaleString()} サンプル残っています
+                        （保存もアップロードもされていません）。
+                    </span>
+                    <button onClick={() => void recoverRun()}
+                        className="px-3 py-1 rounded text-[11px] font-semibold border border-amber-700
+                                   text-amber-400 hover:bg-amber-900/40">
+                        復元する
+                    </button>
+                    <button onClick={() => void dropRecoverable()}
+                        className="px-3 py-1 rounded text-[11px] border border-slate-700 text-slate-400
+                                   hover:border-slate-600">
+                        破棄
+                    </button>
+                </div>
+            )}
 
             {subView === "sweep" && (
                 <VanosSweepPanel

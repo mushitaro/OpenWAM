@@ -127,7 +127,11 @@ const CSV_COLUMNS = [
 
 /** Per-column accepted aliases in the uploaded sample objects. */
 const SAMPLE_ALIASES: Record<string, string[]> = {
-  t_ms: ["t_ms", "time_ms", "t", "time", "elapsedMilliseconds"],
+  // NOTE: no bare "t" here. A LiveSample's `t` is SECONDS, and accepting it as
+  // milliseconds silently divided every timestamp by 1000 — which made the
+  // visit gap and the settle window meaningless without anything looking wrong.
+  // Clients convert explicitly (frontend lib/sweep/collector.ts toWireSamples).
+  t_ms: ["t_ms", "time_ms", "elapsedMilliseconds"],
   rpm: ["rpm", "n"],
   evan1_ist: ["evan1_ist", "evanIst"],
   evan1_soll: ["evan1_soll", "evanSoll"],
@@ -140,8 +144,8 @@ const SAMPLE_ALIASES: Record<string, string[]> = {
   psau_local: ["psau_local", "map", "psauLocal"],
   tz1: ["tz1"], tz2: ["tz2"], tz3: ["tz3"], tz4: ["tz4"], tz5: ["tz5"], tz6: ["tz6"],
   tabg: ["tabg", "exhaustTemp"],
-  pedal: ["pedal", "pwg"],
-  wdk1: ["wdk1"],
+  pedal: ["pedal", "pwg", "pwg1"],
+  wdk1: ["wdk1", "throttle", "wdk"],
   cmd_intake: ["cmd_intake", "cmdIntake"],
   cmd_exhaust: ["cmd_exhaust", "cmdExhaust"],
 };
