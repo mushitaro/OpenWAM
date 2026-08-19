@@ -316,8 +316,14 @@ def main() -> None:
         with open(args.compare, encoding="utf-8") as f:
             s120 = json.load(f)
         print("\n=== overlay vs Stage-120 sim prediction (dVE/d cam, VE% per deg) ===")
+        sim_keys = [k for k in s120 if not k.startswith("_")]
         for rb, d in rep["bins"].items():
-            simrec = s120.get(rb)
+            # analyzer bins are 300-rpm rounded; match the nearest S120 rpm key
+            simrec = None
+            if sim_keys:
+                nk = min(sim_keys, key=lambda k: abs(int(k) - int(rb)))
+                if abs(int(nk) - int(rb)) <= 300:
+                    simrec = s120[nk]
             sim = simrec.get(f"dVE_d{args.axis}_live") if simrec else None
             print(f" {rb} rpm: measured d(la)/deg = {d.get('slope_dla_per_deg')} | "
                   f"sim dVE/deg = {sim}")

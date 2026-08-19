@@ -1,0 +1,26 @@
+// vanos-sweep-collector — standalone Cloudflare Worker for Stage-121 VANOS-sweep datalogs.
+//
+// DELIBERATELY SEPARATE from the tuner deployment (mss54hp-tuner-preview) and its D1
+// (mss54hp-tuner-runs / RUNS_DB) — owner directive 2026-08-20. Nothing here touches
+// the tuner project; tokens are issued independently.
+//
+// First-time setup:
+//   npm install
+//   npx wrangler d1 create vanos-sweeps      -> paste database_id below
+//   npm run db:migrate:remote
+//   npx wrangler secret put UPLOAD_TOKEN     -> NEW token (do not reuse the tuner's)
+//   npm run deploy
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vanos-sweep-collector",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vanos-sweeps",
+      "database_id": "TODO-run-wrangler-d1-create-and-paste-id"
+    }
+  ]
+}
