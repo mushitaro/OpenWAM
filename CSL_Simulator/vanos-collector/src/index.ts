@@ -21,7 +21,11 @@ export interface Env {
 // ---------------------------------------------------------------------------
 // helpers (self-contained port of the tuner's _shared.ts patterns)
 // ---------------------------------------------------------------------------
-const MAX_GZ_BYTES = 20 * 1024 * 1024; // 20 MB gzipped payload cap
+// D1 caps a single bound value at 1,000,000 bytes. A payload above that is
+// rejected deep in the D1 layer with an opaque error AFTER we have already
+// accepted, inflated and parsed it -- so cap below the limit and say so in a
+// 413 the driver can act on. (Same value the tuner's _shared.ts settled on.)
+const MAX_GZ_BYTES = 900_000;
 
 function corsHeaders(): Record<string, string> {
   // Bearer auth (no cookies), so a wildcard origin is safe and lets the logger
@@ -208,7 +212,14 @@ async function handleIngest(request: Request, env: Env): Promise<Response> {
     return bad("samples_gz_b64 is not valid base64.");
   }
   if (!isGzip(gz)) return bad("samples_gz_b64 is not gzip data.");
-  if (gz.length > MAX_GZ_BYTES) return bad("Payload too large.", 413);
+  if (gz.length > MAX_GZ_BYTES) {
+    // Name the actual numbers: "too large" alone leaves the driver guessing
+    // whether to shorten the run, drop a block, or stop trying.
+    return bad(
+      `samples_gz_b64 is ${(gz.length / 1024).toFixed(0)} KB compressed; the limit is `
+      + `${(MAX_GZ_BYTES / 1024).toFixed(0)} KB. Split the sweep into shorter runs.`,
+      413);
+  }
 
   // Validate the payload actually parses, and derive summary columns server-side
   // so the list view never lies about its blob.
@@ -277,11 +288,14 @@ async function handleIngest(request: Request, env: Env): Promise<Response> {
 const LIST_COLS =
   "id, created_at, synced_at, client_time, label, vin, decoder_version, " +
   "achieved_hz, sigma_pct, n_samples, n_settings, rpm_min, rpm_max, app_build";
+// The list must never inflate a blob to report its size: length() is computed
+// by SQLite over the stored bytes.
+const LIST_COLS_SIZED = LIST_COLS + ", length(samples_json_gz) AS samples_bytes";
 
 async function handleList(url: URL, env: Env): Promise<Response> {
   const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") ?? 50) || 50));
   const { results } = await env.DB.prepare(
-    `SELECT ${LIST_COLS} FROM vanos_sweeps ORDER BY created_at DESC LIMIT ?1`
+    `SELECT ${LIST_COLS_SIZED} FROM vanos_sweeps ORDER BY created_at DESC LIMIT ?1`
   ).bind(limit).all();
   return json({ ok: true, sweeps: results });
 }
