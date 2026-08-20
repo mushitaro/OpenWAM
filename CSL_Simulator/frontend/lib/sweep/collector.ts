@@ -16,6 +16,10 @@ import { DECODER_VERSION } from '../dme-link/liveValueBlocks';
 const SETTINGS_KEY = 'csl.sweepCollector.v1';
 /** The deployed collector. Overridable for a bench rig via localStorage. */
 export const DEFAULT_COLLECTOR_URL = 'https://vanos-sweep-collector.kazuhiro-mushi.workers.dev';
+/** Baked in at build time by scripts/embed-token.mjs. There is exactly one
+ *  token, and typing it on a phone in a car is not a setup step — it is a reason
+ *  the drive does not happen. See that script for what shipping it costs. */
+const TOKEN_GLOBAL = '__CSL_COLLECTOR_TOKEN__';
 /** The server caps a gzipped part at 900 KB (D1 caps a value at 1,000,000). */
 const SOFT_LIMIT_BYTES = 900_000;
 const TIMEOUT_MS = 30_000;
@@ -27,26 +31,42 @@ export interface CollectorSettings {
 
 export const EMPTY_SETTINGS: CollectorSettings = { baseUrl: DEFAULT_COLLECTOR_URL, token: '' };
 
-export function loadCollectorSettings(): CollectorSettings {
-    if (typeof window === 'undefined') return EMPTY_SETTINGS;
-    try {
-        const raw = window.localStorage.getItem(SETTINGS_KEY);
-        if (!raw) return EMPTY_SETTINGS;
-        const p = JSON.parse(raw) as Partial<CollectorSettings>;
-        return {
-            baseUrl: (p.baseUrl || DEFAULT_COLLECTOR_URL).replace(/\/+$/, ''),
-            token: p.token ?? '',
-        };
-    } catch {
-        return EMPTY_SETTINGS;
-    }
+/**
+ * The build-time token, set by an inline script before hydration.
+ *
+ * Deliberately NOT a <meta> read from the DOM: React 19 manages <head> during
+ * hydration and removes tags it did not render, so a meta tag is present in the
+ * served HTML and gone by the time a component looks for it. A global set before
+ * hydration survives. Not compiled in either, so re-running the embed step
+ * re-signs a build without a recompile.
+ */
+function bakedToken(): string {
+    if (typeof window === 'undefined') return '';
+    const v = (window as unknown as Record<string, unknown>)[TOKEN_GLOBAL];
+    return typeof v === 'string' ? v.trim() : '';
 }
 
-export function saveCollectorSettings(s: CollectorSettings): void {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-        baseUrl: s.baseUrl.replace(/\/+$/, ''), token: s.token,
-    }));
+/**
+ * The baked token and URL, with an OPTIONAL localStorage override for a bench
+ * rig pointing at a different collector. Nothing in the app writes that key —
+ * it is set by hand from the console by whoever has the value. There is no
+ * settings screen, deliberately: a control that only ever takes one value is
+ * not a choice, it is an obstacle in front of the drive.
+ */
+export function loadCollectorSettings(): CollectorSettings {
+    const base: CollectorSettings = { baseUrl: DEFAULT_COLLECTOR_URL, token: bakedToken() };
+    if (typeof window === 'undefined') return base;
+    try {
+        const raw = window.localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return base;
+        const p = JSON.parse(raw) as Partial<CollectorSettings>;
+        return {
+            baseUrl: (p.baseUrl || base.baseUrl).replace(/\/+$/, ''),
+            token: (p.token || base.token),
+        };
+    } catch {
+        return base;
+    }
 }
 
 export const canUpload = (s: CollectorSettings) => s.token.trim().length > 0 && s.baseUrl.length > 0;

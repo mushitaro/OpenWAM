@@ -8,11 +8,8 @@ import { aggregateSweep, nextActions, SweepAggregate } from "../lib/sweep/aggreg
 import { SweepSample, fillThrottle } from "../lib/sweep/admit";
 import { SWEEP_DEFAULTS } from "../lib/sweep/options";
 import { VANOS_STORABLE } from "../lib/dme-link/ds2";
-import {
-    canUpload, CollectorSettings, loadCollectorSettings, saveCollectorSettings,
-    uploadSweep, UploadResult,
-} from "../lib/sweep/collector";
-import { UploadCloud, KeyRound } from "lucide-react";
+import { canUpload, loadCollectorSettings, uploadSweep, UploadResult } from "../lib/sweep/collector";
+import { UploadCloud } from "lucide-react";
 
 /** Default grids from docs/LIVE_VANOS_SWEEP_PROTOCOL.md section 4. */
 const ANGLES: Record<"intake" | "exhaust", number[]> = {
@@ -61,8 +58,9 @@ const VanosSweepPanel: React.FC<{
 }> = ({ linkRef, latestRef, latest, connected, recording, recorded, cmdRef }) => {
     const sweep = useVanosSweep(linkRef, connected, latestRef, cmdRef);
     const [showAll, setShowAll] = useState(false);
-    const [settings, setSettings] = useState<CollectorSettings>(() => loadCollectorSettings());
-    const [showSettings, setShowSettings] = useState(false);
+    // Read once: the token is baked into the build, so there is nothing to
+    // change at runtime and nothing to re-read.
+    const settings = useMemo(() => loadCollectorSettings(), []);
     const [uploading, setUploading] = useState(false);
     const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
     const uploadIdRef = React.useRef<string>(
@@ -204,38 +202,11 @@ const VanosSweepPanel: React.FC<{
                                    text-blue-400 hover:bg-blue-500/10 disabled:opacity-40">
                         {uploading ? "送信中…" : "アップロード"}
                     </button>
-                    <button onClick={() => setShowSettings(v => !v)}
-                        className="min-h-[44px] px-3 rounded text-[11px] border border-slate-700 text-slate-400
-                                   hover:border-slate-600 flex items-center gap-1">
-                        <KeyRound className="w-3 h-3" /> 設定
-                    </button>
                 </div>
                 {!canUpload(settings) && (
                     <div className="text-[11px] text-amber-400">
-                        アップロード用トークンが未設定です。「設定」から入力してください（初回のみ）。
-                    </div>
-                )}
-                {showSettings && (
-                    <div className="flex flex-col gap-2 rounded bg-slate-800/60 p-2">
-                        <label className="flex items-center gap-2 text-[10px] text-slate-500">
-                            <span className="w-16 shrink-0">送信先</span>
-                            <input value={settings.baseUrl}
-                                onChange={e => setSettings(s2 => ({ ...s2, baseUrl: e.target.value }))}
-                                className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1
-                                           font-mono text-[10px] text-slate-300" />
-                        </label>
-                        <label className="flex items-center gap-2 text-[10px] text-slate-500">
-                            <span className="w-16 shrink-0">トークン</span>
-                            <input value={settings.token} type="password" autoComplete="off"
-                                onChange={e => setSettings(s2 => ({ ...s2, token: e.target.value }))}
-                                className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1
-                                           font-mono text-[10px] text-slate-300" />
-                        </label>
-                        <button onClick={() => { saveCollectorSettings(settings); setShowSettings(false); }}
-                            className="self-start px-3 py-1 rounded text-[11px] border border-slate-700
-                                       text-slate-300 hover:border-slate-600">
-                            この端末に保存
-                        </button>
+                        このビルドには送信先が設定されていません。データは端末に残るので、
+                        「テレメトリ」タブの CSV 退避を使ってください。
                     </div>
                 )}
                 {/* Fixed-height result slot so the panel does not jump on send. */}

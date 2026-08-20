@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/embed-token.mjs",
     "start": "next start",
     "lint": "eslint",
-    "deploy": "npm run build && wrangler pages deploy --project-name csl-sim-m --branch master",
+    "deploy": "npm run build && wrangler pages deploy out --project-name csl-sim-m --branch master",
     "preview:pages": "npm run build && wrangler pages dev out"
   },
   "dependencies": {
