@@ -1,5 +1,9 @@
 import { DmeTelemetryLink, DmeIdentity, LiveSample, LiveBlockSelection } from './types';
 import { describeVanosAck, VanosAck, VanosAckCode, VanosPin, VanosPinValue } from './ds2';
+import {
+    STANDARD_ADAPTATIONS_BLOCK, OBSERVATION_ADAPTATIONS_BLOCK, AdaptationSnapshot,
+} from './adaptationBlocks';
+import { correctDataChecksum } from '../checksum/dmeDataChecksum';
 
 /**
  * Offline telemetry simulator (Stage 76) — same interface as WebSerialDmeLink,
@@ -186,5 +190,117 @@ export class MockDmeLink implements DmeTelemetryLink {
     async keepAlive(): Promise<boolean> {
         this.keepAliveCount++;
         return this.startTime !== 0;
+    }
+
+    /* --- preflight (Stage 122) --------------------------------------------
+     * A synthetic 65536-byte image that starts STOCK in exactly the three places
+     * the preflight cares about, so the offline run is the interesting one: all
+     * three items FAIL, the flash changes them, and the re-read passes. A mock
+     * that started patched would exercise nothing but the happy path.
+     *
+     * Everything else is a fixed pattern rather than zeros, because both data
+     * checksums are computed over the whole half — an all-zero image would make
+     * `correctDataChecksum` trivially correct and hide a slot-offset mistake. */
+    private calibration: Uint8Array | null = null;
+    /** Set by writeCalibration, read by the panel's post-flash check. */
+    mockFlashCount = 0;
+
+    private ensureCalibration(): Uint8Array {
+        if (this.calibration) return this.calibration;
+        const image = new Uint8Array(65536);
+        for (let i = 0; i < image.length; i++) image[i] = (i * 31 + (i >> 8)) & 0xFF;
+        // Stock KF_BZ_WDK_VL: 35-65 % across the 4x4, i.e. the lambda controller
+        // really does shut off at full load.
+        for (let c = 0; c < 16; c++) {
+            const raw = Math.round((35 + (c % 4) * 10) * 10);
+            image[0xAC54 + c * 2] = (raw >> 8) & 0xFF;
+            image[0xAC54 + c * 2 + 1] = raw & 0xFF;
+        }
+        image[0xE5E4] = 0x12;              // k_rf_cfg stock: bit 4 set, MAP integral live
+        image[0x4824] = 69 + 48;           // K_LAA_TMOT_MIN = 69 degC
+        image[0x4825] = 100 + 48;          // K_LAA_TMOT_MAX = 100 degC -> window OPEN
+        // A real ECU's image has valid CRCs in both slots, so this one must too — otherwise
+        // "checksums were valid before AND after" is untestable, and a patch that forgot to
+        // recompute them would still look fine here.
+        correctDataChecksum(image);
+        this.calibration = image;
+        return image;
+    }
+
+    async readCalibrationBytes(binOffset: number, length: number): Promise<Uint8Array> {
+        const image = this.ensureCalibration();
+        if (binOffset < 0 || length <= 0 || binOffset + length > image.length) {
+            throw new Error(`BIN 範囲 0x${binOffset.toString(16)}+${length} は範囲外です`);
+        }
+        await new Promise(r => setTimeout(r, 120));
+        return image.slice(binOffset, binOffset + length);
+    }
+
+    async readCalibration(onProgress?: (pct: number) => void): Promise<Uint8Array> {
+        const image = this.ensureCalibration();
+        // Paced so the progress bar and the "this takes about two minutes" copy
+        // are things that got looked at, not things that were assumed.
+        for (let p = 0; p <= 100; p += 10) {
+            onProgress?.(p);
+            await new Promise(r => setTimeout(r, 60));
+        }
+        return image.slice();
+    }
+
+    async writeCalibration(opts: {
+        image: Uint8Array;
+        backup?: Uint8Array;
+        onBackup: (currentImage: Uint8Array) => Promise<void>;
+        onProgress?: (pct: number, phase: 'backup' | 'erase' | 'write' | 'verify') => void;
+    }): Promise<void> {
+        const { image, backup, onBackup, onProgress } = opts;
+        if (image.length !== 65536) throw new Error(`65536 バイト必要です（${image.length} バイト受領）`);
+        const current = backup ?? this.ensureCalibration();
+        if (current.length !== 65536) throw new Error(`バックアップが ${current.length} バイトです`);
+        // Same ordering contract as the real link: the backup is handed over and
+        // AWAITED before anything is destroyed, so a rejecting handler means the
+        // image is untouched. Testable here precisely because it is not real flash.
+        onProgress?.(0, 'backup');
+        await onBackup(current.slice());
+        for (const [phase, from, to] of [
+            ['erase', 40, 42], ['write', 42, 75], ['verify', 75, 100],
+        ] as const) {
+            for (let p = from; p <= to; p += Math.max(1, Math.round((to - from) / 6))) {
+                onProgress?.(p, phase);
+                await new Promise(r => setTimeout(r, 50));
+            }
+        }
+        this.calibration = image.slice();
+        this.mockFlashCount++;
+    }
+
+    async readEngineRpm(): Promise<number> {
+        // Zero, always. The mock has no engine, and the one caller is the guard
+        // that refuses to flash a running one — reporting the idle pattern here
+        // would make that guard untestable offline for no benefit.
+        return 0;
+    }
+
+    async clearVanosAdaptations(): Promise<AdaptationSnapshot> {
+        await new Promise(r => setTimeout(r, 2200));   // the DME's real EEPROM settle
+        return this.mockAdaptations();
+    }
+
+    async clearTuneAdaptations(): Promise<AdaptationSnapshot> {
+        await new Promise(r => setTimeout(r, 2200));
+        return this.mockAdaptations();
+    }
+
+    /** Post-clear values: every row at whatever `cleared` says it should read.
+     *  Not all zero — two rows are multiplicative trims whose neutral is 1.0. */
+    private mockAdaptations(): AdaptationSnapshot {
+        const rows = [...STANDARD_ADAPTATIONS_BLOCK.fields, ...OBSERVATION_ADAPTATIONS_BLOCK.fields];
+        return {
+            at: Date.now(),
+            readings: rows.map(f => ({
+                symbol: f.symbol, label: f.label, unit: f.unit, group: f.group,
+                value: f.cleared, cleared: f.cleared, clearedByTuneReset: f.clearedByTuneReset,
+            })),
+        };
     }
 }

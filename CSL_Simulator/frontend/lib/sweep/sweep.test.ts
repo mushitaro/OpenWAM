@@ -249,6 +249,32 @@ let fixture: Record<string, unknown> = {};
     };
 }
 
+/* --------------------------------------------------------------------------
+ * nextActions must be exhaustive, because the PANEL reads an empty list as
+ * "done" and paints it green.
+ *
+ * Regression: with no admitted samples there are no bins to iterate, so the
+ * function returned [] and a driver who had recorded NOTHING was told the data
+ * was complete — next to a coverage board reading 0 サンプル. The two empty
+ * cases call for opposite actions and must not collapse into one message.
+ * ------------------------------------------------------------------------ */
+console.log('\nnextActions on an empty sweep');
+{
+    const empty = { axis: 'intake' as const, bins: [], admitted: 0, total: 0, rejects: [] };
+    const a1 = nextActions(empty);
+    check('nothing recorded -> tells the driver to record', a1.length === 1 && a1[0].includes('記録'),
+        JSON.stringify(a1));
+
+    const allRejected = {
+        axis: 'intake' as const, bins: [], admitted: 0, total: 240,
+        rejects: [{ reason: 'not-wot' as const, text: 'x', n: 240 }],
+    };
+    const a2 = nextActions(allRejected);
+    check('samples but none admitted -> points at the rejection reasons',
+        a2.length === 1 && a2[0].includes('除外') && a2[0].includes('240'), JSON.stringify(a2));
+    check('the two empty cases say different things', a1[0] !== a2[0]);
+}
+
 const dir = join(__dirname, '__fixtures__');
 mkdirSync(dir, { recursive: true });
 writeFileSync(join(dir, 'vertex_cases.json'), JSON.stringify(fixture, null, 2) + '\n', 'utf-8');

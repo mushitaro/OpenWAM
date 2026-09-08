@@ -1,7 +1,15 @@
 import type { VanosAck, VanosPinValue } from './ds2';
-// DS2 live-telemetry types (Stage 76). Ported/adapted from E46M3CSL_TuningTool
-// (same owner project) — telemetry-only: this integration READS the DME; all
-// flashing stays in the owner's existing tools.
+import type { AdaptationSnapshot } from './adaptationBlocks';
+
+export type { AdaptationSnapshot };
+// DS2 link types. Ported/adapted from E46M3CSL_TuningTool (same owner project).
+//
+// Stage 76 was telemetry-only and this header said flashing stays in the owner's
+// existing tools. Stage 122 ported the erase-and-rewrite path here too, at the
+// owner's explicit instruction, so the preparation a sweep needs and the sweep
+// itself are one app in the car. The tuner remains READ ONLY as a source: every
+// flash-critical block is copied, never edited, and `npm run check:ported`
+// asserts that byte for byte.
 
 export interface DmeIdentity {
     vin: string;
@@ -101,6 +109,35 @@ export interface DmeTelemetryLink {
      * never throws, and skips rather than queues when the line is busy.
      */
     keepAlive?(): Promise<boolean>;
+
+    /* --- preflight surface (Stage 122) ------------------------------------
+     * The 事前準備 panel. Optional for the same reason the control surface is:
+     * a read-only link stays a valid DmeTelemetryLink. */
+
+    /** Reads a run of calibration bytes addressed by BIN offset (0..65535). Read-only. */
+    readCalibrationBytes?(binOffset: number, length: number): Promise<Uint8Array>;
+    /** Reads the whole 65536-byte DataTune image. Read-only, ~123 s at 9600. */
+    readCalibration?(onProgress?: (pct: number) => void): Promise<Uint8Array>;
+    /**
+     * Erases and rewrites all 65536 bytes, then reads every byte back to prove it.
+     *
+     * `onBackup` receives what is currently in the ECU BEFORE any erase and is awaited: rejecting
+     * it means no erase is sent. The ordering belongs to the implementation, not the caller,
+     * because that is the layer that issues the erase.
+     */
+    writeCalibration?(opts: {
+        image: Uint8Array;
+        /** What is in the ECU now, if already read — saves a second ~123 s pass. */
+        backup?: Uint8Array;
+        onBackup: (currentImage: Uint8Array) => Promise<void>;
+        onProgress?: (pct: number, phase: 'backup' | 'erase' | 'write' | 'verify') => void;
+    }): Promise<void>;
+    /** Clears VANOS adaptation — a learned offset makes every commanded angle a different real one. */
+    clearVanosAdaptations?(): Promise<AdaptationSnapshot>;
+    /** Clears lambda-trim / knock / idle-fuel adaptation (the tuner's RESET ADAPT). Not VANOS. */
+    clearTuneAdaptations?(): Promise<AdaptationSnapshot>;
+    /** Engine speed alone — "is this engine turning?", which gates every programming operation. */
+    readEngineRpm?(): Promise<number>;
 }
 
 /** Narrow a link to one that can drive the cams. */
@@ -108,6 +145,21 @@ export function supportsVanosControl(
     link: DmeTelemetryLink,
 ): link is DmeTelemetryLink & Required<Pick<DmeTelemetryLink, 'setVanosTarget' | 'keepAlive'>> {
     return typeof link.setVanosTarget === 'function' && typeof link.keepAlive === 'function';
+}
+
+/** The six calls the 事前準備 panel needs. All or nothing: a panel that could read but not clear
+ *  would show a verdict with no way to act on it. */
+export type PreflightCapableLink = DmeTelemetryLink & Required<Pick<DmeTelemetryLink,
+    'readCalibrationBytes' | 'readCalibration' | 'writeCalibration'
+    | 'clearVanosAdaptations' | 'clearTuneAdaptations' | 'readEngineRpm'>>;
+
+export function supportsPreflight(link: DmeTelemetryLink): link is PreflightCapableLink {
+    return typeof link.readCalibrationBytes === 'function'
+        && typeof link.readCalibration === 'function'
+        && typeof link.writeCalibration === 'function'
+        && typeof link.clearVanosAdaptations === 'function'
+        && typeof link.clearTuneAdaptations === 'function'
+        && typeof link.readEngineRpm === 'function';
 }
 
 export class DmeLinkError extends Error {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
@@ -12,6 +12,7 @@ import { WebSerialDmeLink } from "../lib/dme-link/webSerialDmeLink";
 import { MockDmeLink } from "../lib/dme-link/mockDmeLink";
 import { saveTelemetryLog } from "../app/api";
 import VanosSweepPanel from "./VanosSweepPanel";
+import PreflightPanel from "./PreflightPanel";
 import { appendChunk, beginRun, discardRun, endRun, findRecoverableRun, loadRunSamples, RunRecord } from "../lib/sweep/recordingStore";
 
 /**
@@ -107,12 +108,38 @@ export function useElementSize(): [(el: HTMLDivElement | null) => void, { w: num
     return [setEl, size];
 }
 
+/**
+ * Whether a K-line transport exists here, answered identically on the server and on the first
+ * client render.
+ *
+ * `kLineAvailable()` reads `navigator`, so calling it during render made the prerendered HTML say
+ * "no cable" and the first client render say "yes cable" — a hydration mismatch that made React
+ * discard the whole server tree and re-render. Harmless-looking on a desktop; on a phone it is a
+ * visible flash on every load, and it was firing before any of the preflight work existed.
+ *
+ * The server snapshot is `false` — no cable — because that is what a machine with no `navigator`
+ * honestly knows. The real answer arrives on the subscribe pass, one frame later.
+ */
+const subscribeNever = () => () => { };
+function useKLinePresence(): { linkOk: boolean; transportName: ReturnType<typeof kLineTransportName> } {
+    const linkOk = React.useSyncExternalStore(subscribeNever, kLineAvailable, () => false);
+    const transportName = React.useSyncExternalStore(
+        subscribeNever, kLineTransportName, () => "none" as const);
+    return { linkOk, transportName };
+}
+
 const LiveTelemetry: React.FC = () => {
     // Android Chrome has no Web Serial but does have WebUSB, so the question is
     // "can we reach the DME at all", not "is Web Serial here".
-    const linkOk = kLineAvailable();
-    const transportName = kLineTransportName();
-    const [mode, setMode] = useState<"webserial" | "mock">(linkOk ? "webserial" : "mock");
+    const { linkOk, transportName } = useKLinePresence();
+    // Starts on "mock" so the first render matches the server's, then moves to the real transport
+    // once we know there is one. Only before the user has chosen: `userPickedMode` latches on the
+    // first click, so this can never overwrite a deliberate choice.
+    const [mode, setMode] = useState<"webserial" | "mock">("mock");
+    const userPickedMode = useRef(false);
+    useEffect(() => {
+        if (!userPickedMode.current && linkOk) setMode("webserial");
+    }, [linkOk]);
     const [state, setState] = useState<"disconnected" | "connecting" | "connected">("disconnected");
     const [identity, setIdentity] = useState<DmeIdentity | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -127,7 +154,7 @@ const LiveTelemetry: React.FC = () => {
     const [savedPath, setSavedPath] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
 
-    const [subView, setSubView] = useState<"telemetry" | "sweep">("telemetry");
+    const [subView, setSubView] = useState<"telemetry" | "preflight" | "sweep">("telemetry");
 
     const [chartBoxRef, chartBox] = useElementSize();
     const linkRef = useRef<DmeTelemetryLink | null>(null);
@@ -236,6 +263,26 @@ const LiveTelemetry: React.FC = () => {
             }
         }
     };
+
+    /**
+     * Stops and restarts the poll loop without touching the link.
+     *
+     * The 事前準備 operations need the K-line to themselves: a calibration read is ~2 minutes and a
+     * flash is ~5, and the CommandGate would simply queue one poll behind the whole thing. Worse,
+     * there was no way to stop polling at all except `disconnect()`, which also drops the link — so
+     * "pause the poll, then flash" was unreachable and the WRITE button could never enable.
+     *
+     * Restart is not a flag flip: the loop is a `while (pollingRef.current)` that has already
+     * exited, so resuming means starting a new one. Guarded against starting a second.
+     */
+    const pausePolling = useCallback(() => { pollingRef.current = false; }, []);
+    const resumePolling = useCallback(() => {
+        const link = linkRef.current;
+        if (!link || pollingRef.current) return;
+        pollingRef.current = true;
+        void pollLoop(link);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     /** Write the recording into the repo (backend/app/data/telemetry/<id>.json).
      *  complete=false marks a mid-recording checkpoint of the SAME file. */
@@ -422,18 +469,23 @@ const LiveTelemetry: React.FC = () => {
             {/* sub-view. The link, the recording and the sweep all live in THIS
                 component, so switching views never tears down a running session
                 — only what is painted changes. */}
-            <div className="flex gap-1 bg-slate-900 p-1 rounded-md border border-slate-800 self-start">
-                {([["telemetry", "テレメトリ"], ["sweep", "VANOS 掃引"]] as const).map(([id, label]) => (
+            {/* Full width and 44px tall on a phone: this row is how the driver moves between
+                preparing, watching and sweeping, and it gets pressed with a thumb through gloves.
+                `self-start` above 640px keeps the desktop look unchanged. */}
+            <div className="flex gap-1 bg-slate-900 p-1 rounded-md border border-slate-800 sm:self-start">
+                {([["telemetry", "テレメトリ"], ["preflight", "事前準備"], ["sweep", "VANOS 掃引"]] as const).map(([id, label]) => (
                     <button key={id} onClick={() => setSubView(id)}
-                        className={`px-3 py-1 rounded text-[11px] font-medium transition-colors ${
+                        className={`flex-1 sm:flex-none min-h-[44px] sm:min-h-0 px-3 py-1 rounded
+                                    text-[11px] font-medium whitespace-nowrap transition-colors ${
                             subView === id ? "bg-slate-800 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}>
                         {label}
                     </button>
                 ))}
                 {recording && (
-                    <span className="self-center ml-2 mr-1 flex items-center gap-1.5 text-[10px] text-red-400">
+                    <span className="self-center ml-2 mr-1 flex items-center gap-1.5 text-[10px] text-red-400 whitespace-nowrap">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        記録中 {recCount.toLocaleString()}
+                        <span className="hidden min-[420px]:inline">記録中 </span>
+                        {recCount.toLocaleString()}
                     </span>
                 )}
             </div>
@@ -459,6 +511,13 @@ const LiveTelemetry: React.FC = () => {
                 </div>
             )}
 
+            {subView === "preflight" && (
+                <PreflightPanel
+                    linkRef={linkRef} connected={state === "connected"}
+                    identity={identity} latest={latest} recording={recording}
+                    pausePolling={pausePolling} resumePolling={resumePolling} />
+            )}
+
             {subView === "sweep" && (
                 <VanosSweepPanel
                     linkRef={linkRef} latestRef={latestRef} latest={latest}
@@ -471,20 +530,21 @@ const LiveTelemetry: React.FC = () => {
             <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex gap-1 bg-slate-900 p-1 rounded-md border border-slate-800">
                     {(["webserial", "mock"] as const).map(m => (
-                        <button key={m} disabled={state !== "disconnected"} onClick={() => setMode(m)}
-                            className={`px-2.5 py-1 rounded text-[11px] font-medium ${mode === m ? "bg-slate-800 text-slate-100" : "text-slate-500 hover:text-slate-300"} disabled:opacity-60`}>
+                        <button key={m} disabled={state !== "disconnected"}
+                            onClick={() => { userPickedMode.current = true; setMode(m); }}
+                            className={`min-h-[40px] sm:min-h-0 px-3 py-1 rounded text-[11px] font-medium ${mode === m ? "bg-slate-800 text-slate-100" : "text-slate-500 hover:text-slate-300"} disabled:opacity-60`}>
                             {m === "webserial" ? "実車 (K-Line)" : "モック"}
                         </button>
                     ))}
                 </div>
                 {state !== "connected" ? (
                     <button onClick={connect} disabled={state === "connecting" || (mode === "webserial" && !linkOk)}
-                        className="px-3 py-1.5 rounded text-[12px] font-semibold bg-slate-100 text-black hover:bg-white disabled:opacity-50 flex items-center gap-1.5">
+                        className="min-h-[44px] sm:min-h-0 px-4 py-1.5 rounded text-[12px] font-semibold bg-slate-100 text-black hover:bg-white disabled:opacity-50 flex items-center gap-1.5">
                         <Plug size={13} /> {state === "connecting" ? "接続中..." : "接続"}
                     </button>
                 ) : (
                     <button onClick={disconnect}
-                        className="px-3 py-1.5 rounded text-[12px] font-semibold border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1.5">
+                        className="min-h-[44px] sm:min-h-0 px-4 py-1.5 rounded text-[12px] font-semibold border border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-1.5">
                         <PlugZap size={13} /> 切断
                     </button>
                 )}
@@ -509,10 +569,10 @@ const LiveTelemetry: React.FC = () => {
                         <Radio size={11} /> {rateHz.toFixed(1)} Hz
                     </span>
                 )}
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center gap-2 flex-wrap sm:ml-auto">
                     <span className="text-[10px] text-slate-500">ブロック:</span>
                     {([3, 19, 35] as LiveBlockSelection[]).map(b => (
-                        <label key={b} className="flex items-center gap-1 text-[11px] text-slate-400">
+                        <label key={b} className="flex items-center gap-1 p-2 -m-2 text-[11px] text-slate-400">
                             <input type="checkbox" checked={blocks.includes(b)} disabled={b === 3}
                                 onChange={() => toggleBlock(b)} className="rounded border-slate-700 bg-slate-900" />
                             {b === 3 ? "3 基本" : b === 19 ? "19 点火/λ" : "35 VANOS"}

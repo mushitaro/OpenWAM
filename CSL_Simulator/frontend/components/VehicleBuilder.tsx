@@ -820,37 +820,55 @@ const VehicleBuilder = () => {
     };
 
     return (
-        <div className="h-screen max-h-screen bg-slate-950 text-slate-300 font-sans flex flex-col overflow-hidden selection:bg-slate-800">
+        // `100svh`, not `h-screen` (= 100vh). On a phone, `vh` counts the space the browser chrome
+        // is covering, so the last ~90px of a full-height flex column sits under the URL bar — which
+        // is exactly where the sweep panel's abort button and the preflight panel's WRITE button
+        // ended up. `svh` is the small viewport: the height that is always visible.
+        <div className="h-[100svh] max-h-[100svh] bg-slate-950 text-slate-300 font-sans flex flex-col overflow-hidden selection:bg-slate-800">
 
-            {/* 1. MINIMAL HEADER */}
-            <div className="h-14 flex items-center justify-between px-6 bg-slate-950 z-20 flex-shrink-0">
-                <div className="flex items-center gap-6">
-                    <div className="font-semibold text-slate-100 tracking-tight">OpenWAM <span className="text-slate-500 font-normal">CSL Simulator</span></div>
-
-                    {/* Minimal Tabs */}
-                    <div className="flex gap-1 bg-slate-900 p-1 rounded-md">
-                        <button
-                            onClick={() => setMainTab("builder")}
-                            className={`px-4 py-1.5 text-xs font-medium rounded transition-colors ${mainTab === "builder" ? "bg-slate-800 text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
-                        >
-                            Builder
-                        </button>
-                        <button
-                            onClick={() => setMainTab("simulation")}
-                            className={`px-4 py-1.5 text-xs font-medium rounded transition-colors ${mainTab === "simulation" ? "bg-slate-800 text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
-                        >
-                            Simulation
-                        </button>
-                        <button
-                            onClick={() => setMainTab("live")}
-                            className={`px-4 py-1.5 text-xs font-medium rounded transition-colors ${mainTab === "live" ? "bg-slate-800 text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
-                        >
-                            Live (DS2)
-                        </button>
+            {/* 1. MINIMAL HEADER
+                Two rows on a phone, one on a desktop. The wordmark and the tab row were competing
+                for ~310px and the wordmark won, wrapping to three lines and pushing the tabs off
+                screen. Stacking them costs 30px of height and makes both legible. */}
+            <div className="flex flex-col min-[720px]:flex-row min-[720px]:h-14 min-[720px]:items-center
+                            min-[720px]:justify-between px-3 sm:px-6 py-2 min-[720px]:py-0
+                            gap-2 bg-slate-950 z-20 flex-shrink-0">
+                <div className="flex items-center justify-between min-[720px]:justify-start gap-3 min-[720px]:gap-6">
+                    {/* `whitespace-nowrap`: without it "OpenWAM CSL Simulator" wrapped to three
+                        lines at 375px and took the whole header with it. */}
+                    <div className="font-semibold text-slate-100 tracking-tight whitespace-nowrap text-[13px] sm:text-base">
+                        OpenWAM <span className="text-slate-500 font-normal">CSL Simulator</span>
+                    </div>
+                    {/* On a phone STATUS rides beside the wordmark; the tab row below then gets the
+                        full width and can give each tab a real touch target. */}
+                    <div className="text-[10px] font-mono text-slate-600 min-[720px]:hidden">
+                        {loading || optimizing ? "RUNNING" : "IDLE"}
                     </div>
                 </div>
 
-                <div className="text-[10px] font-mono text-slate-600">
+                {/* Minimal Tabs. Full width and 44px tall below 720px — these are the app's top-level
+                    navigation and they are pressed with a thumb, in a car. */}
+                <div className="flex gap-1 bg-slate-900 p-1 rounded-md min-[720px]:mr-auto">
+                    {([
+                        ["builder", "Builder"],
+                        ["simulation", "Simulation"],
+                        ["live", "Live (DS2)"],
+                    ] as const).map(([id, label]) => (
+                        <button
+                            key={id}
+                            onClick={() => setMainTab(id)}
+                            className={`flex-1 min-[720px]:flex-none min-h-[40px] min-[720px]:min-h-0
+                                        px-3 sm:px-4 py-1.5 text-xs font-medium rounded whitespace-nowrap
+                                        transition-colors ${mainTab === id
+                                    ? "bg-slate-800 text-slate-100 shadow-sm"
+                                    : "text-slate-500 hover:text-slate-300"}`}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="hidden min-[720px]:block text-[10px] font-mono text-slate-600">
                     STATUS: {loading || optimizing ? "RUNNING" : "IDLE"}
                 </div>
             </div>
@@ -860,9 +878,15 @@ const VehicleBuilder = () => {
 
                 {/* --- BUILDER MODE --- */}
                 {mainTab === "builder" && (
-                    <div className="flex flex-row h-full">
+                    // Stacked below 900px, side by side above it. The two panes were a hard
+                    // `flex-row` with a 340px sidebar, so at 375px the topology was squeezed to
+                    // ~35px and the sidebar overflowed the viewport — both panes unusable at once.
+                    // Stacking makes the whole column scroll, which is the one gesture a phone
+                    // always has.
+                    <div className="flex flex-col min-[900px]:flex-row h-full overflow-y-auto min-[900px]:overflow-hidden">
                         {/* Topology (wide, left, floating card — matches the param panel's spacing) */}
-                        <div className="order-1 flex-1 min-w-0 my-6 ml-6 mr-6 relative">
+                        <div className="order-1 flex-1 min-w-0 min-h-[280px] mx-3 mt-3 min-[900px]:my-6
+                                        min-[900px]:ml-6 min-[900px]:mr-6 relative">
                             <InteractiveTopology
                                 config={config}
                                 activeSelection={selection}
@@ -871,7 +895,10 @@ const VehicleBuilder = () => {
                             />
                         </div>
                         {/* Params (fixed width, right, floating card) */}
-                        <div className="order-2 w-[340px] flex-shrink-0 my-6 mr-6 rounded-lg border border-slate-800 bg-slate-950/60 flex flex-col overflow-hidden">
+                        <div className="order-2 w-auto min-[900px]:w-[340px] flex-shrink-0 m-3
+                                        min-[900px]:my-6 min-[900px]:mr-6 min-[900px]:ml-0 rounded-lg
+                                        border border-slate-800 bg-slate-950/60 flex flex-col
+                                        min-[900px]:overflow-hidden">
                             {/* Global / Project Header */}
                             <div
                                 onClick={() => setSelection({ type: "environment" })}
@@ -895,9 +922,9 @@ const VehicleBuilder = () => {
 
                 {/* --- SIMULATION MODE --- */}
                 {mainTab === "simulation" && (
-                    <div className="h-full flex flex-row">
+                    <div className="h-full flex flex-col min-[900px]:flex-row overflow-y-auto min-[900px]:overflow-hidden">
                         {/* Main Result Area */}
-                        <div className="flex-1 bg-slate-950 p-6 flex flex-col gap-6">
+                        <div className="flex-1 min-h-[320px] bg-slate-950 p-3 sm:p-6 flex flex-col gap-6">
 
                             {/* Result / Monitor Panel */}
                             <div className="flex-1 border border-slate-800 rounded-lg bg-slate-950/60 relative overflow-hidden flex flex-col">
@@ -1005,7 +1032,10 @@ const VehicleBuilder = () => {
                         </div>
 
                         {/* Right: Sidebar Controls (floating card, matches the Builder param panel's width) */}
-                        <div className="w-[340px] flex-shrink-0 my-6 mr-6 rounded-lg border border-slate-800 bg-slate-950/60 p-6 flex flex-col gap-8 z-10 overflow-y-auto">
+                        <div className="w-auto min-[900px]:w-[340px] flex-shrink-0 mx-3 mb-3
+                                        min-[900px]:my-6 min-[900px]:mr-6 min-[900px]:mx-0 rounded-lg
+                                        border border-slate-800 bg-slate-950/60 p-4 sm:p-6 flex flex-col
+                                        gap-8 z-10 min-[900px]:overflow-y-auto">
 
                             {/* Actions */}
                             <div className="flex flex-col gap-4">
@@ -1174,7 +1204,7 @@ const VehicleBuilder = () => {
                     so on the road, one stray tap on Builder mid-sweep would cost
                     the drive. Hiding costs a laid-out subtree; unmounting costs
                     the data. */}
-                <div className={mainTab === "live" ? "h-full p-6" : "hidden"}>
+                <div className={mainTab === "live" ? "h-full p-3 sm:p-6" : "hidden"}>
                     <LiveTelemetry />
                 </div>
             </div>

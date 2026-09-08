@@ -175,6 +175,20 @@ export function aggregateSweep(
 export function nextActions(agg: SweepAggregate, opts: Partial<SweepDefaults> = {}): string[] {
     const o = withDefaults(opts);
     const out: string[] = [];
+    // An empty list means "nothing left to do", and the panel says so in green. That is only true
+    // if this function is exhaustive — and it was not: with no admitted samples there are no bins
+    // to iterate, so a driver who had recorded NOTHING was told the data was complete, right beside
+    // a coverage board reading "0 サンプル". Say what to do instead, and distinguish the two ways of
+    // having no bins, because they call for opposite actions: drive, or fix why nothing counted.
+    if (agg.bins.length === 0) {
+        if (agg.total === 0) {
+            out.push('まだ記録がありません。「テレメトリ」タブで記録を開始し、4速で全開プルを行ってください');
+        } else {
+            out.push(`${agg.total} サンプル記録しましたが、解析に使えるものがまだありません。`
+                + '下の「除外されたサンプル」の理由を確認してください');
+        }
+        return out;
+    }
     // A missing baseline is one instruction, not one per rpm bin: repeating it
     // for every bin buries the things that actually differ between them, and on
     // a phone it fills the panel with a single fact said eight times.

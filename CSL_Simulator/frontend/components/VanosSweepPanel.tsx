@@ -100,18 +100,24 @@ const VanosSweepPanel: React.FC<{
     return (
         <div className="flex flex-col gap-3 text-[12px]">
             {/* ---- safety strip: always visible, never behind a scroll ---- */}
-            <div className="flex items-center gap-3 rounded border border-slate-700 bg-slate-900 px-3 py-2">
-                <Thermometer className="w-4 h-4 shrink-0" />
-                <div className="flex-1">
-                    <div className="text-[9px] uppercase tracking-widest text-slate-500">排気温度（唯一の保護）</div>
-                    <div className={`font-mono text-[15px] font-bold ${
-                        egtState === "stop" ? "text-red-400"
-                            : egtState === "warn" ? "text-amber-400"
-                                : egtState === "ok" ? "text-emerald-400" : "text-slate-600"}`}>
-                        {egt == null ? "—" : `${egt} °C`}
+            {/* Stacks below 640px. The number is what gets glanced at mid-pull, so it keeps the top
+                line to itself rather than sharing a row with three lines of explanation squeezed
+                into whatever a 375px screen has left. */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded
+                            border border-slate-700 bg-slate-900 px-3 py-2">
+                <div className="flex items-center gap-3">
+                    <Thermometer className="w-4 h-4 shrink-0" />
+                    <div className="flex-1">
+                        <div className="text-[9px] uppercase tracking-widest text-slate-500">排気温度（唯一の保護）</div>
+                        <div className={`font-mono text-[15px] font-bold ${
+                            egtState === "stop" ? "text-red-400"
+                                : egtState === "warn" ? "text-amber-400"
+                                    : egtState === "ok" ? "text-emerald-400" : "text-slate-600"}`}>
+                            {egt == null ? "—" : `${egt} °C`}
+                        </div>
                     </div>
                 </div>
-                <div className="text-[10px] leading-tight text-slate-500 max-w-[19rem]">
+                <div className="text-[10px] leading-tight text-slate-500 sm:max-w-[19rem]">
                     {egtState === "stop"
                         ? <span className="text-red-400">上限超過。直ちにアクセルを戻し、この設定は破棄してください。</span>
                         : egtState === "warn"
@@ -129,19 +135,21 @@ const VanosSweepPanel: React.FC<{
 
             {/* ---- axis + command ---- */}
             <div className="rounded border border-slate-700 bg-slate-900 p-3 flex flex-col gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <Target className="w-4 h-4" />
                     <span className="text-[9px] uppercase tracking-widest text-slate-500">掃引するカム</span>
                     {(["intake", "exhaust"] as const).map(a => (
                         <button key={a} onClick={() => sweep.setAxis(a)} disabled={sweep.busy}
-                            className={`min-h-[40px] px-4 rounded text-[11px] border transition-colors disabled:opacity-40 ${
+                            className={`min-h-[44px] px-5 rounded text-[11px] border transition-colors disabled:opacity-40 ${
                                 sweep.axis === a
                                     ? "border-blue-500 bg-blue-500/15 text-blue-400"
                                     : "border-slate-700 text-slate-400 hover:border-slate-600"}`}>
                             {a === "intake" ? "吸気" : "排気"}
                         </button>
                     ))}
-                    <span className="ml-auto text-[10px] text-slate-500">
+                    {/* `ml-auto` only once there is a row to push against; when this wraps on a
+                        phone it becomes its own full-width line instead of a squeezed column. */}
+                    <span className="w-full sm:w-auto sm:ml-auto text-[10px] text-slate-500">
                         指令できる範囲 {w.min}〜{w.max}°（書き戻せる範囲）
                     </span>
                 </div>
@@ -224,18 +232,25 @@ const VanosSweepPanel: React.FC<{
 
             {/* ---- coverage ---- */}
             <div className="rounded border border-slate-700 bg-slate-900 p-3">
-                <div className="flex items-center gap-2 mb-2">
-                    <Activity className="w-4 h-4" />
-                    <span className="text-[9px] uppercase tracking-widest text-slate-500">
-                        カバレッジ（色 = 証拠の量。λ の値ではありません）
-                    </span>
-                    <span className="ml-auto font-mono text-[10px] text-slate-500">
-                        採用 {agg.admitted} / {agg.total}
-                    </span>
-                    <button onClick={() => setShowAll(v => !v)}
-                        className="text-[10px] text-slate-500 hover:text-slate-300 underline">
-                        {showAll ? "谷帯のみ" : "全回転域"}
-                    </button>
+                {/* Two rows on a phone. All four items on one line at 375px left the count and the
+                    toggle each about 40px wide, wrapping mid-word into each other. */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 shrink-0" />
+                        <span className="text-[9px] uppercase tracking-widest text-slate-500">
+                            カバレッジ（色 = 証拠の量。λ の値ではありません）
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3 sm:ml-auto pl-6 sm:pl-0">
+                        <span className="font-mono text-[10px] text-slate-500 whitespace-nowrap">
+                            採用 {agg.admitted} / {agg.total}
+                        </span>
+                        <button onClick={() => setShowAll(v => !v)}
+                            className="text-[10px] text-slate-500 hover:text-slate-300 underline
+                                       whitespace-nowrap p-2 -m-2">
+                            {showAll ? "谷帯のみ" : "全回転域"}
+                        </button>
+                    </div>
                 </div>
 
                 {bins.length === 0 ? (
