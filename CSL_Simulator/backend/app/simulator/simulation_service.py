@@ -242,7 +242,12 @@ class SimulationService:
                     except OSError:
                         tail = ""
                     nan_polls = nan_polls + 1 if "nan" in tail.lower() else 0
-                    if nan_polls >= 3:
+                    # CSL_NAN_KILL_POLLS: polls of "nan" in the log tail before the
+                    # early kill (default 3; 0 = never kill early, let the
+                    # recovery-based M.nan_persistent judge the finished run --
+                    # the exhaust cat-taper positivity fallback can print
+                    # -nan(ind) through startup and still recover).
+                    if nan_polls >= int(os.environ.get("CSL_NAN_KILL_POLLS", "3") or 3) > 0:
                         stop_reason = "nan"
                         proc.kill(); await proc.wait(); break
                     if len(self._cycle_ve(log_path)) >= M.STOP_CYCLES:
