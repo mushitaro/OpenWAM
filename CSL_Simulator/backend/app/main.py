@@ -1,6 +1,10 @@
 import os
 import json
 import re
+import asyncio
+from typing import Literal
+from pydantic import BaseModel, Field, ConfigDict
+from .simulator.corrected_service import CorrectedService
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +24,7 @@ SIM_DIR = os.path.dirname(os.path.dirname(BASE_DIR))           # .../CSL_Simulat
 
 # --- Services ---------------------------------------------------------------
 simulation_service = SimulationService(data_dir=DATA_DIR, simulator_dir=SIM_DIR)
+corrected_service = CorrectedService(os.path.dirname(SIM_DIR))
 
 # Optional services (not on the M1 Run path). Import defensively so a broken
 # calibration/optimization module can never block the server from starting.
@@ -99,7 +104,7 @@ async def get_maps():
 
 
 @app.post("/simulate/run")
-async def run_simulation(config: SimConfig, mode: str = "wot_quick"):
+async def run_simulation(config: SimConfig, mode: str = "wot_quick", model: Literal["legacy"] = "legacy"):
     """VE map run. mode="wot_quick" (20 WOT cells) | "full_map" (480 cells).
 
     Returns the structured + instrumented response (axes/cells/rows/overall/
@@ -129,8 +134,42 @@ async def cancel_runs():
     deck cache, so re-running the same request RESUMES from where it stopped.
     """
     n = simulation_service.cancel_active()
+    n += corrected_service.cancel()
     await log_manager.broadcast(f"INFO: Cancel requested — {n} in-flight sim task(s) cancelled.")
     return {"cancelled_tasks": n}
+
+
+class CorrectedRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    model: Literal["corrected_fv_v6_clock"] = "corrected_fv_v6_clock"
+    case_id: str
+    extent: Literal["short", "cycle"] = "short"
+    timeout_s: int = Field(default=60, ge=1, le=14400)
+
+
+@app.get("/simulate/models")
+async def simulation_models():
+    return corrected_service.catalogue()
+
+
+@app.post("/simulate/corrected/run")
+async def corrected_run(request: CorrectedRequest):
+    try:
+        return await corrected_service.run(request.case_id, request.extent, request.timeout_s)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except TimeoutError:
+        raise HTTPException(status_code=408, detail="時間上限で中断しました。未完区間を合格にはしません。")
+    except asyncio.CancelledError:
+        raise HTTPException(status_code=409, detail="修正モデルの計算を中断しました。未完区間は評価済みにしません。")
+
+
+@app.get("/simulate/corrected/last")
+async def corrected_last():
+    try:
+        return corrected_service.last()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.get("/simulate/last")

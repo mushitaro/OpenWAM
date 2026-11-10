@@ -19,6 +19,7 @@ import ValidityPanel from "./ValidityPanel";
 import VeSurfaceChart from "./VeSurfaceChart";
 import VeWaveformChart from "./WaveformChart";
 import TuningResults from "./TuningResults";
+import CorrectedEvaluation from "./CorrectedEvaluation";
 
 // Nearest-breakpoint lookup into an ECU VE map (kf_rf_soll shape). The run axes
 // ARE the map's axes for this engine, so nearest == exact. Values are fractional
@@ -53,6 +54,8 @@ const VehicleBuilder = () => {
     const [mainTab, setMainTab] = useState<"builder" | "simulation" | "live">("builder");
 
     const [loading, setLoading] = useState(false);
+    const [solverModel, setSolverModel] = useState<"legacy" | "corrected">("legacy");
+    const [correctedBusy, setCorrectedBusy] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
     const [runData, setRunData] = useState<RunResponse | null>(null);
     // snapshot of the config that produced runData, so the Waveform view drills
@@ -856,6 +859,7 @@ const VehicleBuilder = () => {
                     ] as const).map(([id, label]) => (
                         <button
                             key={id}
+                            disabled={correctedBusy}
                             onClick={() => setMainTab(id)}
                             className={`flex-1 min-[720px]:flex-none min-h-[40px] min-[720px]:min-h-0
                                         px-3 sm:px-4 py-1.5 text-xs font-medium rounded whitespace-nowrap
@@ -921,7 +925,15 @@ const VehicleBuilder = () => {
                 )}
 
                 {/* --- SIMULATION MODE --- */}
-                {mainTab === "simulation" && (
+                {mainTab === "simulation" && <div className="px-6 py-2 border-b border-slate-800 text-slate-200">
+                    <label>計算モデル <select aria-label="計算モデル" value={solverModel} disabled={loading || optimizing || correctedBusy}
+                        onChange={e => setSolverModel(e.target.value as "legacy" | "corrected")} className="bg-slate-800 p-2 ml-2">
+                        <option value="legacy">従来モデル（既定・VEマップ探索）</option>
+                        <option value="corrected">修正モデル（登録ケースの詳細評価）</option>
+                    </select></label>
+                </div>}
+                {mainTab === "simulation" && solverModel === "corrected" && <CorrectedEvaluation onBusy={setCorrectedBusy} />}
+                {mainTab === "simulation" && solverModel === "legacy" && (
                     <div className="h-full flex flex-col min-[900px]:flex-row overflow-y-auto min-[900px]:overflow-hidden">
                         {/* Main Result Area */}
                         <div className="flex-1 min-h-[320px] bg-slate-950 p-3 sm:p-6 flex flex-col gap-6">

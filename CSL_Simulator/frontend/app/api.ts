@@ -474,6 +474,28 @@ export interface OptimizationResponse extends ProvenanceFields {
 
 const API_BASE_URL = "http://localhost:8000";
 
+export interface CorrectedCase {
+    id: string; label: string;
+    conditions: { rpm: number; ro: number | null; scope: string };
+}
+export interface CorrectedResult {
+    model: string; case_id: string; run_id: string; ivc_all_refreshed: boolean;
+    reference_air_mass_kg: number; reference_definition: string; ve_definition: string;
+    elapsed_sec: number; budget_max: number; limits: string;
+    cylinders: { cylinder: number; ve_oxygen_percent: number; ivc_refreshed: boolean }[];
+}
+async function correctedFetch<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await fetch(`${API_BASE_URL}/simulate/${path}`, init);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail ?? `HTTP ${response.status}`);
+    return data;
+}
+export const correctedCases = () => correctedFetch<{ default: string; corrected_available: boolean; cases: CorrectedCase[] }>("models");
+export const correctedLast = () => correctedFetch<CorrectedResult>("corrected/last");
+export const correctedRun = (case_id: string, extent: "short" | "cycle", timeout_s: number) =>
+    correctedFetch<CorrectedResult>("corrected/run", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "corrected_fv_v6_clock", case_id, extent, timeout_s }) });
+
 // --- Stage 76: DS2 live-telemetry logs ---------------------------------------
 export interface TelemetryLogMeta {
     capture_schema_version?: number;

@@ -697,6 +697,7 @@ class SimulationService:
                        for r, v in zip(rpms, stock_axis) if v is not None]
 
         result = {
+            "model": "legacy",
             "schema_version": M.SCHEMA_VERSION,
             "created_at": datetime.datetime.now(datetime.timezone.utc)
                           .isoformat(timespec="seconds"),

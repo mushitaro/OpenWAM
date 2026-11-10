@@ -1,0 +1,3 @@
+# Preserve the recorded scientific source bytes across Windows checkouts.
+*.h -text whitespace=cr-at-eol
+*.cpp -text whitespace=cr-at-eol

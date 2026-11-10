@@ -1,0 +1,54 @@
+{
+  "date_jst": "2026-11-11",
+  "short_run": {
+    "model": "corrected_fv_v6_clock",
+    "run_id": "a593740c9fcc4a1bb76a5fd2783a702f",
+    "status": "short_check_only",
+    "elapsed_sec": 4.280999999959022,
+    "budget_max": 1.4194652707009035e-10,
+    "final_sha256": "71cb9fc8e8afe8fffa78e4dca7d080464b732bf99274536cc210d79c90d6045d",
+    "ivc_all_refreshed": false
+  },
+  "old_exe_comparison": {
+    "old_elapsed_s": 4.109999999869615,
+    "final_byte_equal": true,
+    "old_sha": "71cb9fc8e8afe8fffa78e4dca7d080464b732bf99274536cc210d79c90d6045d",
+    "new_sha": "71cb9fc8e8afe8fffa78e4dca7d080464b732bf99274536cc210d79c90d6045d"
+  },
+  "adapter_api": {
+    "passed": true,
+    "checks": [
+      "default legacy dispatch; no corrected-to-legacy fallback",
+      "unknown model/case/extent, unbounded time and unsupported condition rejected",
+      "real C++ short interval; initial equality; budget; API save/reload; retained IVC labelled",
+      "tampered input rejected; prior successful result preserved",
+      "timeout and cancellation reap real child; duplicate run rejected"
+    ],
+    "result_run": "d48b36ad3adb484ca2cdce9a58eada57",
+    "long_solver_runs": 0,
+    "legacy_solver_mocked": true,
+    "corrected_short_solver_real": true
+  },
+  "ui": {
+    "passed": true,
+    "default": "legacy",
+    "corrected_result_rows": 6,
+    "requests": [
+      "last",
+      "short"
+    ],
+    "http_responses": "replayed real short-run result; no solver launched by UI test"
+  },
+  "existing_checks": [
+    "npm test",
+    "npm run test:capture",
+    "npx tsc --noEmit",
+    "npm run check:ported",
+    "backend test_capture_contract.py"
+  ],
+  "long_solver_runs": 0,
+  "arbitrary_rpm_ro_geometry_supported": false,
+  "vehicle_accuracy_confirmed": false,
+  "source_branch_unchanged": "bf35b5c40b34516b780a90c06d90aea7fe8be4ca",
+  "validation_branch_unchanged": "8be761f055c783f67e12ac6662bfbf20feb2ebbc"
+}

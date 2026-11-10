@@ -1,0 +1,40 @@
+{
+  "origin": "half_volume_clock_20261027/candidate",
+  "origin_manifest_sha256": "0685c341c4cae0e6b9fdc03e96b3f1881664653617287bfa54b467a2084f8c4b",
+  "original_bytes_verified": {
+    "checkpoint.h": "b7846778c34b12fe4dccb7a5fbf5ef219387e0ccab3113e74abb4ec5d2cc63bc",
+    "checkpoint_v3.h": "2fe1ed5a316daf83e9515cf93b17db966697c588a708e67367c69dce69655241",
+    "cycle_run.cpp": "bc0b21d35964776bd55c627d9aaa4c6b85c738a7f9be4c395b1cdeb28163e5d6",
+    "cycle_state.h": "a33856b7a6df774e70301a1e69cdec20b779a4d83ecc9e258262da67861d7e9a",
+    "LegacyMixture.h": "788782e865a5b4787e810819d098eacdfe7bea8bab2ab6b0249d12617171cc6f",
+    "sources/BoundedRoot.h": "00ab1be0ead3cc4c15b191036a3d4fb539c786b9f06b3bcac3501bfa3d86fb71",
+    "sources/tests/ThermalDriveFixture.h": "a4e5cbbc355f47402263f42c5c8ec354a73d80f87f9862273f1c8e91a61719a0",
+    "sources/tests/ThermalInitialFixture.h": "b6ddd77e526fee1996a4e21bd184340f5a6ee927021b4d44e12d9f497489f90e",
+    "sources/tests/ThermalNativeIntakeFixture.h": "12aa46df93d3639e014dceee661337193b42c0a94438f75c891ab9df2210467a",
+    "sources/tests/thermal_driven_intake_replay.cpp": "67100f93124a1a6ffd185122110e0a266b9bae7a4a86374d917f0038bc6ddf84",
+    "sources/tests/thermal_full_h_replay.cpp": "a23e09f14be3387ecc03134ff4c5a365d1691928158c0ce607ce9228ebc865b3",
+    "sources/Source/1DPipes/ThermalFiniteVolumeReference.h": "70dc8235f1a27e17d6c9bb300be8554dfe57d58d61d84d33164de821227aa20d",
+    "sources/Source/Boundaries/ThermalAreaChange.h": "fcdc1f02405f47353fa99c737664617656054685cea6af7c0bffbfb8838335f5",
+    "sources/Source/Boundaries/ThermalMixingJunction.h": "bad04fa98cddbdcb12cfb488711c36751645c0b426b04aee225d4f382d0a29df",
+    "sources/Source/Boundaries/ThermalNozzleReference.h": "4f40ebc386916d886625ee6f041d43421882420267d052bc42d5725e7e4b168c",
+    "sources/Source/Boundaries/ThermalPipeNozzleReference.h": "332e8086e5c72d9c7add5e1c9c0836b2872f68c9308b0b1319ff7be27d273a2e",
+    "sources/Source/Boundaries/ThermalTwoPipeValve.h": "d45932708a61359df816c819249dad667dd192496a5469cfc17d03d28a1e2546",
+    "sources/Source/Boundaries/ThermalWaveReference.h": "32d7e6a11d176b02eef04052c22d9cd56ca8173dd3831a6b7226e373585bf9a2",
+    "sources/Source/Engine/SensibleMixtureReference.h": "348b1afd837f28cfd3f9c2f048a242c0a11b03f16c1fbb28c626e2174d4f91cf",
+    "sources/Source/Engine/ThermalClosedReactionReference.h": "997d62370d1e086d723494f20ed658b0afb6efb1ecb7428cd05bb7b6528ca43a",
+    "sources/Source/Engine/ThermalCostProfile.h": "02707d4338a7b0b794b639bbbc3f7383c6bbc408d5cd6f93412f77cc4deb542f",
+    "sources/Source/Engine/ThermalCylinderNetwork.h": "a507a7ef9e749fba24e3f85358466e04445894590fe914d541734c89e3e0a0b1",
+    "sources/Source/Engine/ThermalDuctNetwork.h": "c6a50feb8add1e400eef03b8d1c267e86fae933813e534e3531a63562e148fbd",
+    "sources/Source/Engine/ThermalEngineAdapter.h": "d5a554956e8d98c612427b6def38fce3141b39208fa9780fc21b05e762f221fa",
+    "sources/Source/Engine/ThermalEngineLaws.h": "2253e78bbeedc9fe42b07df716f9d458ee4969fc00b30cdd11940593d4757815",
+    "sources/Source/Engine/ThermalIntakeAdapter.h": "3794cbc39fe44b792a7561079d93239e87c597ecdb61b5affe072db832d21e60",
+    "sources/Source/Engine/ThermalNativeControlFrame.h": "49be2601d088b226d2962d4372b457fa73d8422b5e2126ad14eb54ad51eeac2c",
+    "sources/Source/Engine/ThermalNetworkSources.h": "10e6b87fef069ae42b0bd0ce03e58a5f0341b7404576a3dd20ffadfb8edeb327",
+    "sources/Source/Engine/ThermalParallelExecution.h": "58845da2d275f6ef8ca00b6e8b0d7d5dafbc42f180aade2ee50e8623eec56b86"
+  },
+  "new_files": [
+    "CMakeLists.txt",
+    "inspect.cpp"
+  ],
+  "numeric_implementation_changed": false
+}
