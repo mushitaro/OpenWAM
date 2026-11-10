@@ -56,6 +56,7 @@ class CorrectedService:
         available = all((self.repo / "build/corrected_ve/Release" / n).exists()
                         for n in ("corrected_ve.exe", "corrected_ve_inspect.exe"))
         return {"default": "legacy", "corrected_available": available,
+                "corrected_builder_available": (self.repo / "build/corrected_ve/Release/corrected_ve_builder.exe").is_file(),
                 "cases": [{"id": k, "label": v["label"], "conditions": v["conditions"]}
                           for k, v in self.registry().items()]}
 
@@ -83,6 +84,78 @@ class CorrectedService:
         if not path.exists():
             raise FileNotFoundError("修正モデルの保存結果はありません")
         return json.loads(path.read_text(encoding="utf-8"))
+
+    async def run_builder(self, config, extent="short", cycles=1, timeout_s=60):
+        from .corrected_builder import generate
+        if extent not in ("inputs", "short", "cycles") or not 1 <= cycles <= 120 or not 1 <= timeout_s <= 14400:
+            raise ValueError("Invalid bounded Builder evaluation request")
+        if self.lock.locked():
+            raise ValueError("修正モデルは実行中です")
+        async with self.lock:
+            task = asyncio.current_task()
+            self.tasks.add(task)
+            run_dir = self.home / uuid.uuid4().hex
+            run_dir.mkdir()
+            started = time.monotonic()
+            model = "corrected_fv_builder_v1"
+            try:
+                exe = self.repo / "build/corrected_ve/Release/corrected_ve_builder.exe"
+                if not exe.is_file():
+                    raise ValueError("修正モデルのBuilder用実行ファイルをビルドしてください")
+                manifest = generate(config, run_dir)
+                target = 0 if extent == "inputs" else (25e-6 if extent == "short" else cycles*120/config.engine.rpm)
+                args = [exe, run_dir, repr(target), run_dir/"out", "8", "0.0375"]
+                request = {"model": model, "case_id":"builder", "run_id":run_dir.name,
+                           "conditions":{"rpm": config.engine.rpm, "ro":100*config.engine.throttle_position},
+                           "config":config.model_dump(mode="json"), "extent":extent, "cycles":cycles,
+                           "target_time_s":target, "timeout_s":timeout_s, "binary_sha256":sha(exe),
+                           "input_manifest_sha256":sha(run_dir/"input_manifest.json"),
+                           "input_files":manifest["files"], "closures":manifest["closures"],
+                           "command":list(map(str,args))}
+                save(run_dir/"request.json", request)
+                out, err = await self.command(args, timeout_s)
+                (run_dir/"stdout.txt").write_text(out, encoding="utf-8")
+                (run_dir/"stderr.txt").write_text(err, encoding="utf-8")
+                checked = json.loads(out)
+                if sha(exe) != request["binary_sha256"] or any(sha(run_dir/n)!=h for n,h in manifest["files"].items()):
+                    raise ValueError("実行中にモデルまたは入力が変化しました")
+                limits = "IVC基準のポリトロープ初期状態からの有限計算。格子・周期収束および実車精度は未証明。管壁は断熱、筒壁333.15K。ECU RFとは別定義。"
+                result = {**request, "elapsed_sec":time.monotonic()-started,
+                          "strict_convergence_passed":False, "vehicle_accuracy_confirmed":False,
+                          "limits":limits}
+                if extent == "inputs":
+                    if checked.get("controls_pass") is not True:
+                        raise ValueError("入力検証未完了")
+                    result.update(status="inputs_validated", input_validation=checked)
+                else:
+                    import csv
+                    if sha(run_dir/"out.final.bin") != sha(run_dir/"out.roundtrip.bin"):
+                        raise ValueError("保存状態の全バイト復元確認に失敗しました")
+                    if abs(checked["time"]-target)>1e-14 or not 0 <= checked["budget"] <= 2e-8:
+                        raise ValueError("終端または収支基準未達")
+                    with (run_dir/"out.csv").open() as f:
+                        rows = list(csv.DictReader(f))
+                    if abs(float(rows[-1]["time"])-target)>1e-14 or max(float(r["budget"]) for r in rows)>2e-8:
+                        raise ValueError("保存CSVの終端または収支基準未達")
+                    cylinders = checked["cylinders"]
+                    complete = len(cylinders)==6 and all(c["ivc_refreshed"] for c in cylinders)
+                    result.update(status="transient_evaluated" if complete else "short_check_only",
+                                  diagnostics=checked,
+                                  end_time_s=checked["time"], budget_max=checked["budget"], cylinders=cylinders,
+                                  ivc_all_refreshed=complete, reference_air_mass_kg=checked["reference_air_mass_kg"],
+                                  reference_definition="入力環境のNASA乾燥空気密度 × 1気筒排気量",
+                                  ve_definition="IVC oxygen-equivalent air / ambient reference air mass",
+                                  final_sha256=sha(run_dir/"out.final.bin"), csv_sha256=sha(run_dir/"out.csv"))
+                save(run_dir/"result.json", result)
+                # Input-only preparation must not replace a previously measured result.
+                if extent != "inputs":
+                    save(self.home/"last.json", result)
+                return result
+            except BaseException as e:
+                save(run_dir/"failure.json", {"model":model,"error":type(e).__name__+": "+str(e),"elapsed_sec":time.monotonic()-started})
+                raise
+            finally:
+                self.tasks.discard(task)
 
     async def run(self, case_id, extent="short", timeout_s=60):
         if extent not in ("short", "cycle"):

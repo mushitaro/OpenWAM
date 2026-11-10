@@ -929,10 +929,10 @@ const VehicleBuilder = () => {
                     <label>計算モデル <select aria-label="計算モデル" value={solverModel} disabled={loading || optimizing || correctedBusy}
                         onChange={e => setSolverModel(e.target.value as "legacy" | "corrected")} className="bg-slate-800 p-2 ml-2">
                         <option value="legacy">従来モデル（既定・VEマップ探索）</option>
-                        <option value="corrected">修正モデル（登録ケースの詳細評価）</option>
+                        <option value="corrected">修正モデル（Builder条件の詳細評価）</option>
                     </select></label>
                 </div>}
-                {mainTab === "simulation" && solverModel === "corrected" && <CorrectedEvaluation onBusy={setCorrectedBusy} />}
+                {mainTab === "simulation" && solverModel === "corrected" && <CorrectedEvaluation config={config} onConfigChange={setConfig} onBusy={setCorrectedBusy} />}
                 {mainTab === "simulation" && solverModel === "legacy" && (
                     <div className="h-full flex flex-col min-[900px]:flex-row overflow-y-auto min-[900px]:overflow-hidden">
                         {/* Main Result Area */}

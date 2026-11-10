@@ -147,6 +147,27 @@ class CorrectedRequest(BaseModel):
     timeout_s: int = Field(default=60, ge=1, le=14400)
 
 
+class CorrectedBuilderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    model: Literal["corrected_fv_builder_v1"] = "corrected_fv_builder_v1"
+    config: SimConfig
+    extent: Literal["inputs", "short", "cycles"] = "short"
+    cycles: int = Field(default=1, ge=1, le=120)
+    timeout_s: int = Field(default=60, ge=1, le=14400)
+
+
+@app.post("/simulate/corrected/builder")
+async def corrected_builder_run(request: CorrectedBuilderRequest):
+    try:
+        return await corrected_service.run_builder(request.config, request.extent, request.cycles, request.timeout_s)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except TimeoutError:
+        raise HTTPException(status_code=408, detail="時間上限で中断しました。保存済み入力と途中出力を保持しています。")
+    except asyncio.CancelledError:
+        raise HTTPException(status_code=409, detail="修正モデルの計算を中断しました。未完区間を評価済みにはしません。")
+
+
 @app.get("/simulate/models")
 async def simulation_models():
     return corrected_service.catalogue()

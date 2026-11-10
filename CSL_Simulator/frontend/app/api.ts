@@ -154,6 +154,7 @@ export interface HeadConfig {
 export interface EngineConfig {
     cam_profile: string;
     rpm: number; // Added specific RPM target
+    throttle_position?: number; // 0..1; old projects omit it and retain WOT default
     cylinders: number; // Added Cylinder count
 
     geometry: EngineGeometry;
@@ -482,7 +483,8 @@ export interface CorrectedResult {
     model: string; case_id: string; run_id: string; ivc_all_refreshed: boolean;
     reference_air_mass_kg: number; reference_definition: string; ve_definition: string;
     elapsed_sec: number; budget_max: number; limits: string;
-    cylinders: { cylinder: number; ve_oxygen_percent: number; ivc_refreshed: boolean }[];
+    conditions?: { rpm: number; ro: number | null };
+    cylinders: { cylinder: number; ve_oxygen_percent: number | null; ivc_refreshed: boolean }[];
 }
 async function correctedFetch<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`${API_BASE_URL}/simulate/${path}`, init);
@@ -490,11 +492,18 @@ async function correctedFetch<T>(path: string, init?: RequestInit): Promise<T> {
     if (!response.ok) throw new Error(data.detail ?? `HTTP ${response.status}`);
     return data;
 }
-export const correctedCases = () => correctedFetch<{ default: string; corrected_available: boolean; cases: CorrectedCase[] }>("models");
+export const correctedCases = () => correctedFetch<{ default: string; corrected_available: boolean; corrected_builder_available: boolean; cases: CorrectedCase[] }>("models");
 export const correctedLast = () => correctedFetch<CorrectedResult>("corrected/last");
 export const correctedRun = (case_id: string, extent: "short" | "cycle", timeout_s: number) =>
     correctedFetch<CorrectedResult>("corrected/run", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "corrected_fv_v6_clock", case_id, extent, timeout_s }) });
+export const correctedBuilderRun = (config: SimConfig, extent: "short" | "cycles", cycles: number, timeout_s: number) =>
+    correctedFetch<CorrectedResult>("corrected/builder", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "corrected_fv_builder_v1", config, extent, cycles, timeout_s }) });
+export const correctedBuilderInputs = (config: SimConfig) =>
+    correctedFetch<{ status: string; run_id: string; input_validation: { pipes: number; sampled_crank_angles: number } }>("corrected/builder", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "corrected_fv_builder_v1", config, extent: "inputs", timeout_s: 60 }) });
 
 // --- Stage 76: DS2 live-telemetry logs ---------------------------------------
 export interface TelemetryLogMeta {

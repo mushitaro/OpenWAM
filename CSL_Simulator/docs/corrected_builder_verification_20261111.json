@@ -1,0 +1,94 @@
+{
+  "passed": true,
+  "scope": "Builder input generation and short regressions; no full-cycle execution or vehicle accuracy claim",
+  "evidence_directory": "C:\\Users\\kazuh\\OpenWAM\\build\\corrected_builder_regression\\daceb4b702ef4183a18f653e1aec5031",
+  "binary_sha256": "7bea83b3d70aacba8baf6000ae9017cb10d4ffc7cfddc7a321d75f1153859496",
+  "input_and_short_evaluations": 23,
+  "fluid_regressions": [
+    {
+      "rpm": 2000.0,
+      "ro": 100.0,
+      "elapsed_sec": 1.577999999979511,
+      "budget": 2.443350990963896e-15,
+      "ivc_count": 0,
+      "burned_fuel_kg": 0,
+      "final_sha256": "34f0d8b7f756a5073d7c9809440b1407b1928c69f70ad0f2a08c31a2adb5a9e3"
+    },
+    {
+      "rpm": 3400.0,
+      "ro": 1.0,
+      "elapsed_sec": 1.375,
+      "budget": 1.7498754946027833e-15,
+      "ivc_count": 0,
+      "burned_fuel_kg": 0,
+      "final_sha256": "535b643746785e0a9d6764f39805706500873357f01adece8a4a09f79cca90d2"
+    },
+    {
+      "rpm": 7900.0,
+      "ro": 100.0,
+      "elapsed_sec": 1.4840000001713634,
+      "budget": 1.8702204126525465e-15,
+      "ivc_count": 0,
+      "burned_fuel_kg": 0,
+      "final_sha256": "75648b5df6528e011b8137e720dc643bd178fa57ec95b4ef568721379f184d79"
+    },
+    {
+      "rpm": 2000.0,
+      "ro": 100.0,
+      "elapsed_sec": 1.5940000000409782,
+      "budget": 2.443350990963896e-15,
+      "ivc_count": 0,
+      "burned_fuel_kg": 0,
+      "final_sha256": "34f0d8b7f756a5073d7c9809440b1407b1928c69f70ad0f2a08c31a2adb5a9e3"
+    },
+    {
+      "rpm": 2000.0,
+      "ro": 100.0,
+      "elapsed_sec": 1.6399999998975545,
+      "budget": 2.175589019514703e-15,
+      "ivc_count": 1,
+      "burned_fuel_kg": 3.694983747406029e-05,
+      "final_sha256": "df2055d43a6048260cf573a076a13a0aa798bc549f3f5f781599728c8969b9fb"
+    }
+  ],
+  "input_only_boundary_cases": [
+    "6334f4ea155c46d5bb248ed34e51cc2b",
+    "2d0317dfc29b4aeca5c31a1321406b5c"
+  ],
+  "RO_monotonic_effective_area": [
+    1.0857344210806325e-05,
+    0.00014345951442473496,
+    0.010423050442374071,
+    0.010423050442374071,
+    0.0015012516885355956
+  ],
+  "historical_sources_unchanged": 29,
+  "checks": [
+    "full 720-degree controls",
+    "independent analytic cylinder volume",
+    "dry-air reference density",
+    "geometry SHA responds to Builder edits",
+    "deterministic final byte equality",
+    "checkpoint full-byte roundtrip",
+    "manufactured IVC and combustion event budget",
+    "unknown model and invalid geometry rejection",
+    "bounded API and saved-result reload",
+    "browser HTTP replay and visual review",
+    "legacy registered-case regression",
+    "TypeScript",
+    "npm test",
+    "test:capture",
+    "check:ported"
+  ],
+  "limitations": [
+    "No new full cycle or long computation",
+    "Periodic/grid convergence unverified",
+    "Vehicle VE fitting accuracy unverified",
+    "Cylinder walls 333.15 K; adiabatic pipes; Builder H storage retained"
+  ],
+  "evidence_sha256": {
+    "verification.json": "b444955f11b5f0412b501aee6dfe1f635e155f2626a40c257b10a50e147531f6",
+    "ui_verification.json": "3e32ba70d1a4fc7ef16e468fd1a7eb6cb877800f83ac33d21a531bf832b1bd13",
+    "ui.png": "a1c7da4090c2757cecaca7e8c6061ae4316ef5cc10909b0545aac6f596ff2d82"
+  }
+}
