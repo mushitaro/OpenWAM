@@ -1,0 +1,16 @@
+{
+  "worktree": "C:\\Users\\kazuh\\OpenWAM",
+  "reason": "Data retained in place to preserve archived manifests and absolute-path references. Code and reports are separately committed. These exact artifact directories are intentionally excluded from Git; no broad source exclusion.",
+  "directories": [
+    {
+      "path": "build_audit/",
+      "exists": true,
+      "top_level_evidence": []
+    },
+    {
+      "path": "Win32_x86_64/",
+      "exists": true,
+      "top_level_evidence": []
+    }
+  ]
+}

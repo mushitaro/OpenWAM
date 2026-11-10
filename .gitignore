@@ -96,3 +96,7 @@ CSL_Simulator/backend/exhaust.vlv
 .sim_cache/
 build_rom/
 rom_probe_out/
+
+# Retained local artifacts: see CSL_Simulator/docs/REPOSITORY_STORAGE_2026-11-10.md
+/build_audit/
+/Win32_x86_64/
