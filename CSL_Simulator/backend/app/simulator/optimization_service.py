@@ -56,8 +56,8 @@ class OptimizationService:
 
     # ------------------------------------------------------------------ maps
     def _load_maps(self):
-        with open(os.path.join(self.data_dir, "csl_ecu_maps.json"), "r", encoding="utf-8") as f:
-            return json.load(f)
+        from ..calibration_maps import load_maps
+        return load_maps(self.data_dir)
 
     @staticmethod
     def _wot_row_index(y_axis):

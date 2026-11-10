@@ -341,11 +341,13 @@ class SimulationService:
         maps_file = os.path.join(self.data_dir, "csl_ecu_maps.json")
         maps, rpm_axis, load_axis = {}, [], []
         try:
-            with open(maps_file, "r", encoding="utf-8") as f:
-                maps = json.load(f)
-                rpm_axis = maps.get("kf_rf_soll", {}).get("x_axis", [])
-                load_axis = maps.get("kf_rf_soll", {}).get("y_axis", [])
+            from ..calibration_maps import load_maps
+            maps = load_maps(self.data_dir)
+            rpm_axis = maps.get("kf_rf_soll", {}).get("x_axis", [])
+            load_axis = maps.get("kf_rf_soll", {}).get("y_axis", [])
         except Exception as e:
+            if os.path.exists(os.path.join(self.data_dir, "uploaded_mss54.bin")):
+                raise ValueError(f"Uploaded calibration maps invalid: {e}") from e
             print(f"WARN: Could not load maps: {e}")
         if not rpm_axis:
             rpm_axis = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000]
@@ -749,9 +751,10 @@ class SimulationService:
 
         maps = {}
         try:
-            with open(os.path.join(self.data_dir, "csl_ecu_maps.json"), encoding="utf-8") as f:
-                maps = json.load(f)
+            from ..calibration_maps import load_maps
+            maps = load_maps(self.data_dir)
         except Exception:
+            if os.path.exists(os.path.join(self.data_dir, "uploaded_mss54.bin")): raise
             maps = {}
         point_config = config.model_copy(deep=True)
         point_config.engine.rpm = rpm
