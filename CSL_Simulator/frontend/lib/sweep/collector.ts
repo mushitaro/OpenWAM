@@ -12,6 +12,7 @@
  */
 import { LiveSample } from '../dme-link/types';
 import { DECODER_VERSION } from '../dme-link/liveValueBlocks';
+import type { TelemetryLogMeta } from '../../app/api';
 
 const SETTINGS_KEY = 'csl.sweepCollector.v1';
 /** The deployed collector. Overridable for a bench rig via localStorage. */
@@ -103,6 +104,8 @@ function toBase64(bytes: Uint8Array): string {
  * Converting explicitly here beats teaching the server to guess.
  */
 export interface SweepWireSample {
+    /** Original row for lossless evidence replay; CSV aliases remain for old consumers. */
+    capture_sample?: LiveSample;
     t_ms: number;
     rpm: number;
     evan1_ist?: number; evan1_soll?: number;
@@ -124,6 +127,7 @@ export function toWireSamples(samples: readonly LiveSample[]): SweepWireSample[]
     return samples.map(s => {
         const tz = s.tz ?? [];
         return {
+            capture_sample: s.acquisition ? s : undefined,
             t_ms: Math.round(s.t * 1000),          // seconds -> milliseconds, once, here
             rpm: s.rpm,
             evan1_ist: numOrUndef(s.evanIst), evan1_soll: numOrUndef(s.evanSoll),
@@ -147,6 +151,7 @@ export type UploadResult =
     | { ok: false; message: string; retryable: boolean };
 
 export interface SweepUploadMeta {
+    capture?: TelemetryLogMeta;
     id: string;
     label?: string;
     vin?: string;
@@ -190,7 +195,8 @@ export async function uploadSweep(
         client_time: new Date().toISOString(),
         label: meta.label ?? null,
         vin: meta.vin ?? null,
-        decoder_version: DECODER_VERSION,
+        decoder_version: meta.capture?.decoder_version ?? DECODER_VERSION,
+        meta: { capture: meta.capture ?? null },
         achieved_hz: meta.achievedHz ?? null,
         n_settings: Array.isArray(meta.settings) ? meta.settings.length : null,
         settings: meta.settings ?? null,

@@ -1,10 +1,11 @@
 import { DmeTelemetryLink, DmeIdentity, LiveSample, LiveBlockSelection, DmeLinkError } from './types';
 import { WebSerialTransport } from './webSerialTransport';
 import { WebUsbFtdiTransport } from './webUsbFtdiTransport';
+import { BlockEvidence, CalibrationEvidence, calibrationEvidence, hexBytes } from './captureEvidence';
 
 /** The two byte transports share exactly this surface; the DS2 layer needs no
  *  more and must not learn which one it has. */
-interface KLineTransport {
+export interface KLineTransport {
     open(): Promise<void>;
     close(): Promise<void>;
     write(bytes: Uint8Array): Promise<void>;
@@ -52,7 +53,7 @@ import {
     parseSystemAddressTable, findPointer, parseAifEntries, latestPopulatedAifEntry,
     parseZifProgramNumber, AIF_TOTAL_LENGTH,
 } from './identity';
-import { decodeBlock3, decodeBlock19, decodeBlock35, mergeSample, DecodedBlock } from './liveValueBlocks';
+import { decodeBlock3, decodeBlock19, decodeBlock35, mergeSample, DecodedBlock, BLOCK3, BLOCK19, BLOCK35 } from './liveValueBlocks';
 import type { FieldDef } from './blockDecoder';
 import {
     STANDARD_ADAPTATIONS_BLOCK, OBSERVATION_ADAPTATIONS_BLOCK, buildAdaptationSnapshot,
@@ -151,9 +152,15 @@ function assertWriteChunkingLegal(blocks: readonly { address: number; length: nu
  * intended: they share one K-line and the flash may not be interleaved.
  */
 export class WebSerialDmeLink implements DmeTelemetryLink {
-    private transport: KLineTransport = createKLineTransport();
+    constructor(private transport: KLineTransport = createKLineTransport()) {}
     private connected = false;
     private startTime = 0;
+    private calibration: CalibrationEvidence | null = null;
+    private connectionId = '';
+
+    getCalibrationEvidence(): CalibrationEvidence | null {
+        return this.calibration ? { ...this.calibration } : null;
+    }
 
     /* --- CommandGate: one frame in flight on this transport ----------------
      * Without it, the only thing keeping two operations from interleaving
@@ -184,6 +191,8 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
     }
 
     async connect(): Promise<DmeIdentity> {
+        this.calibration = null;
+        this.connectionId = crypto.randomUUID();
         await this.transport.open();
         try {
             await this.login();
@@ -196,6 +205,7 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
     }
 
     async disconnect(): Promise<void> {
+        this.calibration = null;
         this.connected = false;
         await this.transport.close();
     }
@@ -209,23 +219,31 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
     }
 
     /** Sends a request frame, reads back the mandatory K-line echo, then reads the real response. */
-    private async exchange(controlByte: number, payload: Uint8Array, timeoutMs = RESPONSE_TIMEOUT_MS): Promise<Ds2Frame> {
+    private async exchange(controlByte: number, payload: Uint8Array, timeoutMs = RESPONSE_TIMEOUT_MS, evidence?: BlockEvidence): Promise<Ds2Frame> {
         const request = buildDs2Frame(DS2_DEFAULT_ADDRESS, controlByte, payload);
+        if (evidence) {
+            evidence.requestHex = hexBytes(request);
+            evidence.requestStartMs = performance.now();
+        }
         await this.transport.write(request);
 
         const echo = await this.transport.readExact(request.length, timeoutMs);
+        if (evidence) evidence.echoHex = hexBytes(echo);
         if (!arraysEqual(echo, request)) {
             throw new DmeLinkError('Unexpected K-line echo — check the cable connection');
         }
 
         const header = await this.transport.readExact(2, timeoutMs);
+        if (evidence) evidence.responseHex = hexBytes(header);
         const declaredLength = header[1];
         if (declaredLength < 4) throw new DmeLinkError(`Invalid DS2 response length byte ${declaredLength}`);
         const rest = await this.transport.readExact(declaredLength - 2, timeoutMs);
+        if (evidence) evidence.responseHex += hexBytes(rest);
 
         const full = new Uint8Array(declaredLength);
         full.set(header, 0);
         full.set(rest, 2);
+        if (evidence && full[0] !== DS2_DEFAULT_ADDRESS) throw new DmeLinkError('Unexpected telemetry response address');
         return parseDs2Frame(full);
     }
 
@@ -325,13 +343,26 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
         return result;
     }
 
-    private async pollBlock(selection: number): Promise<Uint8Array | null> {
+    private async pollBlock(selection: number, records?: BlockEvidence[]): Promise<Uint8Array | null> {
+        const record: BlockEvidence = { block: selection, requestStartMs: performance.now(), responseEndMs: 0,
+            requestHex: '', echoHex: '', responseHex: '', outcome: 'error' };
         try {
-            const frame = await this.exchange(Ds2Control.READ_IO_STATUS, new Uint8Array([selection]));
+            const frame = await this.exchange(Ds2Control.READ_IO_STATUS, new Uint8Array([selection]), RESPONSE_TIMEOUT_MS, record);
+            record.payloadHex = hexBytes(frame.payload);
+            record.outcome = isPositiveResponse(frame) ? 'ok' : 'rejected';
+            const required = selection === 3 ? BLOCK3.expectedLength : selection === 19 ? BLOCK19.expectedLength : selection === 35 ? BLOCK35.expectedLength : 0;
+            if (isPositiveResponse(frame) && frame.payload.length < required) {
+                throw new DmeLinkError(`Block ${selection} short payload: ${frame.payload.length}/${required}`);
+            }
             return isPositiveResponse(frame) ? frame.payload : null;
-        } catch {
+        } catch (e) {
+            record.outcome = 'error';
+            record.error = describeError(e);
             this.transport.purge();   // resynchronize before the next exchange
             return null;
+        } finally {
+            record.responseEndMs = performance.now();
+            records?.push(record);
         }
     }
 
@@ -346,19 +377,24 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
         let b3: DecodedBlock | null = null;
         let b19: DecodedBlock | null = null;
         let b35: DecodedBlock | null = null;
+        const records: BlockEvidence[] = [];
 
         for (const sel of blocks) {
-            const payload = await this.pollBlock(sel);
+            const payload = await this.pollBlock(sel, records);
             if (!payload) continue;
             if (sel === 3) b3 = decodeBlock3(payload);
             else if (sel === 19) b19 = decodeBlock19(payload);
             else if (sel === 35) b35 = decodeBlock35(payload);
         }
+        const acquisition: NonNullable<LiveSample['acquisition']> = { schemaVersion: 1,
+            timeOriginMs: performance.timeOrigin, blocks: records,
+            calibrationSha256: this.calibration?.sha256 ?? null, connectionId: this.connectionId };
         if (!b3 && !b35) {
             // rpm comes from block 3 or 35 — without either the sample is useless
-            throw new DmeLinkError('All polled DS2 blocks failed — check the connection');
+            throw new DmeLinkError('All polled DS2 blocks failed — check the connection', undefined,
+                { t: (performance.now() - this.startTime) / 1000, rpm: 0, acquisitionFailed: true, acquisition });
         }
-        return mergeSample((performance.now() - this.startTime) / 1000, b3, b19, b35);
+        return { ...mergeSample((performance.now() - this.startTime) / 1000, b3, b19, b35), acquisition };
     }
 
     /**
@@ -569,7 +605,15 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
      * ~123 s at 9600. Read-only: it sends nothing but control-0x06 reads.
      */
     async readCalibration(onProgress?: (pct: number) => void): Promise<Uint8Array> {
-        return this.withGate(() => this.readCalibrationInner(onProgress));
+        return this.withGate(async () => {
+            this.calibration = null;
+            const connection = this.connectionId;
+            const image = await this.readCalibrationInner(onProgress);
+            const evidence = await calibrationEvidence(image, connection);
+            if (!this.connected || this.connectionId !== connection) throw new DmeLinkError('Connection changed during calibration read');
+            this.calibration = evidence;
+            return image;
+        });
     }
 
     private async readCalibrationInner(onProgress?: (pct: number) => void): Promise<Uint8Array> {
@@ -639,7 +683,10 @@ export class WebSerialDmeLink implements DmeTelemetryLink {
      * half-programmed ECU, which is strictly worse than finishing.
      */
     async writeCalibration(opts: WriteCalibrationOptions): Promise<void> {
-        return this.withGate(() => this.writeCalibrationInner(opts));
+        return this.withGate(() => {
+            this.calibration = null; // Any write attempt requires a fresh read before a new recording.
+            return this.writeCalibrationInner(opts);
+        });
     }
 
     private async writeCalibrationInner(opts: WriteCalibrationOptions): Promise<void> {

@@ -5,12 +5,13 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import { Plug, PlugZap, Circle, Square, Download, Radio, HardDriveDownload } from "lucide-react";
-import { DmeTelemetryLink, DmeIdentity, LiveSample, LiveBlockSelection } from "../lib/dme-link/types";
+import { DmeTelemetryLink, DmeIdentity, LiveSample, LiveBlockSelection, DmeLinkError } from "../lib/dme-link/types";
+import { CAPTURE_SCHEMA_VERSION } from "../lib/dme-link/captureEvidence";
 import { DECODER_VERSION } from "../lib/dme-link/liveValueBlocks";
 import { kLineAvailable, kLineTransportName } from "../lib/dme-link/webSerialDmeLink";
 import { WebSerialDmeLink } from "../lib/dme-link/webSerialDmeLink";
 import { MockDmeLink } from "../lib/dme-link/mockDmeLink";
-import { saveTelemetryLog } from "../app/api";
+import { saveTelemetryLog, TelemetryLogMeta } from "../app/api";
 import VanosSweepPanel from "./VanosSweepPanel";
 import PreflightPanel from "./PreflightPanel";
 import { appendChunk, beginRun, discardRun, endRun, findRecoverableRun, loadRunSamples, RunRecord } from "../lib/sweep/recordingStore";
@@ -153,6 +154,10 @@ const LiveTelemetry: React.FC = () => {
     const [lastSaved, setLastSaved] = useState<string | null>(null);
     const [savedPath, setSavedPath] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [preparing, setPreparing] = useState(false);
+    const [starting, setStarting] = useState(false);
+    const captureMetaRef = useRef<TelemetryLogMeta>({});
+    const recordStartMsRef = useRef(0);
 
     const [subView, setSubView] = useState<"telemetry" | "preflight" | "sweep">("telemetry");
 
@@ -248,12 +253,21 @@ const LiveTelemetry: React.FC = () => {
                     windowRef.current.shift();
                 }
                 if (recordingRef.current) {
-                    recordedRef.current.push(sample);
-                    pendingRef.current.push(sample);
-                    setRecCount(recordedRef.current.length);
+                    // A poll already in flight when recording started belongs to the preview.
+                    if (!sample.acquisition || sample.acquisition.blocks.every(b => b.requestStartMs >= recordStartMsRef.current)) {
+                        recordedRef.current.push(sample);
+                        pendingRef.current.push(sample);
+                        setRecCount(recordedRef.current.length);
+                    }
                 }
                 forceRender(n => n + 1);
             } catch (e) {
+                if (recordingRef.current && e instanceof DmeLinkError && e.capturedSample
+                    && e.capturedSample.acquisition?.blocks.every(b => b.requestStartMs >= recordStartMsRef.current)) {
+                    recordedRef.current.push(e.capturedSample);
+                    pendingRef.current.push(e.capturedSample);
+                    setRecCount(recordedRef.current.length);
+                }
                 consecutiveErrors++;
                 if (consecutiveErrors >= 5) {
                     setError(`ポーリングが連続失敗しました: ${e instanceof Error ? e.message : e}`);
@@ -292,18 +306,19 @@ const LiveTelemetry: React.FC = () => {
             if (!complete) return false;                    // another checkpoint owns the file
             for (let i = 0; savingRef.current && i < 50; i++)
                 await new Promise(r => setTimeout(r, 100)); // final write must land last
+            if (savingRef.current) { setSaveError('保存処理中です。完了後に再保存してください。'); return false; }
         }
         savingRef.current = true;
         try {
             const res = await saveTelemetryLog(recordedRef.current, {
-                source: mode, vin: identity?.vin, software: identity?.softwareVersion,
-                blocks: blocksRef.current, complete, decoder_version: DECODER_VERSION,
+                ...captureMetaRef.current, complete,
             }, logIdRef.current);
             logIdRef.current = res.log_id;
             setLastSaved(res.log_id);
             setSavedPath(res.path);
             setSaveError(null);
             if (complete) {
+                if (runIdRef.current) await endRun(runIdRef.current, { uploadedAt: Date.now() });
                 setNotice(`保存しました (${res.n_samples} サンプル) — Validation ビューで比較できます。`);
             }
             return true;
@@ -311,7 +326,7 @@ const LiveTelemetry: React.FC = () => {
             const msg = e instanceof Error ? e.message : String(e);
             setSaveError(`保存に失敗: ${msg}`);
             if (complete) {
-                setNotice(`バックエンドへの保存に失敗しました(${msg})。データはこのタブ内に残っています — バックエンド起動後に「再保存」、または CSV 退避を使ってください。`);
+                setNotice(`バックエンドへの保存に失敗しました(${msg})。「再保存」、またはBIN・raw通信を含むJSON保存を使ってください。`);
             }
             return false;
         } finally {
@@ -324,6 +339,9 @@ const LiveTelemetry: React.FC = () => {
     /** Flush queued samples to IndexedDB. Never throws into the poll loop, and
      *  never stacks: a slow write must not queue a second one behind it. */
     const persist = async (force: boolean) => {
+        if (force) {
+            for (let i = 0; persistBusyRef.current && i < 50; i++) await new Promise(r => setTimeout(r, 100));
+        }
         const runId = runIdRef.current;
         if (!runId || persistBusyRef.current) return;
         if (!force && pendingRef.current.length === 0) return;
@@ -334,7 +352,8 @@ const LiveTelemetry: React.FC = () => {
         persistBusyRef.current = true;
         try {
             await appendChunk(runId, seq, batch);
-        } catch {
+        } catch (e) {
+            setSaveError(`端末保存に失敗: ${String(e)}。JSON保存で退避してください。`);
             // Put the batch back at the FRONT and give the seq back, so capture
             // order survives a failed write rather than silently reordering.
             pendingRef.current = batch.concat(pendingRef.current);
@@ -360,6 +379,11 @@ const LiveTelemetry: React.FC = () => {
         const samples = await loadRunSamples(recoverable.runId);
         if (!samples.length) { setRecoverable(null); return; }
         recordedRef.current = samples;
+        captureMetaRef.current = recoverable.meta ?? {
+            source: recoverable.mock ? 'mock' : 'webserial', decoder_version: 1,
+            capture_note: 'Legacy recovered run: original BIN/decoder/identity metadata unavailable',
+        };
+        logIdRef.current = null;
         runIdRef.current = recoverable.runId;
         seqRef.current = Math.ceil(samples.length / 50) + 1;
         setRecCount(samples.length);
@@ -373,13 +397,50 @@ const LiveTelemetry: React.FC = () => {
         setRecoverable(null);
     };
 
-    const startRecording = () => {
+    const prepareCapture = async () => {
+        const link = linkRef.current;
+        if (!link?.readCalibration || !link.readEngineRpm || preparing || recordingRef.current) return;
+        setPreparing(true);
+        pausePolling();
+        try {
+            if (await link.readEngineRpm() !== 0) throw new Error('エンジン停止中にBINを読み取ってください。');
+            await link.readCalibration(pct => setNotice(`走行BINを読み取り中 ${pct}%`));
+            setNotice(`BIN確認済み SHA-256: ${link.getCalibrationEvidence?.()?.sha256 ?? '未取得'}`);
+        } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+        finally { setPreparing(false); resumePolling(); }
+    };
+
+    const startRecording = async () => {
+        if (starting || preparing || recordingRef.current || savingRef.current || persistBusyRef.current) return;
+        const link = linkRef.current;
+        if (!link) return;
+        const calibration = link.getCalibrationEvidence?.() ?? null;
+        if (mode !== 'mock' && !calibration) {
+            setError('先に「走行BINを読取・確認」を実行してください。再接続・書込み後は再読取りが必要です。');
+            return;
+        }
+        setStarting(true);
+        const meta: TelemetryLogMeta = {
+            source: mode, vin: identity?.vin, software: identity?.softwareVersion,
+            blocks: [...blocksRef.current], decoder_version: DECODER_VERSION,
+            capture_schema_version: CAPTURE_SCHEMA_VERSION, calibration,
+            time_origin_ms: performance.timeOrigin, recording_started_at: new Date().toISOString(),
+            capture_note: mode === 'mock' ? 'Synthetic; no ECU read' : 'Full calibration read on this connection; host transaction times are not ECU sample instants',
+        };
+        let runId: string;
+        try { runId = await beginRun({ mock: mode === 'mock', capture: meta }); }
+        catch (e) { setError(`記録領域の作成に失敗: ${String(e)}`); setStarting(false); return; }
+        if (linkRef.current !== link || (mode !== 'mock' && link.getCalibrationEvidence?.()?.sha256 !== calibration?.sha256)) {
+            await discardRun(runId); setStarting(false); setError('接続/BINが変わりました。記録開始をやり直してください。'); return;
+        }
+        captureMetaRef.current = meta;
         recordedRef.current = [];
         logIdRef.current = null;
         setRecCount(0);
         setSavedPath(null);
         setSaveError(null);
-        linkRef.current?.resetClock();
+        recordStartMsRef.current = performance.now();
+        link.resetClock();
         windowRef.current = [];
         recordingRef.current = true;
         setRecording(true);
@@ -387,12 +448,11 @@ const LiveTelemetry: React.FC = () => {
         setLastSaved(null);
         if (checkpointRef.current) clearInterval(checkpointRef.current);
         checkpointRef.current = setInterval(() => { void saveLogRef.current(false); }, CHECKPOINT_MS);
-        // Durable store: begin un-awaited so the first samples never wait on
-        // IndexedDB. They queue regardless — persist() no-ops until the id lands.
+        // The immutable provenance is durable before accepting the first sample.
         pendingRef.current = [];
         seqRef.current = 0;
-        runIdRef.current = null;
-        void beginRun({ mock: mode === "mock" }).then(id => { runIdRef.current = id; });
+        runIdRef.current = runId;
+        setStarting(false);
         if (persistTimerRef.current) clearInterval(persistTimerRef.current);
         persistTimerRef.current = setInterval(() => { void persistRef.current(false); }, PERSIST_MS);
     };
@@ -405,7 +465,10 @@ const LiveTelemetry: React.FC = () => {
         // Authoritative flush BEFORE anything can fail: the durable copy must be
         // complete even if the backend save below does not happen.
         await persist(true);
-        if (runIdRef.current) await endRun(runIdRef.current);
+        if (runIdRef.current) {
+            try { await endRun(runIdRef.current); }
+            catch(e) { setSaveError(`端末の終了記録に失敗: ${String(e)}。JSON保存も利用してください。`); }
+        }
         if (!recordedRef.current.length) { setNotice("記録サンプルがありません。"); return; }
         await saveLog(true);
     };
@@ -422,6 +485,15 @@ const LiveTelemetry: React.FC = () => {
         a.download = `ds2_log_${lastSaved ?? new Date().toISOString().replace(/[:T-]/g, "").slice(0, 14)}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    const downloadJson = () => {
+        if (!recordedRef.current.length) return;
+        const blob = new Blob([JSON.stringify({ meta: { ...captureMetaRef.current, complete: !recordingRef.current },
+            samples: recordedRef.current })], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url;
+        a.download = `ds2_capture_${runIdRef.current ?? 'recovered'}.json`; a.click(); URL.revokeObjectURL(url);
     };
 
     const toggleBlock = (b: LiveBlockSelection) => {
@@ -522,7 +594,7 @@ const LiveTelemetry: React.FC = () => {
                 <VanosSweepPanel
                     linkRef={linkRef} latestRef={latestRef} latest={latest}
                     connected={state === "connected"} recording={recording}
-                    recorded={recordedRef.current} cmdRef={sweepCmdRef} />
+                    recorded={recordedRef.current} cmdRef={sweepCmdRef} captureMeta={captureMetaRef.current} />
             )}
 
             <div className={subView === "telemetry" ? "flex flex-col gap-4" : "hidden"}>
@@ -643,10 +715,19 @@ const LiveTelemetry: React.FC = () => {
             )}
 
             {/* recording bar */}
+            {recordedRef.current.length > 0 && (
+                <button onClick={downloadJson} className="text-xs text-emerald-400 text-left">
+                    BIN・raw通信を含むJSONを保存 ({recCount} サンプル)
+                </button>
+            )}
             {state === "connected" && (
                 <div className="flex items-center gap-3 flex-wrap">
+                    {mode !== 'mock' && !recording && <button onClick={prepareCapture} disabled={preparing || starting}
+                        className="px-3 py-1.5 text-xs border rounded disabled:opacity-40">
+                        {preparing ? 'BIN読取り中' : '走行BINを読取・確認（エンジン停止中）'}
+                    </button>}
                     {!recording ? (
-                        <button onClick={startRecording}
+                        <button onClick={startRecording} disabled={preparing || starting}
                             className="px-3 py-1.5 rounded text-[12px] font-semibold bg-red-600 text-white hover:bg-red-500 flex items-center gap-1.5">
                             <Circle size={11} fill="white" /> 記録開始
                         </button>

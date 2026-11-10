@@ -48,6 +48,7 @@ function coverageTint(n: number, satisfied: boolean): string {
 }
 
 const VanosSweepPanel: React.FC<{
+    captureMeta?: import('../app/api').TelemetryLogMeta;
     linkRef: React.MutableRefObject<DmeTelemetryLink | null>;
     latestRef: React.MutableRefObject<LiveSample | null>;
     latest: LiveSample | null;
@@ -55,7 +56,7 @@ const VanosSweepPanel: React.FC<{
     recording: boolean;
     recorded: LiveSample[];
     cmdRef: React.MutableRefObject<{ intake: number | null; exhaust: number | null; transient?: boolean }>;
-}> = ({ linkRef, latestRef, latest, connected, recording, recorded, cmdRef }) => {
+}> = ({ linkRef, latestRef, latest, connected, recording, recorded, cmdRef, captureMeta }) => {
     const sweep = useVanosSweep(linkRef, connected, latestRef, cmdRef);
     const [showAll, setShowAll] = useState(false);
     // Read once: the token is baked into the build, so there is nothing to
@@ -73,7 +74,10 @@ const VanosSweepPanel: React.FC<{
         // a retry overwrites rather than duplicating — which is what makes
         // pressing this twice safe.
         const r = await uploadSweep(recorded, {
-            id: uploadIdRef.current,
+            capture: captureMeta,
+            vin: captureMeta?.vin,
+            id: captureMeta?.recording_started_at
+                ? `capture-${captureMeta.recording_started_at.replace(/[^0-9]/g,'')}` : uploadIdRef.current,
             label: `${sweep.axis === "intake" ? "吸気" : "排気"}掃引`,
             settings: ANGLES[sweep.axis],
         }, settings);

@@ -10,6 +10,8 @@ from .models import SimConfig
 from .log_manager import log_manager
 from .simulator.simulation_service import SimulationService
 from .parameters.sheet import build_sheet, parse_sheet
+from .calibration_maps import load_maps, extract_vanos
+from .capture_validation import validate_capture
 
 # --- Paths ------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))          # .../CSL_Simulator/backend/app
@@ -91,8 +93,7 @@ async def get_meta():
 async def get_maps():
     """OEM ECU maps (VE / VANOS) used for axes + VANOS lookup."""
     try:
-        with open(os.path.join(DATA_DIR, "csl_ecu_maps.json"), "r", encoding="utf-8") as f:
-            return json.load(f)
+        return load_maps(DATA_DIR)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"maps load error: {e}")
 
@@ -267,6 +268,10 @@ async def binary_upload(file: UploadFile = File(...)):
     if binary_service is None:
         raise HTTPException(status_code=503, detail="BinaryService unavailable")
     data = await file.read()
+    try:
+        extract_vanos(data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     with open(UPLOADED_BIN, "wb") as f:
         f.write(data)
     # Extract the base VE map so the frontend can use THIS BIN as the base
@@ -276,7 +281,9 @@ async def binary_upload(file: UploadFile = File(...)):
         ve_map = _extract_bin_ve_map()
     except Exception as e:
         print(f"WARN: BIN VE-map extraction failed: {e}")
-    return {"status": "ok", "filename": file.filename, "bytes": len(data), "ve_map": ve_map}
+    import hashlib
+    return {"status": "ok", "filename": file.filename, "bytes": len(data), "ve_map": ve_map,
+            "sha256": hashlib.sha256(data).hexdigest(), "vanos": extract_vanos(data)}
 
 
 @app.get("/binary/ve_map")
@@ -329,6 +336,10 @@ async def telemetry_save(payload: dict):
         raise HTTPException(status_code=400, detail="samples[] required")
     import datetime as _dt
     meta = dict(payload.get("meta") or {})
+    try:
+        meta['capture_validation'] = validate_capture(meta, samples)
+    except (ValueError, TypeError, KeyError) as e:
+        raise HTTPException(status_code=400, detail=f'Capture evidence: {e}')
 
     log_id = payload.get("log_id")           # present = checkpoint of a live recording
     if log_id:
@@ -345,6 +356,12 @@ async def telemetry_save(payload: dict):
     record = {"log_id": log_id, "meta": meta, "samples": samples}
     os.makedirs(TELEMETRY_DIR, exist_ok=True)
     path = os.path.join(TELEMETRY_DIR, f"{log_id}.json")
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            previous = json.load(f).get('meta', {})
+        for key in ('calibration', 'source', 'vin', 'software', 'decoder_version', 'capture_schema_version', 'time_origin_ms', 'recording_started_at'):
+            if previous.get(key) != meta.get(key):
+                raise HTTPException(status_code=409, detail=f'Recording provenance changed: {key}')
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(record, f)
@@ -383,6 +400,29 @@ async def telemetry_get(log_id: str):
 
 
 # --- Validation: measured telemetry vs simulation (Stage 76 P2) ---------------
+@app.post('/validation/fitting-evidence')
+async def fitting_evidence(payload: dict):
+    from .fitting_evidence import assess_record
+    import hashlib
+    log_id = str(payload.get('log_id') or '')
+    if not LOG_ID_RE.fullmatch(log_id):
+        raise HTTPException(status_code=400, detail='invalid log id')
+    path = os.path.join(TELEMETRY_DIR, f'{log_id}.json')
+    if not os.path.exists(path): raise HTTPException(status_code=404, detail='log not found')
+    with open(path,'rb') as f: raw=f.read()
+    try:
+        result = assess_record(json.loads(raw))
+    except (ValueError, TypeError, KeyError) as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    result.update(log_id=log_id, log_sha256=hashlib.sha256(raw).hexdigest(), evaluation_version=1)
+    directory=os.path.join(TELEMETRY_DIR,'assessments')
+    os.makedirs(directory,exist_ok=True)
+    out=os.path.join(directory,f'{log_id}_{result["log_sha256"][:12]}_v1.json')
+    with open(out+'.pending','w',encoding='utf-8') as f: json.dump(result,f,ensure_ascii=False,indent=2)
+    os.replace(out+'.pending',out)
+    return result
+
+
 @app.post("/validation/compare")
 async def validation_compare(payload: dict):
     if validation_service is None:

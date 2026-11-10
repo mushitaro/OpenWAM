@@ -1,5 +1,6 @@
 import type { VanosAck, VanosPinValue } from './ds2';
 import type { AdaptationSnapshot } from './adaptationBlocks';
+import type { BlockEvidence, CalibrationEvidence } from './captureEvidence';
 
 export type { AdaptationSnapshot };
 // DS2 link types. Ported/adapted from E46M3CSL_TuningTool (same owner project).
@@ -23,6 +24,8 @@ export interface DmeIdentity {
  * leave their fields undefined. Units follow DmeLiveValueCatalog exactly.
  */
 export interface LiveSample {
+    acquisition?: { schemaVersion: 1; timeOriginMs: number; blocks: BlockEvidence[]; calibrationSha256: string | null; connectionId: string };
+    acquisitionFailed?: boolean;
     t: number;                 // s since recording start (host clock)
     rpm: number;               // block 3 n (also cross-checked by block 35 n)
 
@@ -82,6 +85,7 @@ export type LiveBlockSelection = 3 | 19 | 35;
 /** Abstraction the Live tab depends on; implemented by WebSerialDmeLink (real
  *  K-line hardware) and MockDmeLink (synthetic drive cycle for development). */
 export interface DmeTelemetryLink {
+    getCalibrationEvidence?(): CalibrationEvidence | null;
     connect(): Promise<DmeIdentity>;
     disconnect(): Promise<void>;
     /** Polls the given blocks once (one DS2 round-trip each) and merges the sample. */
@@ -163,7 +167,7 @@ export function supportsPreflight(link: DmeTelemetryLink): link is PreflightCapa
 }
 
 export class DmeLinkError extends Error {
-    constructor(message: string, public readonly cause?: unknown) {
+    constructor(message: string, public readonly cause?: unknown, public readonly capturedSample?: LiveSample) {
         super(message);
         this.name = 'DmeLinkError';
     }

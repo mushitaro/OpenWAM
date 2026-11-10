@@ -476,6 +476,11 @@ const API_BASE_URL = "http://localhost:8000";
 
 // --- Stage 76: DS2 live-telemetry logs ---------------------------------------
 export interface TelemetryLogMeta {
+    capture_schema_version?: number;
+    calibration?: import('../lib/dme-link/captureEvidence').CalibrationEvidence | null;
+    recording_started_at?: string;
+    time_origin_ms?: number;
+    capture_note?: string;
     created_at?: string;
     n_samples?: number;
     source?: "webserial" | "mock";
@@ -561,6 +566,28 @@ export const compareValidation = async (
         throw new Error(detail?.detail ?? `validation compare failed: ${response.statusText}`);
     }
     return response.json();
+};
+
+export interface FittingEvidence {
+    log_id: string;
+    status: string;
+    rows: number;
+    visits: { duration_s: number; samples: number }[];
+    blockers: string[];
+    fit: null | {
+        scale: number;
+        holdout_unfitted: { rmse_pp: number };
+        holdout_fitted: { rmse_pp: number; mae_pp: number };
+    };
+}
+
+export const assessFittingEvidence = async (logId: string): Promise<FittingEvidence> => {
+    const response = await fetch(`${API_BASE_URL}/validation/fitting-evidence`, {
+        method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({log_id:logId}),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail ?? '収録評価に失敗しました');
+    return result;
 };
 
 // Current backend provenance — the STALE-badge reference (Stage 74).

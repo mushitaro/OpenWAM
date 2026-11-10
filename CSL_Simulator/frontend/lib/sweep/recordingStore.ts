@@ -15,6 +15,7 @@
  *     lets a caller believe a sample is saved that a crash would still lose.
  */
 import { LiveSample } from '../dme-link/types';
+import type { TelemetryLogMeta } from '../../app/api';
 
 export const DB_NAME = 'csl-sim-live';
 export const DB_VERSION = 1;
@@ -22,6 +23,7 @@ const RUNS = 'runs';
 const CHUNKS = 'chunks';
 
 export interface RunRecord {
+    meta?: TelemetryLogMeta;
     runId: string;
     startedAt: number;
     updatedAt: number;
@@ -70,14 +72,14 @@ function tx<T>(db: IDBDatabase, stores: string[], mode: IDBTransactionMode,
     });
 }
 
-export async function beginRun(meta: { mock: boolean; label?: string }): Promise<string> {
+export async function beginRun(meta: { mock: boolean; label?: string; capture?: TelemetryLogMeta }): Promise<string> {
     const runId = `run-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
     const db = await openDb();
     try {
         await tx(db, [RUNS], 'readwrite', t => {
             t.objectStore(RUNS).put({
                 runId, startedAt: Date.now(), updatedAt: Date.now(),
-                sampleCount: 0, mock: meta.mock, label: meta.label,
+                sampleCount: 0, mock: meta.mock, label: meta.label, meta: meta.capture,
             } satisfies RunRecord);
         });
         return runId;

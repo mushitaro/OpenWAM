@@ -15,13 +15,12 @@ a simulation run (last_run_<mode>.json):
   - ambient conditions (IAT / pumg / coolant) so sims can be re-run at the
     measured environment.
 
-Interpretation note baked into the payload: in the 3900-5300 WOT band the
-model limit is deficit-by-design (missing 3D box mode) — there,
-measured-minus-sim is an EMPIRICAL ESTIMATE OF THE BOX-MODE CONTRIBUTION,
-not a calibration error.
+Interpretation: this compares ECU RF and simulation in their declared normalization.
+A residual does not isolate a physical mechanism or prove fresh-air VE accuracy.
 """
 import json
 import os
+from ..calibration_maps import load_maps, maps_for_image
 
 from . import metrics as M
 
@@ -84,8 +83,7 @@ class ValidationService:
             return json.load(f)
 
     def _load_maps(self):
-        with open(os.path.join(self.data_dir, "csl_ecu_maps.json"), encoding="utf-8") as f:
-            return json.load(f)
+        return load_maps(self.data_dir)
 
     # ------------------------------------------------------------ binning
     def bin_log(self, samples, rpm_axis, ro_axis):
@@ -96,6 +94,7 @@ class ValidationService:
         n_total = len(samples)
         kept = []
         for i, s in enumerate(samples):
+            if s.get('acquisitionFailed'): continue
             rpm = s.get("rpm")
             ro = s.get("ro")
             if rpm is None or ro is None or rpm < RPM_MIN:
@@ -138,7 +137,14 @@ class ValidationService:
                 f"on the falsified 100/215 scale and cannot be binned onto the map "
                 f"axes. Run scripts/migrate_telemetry_ro.py --apply first.")
         run = self._load_run(mode)
-        maps = self._load_maps()
+        recorded = (log.get('meta') or {}).get('calibration')
+        if recorded:
+            from ..capture_validation import validate_capture
+            validate_capture(log['meta'], log['samples'])
+            with open(os.path.join(self.data_dir,'csl_ecu_maps.json'),encoding='utf-8') as f:
+                maps = maps_for_image(json.load(f), bytes.fromhex(recorded['imageHex']))
+        else:
+            maps = self._load_maps()
 
         rpm_axis = run["axes"]["rpm"]
         ro_axis = run["axes"]["load"]
@@ -171,10 +177,10 @@ class ValidationService:
                 "sim_ve": sim_ve, "sim_valid": sim_valid,
                 "delta": (rf_mean - sim_ve) if (rf_mean is not None and sim_ve is not None) else None,
                 # VANOS: measured actual/target + our commanded map value
-                "evan_ist": _mean([s.get("evanIst") for s in ss]),
-                "evan_soll": _mean([s.get("evanSoll") for s in ss]),
-                "avan_ist": _mean([s.get("avanIst") for s in ss]),
-                "avan_soll": _mean([s.get("avanSoll") for s in ss]),
+                "evan_ist": _mean([70+s['evanIst'] for s in ss if s.get('evanIst') is not None]),
+                "evan_soll": _mean([70+s['evanSoll'] for s in ss if s.get('evanSoll') is not None]),
+                "avan_ist": _mean([128-s['avanIst'] for s in ss if s.get('avanIst') is not None]),
+                "avan_soll": _mean([128-s['avanSoll'] for s in ss if s.get('avanSoll') is not None]),
                 "tz_mean": _mean([
                     _mean(s.get("tz") or []) for s in ss if s.get("tz")
                 ]),
@@ -197,9 +203,8 @@ class ValidationService:
             "wot_delta_mean_ex_band": _mean([c["delta"] for c in out_band]),
             "wot_delta_mean_in_band": _mean([c["delta"] for c in in_band]),
             "box_mode_note": (
-                "in-band (3900-5300 WOT) measured-minus-sim estimates the 3D "
-                "box-mode contribution the 1D model cannot host — expect it "
-                "POSITIVE there; it is not a calibration error"),
+                "Measured-minus-sim has multiple possible causes: conditions, transients, "
+                "normalization and model limitations. It does not isolate a 3D box-mode contribution."),
             "vanos_tracking_mean_abs": _mean([
                 abs(c["evan_ist"] - c["evan_soll"]) for c in vanos_cells
             ]) if vanos_cells else None,
@@ -213,6 +218,10 @@ class ValidationService:
             "schema_version": M.SCHEMA_VERSION,
             "log_id": log_id,
             "log_meta": log.get("meta", {}),
+            "comparison_scope": "ECU RF consistency; not independently measured physical VE accuracy",
+            "vanos_coordinate": "display (intake=70+live, exhaust=128-live); physical datum unverified",
+            "vanos_provenance": maps.get('vanos_provenance'),
+            "historical_bin_matched": bool(recorded),
             "run_mode": mode,
             "run_id": run.get("run_id"),
             "run_unit": run.get("unit"),

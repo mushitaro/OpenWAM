@@ -9,6 +9,7 @@ import { FlaskConical, RefreshCw } from "lucide-react";
 import {
     TelemetryLogSummary, ValidationResponse, ValidationCell,
     fetchTelemetryLogs, compareValidation,
+    assessFittingEvidence, FittingEvidence,
 } from "../app/api";
 import { useElementSize } from "./LiveTelemetry";
 
@@ -18,9 +19,8 @@ import { useElementSize } from "./LiveTelemetry";
  * and shows: WOT overlay (measured rf vs sim VE, model-limit band shaded),
  * a per-cell delta matrix, and the VANOS ist/soll/map consistency check.
  *
- * Reading the 3900-5300 WOT band: the 1D model CANNOT host the airbox 3D box
- * mode there, so measured-minus-sim in that band is the EMPIRICAL box-mode
- * contribution, not a calibration error.
+ * A residual can include condition, phase, transient and model differences.
+ * It does not identify the contribution of any single physical mechanism.
  */
 
 const fmt = (v: number | null | undefined, nd = 1, unit = "") =>
@@ -40,6 +40,7 @@ const ValidationView: React.FC = () => {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [rep, setRep] = useState<ValidationResponse | null>(null);
+    const [fitting, setFitting] = useState<FittingEvidence | null>(null);
     const [chartRef, chartBox] = useElementSize();
 
     const refreshLogs = async () => {
@@ -66,6 +67,13 @@ const ValidationView: React.FC = () => {
         } finally {
             setBusy(false);
         }
+    };
+    const evaluateCapture = async () => {
+        if (!logId) return;
+        setBusy(true); setError(null); setFitting(null);
+        try { setFitting(await assessFittingEvidence(logId)); }
+        catch(e) { setError(e instanceof Error ? e.message : String(e)); }
+        finally { setBusy(false); }
     };
 
     // ---- WOT overlay data (highest-RO row with data) ----
@@ -106,7 +114,7 @@ const ValidationView: React.FC = () => {
                 </span>
                 <select
                     value={logId}
-                    onChange={e => setLogId(e.target.value)}
+                    onChange={e => { setLogId(e.target.value); setFitting(null); setRep(null); }}
                     className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200"
                 >
                     {logs.length === 0 && <option value="">(記録ログなし — Live タブで記録)</option>}
@@ -139,7 +147,18 @@ const ValidationView: React.FC = () => {
                     {busy ? "比較中..." : "比較実行"}
                 </button>
                 {error && <span className="text-xs text-red-400">{error}</span>}
+                <button onClick={evaluateCapture} disabled={busy || !logId}
+                    className="px-3 py-1 rounded text-xs bg-emerald-900 text-white disabled:opacity-40">
+                    収録条件・校正外誤差を評価（追加計算なし）
+                </button>
             </div>
+            {fitting && <div className="text-xs border border-slate-700 rounded p-3 space-y-2">
+                <p>{fitting.rows} サンプル／3900rpm基準点の連続区間 {fitting.visits.length} 件。</p>
+                <p>初回区間だけで係数を合わせ、別の区間で誤差を確認します。ECU RFとの整合評価であり、実機VE精度の証明ではありません。</p>
+                {fitting.blockers.map(b=><p key={b} className="text-amber-400">未達: {b}</p>)}
+                {fitting.fit && <p>係数 {fmt(fitting.fit.scale,5)}／校正外RMSE: 調整前 {fmt(fitting.fit.holdout_unfitted.rmse_pp,3)} → 調整後 {fmt(fitting.fit.holdout_fitted.rmse_pp,3)} pp。自動採用せず、温度・圧力・同期を確認してください。</p>}
+                <p>評価結果は元ログSHAとともに保存されます。</p>
+            </div>}
 
             {!rep && !error && (
                 <div className="text-slate-600 text-sm">
@@ -155,7 +174,7 @@ const ValidationView: React.FC = () => {
                         {[
                             ["ビン化セル", `${rep.summary.n_cells}`, `gate: ${rep.gates.kept}/${rep.gates.total} 採択`],
                             ["WOT Δ (帯域外)", fmt(rep.summary.wot_delta_mean_ex_band, 1, " pp"), "校正誤差の指標 (小さいほど良)"],
-                            ["WOT Δ (3900-5300)", fmt(rep.summary.wot_delta_mean_in_band, 1, " pp"), "≈ 箱モード寄与の実測値 (正が期待値)"],
+                            ["WOT Δ (3900-5300)", fmt(rep.summary.wot_delta_mean_in_band, 1, " pp"), "条件・過渡・モデル差を含む。原因の分離は未確認"],
                             ["VANOS 追従 |ist−soll|", fmt(rep.summary.vanos_tracking_mean_abs, 2, "°"), `map照合 ${fmt(rep.summary.vanos_map_match_mean_abs, 2, "°")}`],
                         ].map(([label, value, note]) => (
                             <div key={label as string} className="border border-slate-800 rounded-lg p-3 bg-slate-900/40">
@@ -177,7 +196,7 @@ const ValidationView: React.FC = () => {
                                 WOT: 実測 rf vs シミュ VE
                             </div>
                             <div className="text-[10px] text-slate-500 mb-2">
-                                {band ? `${band.rpm_min}-${band.rpm_max} の網掛け帯 = 1Dモデル限界 (3D箱モード非搭載)。この帯の 実測−シミュ 差 ≈ 箱モード寄与の実測値。` : ""}
+                                {band ? `${band.rpm_min}-${band.rpm_max} の網掛け帯はモデル制限の確認対象。実測との差だけで3D箱モードの寄与は特定できません。` : ""}
                             </div>
                             <div ref={chartRef} className="h-72 w-full">
                                 {chartBox.w > 0 && chartBox.h > 0 && (
