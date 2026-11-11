@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <chrono>
 #include <map>
+#include <cstdlib>
 using namespace OpenWAMThermalReference;
 namespace {
 constexpr double pi=3.14159265358979323846;
@@ -47,13 +48,19 @@ Table uniform(std::istream& in,unsigned n,double step){
 }
 }
 int main(int argc,char** argv){try{
- require(argc==6,"usage: corrected_ve_builder input_dir target_seconds output_prefix workers cfl");
+ // Optional 7th argument: a periodic checkpoint written by an earlier run on the
+ // SAME inputs. The run then continues from that frame boundary; the frame
+ // sequence depends only on the clock, so the continuation is bit-identical to
+ // an uninterrupted run (checked by ve20_corrected_cells.py --resume-test).
+ require(argc==6||argc==7,"usage: corrected_ve_builder input_dir target_seconds output_prefix workers cfl [resume_checkpoint]");
+ const std::string resume=argc==7?argv[6]:"";
+ const char* everyText=std::getenv("CORRECTED_VE_CKPT_FRAMES");const uint64_t checkpointEvery=everyText?std::strtoull(everyText,nullptr,10):2000;
  const std::string root=argv[1],prefix=argv[3];double target=std::stod(argv[2]),cfl=std::stod(argv[5]);
  unsigned workers=std::stoul(argv[4]);auto clock=std::chrono::steady_clock::now();
  std::ifstream input(root+"/controls.txt");std::string magic;input>>magic;require(magic=="BUILDER_FV_V1","Invalid Builder controls");
  double rpm,pressure,temp,bore,stroke,rod,cr,burnStart,burnDuration,shape,a,phi,efficiency;
  input>>rpm>>pressure>>temp>>bore>>stroke>>rod>>cr>>burnStart>>burnDuration>>shape>>a>>phi>>efficiency;
- require(input&&rpm>0&&rpm<=20000&&bore>0&&stroke>0&&rod>stroke/2&&cr>1&&cfl>0&&cfl<=.0375,"Invalid operating conditions");
+ require(input&&rpm>0&&rpm<=20000&&bore>0&&stroke>0&&rod>stroke/2&&cr>1&&cfl>0&&cfl<=.3,"Invalid operating conditions"); // .3 = the kernel's own bound (ThermalDuctNetwork::Step); the service still passes .0375
  double period=120/rpm,speed=6*rpm,vd=pi*bore*bore*stroke/4,clearance=vd/(cr-1),pistonArea=pi*bore*bore/4;
  require(std::isfinite(target)&&target>=0&&target<=120*period,"Requested interval exceeds finite 120 cycle cap");
  require(efficiency>=0&&efficiency<=1&&phi>0,"Invalid fuel law");
@@ -118,11 +125,21 @@ int main(int argc,char** argv){try{
  controls(0);g.stageAreaControl=controls;g.Validate();
  if(target==0){double throttleArea=0;for(const auto& n:adapter.Nodes())if(n.second.kind==10)throttleArea+=g.junctions[n.second.junction].forwardArea;
   std::cout<<std::setprecision(17)<<"{\"controls_pass\":true,\"sampled_crank_angles\":2881,\"pipes\":"<<g.pipes.size()<<",\"volumes\":"<<g.volumes.size()<<",\"throttle_area_m2\":"<<throttleArea<<",\"period_s\":"<<period<<"}\n";return 0;}
+ if(!resume.empty()){CycleState loaded;auto saved=LoadCycle(resume,loaded);
+  require(saved.pipes.size()==g.pipes.size()&&saved.volumes.size()==g.volumes.size()&&saved.sources.size()==g.sources.size()&&saved.junctions.size()==g.junctions.size()&&saved.reservoirs.size()==g.reservoirs.size(),"Checkpoint does not match these Builder inputs");
+  for(unsigned k=0;k<g.pipes.size();++k)require(saved.pipes[k].cellVolume==g.pipes[k].cellVolume&&saved.pipes[k].faceArea==g.pipes[k].faceArea,"Checkpoint geometry differs from these Builder inputs");
+  require(saved.workerCount==workers&&saved.time<target,"Checkpoint worker count or time does not fit this request");
+  g=std::move(saved);g.stageAreaControl=controls;cs=loaded;controls(g.time);g.Validate();}
+ // Conservation is audited relative to the state this process started from
+ // (a fresh start has zero ledgers, so the arithmetic is unchanged there).
+ const auto base=g;double fuel0=0,sensible0=0;for(const auto& c:cs.cylinders){fuel0+=c.totalFuel;sensible0+=c.totalSensible;}
  const auto initial=g.Total();double massScale=initial[0],energyScale=std::abs(initial[2]),worst=0;
  const double reference=InventoryQ(pressure,temp,0,air,vd)[0];
- std::ofstream csv(prefix+".csv");csv<<std::setprecision(17)<<"time,budget";for(unsigned i=1;i<=6;++i)csv<<",p"<<i<<",T"<<i<<",V"<<i<<",ivc_air"<<i<<",ivc_count"<<i;csv<<'\n';
+ std::ofstream csv(prefix+".csv",resume.empty()?std::ios::out:std::ios::app);csv<<std::setprecision(17);
+ if(resume.empty()){csv<<"time,budget";for(unsigned i=1;i<=6;++i)csv<<",p"<<i<<",T"<<i<<",V"<<i<<",ivc_air"<<i<<",ivc_count"<<i;csv<<'\n';}
  auto row=[&](){csv<<g.time<<','<<worst;for(unsigned i=0;i<6;++i){const auto& v=g.volumes[ci[i]];auto gas=RecoverCell(v.q,v.volume).gas;csv<<','<<gas.pressure<<','<<gas.temperature<<','<<v.volume<<','<<g.sources[i].trappedAir<<','<<cs.cylinders[i].ordinal+1;}csv<<'\n';};
- row();SaveCycle(prefix+".initial.bin",g,cs);
+ if(resume.empty()){row();SaveCycle(prefix+".initial.bin",g,cs);}
+ std::string previousCheckpoint,olderCheckpoint;
  while(g.time<target){
   double end=std::min(target,g.time+std::min(2.5e-6,1./speed));
   for(unsigned i=0;i<6;++i){end=std::min(end,cs.cylinders[i].nextIvc);
@@ -153,10 +170,14 @@ int main(int argc,char** argv){try{
    }}
   ++cs.frame;cs.cycle=uint64_t(g.time/period);cs.shaftLoss+=MechanicalLossPower(rpm,6*vd)*dt;
   auto q=g.Total();double fuel=0,sensible=0;for(const auto& c:cs.cylinders){fuel+=c.totalFuel;sensible+=c.totalSensible;}
-  for(unsigned j=0;j<9;++j)if(j!=1){long double delta=q[j]-initial[j]-g.external[j];if(j==0||j==8)delta-=fuel;
-   if(j==2)delta-=g.work+g.sourceLedger.heat+g.sourceLedger.reactionEnergy+sensible;
-   if(j>=3)delta-=g.sourceLedger.species[j-3];worst=std::max(worst,std::abs(double(delta))/(j==2?energyScale:massScale));}
+  for(unsigned j=0;j<9;++j)if(j!=1){long double delta=q[j]-initial[j]-(g.external[j]-base.external[j]);if(j==0||j==8)delta-=fuel-fuel0;
+   if(j==2)delta-=(g.work-base.work)+(g.sourceLedger.heat-base.sourceLedger.heat)+(g.sourceLedger.reactionEnergy-base.sourceLedger.reactionEnergy)+(sensible-sensible0);
+   if(j>=3)delta-=g.sourceLedger.species[j-3]-base.sourceLedger.species[j-3];worst=std::max(worst,std::abs(double(delta))/(j==2?energyScale:massScale));}
   require(worst<=2e-8,"Builder conservation failed");row();if(cs.frame%100==0)csv.flush();
+  // Periodic full-state checkpoint (latest two kept) so an interrupted
+  // multi-hour run is continued instead of repeated.
+  if(checkpointEvery&&cs.frame%checkpointEvery==0&&g.time<target){const std::string name=prefix+".ckpt_"+std::to_string(cs.frame)+".bin";
+   csv.flush();SaveCycle(name,g,cs);if(!olderCheckpoint.empty())std::filesystem::remove(olderCheckpoint);olderCheckpoint=previousCheckpoint;previousCheckpoint=name;}
  }
  SaveCycle(prefix+".final.bin",g,cs);
  // Read back the complete state, not merely file existence.

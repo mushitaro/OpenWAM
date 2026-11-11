@@ -28,16 +28,36 @@ OUT = os.path.join(VM.OUT, "corrected")
 EXE = os.path.join(S.REPO, "build", "corrected_ve", "Release", "corrected_ve_builder.exe")
 T_RUN_K = 298.15          # PREREG amendment 3: cell ambient T stops the kernel
 M_REF_MG = 606.06         # ECU rf reference (metrics.m_ref_mg)
-CELLS = [(2400, 1.001), (2400, 1.392), (2400, 2.393), (2400, 3.198), (2400, 5.005), (2400, 7.495),
-         (2200, 7.495), (2700, 7.495), (2700, 1.392), (2700, 5.005), (2700, 10.01),
-         (1800, 1.392), (1800, 3.198), (2900, 10.01)]
+# PREREG amendment 5: six cells, one performance core each (this machine has
+# six P-cores; the other ten are efficiency cores and ran 3x slower).
+CELLS = [(2400, 1.392), (2400, 3.198), (2400, 7.495), (2200, 7.495), (2700, 7.495), (2700, 10.01)]
+P_CORES = [0, 1, 10, 11, 12, 13]     # EfficiencyClass 1 on the Core Ultra 9 285H
+
+
+def pin(pid, cpu):
+    """One P-core, no power throttling: detached console-less children are
+    otherwise scheduled on efficiency cores."""
+    if os.name != "nt":
+        return
+    import ctypes
+    from ctypes import wintypes
+    k = ctypes.windll.kernel32
+    k.OpenProcess.restype = wintypes.HANDLE
+
+    class Throttle(ctypes.Structure):
+        _fields_ = [("Version", ctypes.c_ulong), ("ControlMask", ctypes.c_ulong), ("StateMask", ctypes.c_ulong)]
+    h = wintypes.HANDLE(k.OpenProcess(0x0200 | 0x0400, False, pid))
+    k.SetProcessAffinityMask(h, ctypes.c_size_t(1 << cpu))
+    st = Throttle(1, 1, 0)
+    k.SetProcessInformation(h, 4, ctypes.byref(st), ctypes.sizeof(st))
+    k.CloseHandle(h)
 
 
 def cell_dir(rpm, ro):
     return os.path.join(OUT, f"{rpm}_{ro}")
 
 
-def launch(cycles):
+def launch(cycles, cfl):
     import run_cells_local as R
     from app.simulator import corrected_builder as CB
     S._healthy_env()
@@ -50,7 +70,7 @@ def launch(cycles):
     preset = json.load(open(S.PRESET, encoding="utf-8"))
     by = {(c["rpm"], c["ro"]): c for c in doc["scored"] + doc["reference_ro_below_1"]}
     os.makedirs(OUT, exist_ok=True)
-    for rpm, ro in CELLS:
+    for n, (rpm, ro) in enumerate(CELLS):
         c = by[(rpm, ro)]
         j = VM.job(c, "corr")
         j["set"]["environment.ambient_temp"] = str(T_RUN_K)
@@ -64,18 +84,55 @@ def launch(cycles):
         meta = {"rpm": rpm, "ro": ro, "load": j["load"], "in_spread": j["in_spread"],
                 "ex_spread": j["ex_spread"], "pamb_pa": float(j["set"]["environment.ambient_pressure"]),
                 "t_run_k": T_RUN_K, "t_cell_k": c["tamb_med"] + 273.15, "target_s": target,
-                "cycles": cycles, "period_s": 120.0 / rpm, "started": time.time(),
+                "cycles": cycles, "cfl": cfl, "period_s": 120.0 / rpm, "started": time.time(),
                 "exe_sha256": __import__("hashlib").sha256(open(EXE, "rb").read()).hexdigest(),
                 "input_files": manifest["files"],
                 "throttle_sigma_points": manifest.get("throttle_sigma_points")}
         json.dump(meta, open(os.path.join(d, "ve20_meta.json"), "w"), indent=1)
         flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0   # detached, own group
         with open(os.path.join(d, "stdout.txt"), "w") as so, open(os.path.join(d, "stderr.txt"), "w") as se:
-            p = subprocess.Popen([EXE, d, repr(target), os.path.join(d, "out"), "1", "0.0375"],
+            p = subprocess.Popen([EXE, d, repr(target), os.path.join(d, "out"), "1", repr(cfl)],
                                  stdout=so, stderr=se, creationflags=flags)
         meta["pid"] = p.pid
+        meta["pinned_cpu"] = P_CORES[n % len(P_CORES)]
+        pin(p.pid, meta["pinned_cpu"])
         json.dump(meta, open(os.path.join(d, "ve20_meta.json"), "w"), indent=1)
         print(f"launched {rpm}/{ro} pid {p.pid} target {target:.4f}s", flush=True)
+
+
+def resume():
+    """Continue every unfinished cell from its newest periodic checkpoint
+    (builder_run.cpp's optional 7th argument; bit-identical continuation)."""
+    import glob
+    import re
+    for n, (rpm, ro) in enumerate(CELLS):
+        d = cell_dir(rpm, ro)
+        mp = os.path.join(d, "ve20_meta.json")
+        if not os.path.exists(mp) or os.path.exists(os.path.join(d, "out.final.bin")):
+            continue
+        meta = json.load(open(mp))
+        ck = sorted(glob.glob(os.path.join(d, "out.ckpt_*.bin")),
+                    key=lambda f: int(re.search(r"ckpt_(\d+)", f).group(1)))
+        if not ck:
+            print(f"{rpm}/{ro}: no checkpoint yet -- relaunch needed", flush=True)
+            continue
+        with open(os.path.join(d, "stdout.txt"), "a") as so, open(os.path.join(d, "stderr.txt"), "a") as se:
+            p = subprocess.Popen([EXE, d, repr(meta["target_s"]), os.path.join(d, "out"), "1",
+                                  repr(meta["cfl"]), ck[-1]], stdout=so, stderr=se,
+                                 creationflags=(0x00000008 | 0x00000200) if os.name == "nt" else 0)
+        meta.setdefault("resumes", []).append({"at": time.time(), "from": os.path.basename(ck[-1]), "pid": p.pid})
+        meta["pid"] = p.pid
+        pin(p.pid, meta.get("pinned_cpu", P_CORES[n % len(P_CORES)]))
+        json.dump(meta, open(mp, "w"), indent=1)
+        print(f"resumed {rpm}/{ro} from {os.path.basename(ck[-1])} pid {p.pid}", flush=True)
+
+
+def _alive(pid):
+    if not pid or os.name != "nt":
+        return None
+    out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                         capture_output=True, text=True).stdout
+    return "corrected_ve_builder" in out
 
 
 def read_cell(rpm, ro):
@@ -85,7 +142,8 @@ def read_cell(rpm, ro):
     err = open(os.path.join(d, "stderr.txt")).read().strip()
     out = open(os.path.join(d, "stdout.txt")).read().strip()
     rec["error"] = err or None
-    rec["done"] = bool(out)
+    rec["done"] = os.path.exists(os.path.join(d, "out.final.bin"))
+    rec["alive"] = _alive(meta.get("pid"))
     path = os.path.join(d, "out.csv")
     if not os.path.exists(path):
         return rec
@@ -130,7 +188,8 @@ def collect():
     json.dump(recs, open(os.path.join(VM.OUT, "corrected_cells.json"), "w"), indent=1)
     for r in recs:
         cyc = " ".join(f"c{c['n']}={c['rf_ecu_at_cell_T']:.1f}" for c in r["cycles"])
-        state = "ERROR " + r["error"][-70:] if r["error"] else ("done" if r["done"] else "running")
+        state = ("ERROR " + r["error"][-70:] if r["error"] else "done" if r["done"]
+                 else "running" if r.get("alive") else "STOPPED (no process; --resume continues it)")
         print(f"{r['rpm']:5d} {r['ro']:7.3f} reached {r.get('cycles_reached', 0):5.2f} cyc  {cyc:40s} {state}")
     return recs
 
@@ -139,11 +198,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--launch", action="store_true")
     ap.add_argument("--collect", action="store_true")
+    ap.add_argument("--resume", action="store_true", help="continue unfinished cells from their newest checkpoint")
     ap.add_argument("--cycles", type=int, default=3)
+    ap.add_argument("--cfl", type=float, default=0.0375,
+                    help="kernel bound is 0.3; 0.0375 is what the app service passes")
     a = ap.parse_args()
     if a.launch:
-        launch(a.cycles)
-    if a.collect or not a.launch:
+        launch(a.cycles, a.cfl)
+    if a.resume:
+        resume()
+    if a.collect or not (a.launch or a.resume):
         collect()
 
 
