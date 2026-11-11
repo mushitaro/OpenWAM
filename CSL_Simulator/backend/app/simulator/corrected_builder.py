@@ -62,9 +62,18 @@ def generate(config, folder):
         raise ValueError("Invalid combustion law")
     if config.fuel.lcv != 44000000 or float(os.environ.get("OPENWAM_FUEL_LHV", "44000000")) != 44000000:
         raise ValueError("Corrected reaction contract requires LHV=44000000 J/kg")
+    from . import calibration_constants as calib
+    sigma_points = calib.thr_sigma_points(calib.load(str(Path(__file__).parents[1] / "data")))
     capture = io.StringIO()
     with contextlib.redirect_stdout(capture):
         g = CapturedBuilder(config, folder)
+        # Same RO -> throttle opening as the legacy path: simulation_service
+        # injects the calibrated sigma(pedal) table (calibration.json, sigma =
+        # RO/100 since Stage 77). Without it the generator falls back to the
+        # geometric pedal law and the SAME RO opens the throttles far less
+        # (2400 rpm / RO 7.5 %: total area 2.0e-5 vs 8.1e-4 m2), so the two
+        # selectable models would not be run at the same operating point.
+        g._sigma_bp = sigma_points
         # Builder edits start_angle; ignition_timing is a legacy sweep field.
         deck = g.generate(ignition_timing=-cmb.start_angle)
     (folder / "builder.wam").write_text(deck, encoding="utf-8")
@@ -135,6 +144,7 @@ def generate(config, folder):
     manifest = {"schema": "builder_fv_v1", "rpm": e.rpm, "ro": 100*e.throttle_position,
                 "initialization": "Builder pipe/plenum pressure and ambient T; open cylinders ambient; closed cylinders polytropic pV^1.36 anchored at ambient IVC; no prior seed or initial fuel",
                 "pipes": g.pipes, "volumes": g.captured_volumes, "valves": g.captured_valves, "boundary_conversions":conversions,
+                "throttle_sigma_points": sigma_points,
                 "environment_overrides": {k:os.environ[k] for k in sorted(known_overrides) if k in os.environ},
                 "generator_sources": {str(p):sha(p) for p in (Path(__file__),generator_path,Path(__file__).parents[1]/'models.py')},
                 "closures": {"cylinder_wall_temperature_k":333.15, "pipe_heat":"adiabatic (retained corrected closure)",
