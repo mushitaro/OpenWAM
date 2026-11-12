@@ -100,27 +100,38 @@ def launch(cycles, cfl):
         print(f"launched {rpm}/{ro} pid {p.pid} target {target:.4f}s", flush=True)
 
 
-def resume():
+def resume(exe=EXE, only_stopped=True):
     """Continue every unfinished cell from its newest periodic checkpoint
-    (builder_run.cpp's optional 7th argument; bit-identical continuation)."""
+    (builder_run.cpp's optional 7th argument; bit-identical continuation).
+    A cell whose process is still alive is left alone. An earlier stop message
+    is kept as stderr.stop<N>.txt and recorded in the meta file."""
     import glob
+    import hashlib
     import re
+    exe_sha = hashlib.sha256(open(exe, "rb").read()).hexdigest()
     for n, (rpm, ro) in enumerate(CELLS):
         d = cell_dir(rpm, ro)
         mp = os.path.join(d, "ve20_meta.json")
         if not os.path.exists(mp) or os.path.exists(os.path.join(d, "out.final.bin")):
             continue
         meta = json.load(open(mp))
+        if only_stopped and _alive(meta.get("pid")):
+            continue
         ck = sorted(glob.glob(os.path.join(d, "out.ckpt_*.bin")),
                     key=lambda f: int(re.search(r"ckpt_(\d+)", f).group(1)))
         if not ck:
             print(f"{rpm}/{ro}: no checkpoint yet -- relaunch needed", flush=True)
             continue
-        with open(os.path.join(d, "stdout.txt"), "a") as so, open(os.path.join(d, "stderr.txt"), "a") as se:
-            p = subprocess.Popen([EXE, d, repr(meta["target_s"]), os.path.join(d, "out"), "1",
+        ep = os.path.join(d, "stderr.txt")
+        stop = open(ep).read().strip() if os.path.exists(ep) else ""
+        if stop:
+            os.replace(ep, os.path.join(d, f"stderr.stop{len(meta.get('resumes', [])) + 1}.txt"))
+        with open(os.path.join(d, "stdout.txt"), "a") as so, open(ep, "a") as se:
+            p = subprocess.Popen([exe, d, repr(meta["target_s"]), os.path.join(d, "out"), "1",
                                   repr(meta["cfl"]), ck[-1]], stdout=so, stderr=se,
                                  creationflags=(0x00000008 | 0x00000200) if os.name == "nt" else 0)
-        meta.setdefault("resumes", []).append({"at": time.time(), "from": os.path.basename(ck[-1]), "pid": p.pid})
+        meta.setdefault("resumes", []).append({"at": time.time(), "from": os.path.basename(ck[-1]), "pid": p.pid,
+                                               "exe": exe, "exe_sha256": exe_sha, "stop_before": stop or None})
         meta["pid"] = p.pid
         pin(p.pid, meta.get("pinned_cpu", P_CORES[n % len(P_CORES)]))
         json.dump(meta, open(mp, "w"), indent=1)
@@ -142,6 +153,7 @@ def read_cell(rpm, ro):
     err = open(os.path.join(d, "stderr.txt")).read().strip()
     out = open(os.path.join(d, "stdout.txt")).read().strip()
     rec["error"] = err or None
+    rec["earlier_stops"] = [x["stop_before"] for x in meta.get("resumes", []) if x.get("stop_before")]
     rec["done"] = os.path.exists(os.path.join(d, "out.final.bin"))
     rec["alive"] = _alive(meta.get("pid"))
     path = os.path.join(d, "out.csv")
@@ -180,7 +192,60 @@ def read_cell(rpm, ro):
                               "rf_ecu_at_cell_T": 100 * mean_mg / M_REF_MG * meta["t_run_k"] / meta["t_cell_k"],
                               "cyl_spread_pct": 100 * (max(air) - min(air)) / (sum(air) / 6)})
         n += 1
+    # The cycle still in progress: which cylinders have closed, and their mean.
+    # Reported separately and never mixed with complete cycles.
+    part = [seen[(cyl, n)] for cyl in range(6) if (cyl, n) in seen]
+    if part:
+        rec["partial"] = {"n": n, "cylinders": len(part),
+                          "rf_ecu_at_cell_T": 100 * 1e6 * sum(part) / len(part) / M_REF_MG
+                          * meta["t_run_k"] / meta["t_cell_k"]}
     return rec
+
+
+def compare():
+    """Corrected per-cycle values beside the car ledger and the legacy model
+    (score.json tableA), plus the cell-to-cell changes each one gives."""
+    recs = {(r["rpm"], r["ro"]): r for r in collect()}
+    score = json.load(open(os.path.join(VM.OUT, "score.json")))
+    ta = {(c["rpm"], c["ro"]): c for c in score["tableA"]}
+    rows = []
+    print("\n  rpm      RO    car  cv%  legacy   corrected per cycle (rf %, cell T)        last  vs car")
+    for key in CELLS:
+        if key not in recs:
+            continue
+        r, a = recs[key], ta[key]
+        legacy = a["model"] if a["model"] is not None else a["model_raw_ve"]
+        cyc = [c["rf_ecu_at_cell_T"] for c in r["cycles"]]
+        last = cyc[-1] if cyc else None
+        row = {"rpm": key[0], "ro": key[1], "car": a["car"], "car_cv_pct": a["car_cv_pct"],
+               "legacy": legacy, "legacy_failed": a["model"] is None, "corrected_cycles": cyc,
+               "corrected_last": last, "cycles_complete": len(cyc),
+               "last_step_pct": 100 * (cyc[-1] / cyc[-2] - 1) if len(cyc) >= 2 else None,
+               "err_pct": 100 * (last / a["car"] - 1) if last else None,
+               "legacy_err_pct": 100 * (legacy / a["car"] - 1),
+               "partial": r.get("partial"), "error": r["error"], "done": r["done"]}
+        rows.append(row)
+        print(f"{key[0]:5d} {key[1]:7.3f} {a['car']:6.1f} {a['car_cv_pct']:4.1f} {legacy:6.1f}{'*' if row['legacy_failed'] else ' '}"
+              f"  {' '.join(f'{v:6.1f}' for v in cyc):40s} "
+              f"{'' if last is None else f'{last:6.1f} {row['err_pct']:+6.1f}%'}"
+              f"{'' if not r.get('partial') else '   [cycle %d: %d/6 cyl = %.1f]' % (r['partial']['n'], r['partial']['cylinders'], r['partial']['rf_ecu_at_cell_T'])}")
+    by = {(r["rpm"], r["ro"]): r for r in rows}
+    pairs = [((2400, 1.392), (2400, 3.198)), ((2400, 3.198), (2400, 7.495)), ((2700, 7.495), (2700, 10.01)),
+             ((2200, 7.495), (2400, 7.495)), ((2400, 7.495), (2700, 7.495))]
+    changes = []
+    print("\n  change from -> to              car    legacy  corrected (same cycle n in both cells)")
+    for a, b in pairs:
+        if a not in by or b not in by:
+            continue
+        n = min(by[a]["cycles_complete"], by[b]["cycles_complete"])
+        car = 100 * (by[b]["car"] / by[a]["car"] - 1)
+        leg = 100 * (by[b]["legacy"] / by[a]["legacy"] - 1)
+        cor = 100 * (by[b]["corrected_cycles"][n - 1] / by[a]["corrected_cycles"][n - 1] - 1) if n >= 2 else None
+        changes.append({"from": a, "to": b, "car_pct": car, "legacy_pct": leg, "corrected_pct": cor, "cycle": n if n >= 2 else None})
+        print(f"  {a[0]}/{a[1]} -> {b[0]}/{b[1]}".ljust(32) + f"{car:+6.1f}% {leg:+6.1f}%  "
+              + (f"{cor:+6.1f}% (cycle {n})" if cor is not None else "needs cycle 2 in both"))
+    json.dump({"cells": rows, "changes": changes}, open(os.path.join(VM.OUT, "corrected_compare.json"), "w"), indent=1)
+    return rows
 
 
 def collect():
@@ -202,12 +267,16 @@ def main():
     ap.add_argument("--cycles", type=int, default=3)
     ap.add_argument("--cfl", type=float, default=0.0375,
                     help="kernel bound is 0.3; 0.0375 is what the app service passes")
+    ap.add_argument("--compare", action="store_true", help="per-cycle values beside the car and the legacy model")
+    ap.add_argument("--exe", default=EXE, help="adapter binary for --resume (recorded per resume)")
     a = ap.parse_args()
     if a.launch:
         launch(a.cycles, a.cfl)
     if a.resume:
-        resume()
-    if a.collect or not (a.launch or a.resume):
+        resume(a.exe)
+    if a.compare:
+        compare()
+    elif a.collect or not (a.launch or a.resume):
         collect()
 
 

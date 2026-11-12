@@ -36,5 +36,16 @@
     "CMakeLists.txt",
     "inspect.cpp"
   ],
-  "numeric_implementation_changed": false
+  "numeric_implementation_changed": "only on a path that previously threw (see modified_after_import); original_bytes_verified lists the imported hashes",
+  "modified_after_import": [
+    {
+      "file": "sources/Source/Boundaries/ThermalTwoPipeValve.h",
+      "imported_sha256": "d45932708a61359df816c819249dad667dd192496a5469cfc17d03d28a1e2546",
+      "current_sha256": "d3402de1f94010eaca4e918b6a28b15ebab203be939a64ef5cfe82e24517c945",
+      "date": "2026-11-12",
+      "change": "ValveRoot: when the bracket is two adjacent doubles with a sign change and both residuals are within 16x tolerance, return the end with the smaller residual instead of throwing. Paths that returned a value before are unchanged.",
+      "reason": "Builder cell 2700 rpm / RO 7.495 stopped at 0.940 cycle at both CFL 0.0375 and 0.15 with residuals 1.1-1.3x tolerance on a 1-ulp bracket.",
+      "evidence": "build/ve_accuracy_20261110/PREREG.md amendment 8; CSL_Simulator/docs/DUAL_VE_MODEL_EVALUATION_2026-11-12.md"
+    }
+  ]
 }

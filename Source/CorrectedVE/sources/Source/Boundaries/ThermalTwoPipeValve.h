@@ -26,6 +26,15 @@ template<class F> inline double ValveRoot(F f,double lo,double hi,double toleran
     if(std::abs(fx)<=tolerance)return x;
     if(fx<0.){lo=x;fl=fx;}else{hi=x;fh=fx;}
   }
+  // 2026-11-12 (not in the imported kernel; see provenance.json): [lo,hi] are
+  // adjacent doubles with a sign change, so the root is located to the last
+  // representable digit. A residual still above `tolerance` here is rounding
+  // of f itself -- the outer pressure-loss residual steps between adjacent
+  // arguments because its inner mass-balance root is only solved to its own
+  // tolerance -- not a missed root. Take the better end when both residuals
+  // are inside that rounding band. A wide bracket or a larger residual still
+  // throws, and every path that returned before returns the same value.
+  if(std::nextafter(lo,hi)==hi&&fl<0.&&fh>0.&&std::max(-fl,fh)<=16.*tolerance)return -fl<=fh?lo:hi;
   std::ostringstream message;message.precision(17);message<<"Two-pipe valve root did not converge: lo="<<lo<<" hi="<<hi<<" fl="<<fl<<" fh="<<fh<<" tolerance="<<tolerance;
   throw std::domain_error(message.str());
 }
